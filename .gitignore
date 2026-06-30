@@ -179,4 +179,12 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
-Detector_santa/detector_santa_model.h5
+# Modelos entrenados y archivos de datos pesados (>1 MB)
+*.h5
+*.hdf5
+*.pth
+*.pt
+*.ckpt
+*.npy
+*.pkl
+*.pb
