@@ -1,32 +1,36 @@
 """
 MTG Card Scanner — Certamen 1
+pytorch: Tomás Solano
+tensorflow: Joaquín Rodriguez
+
 01_scraper.py: Descarga el catálogo de cartas desde la API de Scryfall.
+Script compartido por ambos pipelines (pytorch/ y tensorFlow/).
 
-Scryfall provee un dump JSON diario gratuito con todas las cartas impresas.
-No requiere API key. Endpoint: https://api.scryfall.com/bulk-data
-
-Salida:
+Salida (carpeta compartida data/, junto a este script):
     data/raw_cards.json   — dump original (cache local)
     data/cards.json       — dataset limpio y filtrado
 
 Filtros aplicados:
     - Idioma inglés (lang == "en")
-    - Set types: expansion, core, masters, draft_innovation
+    - Set types: expansion, core, masters, draft_innovation, commander
     - Con imagen disponible
     - Sin duplicados por nombre (conserva la impresión más reciente)
 """
 
+import argparse
 import json
 import pathlib
+import random
 import requests
 
 # ── Configuración ─────────────────────────────────────────────────────────────
-DATA_DIR = pathlib.Path("data")
+DATA_DIR = pathlib.Path(__file__).resolve().parent / "data"
+SEED = 42
 
 BULK_DATA_URL = "https://api.scryfall.com/bulk-data"
 
 # Scryfall requiere un User-Agent personalizado (bloquea el genérico de requests)
-HEADERS = {"User-Agent": "MTG-Scanner-Academic/1.0 (UDD Frameworks de IA)"}
+HEADERS = {"User-Agent": "MTG-Scanner-Academic/1.0"}
 
 ALLOWED_SET_TYPES = {"expansion", "core", "masters", "draft_innovation", "commander"}
 
@@ -36,8 +40,6 @@ CAMPOS = [
     "mana_cost", "cmc", "released_at", "set_type",
 ]
 
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def obtener_url_bulk() -> str:
     """Consulta el endpoint de bulk-data y retorna la URL de 'default_cards'."""
@@ -57,8 +59,8 @@ def obtener_url_bulk() -> str:
 
 def descargar_bulk(url: str) -> list:
     """
-    Descarga el JSON completo de cartas
-    Si ya existe un cache local lo reutiliza
+    Descarga el JSON completo de cartas.
+    Si ya existe un cache local lo reutiliza.
     """
     cache = DATA_DIR / "raw_cards.json"
 
@@ -88,22 +90,22 @@ def descargar_bulk(url: str) -> list:
         return json.load(f)
 
 
-def extraer_imagen(card: dict):
+def extraer_imagen(card: dict, calidad: str):
     """
-    Extorna la URL de imagen 'normal' de una carta.
+    Extrae la URL de imagen (calidad `calidad`) de una carta.
     Maneja cartas de doble cara (card_faces) que no tienen image_uris en el root.
     """
     if "image_uris" in card:
-        return card["image_uris"].get("normal")
+        return card["image_uris"].get(calidad)
     if "card_faces" in card:
         for face in card["card_faces"]:
-            url = face.get("image_uris", {}).get("normal")
+            url = face.get("image_uris", {}).get(calidad)
             if url:
                 return url
     return None
 
 
-def filtrar_y_limpiar(todas: list) -> list:
+def filtrar_y_limpiar(todas: list, calidad: str, max_cards: int) -> list:
     """
     Filtra el dump completo y retorna solo los campos relevantes.
     Estrategia de deduplicación: si la misma carta tiene varias impresiones,
@@ -126,7 +128,7 @@ def filtrar_y_limpiar(todas: list) -> list:
             omitidas["set_type"] += 1
             continue
 
-        img_url = extraer_imagen(card)
+        img_url = extraer_imagen(card, calidad)
         if not img_url:
             omitidas["sin_imagen"] += 1
             continue
@@ -140,12 +142,18 @@ def filtrar_y_limpiar(todas: list) -> list:
             vistas[nombre] = entry
 
     resultado = list(vistas.values())
+    total_unicas = len(resultado)
+
+    if max_cards is not None and total_unicas > max_cards:
+        random.Random(SEED).shuffle(resultado)
+        resultado = resultado[:max_cards]
 
     print(f"\n{'─' * 50}")
     print(f"  Total raw:              {len(todas):>6,}")
     for motivo, n in omitidas.items():
         print(f"  Omitidas ({motivo:<12}): {n:>6,}")
-    print(f"  Dataset final:          {len(resultado):>6,}")
+    print(f"  Cartas únicas:          {total_unicas:>6,}")
+    print(f"  Dataset final (cap):    {len(resultado):>6,}")
     print(f"{'─' * 50}")
 
     # Estadísticas por rareza
@@ -158,14 +166,21 @@ def filtrar_y_limpiar(todas: list) -> list:
     return resultado
 
 
-# ── Main ─────────────────────────────────────────────────────────────────────
-
 def main():
+    parser = argparse.ArgumentParser(description="Descarga y filtra el catálogo de cartas de Scryfall.")
+    parser.add_argument("--max-cards", type=int, default=5000,
+                        help="Cap del dataset (0 = sin cap; sin cap salen ~30,000 cartas únicas). default: 5000")
+    parser.add_argument("--quality", default="small",
+                        help="Calidad de imagen de Scryfall (small, normal, large, png). default: small")
+    args = parser.parse_args()
+
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    max_cards = None if args.max_cards == 0 else args.max_cards
 
     url = obtener_url_bulk()
     todas = descargar_bulk(url)
-    filtradas = filtrar_y_limpiar(todas)
+    filtradas = filtrar_y_limpiar(todas, calidad=args.quality, max_cards=max_cards)
 
     output = DATA_DIR / "cards.json"
     with open(output, "w", encoding="utf-8") as f:

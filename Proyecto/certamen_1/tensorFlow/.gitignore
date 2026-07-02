@@ -3,12 +3,8 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 
-data/raw/*.json
-data/images/*.jpg
-data/images/*.jpeg
-data/images/*.png
-data/images/*.webp
-data/images/card_names.json
+# El dataset compartido (cards.json, imágenes) vive en ../data/ (ver ../.gitignore).
+# Acá solo quedan artefactos locales: el índice de embeddings.
 data/indexes/*.pkl
 data/indexes/*.keras
 data/indexes/*.h5

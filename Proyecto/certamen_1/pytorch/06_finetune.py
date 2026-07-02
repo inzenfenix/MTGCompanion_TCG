@@ -63,8 +63,10 @@ NUM_WORKERS = 4
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 SEED   = 42
 
-DATA_DIR    = pathlib.Path("data")
-IMAGES_DIR  = DATA_DIR / "images"
+SCRIPT_DIR  = pathlib.Path(__file__).resolve().parent
+DATA_DIR    = SCRIPT_DIR / "data"                    # artefactos locales (embeddings, índice)
+SHARED_DATA_DIR = SCRIPT_DIR.parent / "data"         # dataset compartido (cards.json, imágenes)
+IMAGES_DIR  = SHARED_DATA_DIR / "images"
 MODELS_DIR  = pathlib.Path("models")
 RESULTS_DIR = pathlib.Path("results")
 
@@ -344,7 +346,7 @@ def evaluar_rapido(gallery_emb: np.ndarray, all_ids: list,
         for qi in q_positions:
             cid  = all_ids[qi]
             card = cards_info.get(cid, {})
-            ruta = IMAGES_DIR / card.get("set", "") / f"{cid}.jpg"
+            ruta = IMAGES_DIR / f"{cid}.jpg"
             if not ruta.exists():
                 continue
 
@@ -440,16 +442,17 @@ def graficar_comparacion(antes: dict, despues: dict):
 def main():
     MODELS_DIR.mkdir(exist_ok=True)
     RESULTS_DIR.mkdir(exist_ok=True)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     # Cargar dataset
-    with open(DATA_DIR / "cards.json", encoding="utf-8") as f:
+    with open(SHARED_DATA_DIR / "cards.json", encoding="utf-8") as f:
         cards = json.load(f)
     cards_info = {c["id"]: c for c in cards}
 
     entradas = [
-        (c["id"], str(IMAGES_DIR / c["set"] / f"{c['id']}.jpg"))
+        (c["id"], str(IMAGES_DIR / f"{c['id']}.jpg"))
         for c in cards
-        if (IMAGES_DIR / c["set"] / f"{c['id']}.jpg").exists()
+        if (IMAGES_DIR / f"{c['id']}.jpg").exists()
     ]
 
     rutas = [r for _, r in entradas]

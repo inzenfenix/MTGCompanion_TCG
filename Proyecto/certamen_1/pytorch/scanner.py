@@ -27,8 +27,10 @@ import torchvision.transforms as T
 from PIL import Image
 
 # ── Configuración ─────────────────────────────────────────────────────────────
-DATA_DIR   = pathlib.Path("data")
-IMAGES_DIR = DATA_DIR / "images"
+SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+DATA_DIR   = SCRIPT_DIR / "data"                    # artefactos locales (embeddings, índice)
+SHARED_DATA_DIR = SCRIPT_DIR.parent / "data"         # dataset compartido (cards.json, imágenes)
+IMAGES_DIR = SHARED_DATA_DIR / "images"
 IMG_SIZE   = 224
 DEVICE     = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -114,7 +116,7 @@ def cargar_indice(finetuned: bool = False) -> tuple:
     suffix     = "ft" if finetuned else "pt"
     emb_path   = DATA_DIR / f"embeddings_{suffix}.npy"
     index_path = DATA_DIR / f"index_{suffix}.json"
-    cards_path = DATA_DIR / "cards.json"
+    cards_path = SHARED_DATA_DIR / "cards.json"
 
     if finetuned and not emb_path.exists():
         print("Embeddings fine-tuneados no encontrados, usando baseline.")
@@ -126,8 +128,8 @@ def cargar_indice(finetuned: bool = False) -> tuple:
             raise FileNotFoundError(
                 f"{p} no existe.\n"
                 "Ejecuta los pasos previos:\n"
-                "  1. python 01_scraper.py\n"
-                "  2. python 02_downloader.py\n"
+                "  1. python ../01_scraper.py\n"
+                "  2. python ../02_downloader.py\n"
                 "  3. python 03_pt_embedder.py"
             )
 

@@ -10,12 +10,11 @@ from src.predictor import rank_candidates
 
 class CoreTests(unittest.TestCase):
     def test_project_paths_default_to_project_relative_locations(self):
-        paths = ProjectPaths.from_project_root(Path("/tmp/tensorFlow"))
+        paths = ProjectPaths.from_project_root(Path("/tmp/certamen_1/tensorFlow"))
 
-        self.assertEqual(paths.catalog_json, Path("/tmp/tensorFlow/data/raw/scryfall_cards.json"))
-        self.assertEqual(paths.images_dir, Path("/tmp/tensorFlow/data/images"))
-        self.assertEqual(paths.embedding_index, Path("/tmp/tensorFlow/data/indexes/magic_embeddings.pkl"))
-        self.assertEqual(paths.card_names_json, Path("/tmp/tensorFlow/data/images/card_names.json"))
+        self.assertEqual(paths.catalog_json, Path("/tmp/certamen_1/data/cards.json"))
+        self.assertEqual(paths.images_dir, Path("/tmp/certamen_1/data/images"))
+        self.assertEqual(paths.embedding_index, Path("/tmp/certamen_1/tensorFlow/data/indexes/magic_embeddings.pkl"))
 
     def test_normalize_embedding_returns_unit_vector_without_mutating_input(self):
         original = np.array([3.0, 4.0], dtype=np.float32)

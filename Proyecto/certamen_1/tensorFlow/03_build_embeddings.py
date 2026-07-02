@@ -16,9 +16,9 @@ def main() -> None:
         print("Usa --force para reconstruirlo.")
         return
 
-    image_list = image_inventory(images_dir=PATHS.images_dir, names_path=PATHS.card_names_json)
+    image_list = image_inventory(images_dir=PATHS.images_dir, catalog_json=PATHS.catalog_json)
     if not image_list:
-        raise SystemExit("No hay imagenes indexables. Ejecuta 02_downloader.py primero.")
+        raise SystemExit("No hay imagenes indexables. Ejecuta ../01_scraper.py y ../02_downloader.py primero.")
     build_index(image_list=image_list, output_path=PATHS.embedding_index)
 
 

@@ -17,7 +17,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.preview:
-        image_list = image_inventory(images_dir=PATHS.images_dir, names_path=PATHS.card_names_json)
+        image_list = image_inventory(images_dir=PATHS.images_dir, catalog_json=PATHS.catalog_json)
         preview_images(image_list=image_list, output_path=args.output)
         return
 
@@ -34,7 +34,7 @@ def main() -> None:
         query_image=args.image,
         prediction=prediction,
         images_dir=PATHS.images_dir,
-        names_path=PATHS.card_names_json,
+        catalog_json=PATHS.catalog_json,
         output_path=args.output,
     )
 

@@ -38,10 +38,10 @@ from PIL import Image, ImageEnhance, ImageFilter
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-
-# ── Configuración ─────────────────────────────────────────────────────────────
-DATA_DIR   = pathlib.Path("data")
-IMAGES_DIR = DATA_DIR / "images"
+SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+DATA_DIR   = SCRIPT_DIR / "data"                    # artefactos locales (embeddings, índice)
+SHARED_DATA_DIR = SCRIPT_DIR.parent / "data"         # dataset compartido (cards.json, imágenes)
+IMAGES_DIR = SHARED_DATA_DIR / "images"
 RESULTS_DIR = pathlib.Path("results")
 IMG_SIZE   = 224
 BATCH_SIZE = 32
@@ -141,8 +141,6 @@ def buscar_topk(query_emb: np.ndarray, gallery_emb: np.ndarray, k: int) -> np.nd
     return np.argsort(sims)[::-1][:k]
 
 
-# ── Evaluación ────────────────────────────────────────────────────────────────
-
 def evaluar(cards_info: dict) -> dict:
     emb_matrix = np.load(DATA_DIR / "embeddings_pt.npy")
     with open(DATA_DIR / "index_pt.json") as f:
@@ -180,7 +178,7 @@ def evaluar(cards_info: dict) -> dict:
         if not card:
             continue
 
-        ruta = IMAGES_DIR / card["set"] / f"{card_id}.jpg"
+        ruta = IMAGES_DIR / f"{card_id}.jpg"
         if not ruta.exists():
             continue
 
@@ -221,7 +219,7 @@ def evaluar(cards_info: dict) -> dict:
             ejemplos_ok.append({
                 "query_path"  : str(ruta),
                 "query_name"  : card["name"],
-                "match_path"  : str(IMAGES_DIR / top1_card.get("set","") / f"{retrieved_ids[0]}.jpg"),
+                "match_path"  : str(IMAGES_DIR / f"{retrieved_ids[0]}.jpg"),
                 "match_name"  : top1_card.get("name", "?"),
                 "sim"         : float(sim_scores[topk_idx[0]]),
             })
@@ -229,7 +227,7 @@ def evaluar(cards_info: dict) -> dict:
             ejemplos_fail.append({
                 "query_path"  : str(ruta),
                 "query_name"  : card["name"],
-                "match_path"  : str(IMAGES_DIR / top1_card.get("set","") / f"{retrieved_ids[0]}.jpg"),
+                "match_path"  : str(IMAGES_DIR / f"{retrieved_ids[0]}.jpg"),
                 "match_name"  : top1_card.get("name", "?"),
                 "sim"         : float(sim_scores[topk_idx[0]]),
             })
@@ -256,8 +254,6 @@ def evaluar(cards_info: dict) -> dict:
 
     return metricas, ejemplos_ok, ejemplos_fail
 
-
-# ── Visualización de ejemplos ─────────────────────────────────────────────────
 
 def graficar_ejemplos(ejemplos_ok: list, ejemplos_fail: list):
     """Grid 2x4: fila superior = correctas, fila inferior = incorrectas."""
@@ -339,8 +335,6 @@ def graficar_metricas(metricas: dict):
     print(f"  → {out}")
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
-
 def main():
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -348,7 +342,7 @@ def main():
         print("Error: data/embeddings_pt.npy no existe. Ejecuta 03_pt_embedder.py primero.")
         return
 
-    with open(DATA_DIR / "cards.json", encoding="utf-8") as f:
+    with open(SHARED_DATA_DIR / "cards.json", encoding="utf-8") as f:
         cards_info = {c["id"]: c for c in json.load(f)}
 
     metricas, ejemplos_ok, ejemplos_fail = evaluar(cards_info)

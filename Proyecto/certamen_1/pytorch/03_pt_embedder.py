@@ -31,8 +31,10 @@ from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 
 # ── Configuración ─────────────────────────────────────────────────────────────
-DATA_DIR   = pathlib.Path("data")
-IMAGES_DIR = DATA_DIR / "images"
+SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+DATA_DIR   = SCRIPT_DIR / "data"                    # artefactos locales (embeddings, índice)
+SHARED_DATA_DIR = SCRIPT_DIR.parent / "data"         # dataset compartido (cards.json, imágenes)
+IMAGES_DIR = SHARED_DATA_DIR / "images"
 IMG_SIZE   = 224
 BATCH_SIZE = 32
 NUM_WORKERS = 4
@@ -73,34 +75,23 @@ class CartasDataset(Dataset):
             return torch.zeros(3, IMG_SIZE, IMG_SIZE), ""
 
 
-# ── Modelo ────────────────────────────────────────────────────────────────────
-
+#Modelo
 def construir_extractor() -> nn.Module:
     """
     EfficientNet_b0 sin cabeza clasificadora.
-
-    EfficientNet (Tan & Le, 2019) escala ancho, profundidad y resolución
-    de forma compuesta. La variante b0 es el punto base de la familia.
-
-    Al reemplazar `model.classifier` con Identity, la salida es el vector
     producido por model.avgpool → forma (B, 1280, 1, 1) → flatten → (B, 1280).
     """
     model = models.efficientnet_b0(
         weights=models.EfficientNet_B0_Weights.IMAGENET1K_V1
     )
-    model.classifier = nn.Identity()  # quitar cabeza → 1280-dim
+    model.classifier = nn.Identity()
     model.eval()
     return model.to(DEVICE)
 
 
-# ── Extracción de embeddings ──────────────────────────────────────────────────
-
 def extraer_todos(model: nn.Module, entradas: list) -> tuple:
     """
     Procesa todas las imágenes en batches y retorna (embeddings, ids).
-
-    Los embeddings se normalizan L2 por fila antes de guardarlos,
-    lo que permite usar el producto punto como métrica de similitud coseno.
     """
     dataset = CartasDataset(entradas)
     loader  = DataLoader(
@@ -143,12 +134,10 @@ def extraer_todos(model: nn.Module, entradas: list) -> tuple:
     return emb_matrix, all_ids
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
-
 def main():
-    cards_path = DATA_DIR / "cards.json"
+    cards_path = SHARED_DATA_DIR / "cards.json"
     if not cards_path.exists():
-        print("Error: data/cards.json no existe. Ejecuta 01_scraper.py primero.")
+        print("Error: ../data/cards.json no existe. Ejecuta ../01_scraper.py primero.")
         return
 
     with open(cards_path, encoding="utf-8") as f:
@@ -156,9 +145,9 @@ def main():
 
     # Solo cartas con imagen descargada
     entradas = [
-        (c["id"], str(IMAGES_DIR / c["set"] / f"{c['id']}.jpg"))
+        (c["id"], str(IMAGES_DIR / f"{c['id']}.jpg"))
         for c in cards
-        if (IMAGES_DIR / c["set"] / f"{c['id']}.jpg").exists()
+        if (IMAGES_DIR / f"{c['id']}.jpg").exists()
     ]
 
     total_sin_img = len(cards) - len(entradas)
@@ -175,6 +164,7 @@ def main():
     emb_matrix, ids = extraer_todos(model, entradas)
 
     # Guardar resultados
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     emb_path   = DATA_DIR / "embeddings_pt.npy"
     index_path = DATA_DIR / "index_pt.json"
 

@@ -18,7 +18,9 @@ import matplotlib.patches as mpatches
 from sklearn.manifold import TSNE
 
 # ── Configuración ─────────────────────────────────────────────────────────────
-DATA_DIR    = pathlib.Path("data")
+SCRIPT_DIR  = pathlib.Path(__file__).resolve().parent
+DATA_DIR    = SCRIPT_DIR / "data"                    # artefactos locales (embeddings, índice)
+SHARED_DATA_DIR = SCRIPT_DIR.parent / "data"         # dataset compartido (cards.json, imágenes)
 RESULTS_DIR = pathlib.Path("results")
 SEED = 42
 N_TSNE = 2000   # máximo de puntos para t-SNE (más = más lento pero más preciso)
@@ -251,7 +253,7 @@ def main():
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
     # Cargar dataset
-    with open(DATA_DIR / "cards.json", encoding="utf-8") as f:
+    with open(SHARED_DATA_DIR / "cards.json", encoding="utf-8") as f:
         cards = json.load(f)
     cards_info = {c["id"]: c for c in cards}
 

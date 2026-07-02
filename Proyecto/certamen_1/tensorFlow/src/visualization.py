@@ -38,7 +38,7 @@ def visualize_prediction(
     query_image: Path,
     prediction: dict[str, Any],
     images_dir: Path,
-    names_path: Path,
+    catalog_json: Path,
     output_path: Path | None = None,
 ) -> None:
     candidates = prediction["top_k"]
@@ -49,9 +49,9 @@ def visualize_prediction(
     axes[0].axis("off")
 
     name_to_id = {}
-    if names_path.exists():
-        id_to_name = json.loads(names_path.read_text(encoding="utf-8"))
-        name_to_id = {name: card_id for card_id, name in id_to_name.items()}
+    if catalog_json.exists():
+        cards = json.loads(catalog_json.read_text(encoding="utf-8"))
+        name_to_id = {card["name"]: card["id"] for card in cards}
 
     for axis, candidate in zip(axes[1:], candidates):
         card_id = name_to_id.get(candidate["name"])

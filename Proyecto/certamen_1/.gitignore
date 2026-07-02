@@ -1,0 +1,3 @@
+# Dataset compartido (cards.json, raw_cards.json, imágenes) generado por
+# 01_scraper.py y 02_downloader.py — no se versiona por tamaño.
+data/
