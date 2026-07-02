@@ -13,33 +13,41 @@ generado una sola vez por los scripts en la raíz de esta carpeta.
 
 ```
 certamen_1/
-├── 01_scraper.py              # descarga y filtra el catálogo de cartas (compartido)
+├── 01_scraper.py              # descarga y filtra el catálogo (compartido)
 ├── 02_downloader.py           # descarga las imágenes del catálogo (compartido)
 ├── data/                      # dataset compartido — se genera, no se versiona
 │   ├── raw_cards.json         # cache del dump bulk de Scryfall
-│   ├── cards.json             # dataset filtrado (id, name, set, rarity, colors, image_url...)
-│   ├── images/                # {card_id}.jpg  (~3.6 GB, ~29 k cartas MTG)
-│   └── images_negatives/      # cartas no-MTG (Pokémon), generado por 07_binary_classifier.py
-│       ├── pokemon/           # {id}.jpg  (~3 k imágenes Pokémon TCG)
-│       └── pokemon_meta.json  # metadatos de la API pokemontcg.io
+│   ├── cards.json             # dataset filtrado (~29 k cartas)
+│   ├── images/                # {card_id}.jpg  (~3.6 GB)
+│   └── images_negatives/      # cartas no-MTG para el clasificador binario
+│       ├── pokemon/           # imágenes Pokémon TCG descargadas de pokemontcg.io
+│       └── pokemon_meta.json  # metadatos en caché
 ├── pytorch/                   # pipeline PyTorch (EfficientNet_b0)
+│   ├── 03_pt_embedder.py      # extrae embeddings del dataset
+│   ├── 04_evaluate.py         # evalúa retrieval + métricas de clasificación
+│   ├── 05_visualize.py        # t-SNE y EDA del dataset
+│   ├── 06_finetune.py         # fine-tuning contrastivo SimCLR (opcional)
+│   ├── 07_binary_classifier.py# clasificador MTG / no-MTG (EfficientNet_b0)
+│   └── scanner.py             # demo CLI con pipeline de dos etapas
 └── tensorFlow/                # pipeline TensorFlow (MobileNetV2)
+    ├── 03_build_embeddings.py # construye el índice de embeddings
+    ├── 04_evaluate.py         # evalúa una imagen individual
+    ├── 05_visualize.py        # visualización de predicciones
+    ├── 07_binary_classifier.py# clasificador MTG / no-MTG (MobileNetV2)
+    └── scanner.py             # demo CLI
 ```
 
 ## 1. Generar el dataset compartido
 
-Este paso se hace **una sola vez** y sirve para ambos pipelines. No requiere
-ningún venv en particular: solo `requests` y `tqdm` (ya incluidos en los
-`requirements.txt` de pytorch y tensorFlow).
+Este paso se hace **una sola vez** y sirve para ambos pipelines.
 
 ```bash
 cd certamen_1
 
-python 01_scraper.py                     # cap por defecto: 5000 cartas, calidad "small"
-python 01_scraper.py --max-cards 0       # sin cap (~30,000 cartas únicas)
-python 01_scraper.py --max-cards 500 --quality normal
+python 01_scraper.py                     # ~30 000 cartas únicas de Scryfall
+python 01_scraper.py --max-cards 5000    # versión reducida para pruebas
 
-python 02_downloader.py                  # descarga las imágenes faltantes (reanudable)
+python 02_downloader.py                  # descarga imágenes (reanudable, ~3.6 GB)
 python 02_downloader.py --workers 8 --delay 0.05
 ```
 
@@ -56,81 +64,32 @@ pip install -r requirements.txt
 ```
 
 ```bash
-python 03_pt_embedder.py           # extrae embeddings (~29 k cartas, ~5 min en GPU)
-python 04_evaluate.py              # Top-1, Top-5, MRR con augmentaciones que simulan fotos
+python 03_pt_embedder.py           # embeddings de ~29 k cartas (~5 min en GPU)
+python 04_evaluate.py              # retrieval + métricas de clasificación completas
 python 05_visualize.py             # t-SNE coloreado + EDA del dataset
-python 06_finetune.py              # fine-tuning contrastivo SimCLR (opcional, mejora métricas)
-python 07_binary_classifier.py     # entrena clasificador MTG / no-MTG (ver sección 4)
+python 06_finetune.py              # fine-tuning SimCLR (opcional)
+python 07_binary_classifier.py     # clasificador binario MTG / no-MTG
 ```
 
 **Usar el scanner:**
 
 ```bash
-# Identificar una carta (incluye detección MTG/no-MTG automáticamente si existe el modelo)
+# Identificar una carta (detecta MTG/no-MTG automáticamente si existe el modelo)
 python scanner.py test_photos/mi_carta.jpg
 
-# Con Test-Time Augmentation (más estable con fotos movidas o con ángulo)
+# Con Test-Time Augmentation (más estable con fotos movidas o en ángulo)
 python scanner.py test_photos/mi_carta.jpg --top 10 --tta 7
 
-# Usar embeddings del modelo fine-tuneado (requiere 06_finetune.py primero)
+# Usar embeddings del modelo fine-tuneado
 python scanner.py test_photos/mi_carta.jpg --finetuned
 
 # Saltar el clasificador binario y forzar búsqueda directa
 python scanner.py test_photos/mi_carta.jpg --skip-detect
 ```
 
-Artefactos locales (no compartidos): `pytorch/data/embeddings_pt.npy`,
-`pytorch/data/index_pt.json`, `pytorch/results/`, `pytorch/models/`.
+Artefactos locales: `pytorch/data/`, `pytorch/results/`, `pytorch/models/`.
 
-## 3. Clasificador binario MTG / No-MTG (PyTorch)
-
-El scanner incluye una primera etapa que detecta si la imagen es una carta MTG
-antes de intentar identificarla. Esto evita falsos positivos con cartas de otros
-juegos, naipes de baraja española/inglesa, u otras imágenes.
-
-**Entrenar el clasificador:**
-
-```bash
-cd pytorch
-
-# Descarga ~3 000 imágenes de cartas Pokémon (negativos) y entrena el modelo.
-# Primera ejecución: ~20 min de descarga + ~30-60 min de entrenamiento en GPU.
-python 07_binary_classifier.py
-
-# Reutilizar imágenes ya descargadas (reruns):
-python 07_binary_classifier.py --skip-download
-
-# Ajustar cantidad de cartas por clase o épocas:
-python 07_binary_classifier.py --n 2000 --epochs 20
-```
-
-**Salidas generadas en `pytorch/results/`:**
-
-| Archivo | Descripción |
-|---|---|
-| `confusion_matrix_binary.png` | TP / TN / FP / FN del clasificador |
-| `roc_auc.png` | Curva ROC con área bajo la curva (AUC) |
-| `metrics_binary_bar.png` | Accuracy, Precision, Recall, F1, ROC-AUC |
-| `loss_binary.png` | Curva de pérdida train / val por época |
-| `metrics_binary.json` | Métricas numéricas (para comparar con TF) |
-
-El modelo entrenado se guarda en `pytorch/models/mtg_detector.pth` y el scanner
-lo carga automáticamente en cada ejecución.
-
-**Probar el clasificador manualmente:**
-
-```bash
-# Carta MTG → debería pasar el filtro
-python scanner.py test_photos/squirreled_away.jpg
-
-# Pokémon, baraja, u otra imagen → debería bloquearse en el paso 1
-python scanner.py test_photos/pokemon_charizard.jpg
-# Salida esperada:
-#   ✗ La imagen NO parece una carta MTG (P=0.043 < 0.5)
-#   Para forzar la búsqueda de todas formas: --skip-detect
-```
-
-## 4. Pipeline TensorFlow (MobileNetV2)
+## 3. Pipeline TensorFlow (MobileNetV2)
 
 ```bash
 cd tensorFlow
@@ -143,28 +102,113 @@ pip install -r requirements.txt
 python 03_build_embeddings.py                  # construye el índice de embeddings
 python 03_build_embeddings.py --force          # reconstruye aunque ya exista
 
-python 04_evaluate.py test_photos/mi_carta.jpg
-python 05_visualize.py --preview                                          # grilla de cartas descargadas
+python 07_binary_classifier.py                 # clasificador binario MTG / no-MTG
+python 07_binary_classifier.py --skip-download # reutiliza Pokémon ya descargados
+
+python 05_visualize.py --preview
 python 05_visualize.py --image test_photos/mi_carta.jpg --output data/prediccion.png
 
 python scanner.py test_photos/mi_carta.jpg --top-k 5 --threshold 0.75
 ```
 
-Artefacto local (no compartido): `tensorFlow/data/indexes/magic_embeddings.pkl`.
+Artefacto local: `tensorFlow/data/indexes/magic_embeddings.pkl`, `tensorFlow/models/`.
+
+## 4. Clasificador binario MTG / No-MTG
+
+Ambos pipelines incluyen un clasificador que determina si una imagen es una carta
+MTG **antes** de intentar identificarla. El script descarga automáticamente imágenes
+de cartas Pokémon como ejemplos negativos y entrena un modelo balanceado.
+
+### PyTorch — EfficientNet_b0
+
+```bash
+cd pytorch
+
+# Primera ejecución: descarga ~3 000 Pokémon + entrena
+python 07_binary_classifier.py
+
+# Reruns (imágenes ya descargadas):
+python 07_binary_classifier.py --skip-download
+
+# Ajustar dataset o épocas:
+python 07_binary_classifier.py --n 2000 --epochs 20
+```
+
+Modelo guardado en `pytorch/models/mtg_detector.pth`. El `scanner.py` lo carga
+automáticamente; si no existe, avisa y continúa sin el filtro.
+
+### TensorFlow — MobileNetV2
+
+```bash
+cd tensorFlow
+
+# Reutiliza los Pokémon descargados por el pipeline PyTorch (directorio compartido)
+python 07_binary_classifier.py --skip-download
+
+# Si se corre antes que el pipeline PyTorch (descarga desde cero):
+python 07_binary_classifier.py
+```
+
+Modelo guardado en `tensorFlow/models/mtg_detector.keras`.
+
+### Salidas generadas (ambos frameworks)
+
+| Archivo | Descripción |
+|---|---|
+| `results/confusion_matrix_binary.png` | TP / TN / FP / FN del clasificador |
+| `results/roc_auc.png` | Curva ROC — AUC del clasificador MTG/no-MTG |
+| `results/metrics_binary_bar.png` | Accuracy, Precision, Recall, F1, ROC-AUC |
+| `results/loss_binary.png` | Curva de pérdida train / val por época |
+| `results/metrics_binary.json` | Métricas numéricas en JSON |
+
+## 5. Métricas de evaluación
+
+### Retrieval (04_evaluate.py — PyTorch)
+
+Evalúa el sistema de similitud: toma el 20 % de cartas, les aplica augmentaciones
+que simulan una foto real (perspectiva, brillo, blur, rotación) y busca en la
+galería completa.
+
+```bash
+cd pytorch
+python 04_evaluate.py
+```
+
+**Salidas generadas en `pytorch/results/`:**
+
+| Archivo | Descripción |
+|---|---|
+| `metrics_pt.json` | Todas las métricas numéricas |
+| `metrics_pt.png` | Barras Top-1 / Top-5 / MRR |
+| `roc_retrieval_pt.png` | Curva ROC del retrieval (score = similitud coseno top-1) |
+| `confusion_rareza_pt.png` | Confusion matrix 4×4 agrupada por rareza de carta |
+| `metricas_clasificacion_pt.png` | Accuracy, Precision, Recall, F1, ROC-AUC al umbral óptimo |
+| `eval_examples.png` | Grid de ejemplos correctos e incorrectos |
+
+**Métricas reportadas:**
+
+| Métrica | Descripción |
+|---|---|
+| Top-1 Accuracy | La carta correcta es el primer resultado |
+| Top-5 Accuracy | La carta correcta está entre los 5 primeros |
+| MRR | Mean Reciprocal Rank |
+| Accuracy | Fracción de queries con top-1 correcto (= Top-1) |
+| Precision | TP / (TP+FP) al umbral óptimo de similitud |
+| Recall | TP / (TP+FN) al umbral óptimo de similitud |
+| F1-Score | Media armónica de Precision y Recall |
+| ROC-AUC | Qué tan bien predice la similitud coseno si la identificación es correcta |
+
+> El umbral óptimo se calcula automáticamente maximizando el estadístico de Youden
+> (TPR − FPR) sobre la curva ROC.
 
 ## Notas
 
-- `data/` en la raíz (dataset compartido) y `pytorch/data/` /
-  `tensorFlow/data/` (artefactos por framework) están en `.gitignore` — no se
-  versionan por tamaño.
-- `01_scraper.py` cachea el dump bulk en `data/raw_cards.json`; si querés
-  recalcular el filtrado con otros parámetros no hace falta re-descargar,
-  solo borrar `data/cards.json` y volver a correr `01_scraper.py`.
-- `02_downloader.py` es idempotente: se puede interrumpir y volver a correr,
-  omite las imágenes ya descargadas.
-- `07_binary_classifier.py` también es idempotente: las imágenes Pokémon ya
-  descargadas no se re-descargan. El caché de metadatos se guarda en
-  `data/images_negatives/pokemon_meta.json`.
-- Los negativos de Pokémon se descargan desde `pokemontcg.io` (API pública,
-  no requiere clave). El caché queda en `data/images_negatives/` (compartido
-  entre PyTorch y TensorFlow).
+- `data/` compartido y `pytorch/data/` / `tensorFlow/data/` están en `.gitignore`
+  — no se versionan por tamaño.
+- `02_downloader.py` es idempotente: omite imágenes ya descargadas.
+- `07_binary_classifier.py` es idempotente: las imágenes Pokémon en caché no se
+  re-descargan. El caché vive en `data/images_negatives/` (compartido entre ambos
+  frameworks — solo se descarga una vez).
+- Los negativos vienen de `pokemontcg.io` (API pública, sin clave).
+- El `scanner.py` de PyTorch tiene dos etapas: primero clasifica MTG/no-MTG,
+  luego recupera por similitud. Usar `--skip-detect` para omitir la etapa 1.

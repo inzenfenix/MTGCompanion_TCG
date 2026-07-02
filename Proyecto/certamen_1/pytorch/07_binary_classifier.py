@@ -75,24 +75,49 @@ np.random.seed(SEED)
 
 # ── SECCIÓN 1: Descarga de negativos (Pokémon TCG) ────────────────────────────
 
+def _get_con_reintentos(url: str, max_reintentos: int = 5, backoff: float = 2.0, **kwargs):
+    """GET con reintentos y backoff exponencial ante fallos de red transitorios
+    (timeouts, conexión reseteada, 5xx). Relanza la excepción tras agotar reintentos."""
+    for intento in range(1, max_reintentos + 1):
+        try:
+            resp = requests.get(url, **kwargs)
+            resp.raise_for_status()
+            return resp
+        except requests.exceptions.RequestException as e:
+            if intento == max_reintentos:
+                raise
+            espera = backoff ** (intento - 1)
+            print(f"    ⚠ {e.__class__.__name__} (intento {intento}/{max_reintentos}), "
+                  f"reintentando en {espera:.0f}s...")
+            time.sleep(espera)
+
+
 def obtener_metadata_pokemon(n_target: int) -> list:
     """
     Descarga metadatos de cartas Pokémon desde pokemontcg.io.
     No requiere API key (tier gratuito: 1000 req/día).
     Retorna lista de dicts {id, name, image_url}.
+
+    Si una página falla tras agotar reintentos, se detiene y retorna lo
+    acumulado hasta ese punto (en vez de perder todo el progreso).
     """
     cartas = []
     page   = 1
     print(f"  Descargando metadatos Pokémon TCG (objetivo: {n_target:,} cartas)...")
 
     while len(cartas) < n_target:
-        resp = requests.get(
-            POKEMON_API,
-            params={"pageSize": 250, "page": page},
-            headers=POKEMON_HDR,
-            timeout=30,
-        )
-        resp.raise_for_status()
+        try:
+            resp = _get_con_reintentos(
+                POKEMON_API,
+                params={"pageSize": 250, "page": page},
+                headers=POKEMON_HDR,
+                timeout=60,
+            )
+        except requests.exceptions.RequestException as e:
+            print(f"    ✗ Página {page} falló tras reintentos ({e}); "
+                  f"continuando con {len(cartas)} cartas obtenidas.")
+            break
+
         data  = resp.json()
         batch = data.get("data", [])
         if not batch:
@@ -120,8 +145,9 @@ def _descargar_una(card: dict, dest_dir: pathlib.Path) -> bool:
     if dest.exists():
         return True
     try:
-        resp = requests.get(card["image_url"], headers=POKEMON_HDR, timeout=20)
-        resp.raise_for_status()
+        resp = _get_con_reintentos(
+            card["image_url"], max_reintentos=3, headers=POKEMON_HDR, timeout=30,
+        )
         dest.write_bytes(resp.content)
         time.sleep(POKEMON_DELAY)
         return True

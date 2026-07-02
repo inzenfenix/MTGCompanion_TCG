@@ -494,6 +494,7 @@ def main():
     emb_ft, ids_ft = reextraer_embeddings(modelo, entradas)
     t_emb = time.perf_counter() - t0
 
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     np.save(DATA_DIR / "embeddings_ft.npy", emb_ft)
     with open(DATA_DIR / "index_ft.json", "w") as f:
         json.dump(ids_ft, f)
