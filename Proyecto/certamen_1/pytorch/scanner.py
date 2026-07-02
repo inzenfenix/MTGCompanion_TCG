@@ -2,15 +2,19 @@
 MTG Card Scanner — Certamen 1
 scanner.py: Demo de reconocimiento de cartas MTG desde una imagen.
 
+Pipeline completo (dos etapas):
+    1. Clasificador binario (MTGDetector): ¿es esto una carta MTG?
+       Si la probabilidad < umbral → informa y termina.
+    2. Recuperación por similitud coseno: ¿qué carta MTG es?
+       Retorna las Top-N cartas más similares.
+
 Uso:
     python scanner.py <ruta_imagen> [--top N]
+    python scanner.py mi_carta.jpg --tta 5          # Test-Time Augmentation
+    python scanner.py foto.png --skip-detect        # saltar paso 1
 
-Ejemplos:
-    python scanner.py mi_carta.jpg
-    python scanner.py foto.png --top 10
-
-El script carga el índice de embeddings PyTorch y busca las N cartas
-más similares a la imagen de entrada usando similitud coseno.
+Requisitos para el clasificador binario:
+    Ejecutar primero: python 07_binary_classifier.py
 """
 
 import argparse
@@ -27,10 +31,11 @@ import torchvision.transforms as T
 from PIL import Image
 
 # ── Configuración ─────────────────────────────────────────────────────────────
-SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
-DATA_DIR   = SCRIPT_DIR / "data"                    # artefactos locales (embeddings, índice)
-SHARED_DATA_DIR = SCRIPT_DIR.parent / "data"         # dataset compartido (cards.json, imágenes)
-IMAGES_DIR = SHARED_DATA_DIR / "images"
+SCRIPT_DIR      = pathlib.Path(__file__).resolve().parent
+DATA_DIR        = SCRIPT_DIR / "data"                    # artefactos locales (embeddings, índice)
+SHARED_DATA_DIR = SCRIPT_DIR.parent / "data"             # dataset compartido (cards.json, imágenes)
+IMAGES_DIR      = SHARED_DATA_DIR / "images"
+MODELS_DIR      = SCRIPT_DIR / "models"
 IMG_SIZE   = 224
 DEVICE     = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -64,7 +69,80 @@ RARITY_SYMBOLS = {
 COLOR_NAMES = {"W": "White", "U": "Blue", "B": "Black", "R": "Red", "G": "Green"}
 
 
-# ── Modelo ────────────────────────────────────────────────────────────────────
+# ── Clasificador binario MTG / No-MTG ─────────────────────────────────────────
+
+class MTGDetector(nn.Module):
+    """
+    EfficientNet_b0 con cabeza binaria.
+    Misma arquitectura que 07_binary_classifier.py.
+    Salida: logit escalar (aplicar sigmoid para obtener P(MTG)).
+    """
+
+    def __init__(self):
+        super().__init__()
+        base = models.efficientnet_b0(
+            weights=models.EfficientNet_B0_Weights.IMAGENET1K_V1
+        )
+        self.features = base.features
+        self.avgpool  = base.avgpool
+        self.flatten  = nn.Flatten()
+        self.head     = nn.Sequential(
+            nn.Dropout(0.3),
+            nn.Linear(1280, 256),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.2),
+            nn.Linear(256, 1),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        h = self.flatten(self.avgpool(self.features(x)))
+        return self.head(h).squeeze(1)
+
+
+_detector_cache = None
+
+def cargar_detector(threshold: float = 0.5) -> tuple:
+    """
+    Carga el clasificador binario MTGDetector desde models/mtg_detector.pth.
+    Retorna (model, threshold) o None si el archivo no existe.
+    """
+    global _detector_cache
+    model_path = MODELS_DIR / "mtg_detector.pth"
+    cfg_path   = MODELS_DIR / "mtg_detector_cfg.json"
+
+    if not model_path.exists():
+        return None
+
+    if _detector_cache is None:
+        if cfg_path.exists():
+            with open(cfg_path) as f:
+                cfg = json.load(f)
+            threshold = cfg.get("threshold", 0.5)
+
+        detector = MTGDetector()
+        detector.load_state_dict(
+            torch.load(model_path, map_location=DEVICE, weights_only=True)
+        )
+        detector.eval()
+        _detector_cache = (detector.to(DEVICE), threshold)
+
+    return _detector_cache
+
+
+def clasificar_imagen(img_path: str, detector: nn.Module, threshold: float) -> tuple:
+    """
+    Clasifica si una imagen es una carta MTG o no.
+    Retorna (es_mtg: bool, prob: float).
+    """
+    img = Image.open(img_path).convert("RGB")
+    tensor = TRANSFORM(img).unsqueeze(0).to(DEVICE)
+    with torch.no_grad():
+        logit = detector(tensor)
+        prob  = torch.sigmoid(logit).item()
+    return prob >= threshold, prob
+
+
+# ── Modelo de embeddings ───────────────────────────────────────────────────────
 
 _model_cache = None
 
@@ -197,6 +275,7 @@ Ejemplos:
   python scanner.py carta.jpg
   python scanner.py foto.png --top 10 --tta 7
   python scanner.py imagen.jpg --finetuned
+  python scanner.py foto.png --skip-detect   # saltar clasificador binario
         """
     )
     parser.add_argument("imagen", help="Ruta a la imagen de la carta (JPG, PNG, etc.)")
@@ -206,6 +285,8 @@ Ejemplos:
                         help="Test-Time Augmentation: promedia N embeddings (default: 1 = sin TTA, recomendado: 5-9)")
     parser.add_argument("--finetuned", action="store_true",
                         help="Usar embeddings del modelo fine-tuneado (requiere 06_finetune.py)")
+    parser.add_argument("--skip-detect", action="store_true",
+                        help="Saltar clasificador binario MTG/no-MTG (útil para depurar)")
     args = parser.parse_args()
 
     img_path = pathlib.Path(args.imagen)
@@ -219,7 +300,30 @@ Ejemplos:
 
     n_tta = max(1, args.tta)
 
-    # Cargar índice
+    # ── Paso 1: Clasificador binario MTG / No-MTG ─────────────────────────
+    if not args.skip_detect:
+        resultado = cargar_detector()
+        if resultado is not None:
+            detector, threshold = resultado
+            es_mtg, prob = clasificar_imagen(str(img_path), detector, threshold)
+
+            ancho = 90
+            print()
+            print("═" * ancho)
+            print(f"  Clasificador MTG/No-MTG  |  P(MTG) = {prob:.4f}  |  Umbral = {threshold}")
+            if not es_mtg:
+                print(f"  ✗ La imagen NO parece una carta MTG (P={prob:.4f} < {threshold})")
+                print(f"    Para forzar la búsqueda de todas formas: --skip-detect")
+                print("═" * ancho)
+                print()
+                return
+            print(f"  ✓ Carta MTG detectada (P={prob:.4f})")
+            print("═" * ancho)
+        else:
+            print("  Nota: clasificador binario no entrenado.")
+            print("  Ejecuta 07_binary_classifier.py para habilitarlo.")
+
+    # ── Paso 2: Recuperación por similitud coseno ─────────────────────────
     print("Cargando índice de embeddings...")
     try:
         gallery_emb, gallery_ids, cards_info = cargar_indice(finetuned=args.finetuned)
