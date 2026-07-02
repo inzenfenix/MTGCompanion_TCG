@@ -1,0 +1,1 @@
+"""Magic card detector package."""
