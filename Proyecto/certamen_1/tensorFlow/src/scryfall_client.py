@@ -9,13 +9,14 @@ def load_catalog(catalog_path: Path) -> list[dict[str, Any]]:
     return json.loads(catalog_path.read_text(encoding="utf-8"))
 
 
-def image_inventory(images_dir: Path, catalog_json: Path) -> list[tuple[Path, str]]:
+def image_inventory(images_dir: Path, catalog_json: Path) -> list[tuple[str, Path, str]]:
+    """Retorna (card_id, image_path, card_name) para cartas con imagen descargada."""
     if not catalog_json.exists() or not images_dir.exists():
         return []
     cards = load_catalog(catalog_json)
-    result: list[tuple[Path, str]] = []
+    result: list[tuple[str, Path, str]] = []
     for card in cards:
         image_path = images_dir / f"{card['id']}.jpg"
         if image_path.exists():
-            result.append((image_path, card["name"]))
+            result.append((card["id"], image_path, card["name"]))
     return result

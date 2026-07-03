@@ -9,5 +9,8 @@ data/indexes/*.pkl
 data/indexes/*.keras
 data/indexes/*.h5
 
+results/
+models/
+
 *.png
 *.log

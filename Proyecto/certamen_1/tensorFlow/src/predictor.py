@@ -10,12 +10,14 @@ def rank_candidates(index: dict[str, Any], query_embedding: np.ndarray, top_k: i
     similarities = index["embeddings"] @ query_embedding
     top_indices = np.argsort(similarities)[::-1][:top_k]
 
+    ids = index.get("ids")
     candidates: list[dict[str, Any]] = []
     for rank, candidate_index in enumerate(top_indices, start=1):
         candidates.append(
             {
                 "rank": rank,
                 "name": index["names"][int(candidate_index)],
+                "id": ids[int(candidate_index)] if ids else None,
                 "similarity": round(float(similarities[int(candidate_index)]), 6),
                 "index": int(candidate_index),
             }

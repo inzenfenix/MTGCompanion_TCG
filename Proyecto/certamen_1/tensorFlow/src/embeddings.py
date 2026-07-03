@@ -27,31 +27,43 @@ def build_feature_extractor():
     return model
 
 
-def extract_embedding(model, image_path: Path) -> np.ndarray:
+def embed_pil_image(model, image) -> np.ndarray:
     from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
-    from tensorflow.keras.preprocessing import image as keras_image
 
-    image = keras_image.load_img(image_path, target_size=IMG_SIZE)
-    array = keras_image.img_to_array(image)
+    image = image.convert("RGB").resize(IMG_SIZE)
+    array = np.asarray(image, dtype=np.float32)
     array = np.expand_dims(array, axis=0)
     array = preprocess_input(array)
     embedding = model.predict(array, verbose=0)[0]
     return normalize_embedding(embedding)
 
 
-def build_index(image_list: list[tuple[Path, str]], output_path: Path) -> dict[str, np.ndarray | list[str]]:
+def extract_embedding(model, image_path: Path) -> np.ndarray:
+    from PIL import Image
+
+    with Image.open(image_path) as image:
+        return embed_pil_image(model, image)
+
+
+def build_index(image_list: list[tuple[str, Path, str]], output_path: Path) -> dict[str, np.ndarray | list[str]]:
     model = build_feature_extractor()
     embeddings = []
+    ids = []
     names = []
 
-    for image_path, card_name in image_list:
+    total = len(image_list)
+    for position, (card_id, image_path, card_name) in enumerate(image_list, start=1):
         try:
             embeddings.append(extract_embedding(model, image_path))
+            ids.append(card_id)
             names.append(card_name)
         except Exception as exc:
             print(f"Error en {image_path}: {exc}; saltando")
+        if position % 50 == 0 or position == total:
+            print(f"Procesadas {position:,}/{total:,} imagenes")
 
     index = {
+        "ids": ids,
         "names": names,
         "embeddings": np.array(embeddings, dtype=np.float32),
     }

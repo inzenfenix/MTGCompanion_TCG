@@ -31,8 +31,8 @@ certamen_1/
 │   └── scanner.py             # demo CLI con pipeline de dos etapas
 └── tensorFlow/                # pipeline TensorFlow (MobileNetV2)
     ├── 03_build_embeddings.py # construye el índice de embeddings
-    ├── 04_evaluate.py         # evalúa una imagen individual
-    ├── 05_visualize.py        # visualización de predicciones
+    ├── 04_evaluate.py         # evalúa retrieval + métricas de clasificación
+    ├── 05_visualize.py        # t-SNE y EDA del dataset
     ├── 07_binary_classifier.py# clasificador MTG / no-MTG (MobileNetV2)
     └── scanner.py             # demo CLI
 ```
@@ -99,19 +99,30 @@ pip install -r requirements.txt
 ```
 
 ```bash
-python 03_build_embeddings.py                  # construye el índice de embeddings
-python 03_build_embeddings.py --force          # reconstruye aunque ya exista
+python 03_build_embeddings.py                  # construye el índice de embeddings (~5000 cartas, ~7-10 min en CPU)
+python 03_build_embeddings.py --force          # reconstruye aunque ya exista (necesario tras regenerar el dataset)
+
+python 04_evaluate.py                          # retrieval + métricas de clasificación completas
+python 05_visualize.py                         # t-SNE coloreado + EDA del dataset
 
 python 07_binary_classifier.py                 # clasificador binario MTG / no-MTG
 python 07_binary_classifier.py --skip-download # reutiliza Pokémon ya descargados
+```
 
-python 05_visualize.py --preview
-python 05_visualize.py --image test_photos/mi_carta.jpg --output data/prediccion.png
+**Usar el scanner:**
 
+```bash
 python scanner.py test_photos/mi_carta.jpg --top-k 5 --threshold 0.75
 ```
 
-Artefacto local: `tensorFlow/data/indexes/magic_embeddings.pkl`, `tensorFlow/models/`.
+El índice de embeddings (`data/indexes/magic_embeddings.pkl`) debe existir antes
+de usar `scanner.py`, `04_evaluate.py` o `05_visualize.py` — se construye con
+`03_build_embeddings.py`. Si `data/cards.json` / `data/images/` se regeneran
+(más o menos cartas que antes), hay que reconstruir el índice con `--force`,
+o el sistema comparará contra cartas desactualizadas.
+
+Artefactos locales: `tensorFlow/data/indexes/magic_embeddings.pkl`,
+`tensorFlow/results/`, `tensorFlow/models/`.
 
 ## 4. Clasificador binario MTG / No-MTG
 
@@ -147,7 +158,15 @@ python 07_binary_classifier.py --skip-download
 
 # Si se corre antes que el pipeline PyTorch (descarga desde cero):
 python 07_binary_classifier.py
+
+# Ajustar dataset o épocas:
+python 07_binary_classifier.py --n 2000 --epochs 20
 ```
+
+Mismo pipeline que en PyTorch (descarga negativos → dataset balanceado → fine-tuning
+parcial → evaluación), adaptado a Keras: MobileNetV2 con las primeras capas
+congeladas, cabeza binaria `Dense(256) → Dropout → Dense(1, sigmoid)`, y
+augmentación con capas `tf.keras.layers.Random*` sobre un pipeline `tf.data`.
 
 Modelo guardado en `tensorFlow/models/mtg_detector.keras`.
 
@@ -200,6 +219,38 @@ python 04_evaluate.py
 
 > El umbral óptimo se calcula automáticamente maximizando el estadístico de Youden
 > (TPR − FPR) sobre la curva ROC.
+
+### Retrieval (04_evaluate.py — TensorFlow)
+
+Mismo protocolo que en PyTorch: galería = todos los embeddings del índice, queries
+= 20 % de las cartas con augmentaciones que simulan una foto real (perspectiva,
+brillo, contraste, color, rotación, crop, blur — implementado solo con PIL, sin
+`torchvision`), re-extraídas con MobileNetV2 y comparadas por similitud coseno.
+
+```bash
+cd tensorFlow
+python 04_evaluate.py
+python 05_visualize.py
+```
+
+**Salidas generadas en `tensorFlow/results/`:**
+
+| Archivo | Descripción |
+|---|---|
+| `metrics_tf.json` | Todas las métricas numéricas (retrieval + clasificación) |
+| `metrics_tf.png` | Barras Top-1 / Top-5 / MRR |
+| `eval_examples_tf.png` | Grid de ejemplos de recuperación correctos e incorrectos |
+| `roc_retrieval_tf.png` | Curva ROC del retrieval (score = similitud coseno top-1) |
+| `confusion_rareza_tf.png` | Confusion matrix agrupada por rareza de carta |
+| `metricas_clasificacion_tf.png` | Accuracy, Precision, Recall, F1, ROC-AUC al umbral óptimo |
+| `tsne_tf.png` | t-SNE de embeddings coloreado por color de maná |
+| `rarity_tsne_tf.png` | t-SNE de embeddings coloreado por rareza |
+| `stats_dataset.png` | EDA del dataset: rareza, color, CMC, año de lanzamiento |
+
+Las métricas reportadas son las mismas que en PyTorch (ver tabla arriba). La
+única diferencia es cómo se elige el umbral óptimo: en TensorFlow se maximiza
+directamente el F1-score sobre la curva precision-recall, en vez del estadístico
+de Youden sobre la curva ROC.
 
 ## Notas
 

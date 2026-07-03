@@ -1,64 +1,42 @@
-from pathlib import Path
-
 import tensorflow as tf
 
 from src.config import IMG_SIZE
 
+FREEZE_RATIO = 0.65  # fraccion de capas de MobileNetV2 que quedan congeladas (desde la entrada)
 
-def build_binary_classifier() -> tf.keras.Model:
+
+def build_binary_classifier(freeze_ratio: float = FREEZE_RATIO) -> tf.keras.Model:
+    """
+    MobileNetV2 adaptada como clasificador binario MTG / no-MTG.
+
+    Las primeras `freeze_ratio` capas quedan congeladas (features de ImageNet
+    de bajo nivel); el resto se afina junto con la cabeza binaria. El backbone
+    se llama con training=False para no actualizar las estadisticas de
+    BatchNorm, aun cuando algunas de sus capas son entrenables (practica
+    recomendada para fine-tuning parcial en Keras).
+    """
     base = tf.keras.applications.MobileNetV2(
         weights="imagenet",
         include_top=False,
         pooling="avg",
         input_shape=(*IMG_SIZE, 3),
     )
-    base.trainable = False
+    base.trainable = True
+    n_freeze = int(len(base.layers) * freeze_ratio)
+    for layer in base.layers[:n_freeze]:
+        layer.trainable = False
 
-    model = tf.keras.Sequential(
-        [
-            base,
-            tf.keras.layers.Dense(256, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(0.001)),
-            tf.keras.layers.Dropout(0.4),
-            tf.keras.layers.Dense(1, activation="sigmoid"),
-        ]
+    inputs = tf.keras.Input(shape=(*IMG_SIZE, 3))
+    x = base(inputs, training=False)
+    x = tf.keras.layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(256, activation="relu")(x)
+    x = tf.keras.layers.Dropout(0.2)(x)
+    outputs = tf.keras.layers.Dense(1, activation="sigmoid")(x)
+
+    model = tf.keras.Model(inputs, outputs, name="mtg_detector")
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(learning_rate=3e-4),
+        loss="binary_crossentropy",
+        metrics=["accuracy"],
     )
-    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
     return model
-
-
-def train_binary_classifier(
-    dataset_dir: Path,
-    epochs: int,
-    save_path: Path,
-    batch_size: int = 32,
-    validation_split: float = 0.2,
-    seed: int = 42,
-):
-    train_ds = tf.keras.utils.image_dataset_from_directory(
-        dataset_dir,
-        validation_split=validation_split,
-        subset="training",
-        seed=seed,
-        image_size=IMG_SIZE,
-        batch_size=batch_size,
-        label_mode="binary",
-    )
-    val_ds = tf.keras.utils.image_dataset_from_directory(
-        dataset_dir,
-        validation_split=validation_split,
-        subset="validation",
-        seed=seed,
-        image_size=IMG_SIZE,
-        batch_size=batch_size,
-        label_mode="binary",
-    )
-
-    preprocess = tf.keras.applications.mobilenet_v2.preprocess_input
-    train_ds = train_ds.map(lambda images, labels: (preprocess(images), labels)).prefetch(tf.data.AUTOTUNE)
-    val_ds = val_ds.map(lambda images, labels: (preprocess(images), labels)).prefetch(tf.data.AUTOTUNE)
-
-    model = build_binary_classifier()
-    history = model.fit(train_ds, epochs=epochs, validation_data=val_ds)
-    save_path.parent.mkdir(parents=True, exist_ok=True)
-    model.save(save_path)
-    return history
