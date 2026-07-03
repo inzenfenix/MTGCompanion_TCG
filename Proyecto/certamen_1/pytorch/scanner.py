@@ -38,6 +38,7 @@ IMAGES_DIR      = SHARED_DATA_DIR / "images"
 MODELS_DIR      = SCRIPT_DIR / "models"
 IMG_SIZE   = 224
 DEVICE     = "cuda" if torch.cuda.is_available() else "cpu"
+SIMILARITY_THRESHOLD = 0.75   # umbral de similitud óptimo (ver pytorch/results/metrics_pt.json → opt_threshold)
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD  = [0.229, 0.224, 0.225]
@@ -238,13 +239,20 @@ def formatear_colores(colors: list) -> str:
     return " / ".join(COLOR_NAMES.get(c, c) for c in colors)
 
 
-def imprimir_resultados(resultados: list, cards_info: dict, query_path: str, tiempos: dict):
+def imprimir_resultados(resultados: list, cards_info: dict, query_path: str, tiempos: dict, threshold: float):
     ancho = 90
+    top1_sim = resultados[0][1]
+    es_magic = top1_sim >= threshold
+    top1_nombre = cards_info.get(resultados[0][0], {}).get("name", "?")
+
     print()
     print("═" * ancho)
     print(f"  MTG Card Scanner — PyTorch (EfficientNet_b0)")
     print(f"  Query : {query_path}")
     print(f"  Embed : {tiempos['extraccion_ms']:.1f} ms   Búsqueda: {tiempos['busqueda_ms']:.2f} ms")
+    print("─" * ancho)
+    veredicto = "✓ ES Magic (por similitud)" if es_magic else "✗ Probablemente NO es Magic (por similitud)"
+    print(f"  {veredicto}  |  Top-1 = {top1_nombre}  |  Similitud = {top1_sim * 100:.1f}%  |  Umbral = {threshold * 100:.1f}%")
     print("═" * ancho)
     print(f"  {'#':<3}  {'Sim':>6}  {'Carta':<35}  {'Set':<22}  {'CMC':>4}  {'Colores':<20}  Rareza")
     print("─" * ancho)
@@ -261,6 +269,9 @@ def imprimir_resultados(resultados: list, cards_info: dict, query_path: str, tie
         print(f"  {i:<3}  {sim:>6.4f}  {nombre:<35}  {set_n:<22}  {cmc:>4}  {colores:<20}  {simbolo} {rareza}")
 
     print("═" * ancho)
+    print("MAGIC" if es_magic else "NO_MAGIC")
+    print(f"card_name={top1_nombre}")
+    print(f"similarity={top1_sim:.6f}")
     print()
 
 
@@ -276,11 +287,14 @@ Ejemplos:
   python scanner.py foto.png --top 10 --tta 7
   python scanner.py imagen.jpg --finetuned
   python scanner.py foto.png --skip-detect   # saltar clasificador binario
+  python scanner.py foto.png --threshold 0.8 # umbral de similitud más estricto
         """
     )
     parser.add_argument("imagen", help="Ruta a la imagen de la carta (JPG, PNG, etc.)")
     parser.add_argument("--top", type=int, default=5, metavar="N",
-                        help="Número de resultados a mostrar (default: 5)")
+                        help="Número de resultados/candidatos a mostrar (default: 5)")
+    parser.add_argument("--threshold", type=float, default=SIMILARITY_THRESHOLD, metavar="T",
+                        help=f"Umbral de similitud coseno para decidir si el top-1 es Magic (default: {SIMILARITY_THRESHOLD})")
     parser.add_argument("--tta", type=int, default=1, metavar="N",
                         help="Test-Time Augmentation: promedia N embeddings (default: 1 = sin TTA, recomendado: 5-9)")
     parser.add_argument("--finetuned", action="store_true",
@@ -351,7 +365,7 @@ Ejemplos:
 
     # Mostrar resultados
     tiempos = {"extraccion_ms": extraccion_ms, "busqueda_ms": busqueda_ms}
-    imprimir_resultados(resultados, cards_info, str(img_path), tiempos)
+    imprimir_resultados(resultados, cards_info, str(img_path), tiempos, args.threshold)
 
 
 if __name__ == "__main__":

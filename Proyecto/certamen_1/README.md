@@ -29,12 +29,16 @@ certamen_1/
 │   ├── 06_finetune.py         # fine-tuning contrastivo SimCLR (opcional)
 │   ├── 07_binary_classifier.py# clasificador MTG / no-MTG (EfficientNet_b0)
 │   └── scanner.py             # demo CLI con pipeline de dos etapas
-└── tensorFlow/                # pipeline TensorFlow (MobileNetV2)
-    ├── 03_build_embeddings.py # construye el índice de embeddings
-    ├── 04_evaluate.py         # evalúa retrieval + métricas de clasificación
-    ├── 05_visualize.py        # t-SNE y EDA del dataset
-    ├── 07_binary_classifier.py# clasificador MTG / no-MTG (MobileNetV2)
-    └── scanner.py             # demo CLI
+├── tensorFlow/                # pipeline TensorFlow (MobileNetV2)
+│   ├── 03_build_embeddings.py # construye el índice de embeddings
+│   ├── 04_evaluate.py         # evalúa retrieval + métricas de clasificación
+│   ├── 05_visualize.py        # t-SNE y EDA del dataset
+│   ├── 07_binary_classifier.py# clasificador MTG / no-MTG (MobileNetV2)
+│   └── scanner.py             # demo CLI
+└── Testing/                   # comparación cara a cara de ambos scanners
+    ├── compare_scanners.py    # corre ambos scanners sobre la(s) misma(s) imagen(es)
+    ├── download_random_card.py# descarga una carta aleatoria de Scryfall y la compara
+    └── testing_photos/        # imágenes usadas para las comparaciones
 ```
 
 ## 1. Generar el dataset compartido
@@ -77,6 +81,9 @@ python 07_binary_classifier.py     # clasificador binario MTG / no-MTG
 # Identificar una carta (detecta MTG/no-MTG automáticamente si existe el modelo)
 python scanner.py test_photos/mi_carta.jpg
 
+# Cantidad de candidatos a mostrar y umbral de similitud para el veredicto Magic/No-Magic
+python scanner.py test_photos/mi_carta.jpg --top 10 --threshold 0.8
+
 # Con Test-Time Augmentation (más estable con fotos movidas o en ángulo)
 python scanner.py test_photos/mi_carta.jpg --top 10 --tta 7
 
@@ -86,6 +93,13 @@ python scanner.py test_photos/mi_carta.jpg --finetuned
 # Saltar el clasificador binario y forzar búsqueda directa
 python scanner.py test_photos/mi_carta.jpg --skip-detect
 ```
+
+Además del clasificador binario (etapa 1), `scanner.py` decide un veredicto Magic /
+No-Magic por similitud (etapa 2): si la similitud coseno del top-1 supera
+`--threshold` (default `0.75`, el umbral óptimo medido en `results/metrics_pt.json`),
+se marca la imagen como `MAGIC`. Esto replica el criterio que usa el scanner de
+TensorFlow y permite comparar ambos frameworks con el mismo criterio (ver
+`Testing/` más abajo).
 
 Artefactos locales: `pytorch/data/`, `pytorch/results/`, `pytorch/models/`.
 
@@ -252,6 +266,57 @@ Las métricas reportadas son las mismas que en PyTorch (ver tabla arriba). La
 directamente el F1-score sobre la curva precision-recall, en vez del estadístico
 de Youden sobre la curva ROC.
 
+## 6. Comparación entre frameworks (Testing/)
+
+Además de las métricas de evaluación por separado, `Testing/` corre ambos scanners
+sobre las mismas imágenes y muestra lado a lado qué carta identificó cada uno, con
+qué similitud y si la considera Magic o no. Útil para ver en la práctica cómo
+reacciona cada modelo frente a la misma foto (fotos reales, ángulos, iluminación).
+
+Requiere que `pytorch/.venv` y `tensorFlow/.venv` ya existan con sus dependencias
+instaladas, y que ambos índices de embeddings estén construidos (pasos 2 y 3).
+
+```bash
+cd Testing
+python -m venv .venv && source .venv/bin/activate   # solo necesita `requests`
+pip install -r requirements.txt
+```
+
+**Comparar imágenes existentes:**
+
+```bash
+# Compara todas las imágenes en testing_photos/
+python compare_scanners.py
+
+# Compara una imagen puntual
+python compare_scanners.py testing_photos/mi_carta.jpg
+
+# Cantidad de candidatos y umbral de similitud (se pasan a ambos scanners)
+python compare_scanners.py --top 10 --threshold 0.8
+
+# Omite el clasificador binario de PyTorch (deja solo el umbral de similitud, igual que TensorFlow)
+python compare_scanners.py --skip-detect
+```
+
+**Descargar una carta aleatoria y compararla:**
+
+```bash
+# Pide una carta al azar a Scryfall, la guarda en testing_photos/ y compara ambos scanners
+python download_random_card.py
+
+# Calidad de la imagen descargada (small / normal / large / png)
+python download_random_card.py --quality large
+
+# Solo descargar, sin comparar
+python download_random_card.py --no-compare
+```
+
+Cada scanner corre en su propio venv (`pytorch/.venv`, `tensorFlow/.venv`) como
+subproceso, así que `Testing/` no necesita tener `torch` ni `tensorflow` instalados.
+La salida muestra, por imagen: framework, veredicto (`MAGIC` / `NO_MAGIC`), carta
+identificada, similitud y tiempo de inferencia — y, para PyTorch, la probabilidad
+del clasificador binario si el modelo está entrenado.
+
 ## Notas
 
 - `data/` compartido y `pytorch/data/` / `tensorFlow/data/` están en `.gitignore`
@@ -261,5 +326,8 @@ de Youden sobre la curva ROC.
   re-descargan. El caché vive en `data/images_negatives/` (compartido entre ambos
   frameworks — solo se descarga una vez).
 - Los negativos vienen de `pokemontcg.io` (API pública, sin clave).
-- El `scanner.py` de PyTorch tiene dos etapas: primero clasifica MTG/no-MTG,
-  luego recupera por similitud. Usar `--skip-detect` para omitir la etapa 1.
+- El `scanner.py` de PyTorch tiene dos etapas: primero clasifica MTG/no-MTG con
+  el clasificador binario, luego recupera por similitud y decide el veredicto
+  final con `--threshold`. Usar `--skip-detect` para omitir la etapa 1.
+- `Testing/.venv` es independiente de `pytorch/.venv` y `tensorFlow/.venv` — solo
+  necesita `requests` para orquestar ambos scanners como subprocesos.
