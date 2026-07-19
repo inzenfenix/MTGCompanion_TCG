@@ -1,0 +1,19 @@
+{
+  "framework": "PyTorch",
+  "backbone": "EfficientNet_b0",
+  "n_gallery": 5000,
+  "n_query": 1000,
+  "top1_accuracy": 0.406,
+  "top5_accuracy": 0.535,
+  "mrr": 0.45139999999999997,
+  "accuracy_bin": 0.736,
+  "precision_bin": 0.6543478260869565,
+  "recall_bin": 0.7413793103448276,
+  "f1_bin": 0.6951501154734411,
+  "roc_auc": 0.7930039309349655,
+  "opt_threshold": 0.7431496381759644,
+  "mean_extraction_ms": 39.89395840600628,
+  "std_extraction_ms": 15.406929493315381,
+  "mean_search_ms": 3.0812169039018045,
+  "std_search_ms": 2.0855839029949035
+}

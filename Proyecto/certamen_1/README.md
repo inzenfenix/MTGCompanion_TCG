@@ -15,6 +15,7 @@ generado una sola vez por los scripts en la raíz de esta carpeta.
 certamen_1/
 ├── 01_scraper.py              # descarga y filtra el catálogo (compartido)
 ├── 02_downloader.py           # descarga las imágenes del catálogo (compartido)
+├── 04_evaluate.py             # punto de entrada único: evalúa pytorch, tensorflow o ambos
 ├── data/                      # dataset compartido — se genera, no se versiona
 │   ├── raw_cards.json         # cache del dump bulk de Scryfall
 │   ├── cards.json             # dataset filtrado (~29 k cartas)
@@ -22,16 +23,19 @@ certamen_1/
 │   └── images_negatives/      # cartas no-MTG para el clasificador binario
 │       ├── pokemon/           # imágenes Pokémon TCG descargadas de pokemontcg.io
 │       └── pokemon_meta.json  # metadatos en caché
+├── output/                    # historial de métricas — se versiona (ver sección 5)
+│   ├── pytorch/{timestamp}/   # una carpeta por corrida de evaluación
+│   └── tensorflow/{timestamp}/
 ├── pytorch/                   # pipeline PyTorch (EfficientNet_b0)
 │   ├── 03_pt_embedder.py      # extrae embeddings del dataset
-│   ├── 04_evaluate.py         # evalúa retrieval + métricas de clasificación
+│   ├── 04_evaluate.py         # implementación de evaluación (invocada por ../04_evaluate.py)
 │   ├── 05_visualize.py        # t-SNE y EDA del dataset
 │   ├── 06_finetune.py         # fine-tuning contrastivo SimCLR (opcional)
 │   ├── 07_binary_classifier.py# clasificador MTG / no-MTG (EfficientNet_b0)
 │   └── scanner.py             # demo CLI con pipeline de dos etapas
 ├── tensorFlow/                # pipeline TensorFlow (MobileNetV2)
 │   ├── 03_build_embeddings.py # construye el índice de embeddings
-│   ├── 04_evaluate.py         # evalúa retrieval + métricas de clasificación
+│   ├── 04_evaluate.py         # implementación de evaluación (invocada por ../04_evaluate.py)
 │   ├── 05_visualize.py        # t-SNE y EDA del dataset
 │   ├── 07_binary_classifier.py# clasificador MTG / no-MTG (MobileNetV2)
 │   └── scanner.py             # demo CLI
@@ -69,11 +73,13 @@ pip install -r requirements.txt
 
 ```bash
 python 03_pt_embedder.py           # embeddings de ~29 k cartas (~5 min en GPU)
-python 04_evaluate.py              # retrieval + métricas de clasificación completas
 python 05_visualize.py             # t-SNE coloreado + EDA del dataset
 python 06_finetune.py              # fine-tuning SimCLR (opcional)
 python 07_binary_classifier.py     # clasificador binario MTG / no-MTG
 ```
+
+Para evaluar el retrieval, usar `04_evaluate.py` desde la raíz de `certamen_1/`
+(ver sección 5) en vez de correrlo directamente desde acá.
 
 **Usar el scanner:**
 
@@ -101,7 +107,8 @@ se marca la imagen como `MAGIC`. Esto replica el criterio que usa el scanner de
 TensorFlow y permite comparar ambos frameworks con el mismo criterio (ver
 `Testing/` más abajo).
 
-Artefactos locales: `pytorch/data/`, `pytorch/results/`, `pytorch/models/`.
+Artefactos locales: `pytorch/data/`, `pytorch/models/`. Las métricas de evaluación
+quedan en `output/pytorch/` (raíz de `certamen_1/`), no acá.
 
 ## 3. Pipeline TensorFlow (MobileNetV2)
 
@@ -116,12 +123,14 @@ pip install -r requirements.txt
 python 03_build_embeddings.py                  # construye el índice de embeddings (~5000 cartas, ~7-10 min en CPU)
 python 03_build_embeddings.py --force          # reconstruye aunque ya exista (necesario tras regenerar el dataset)
 
-python 04_evaluate.py                          # retrieval + métricas de clasificación completas
 python 05_visualize.py                         # t-SNE coloreado + EDA del dataset
 
 python 07_binary_classifier.py                 # clasificador binario MTG / no-MTG
 python 07_binary_classifier.py --skip-download # reutiliza Pokémon ya descargados
 ```
+
+Para evaluar el retrieval, usar `04_evaluate.py` desde la raíz de `certamen_1/`
+(ver sección 5) en vez de correrlo directamente desde acá.
 
 **Usar el scanner:**
 
@@ -136,7 +145,8 @@ de usar `scanner.py`, `04_evaluate.py` o `05_visualize.py` — se construye con
 o el sistema comparará contra cartas desactualizadas.
 
 Artefactos locales: `tensorFlow/data/indexes/magic_embeddings.pkl`,
-`tensorFlow/results/`, `tensorFlow/models/`.
+`tensorFlow/models/`. Las métricas de evaluación quedan en `output/tensorflow/`
+(raíz de `certamen_1/`), no acá.
 
 ## 4. Clasificador binario MTG / No-MTG
 
@@ -196,18 +206,89 @@ Modelo guardado en `tensorFlow/models/mtg_detector.keras`.
 
 ## 5. Métricas de evaluación
 
-### Retrieval (04_evaluate.py — PyTorch)
+`04_evaluate.py`, en la raíz de `certamen_1/`, es el punto de entrada único para
+evaluar el retrieval de cualquiera de los dos frameworks (o ambos). Decide qué
+framework(s) correr, se asegura de que el venv correspondiente exista (lo crea e
+instala su `requirements.txt` si falta) y corre la implementación de evaluación
+de cada uno dentro de su propio entorno — no hace falta activar ningún venv a mano.
+
+```bash
+cd certamen_1
+
+python 04_evaluate.py                    # evalúa ambos frameworks
+python 04_evaluate.py --model pytorch     # solo PyTorch
+python 04_evaluate.py --model tensorflow  # solo TensorFlow
+```
+
+Cada corrida queda en `output/{pytorch,tensorflow}/{timestamp}/`, sin sobreescribir
+corridas anteriores — así se puede ver cómo evolucionan las métricas a medida que
+cambian los modelos. `output/{framework}/latest` siempre apunta a la corrida más
+reciente. A diferencia de `data/` y de los `.venv/`, **`output/` sí se versiona**:
+es el historial de métricas del proyecto.
+
+### Cómo probarlo
+
+Requisitos antes de correrlo (por cada framework que quieras evaluar): dataset
+compartido generado (paso 1) y el índice de embeddings propio construido
+(`pytorch/03_pt_embedder.py` o `tensorFlow/03_build_embeddings.py`). Si falta el
+venv de un framework, `04_evaluate.py` lo crea solo — no hace falta preparar nada
+más a mano.
+
+```bash
+cd certamen_1
+python 04_evaluate.py --model pytorch
+```
+
+Salida esperada (resumida):
+
+```
+══════════════════════════════════════════════════════════════════
+  Evaluando PyTorch (EfficientNet_b0)
+══════════════════════════════════════════════════════════════════
+Device    : cuda:0
+Galería   : 5,000 cartas
+Consultas : 1,000 cartas (imágenes augmentadas)
+Evaluando 1,000 queries...
+   100/1000  Top-1: 0.410  Top-5: 0.530  MRR: 0.448
+   ...
+  ── Retrieval ─────────────────────────────────────
+  Top-1 Accuracy   : 0.4090
+  ...
+Generando gráficos...
+  → .../output/pytorch/2026-07-19_190210/metrics_pt.png
+  ...
+
+  ✓ PyTorch (EfficientNet_b0) evaluado en 75.0s.
+    Resultados: .../output/pytorch/2026-07-19_190210
+    Último enlace: .../output/pytorch/latest
+
+══════════════════════════════════════════════════════════════════
+  Resumen
+══════════════════════════════════════════════════════════════════
+  PyTorch (EfficientNet_b0)    OK
+```
+
+Para confirmar que funcionó: `ls output/pytorch/latest/` debe mostrar
+`metrics_pt.json` + los `.png` de la tabla más abajo, y el exit code del
+comando debe ser `0` (si algún framework falla, `04_evaluate.py` termina con
+exit code `1` y lo marca `ERROR` en el resumen).
+
+**Evaluar ambos modelos en una sola corrida** (por defecto, sin pasar `--model`):
+
+```bash
+python 04_evaluate.py
+```
+
+Esto corre PyTorch y después TensorFlow, cada uno en su propio venv, y al final
+imprime un resumen con el estado (`OK` / `ERROR`) de cada uno.
+
+### Retrieval (PyTorch)
 
 Evalúa el sistema de similitud: toma el 20 % de cartas, les aplica augmentaciones
 que simulan una foto real (perspectiva, brillo, blur, rotación) y busca en la
 galería completa.
 
-```bash
-cd pytorch
-python 04_evaluate.py
-```
-
-**Salidas generadas en `pytorch/results/`:**
+**Salidas generadas en `output/pytorch/{timestamp}/`:**
 
 | Archivo | Descripción |
 |---|---|
@@ -234,7 +315,7 @@ python 04_evaluate.py
 > El umbral óptimo se calcula automáticamente maximizando el estadístico de Youden
 > (TPR − FPR) sobre la curva ROC.
 
-### Retrieval (04_evaluate.py — TensorFlow)
+### Retrieval (TensorFlow)
 
 Mismo protocolo que en PyTorch: galería = todos los embeddings del índice, queries
 = 20 % de las cartas con augmentaciones que simulan una foto real (perspectiva,
@@ -242,12 +323,11 @@ brillo, contraste, color, rotación, crop, blur — implementado solo con PIL, s
 `torchvision`), re-extraídas con MobileNetV2 y comparadas por similitud coseno.
 
 ```bash
-cd tensorFlow
-python 04_evaluate.py
-python 05_visualize.py
+cd certamen_1 && python 04_evaluate.py --model tensorflow
+cd tensorFlow && python 05_visualize.py
 ```
 
-**Salidas generadas en `tensorFlow/results/`:**
+**Salidas generadas en `output/tensorflow/{timestamp}/`:**
 
 | Archivo | Descripción |
 |---|---|
@@ -331,3 +411,13 @@ del clasificador binario si el modelo está entrenado.
   final con `--threshold`. Usar `--skip-detect` para omitir la etapa 1.
 - `Testing/.venv` es independiente de `pytorch/.venv` y `tensorFlow/.venv` — solo
   necesita `requests` para orquestar ambos scanners como subprocesos.
+- El `04_evaluate.py` de la raíz crea `pytorch/.venv` y/o `tensorFlow/.venv` la
+  primera vez que hacen falta (instalando su `requirements.txt`), por si se corre
+  antes de haber seguido los pasos 2/3 manualmente.
+- Si el Python por defecto de la máquina es demasiado nuevo y no tiene wheel de
+  TensorFlow disponible (pasa con releases de Python muy recientes), `04_evaluate.py`
+  busca automáticamente un Python 3.9–3.12 instalado vía `pyenv` y reintenta el venv
+  de `tensorFlow/` con ese. Si no hay ninguno instalado, avisa cómo instalar uno
+  (`pyenv install 3.12.9`).
+- `output/` se versiona a propósito (no está en `.gitignore`): es el historial de
+  métricas de cada framework a medida que evolucionan los modelos.

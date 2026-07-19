@@ -30,8 +30,10 @@ Salida:
     results/metricas_clasificacion_pt.png — barras accuracy/precision/recall/F1/AUC
 """
 
+import argparse
 import json
 import pathlib
+import sys
 import time
 import random
 
@@ -486,11 +488,17 @@ def graficar_metricas_clasificacion(metricas: dict):
 
 
 def main():
+    global RESULTS_DIR
+    parser = argparse.ArgumentParser(description="Evalúa el sistema de retrieval PyTorch.")
+    parser.add_argument("--output-dir", type=pathlib.Path, default=RESULTS_DIR,
+                        help="Carpeta donde guardar métricas y gráficos (default: results/).")
+    args = parser.parse_args()
+    RESULTS_DIR = args.output_dir
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
     if not (DATA_DIR / "embeddings_pt.npy").exists():
         print("Error: data/embeddings_pt.npy no existe. Ejecuta 03_pt_embedder.py primero.")
-        return
+        sys.exit(1)
 
     with open(SHARED_DATA_DIR / "cards.json", encoding="utf-8") as f:
         cards_info = {c["id"]: c for c in json.load(f)}

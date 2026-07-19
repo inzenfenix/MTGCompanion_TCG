@@ -1,0 +1,21 @@
+{
+  "framework": "TensorFlow",
+  "backbone": "MobileNetV2",
+  "n_gallery": 5000,
+  "n_query": 1000,
+  "top1_accuracy": 0.264,
+  "top5_accuracy": 0.408,
+  "mrr": 0.3170666666666667,
+  "mean_extraction_ms": 82.32900797794355,
+  "std_extraction_ms": 26.8926864577967,
+  "mean_search_ms": 2.7464228570242994,
+  "std_search_ms": 1.5724484353485055,
+  "clasificacion": {
+    "threshold_optimo": 0.6719892024993896,
+    "accuracy": 0.264,
+    "precision": 0.4166666666666667,
+    "recall": 0.7196969696969697,
+    "f1": 0.5277777777777778,
+    "roc_auc": 0.7347043807641634
+  }
+}

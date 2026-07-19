@@ -11,8 +11,8 @@ framework-ia-UDD/
 ├── Material/      # material y scripts de referencia entregados en clase
 └── Proyecto/      # proyecto del curso
     ├── certamen_1/  # entrega 1 — ver README propio
-    ├── certamen_2/  # entrega 2 — WIP
-    └── examen/      # entrega final — WIP
+    ├── certamen_2/  # entrega 2 — plan (WIP)
+    └── examen/      # entrega final — plan (WIP)
 ```
 
 ## El proyecto
@@ -35,10 +35,13 @@ entender en la práctica sus diferencias de diseño, rendimiento y ergonomía.
 
 ### Próximos pasos
 
-- **Detector de palabras / texto en la carta**: usar el texto impreso (nombre,
-  tipo, texto de reglas) como señal adicional o alternativa a la similitud
-  visual pura — hay una base de esto en `Material/detector_palabras.py`.
-- Otras ideas en evaluación a medida que avanza el curso (Certamen 2 / Examen).
+- **Certamen 2** — flujo de dos modelos nuevos: un validador de texto/OCR que
+  confirma la carta identificada (basado en `Material/detector_palabras.py`) y
+  un estimador de precio de mercado por regresión. Ver
+  [Proyecto/certamen_2/README.md](Proyecto/certamen_2/README.md).
+- **Examen** — empaquetar todo como una app Ionic de uso comercial (OpenCV.js +
+  TensorFlow.js corriendo del lado del cliente). Ver
+  [Proyecto/examen/README.md](Proyecto/examen/README.md).
 
 ### Stack
 
@@ -53,5 +56,5 @@ entender en la práctica sus diferencias de diseño, rendimiento y ergonomía.
 | Entrega | Estado | Enlace |
 |---|---|---|
 | Certamen 1 | ✅ | [Proyecto/certamen_1/README.md](Proyecto/certamen_1/README.md) |
-| Certamen 2 | 🚧 WIP | — |
-| Examen | 🚧 WIP | — |
+| Certamen 2 | 🚧 plan | [Proyecto/certamen_2/README.md](Proyecto/certamen_2/README.md) |
+| Examen | 🚧 plan | [Proyecto/examen/README.md](Proyecto/examen/README.md) |

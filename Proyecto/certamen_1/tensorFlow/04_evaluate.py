@@ -32,6 +32,7 @@ Salida:
 Requiere haber corrido antes: python 03_build_embeddings.py
 """
 
+import argparse
 import json
 import pathlib
 import random
@@ -464,11 +465,17 @@ def graficar_metricas_clasificacion(clas_metrics: dict):
 
 
 def main():
+    global RESULTS_DIR
+    parser = argparse.ArgumentParser(description="Evalúa el sistema de retrieval TensorFlow.")
+    parser.add_argument("--output-dir", type=pathlib.Path, default=RESULTS_DIR,
+                        help="Carpeta donde guardar métricas y gráficos (default: results/).")
+    args = parser.parse_args()
+    RESULTS_DIR = args.output_dir
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
     if not PATHS.embedding_index.exists():
         print("Error: indice de embeddings no existe. Ejecuta 03_build_embeddings.py primero.")
-        return
+        sys.exit(1)
 
     with open(PATHS.catalog_json, encoding="utf-8") as f:
         cards_info = {c["id"]: c for c in json.load(f)}
