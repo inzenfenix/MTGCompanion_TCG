@@ -9,6 +9,70 @@
 > "Para la siguiente entrega deben agregar dos modelos que funcionen en un flujo
 > de trabajo para resolver un problema." — feedback del profesor sobre Certamen 1.
 
+> "El script subido tiene un ejemplo de utilización de optuna para la gestión de
+> los hiperparámetros de entrenamiento. Para la próxima semana debe estar
+> aplicado para su proyecto y determinado cuál es la mejor combinación de
+> parámetros." — Alex, sobre `optuna_ejemplo.py`.
+
+Dos entregas distintas, con plazos distintos: Optuna tiene deadline de **una
+semana** y aplica a un modelo que ya existe hoy; el flujo de dos modelos nuevos
+es el resto de Certamen 2 y tiene más margen. Van por separado más abajo.
+
+## 0. Entrega inmediata — Optuna (esta semana)
+
+El ejemplo (`optuna_ejemplo.py`) optimiza un MLP de Keras sobre Iris: define un
+`objective(trial)` que arma el modelo con hiperparámetros propuestos por
+Optuna, lo entrena, y retorna la métrica a maximizar; un `study` con sampler
+TPE corre `N_TRIALS` de esa función y se queda con la mejor combinación.
+
+**No hace falta esperar a los modelos nuevos de Certamen 2 para aplicar esto**
+— ya tenemos un modelo entrenándose hoy con hiperparámetros fijos a mano:
+`07_binary_classifier.py` (el detector MTG/no-MTG, en ambos frameworks). Ese es
+el candidato natural para esta semana:
+
+- Ya existe y entrena rápido (no hay que levantar nada nuevo).
+- La versión TensorFlow ya usa Keras — mismo framework que el ejemplo, se
+  adapta casi directo.
+- Hoy sus hiperparámetros están **fijos como constantes en el script**
+  (`pytorch/07_binary_classifier.py`: `LR = 3e-4`, `WEIGHT_DECAY = 1e-4`,
+  `BATCH_SIZE = 32`, cabeza `Dropout(0.3) → Linear(256) → ReLU → Dropout(0.2) →
+  Linear(1)`) — literalmente lo que Optuna está pensado para reemplazar.
+
+Espacio de búsqueda propuesto (mapeado 1:1 a esas constantes):
+
+| Hiperparámetro | Hoy (fijo) | Rango a explorar con Optuna |
+|---|---|---|
+| Learning rate | `3e-4` | `suggest_float("lr", 1e-5, 1e-2, log=True)` |
+| Weight decay | `1e-4` | `suggest_float("weight_decay", 1e-6, 1e-2, log=True)` |
+| Batch size | `32` | `suggest_categorical("batch_size", [16, 32, 64, 128])` |
+| Unidades cabeza densa | `256` | `suggest_int("head_units", 64, 512, step=64)` |
+| Dropout (x2) | `0.3` / `0.2` | `suggest_float("dropout", 0.0, 0.5, step=0.05)` |
+| Optimizer | `AdamW` fijo | `suggest_categorical("optimizer", ["adamw", "adam", "sgd"])` |
+| Capas de backbone descongeladas | `0` (todo frozen) | `suggest_int("unfreeze_layers", 0, 3)` — opcional, si da tiempo |
+
+Métrica a maximizar: `val_accuracy` (o `val_f1` si la clase MTG/no-MTG queda
+desbalanceada) — igual que el ejemplo usa `val_accuracy` de Iris.
+
+**Pasos concretos:**
+
+- [ ] Agregar `optuna` a `requirements.txt` de `tensorFlow/` (y de `pytorch/` si
+      se hace también ahí).
+- [ ] Script nuevo `tensorFlow/08_optuna_binary_classifier.py`: envolver el
+      entrenamiento de `07_binary_classifier.py` en un `objective(trial)` con
+      la tabla de arriba, correr un `study` (10–30 trials según tiempo
+      disponible) y guardar `optuna_historia.png` + `optuna_importancia.png` en
+      `output/tensorflow/optuna/{timestamp}/` — mismo patrón de `output/` ya
+      usado por `04_evaluate.py` (historial versionado, no sobreescribe).
+- [ ] Reentrenar el modelo final con los mejores hiperparámetros encontrados y
+      reemplazar `tensorFlow/models/mtg_detector.keras`.
+- [ ] Si alcanza el tiempo: repetir lo mismo para `pytorch/07_binary_classifier.py`
+      (mismo patrón, Optuna es agnóstico al framework — solo cambia cómo se
+      arma y entrena el modelo dentro de `objective`).
+- [ ] Guardar `best_params.json` junto a los gráficos, para que quede registrado
+      qué combinación ganó y con qué métrica.
+
+## 1. Flujo de dos modelos (el resto de Certamen 2)
+
 Certamen 1 ya identifica una carta a partir de una foto (detector MTG/no-MTG +
 retrieval por similitud visual). Certamen 2 extiende ese resultado con **dos
 modelos nuevos, encadenados**, para resolver un problema de punta a punta:
@@ -16,7 +80,7 @@ modelos nuevos, encadenados**, para resolver un problema de punta a punta:
 > Dada una foto de una carta, identificarla con confianza y estimar su precio
 > de mercado.
 
-## Flujo de modelos propuesto
+### Flujo de modelos propuesto
 
 ```
 foto ─▶ [Certamen 1: detector MTG/no-MTG + retrieval visual] ─▶ carta candidata + similitud
@@ -56,6 +120,12 @@ no hace falta scrapear nada nuevo para el texto de referencia. Los negativos
 pueden salir de texto de otras cartas o de las imágenes Pokémon ya descargadas
 (`data/images_negatives/`).
 
+Hiperparámetros a tunear con Optuna una vez exista el baseline (mismo patrón
+de la sección 0): número de capas, unidades por capa, dropout, optimizer, lr,
+batch size — literalmente el mismo espacio de búsqueda que
+`Material/detector_palabras.py` / `optuna_ejemplo.py`, porque la arquitectura
+es la misma (Bag-of-Words → Feedforward).
+
 ### Modelo nuevo 2 — Estimador de precio (regresión)
 
 Motivación: da valor comercial concreto a la identificación (ver plan del
@@ -71,7 +141,13 @@ el mismo bulk data que ya usa `01_scraper.py` — solo falta agregarlo a la list
 para un regresor de referencia (random forest / gradient boosting a modo de
 baseline, con la opción de un MLP simple después).
 
-## Qué falta para arrancar
+Hiperparámetros a tunear con Optuna una vez exista el baseline: si es
+random forest/gradient boosting → `n_estimators`, `max_depth`, `learning_rate`,
+`subsample`; si es un MLP → mismo espacio que el validador de texto, cambiando
+la métrica a minimizar (MAE o RMSE, `direction="minimize"`) en vez de maximizar
+accuracy.
+
+## 2. Qué falta para arrancar
 
 - [ ] Agregar `prices` a `CAMPOS` en `01_scraper.py` y re-scrapear (o hacer un
       pase incremental sobre `data/cards.json` existente).
@@ -79,12 +155,14 @@ baseline, con la opción de un MLP simple después).
       `08_text_validator.py`).
 - [ ] Script de entrenamiento del estimador de precio (nombre tentativo:
       `09_price_estimator.py`).
+- [ ] Aplicar Optuna a ambos modelos nuevos una vez tengan un baseline
+      entrenando (mismo patrón que la sección 0).
 - [ ] Extender `scanner.py` (o `Testing/compare_scanners.py`) para exponer el
       flujo completo: foto → carta + confianza → validación de texto → precio.
 - [ ] Métricas a reportar: accuracy del validador de texto; MAE / RMSE / R² del
       estimador de precio sobre un hold-out.
 
-## Por qué este enfoque
+## 3. Por qué este enfoque
 
 Se descartaron dos alternativas más simples (ver discusión en el chat del
 proyecto):
