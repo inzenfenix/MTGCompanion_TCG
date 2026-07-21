@@ -27,37 +27,38 @@ TPE corre `N_TRIALS` de esa función y se queda con la mejor combinación.
 
 **No hace falta esperar a los modelos nuevos de Certamen 2 para aplicar esto**
 — ya tenemos un modelo entrenándose hoy con hiperparámetros fijos a mano:
-`07_binary_classifier.py` (el detector MTG/no-MTG, en ambos frameworks). Ese es
-el candidato natural para esta semana:
+`07_binary_classifier.py` (el detector MTG/no-MTG, en ambos frameworks). Para
+la entrega inmediata se implementó Optuna sobre la versión **TensorFlow**, que
+es el candidato natural para esta semana:
 
 - Ya existe y entrena rápido (no hay que levantar nada nuevo).
 - La versión TensorFlow ya usa Keras — mismo framework que el ejemplo, se
   adapta casi directo.
-- Hoy sus hiperparámetros están **fijos como constantes en el script**
-  (`pytorch/07_binary_classifier.py`: `LR = 3e-4`, `WEIGHT_DECAY = 1e-4`,
-  `BATCH_SIZE = 32`, cabeza `Dropout(0.3) → Linear(256) → ReLU → Dropout(0.2) →
-  Linear(1)`) — literalmente lo que Optuna está pensado para reemplazar.
+- Su constructor estaba configurado con `Adam(3e-4)`, `BATCH_SIZE = 32`,
+  `freeze_ratio = 0.65` y cabeza `Dropout(0.3) → Dense(256) → ReLU →
+  Dropout(0.2) → Dense(1)`. Ahora esos valores se pueden proponer desde Optuna
+  sin cambiar el comportamiento predeterminado de `07_binary_classifier.py`.
 
 Espacio de búsqueda propuesto (mapeado 1:1 a esas constantes):
 
-| Hiperparámetro | Hoy (fijo) | Rango a explorar con Optuna |
+| Hiperparámetro | Baseline | Rango implementado con Optuna |
 |---|---|---|
-| Learning rate | `3e-4` | `suggest_float("lr", 1e-5, 1e-2, log=True)` |
-| Weight decay | `1e-4` | `suggest_float("weight_decay", 1e-6, 1e-2, log=True)` |
-| Batch size | `32` | `suggest_categorical("batch_size", [16, 32, 64, 128])` |
+| Learning rate | `3e-4` | `suggest_float("learning_rate", 1e-5, 1e-2, log=True)` |
+| Weight decay | `0.0` | `suggest_float("weight_decay", 1e-6, 1e-2, log=True)` |
+| Batch size | `32` | `suggest_categorical("batch_size", [16, 32, 64])` |
 | Unidades cabeza densa | `256` | `suggest_int("head_units", 64, 512, step=64)` |
-| Dropout (x2) | `0.3` / `0.2` | `suggest_float("dropout", 0.0, 0.5, step=0.05)` |
-| Optimizer | `AdamW` fijo | `suggest_categorical("optimizer", ["adamw", "adam", "sgd"])` |
-| Capas de backbone descongeladas | `0` (todo frozen) | `suggest_int("unfreeze_layers", 0, 3)` — opcional, si da tiempo |
+| Dropout (x2) | `0.3` / `0.2` | `suggest_float("dropout", 0.0, 0.5, step=0.05)` aplicado a ambos |
+| Optimizer | `Adam` | `suggest_categorical("optimizer", ["adam", "adamw", "sgd"])` |
+| Fracción de backbone congelada | `0.65` | `suggest_categorical("freeze_ratio", [0.50, 0.65, 0.80, 1.00])` |
 
 Métrica a maximizar: `val_accuracy` (o `val_f1` si la clase MTG/no-MTG queda
 desbalanceada) — igual que el ejemplo usa `val_accuracy` de Iris.
 
-**Pasos concretos:**
+**Estado y pasos concretos:**
 
-- [ ] Agregar `optuna` a `requirements.txt` de `tensorFlow/` (y de `pytorch/` si
+- [x] Agregar `optuna` a `requirements.txt` de `tensorFlow/` (y de `pytorch/` si
       se hace también ahí).
-- [ ] Script nuevo `tensorFlow/08_optuna_binary_classifier.py`: envolver el
+- [x] Script nuevo `tensorFlow/08_optuna_binary_classifier.py`: envolver el
       entrenamiento de `07_binary_classifier.py` en un `objective(trial)` con
       la tabla de arriba, correr un `study` (10–30 trials según tiempo
       disponible) y guardar `optuna_historia.png` + `optuna_importancia.png` en
@@ -70,6 +71,53 @@ desbalanceada) — igual que el ejemplo usa `val_accuracy` de Iris.
       arma y entrena el modelo dentro de `objective`).
 - [ ] Guardar `best_params.json` junto a los gráficos, para que quede registrado
       qué combinación ganó y con qué métrica.
+
+Los dos últimos ítems se marcan solo después de ejecutar el experimento real;
+tener el código implementado no equivale a haber medido una combinación
+ganadora.
+
+### Ejecutar la entrega Optuna
+
+Desde `Proyecto/certamen_1`, reconstruir el dataset compartido con los scripts
+ya usados en Certamen 1:
+
+```powershell
+py -3.12 -m venv tensorFlow\.venv
+tensorFlow\.venv\Scripts\python.exe -m pip install --upgrade pip
+tensorFlow\.venv\Scripts\python.exe -m pip install -r tensorFlow\requirements.txt
+
+tensorFlow\.venv\Scripts\python.exe 01_scraper.py --max-cards 5000 --quality small
+tensorFlow\.venv\Scripts\python.exe 02_downloader.py
+```
+
+Smoke test corto, desde `Proyecto/certamen_1/tensorFlow`:
+
+```powershell
+.venv\Scripts\python.exe 08_optuna_binary_classifier.py `
+  --n 500 --trials 2 --trial-epochs 1 --no-final-train
+```
+
+Corrida nocturna que determina los mejores parámetros y reentrena el modelo:
+
+```powershell
+.venv\Scripts\python.exe 08_optuna_binary_classifier.py `
+  --n 3000 --trials 20 --trial-epochs 6 --final-epochs 15
+```
+
+`--trials` representa el total objetivo del estudio. Si se interrumpe, reanudar
+el mismo SQLite sin repetir trials terminados:
+
+```powershell
+.venv\Scripts\python.exe 08_optuna_binary_classifier.py `
+  --resume-dir ..\output\tensorflow\optuna\2026-07-21_220000 `
+  --trials 20
+```
+
+Cada corrida guarda `study.db`, `run_config.json`, `trials.csv`,
+`best_params.json`, `optuna_historia.png` y `optuna_importancia.png` en
+`output/tensorflow/optuna/{timestamp}/`. Si se permite el reentrenamiento final,
+también guarda `final_metrics.json`, `final_training_history.json` y reemplaza
+`tensorFlow/models/mtg_detector.keras` solo después de validar el checkpoint.
 
 ## 1. Flujo de dos modelos (el resto de Certamen 2)
 

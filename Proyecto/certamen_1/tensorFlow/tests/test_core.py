@@ -43,8 +43,20 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(
             candidates,
             [
-                {"rank": 1, "name": "Lightning Bolt", "similarity": 1.0, "index": 1},
-                {"rank": 2, "name": "Black Lotus", "similarity": 0.8, "index": 2},
+                {
+                    "rank": 1,
+                    "name": "Lightning Bolt",
+                    "id": None,
+                    "similarity": 1.0,
+                    "index": 1,
+                },
+                {
+                    "rank": 2,
+                    "name": "Black Lotus",
+                    "id": None,
+                    "similarity": 0.8,
+                    "index": 2,
+                },
             ],
         )
 
