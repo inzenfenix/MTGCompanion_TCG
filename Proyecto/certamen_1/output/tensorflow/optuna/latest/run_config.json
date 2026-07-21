@@ -1,15 +1,15 @@
 {
   "study_name": "mtg_detector_tensorflow",
-  "run_dir": "C:\\Users\\JoaquinRodríguezWoca\\OneDrive - SERVICIOS DE SALUD OCUPACIONAL SPA (WORKMED)\\Escritorio\\Extra\\u\\framework-ia-UDD\\Proyecto\\certamen_1\\output\\tensorflow\\optuna\\2026-07-21_103331",
-  "n_per_class_requested": 500,
-  "n_per_class_effective": 500,
-  "trials_target": 2,
-  "trial_epochs": 1,
+  "run_dir": "C:\\Users\\JoaquinRodríguezWoca\\OneDrive - SERVICIOS DE SALUD OCUPACIONAL SPA (WORKMED)\\Escritorio\\Extra\\u\\framework-ia-UDD\\Proyecto\\certamen_1\\output\\tensorflow\\optuna\\2026-07-21_104919",
+  "n_per_class_requested": 3000,
+  "n_per_class_effective": 2999,
+  "trials_target": 20,
+  "trial_epochs": 6,
   "final_epochs": 15,
   "timeout_hours": null,
   "seed": 42,
   "skip_download": false,
-  "no_final_train": true,
+  "no_final_train": false,
   "search_space": {
     "learning_rate": {
       "low": 1e-05,
