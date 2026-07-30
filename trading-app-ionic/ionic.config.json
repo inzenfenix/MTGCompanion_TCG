@@ -1,0 +1,7 @@
+{
+  "name": "trading-app-ionic",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "react-vite"
+}

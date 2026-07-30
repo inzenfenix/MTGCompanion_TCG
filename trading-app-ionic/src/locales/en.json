@@ -1,0 +1,22 @@
+{
+  "tab_keep": "Keep",
+  "tab_trade": "Trade",
+  "tab_bazaar": "Bazaar",
+  "tab_vault": "Vault",
+  "tab_scrolls": "Scrolls",
+  "treasury_balance": "TREASURY BALANCE",
+  "available_trade": "Available for trade",
+  "new_trade": "New Trade",
+  "open_vault": "Open Vault",
+  "ledger": "Ledger of Trades",
+  "settings": "Settings",
+  "account_details": "Account Details",
+  "payment_methods": "Payment Methods",
+  "security_2fa": "Security & 2FA",
+  "trade_notifications": "Trade Notifications",
+  "dark_magic_theme": "Dark Magic Theme",
+  "light_magic_theme": "Light Magic Theme",
+  "language": "Language",
+  "save": "Save",
+  "abandon_quest": "Abandon Quest (Logout)"
+}

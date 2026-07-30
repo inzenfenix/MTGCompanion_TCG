@@ -58,3 +58,9 @@ entender en la práctica sus diferencias de diseño, rendimiento y ergonomía.
 | Certamen 1 | ✅ | [Proyecto/certamen_1/README.md](Proyecto/certamen_1/README.md) |
 | Certamen 2 | 🚧 plan | [Proyecto/certamen_2/README.md](Proyecto/certamen_2/README.md) |
 | Examen | 🚧 plan | [Proyecto/examen/README.md](Proyecto/examen/README.md) |
+
+## Aplicación Frontend (Ionic)
+
+La interfaz comercial del escáner de cartas se está construyendo actualmente con Ionic React. 
+- Puedes encontrar su código, estado de avance, y las **instrucciones de despliegue** en su respectiva carpeta.
+- ➡️ **[Ir al README de la aplicación Ionic](trading-app-ionic/README.md)**

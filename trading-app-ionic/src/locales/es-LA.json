@@ -1,0 +1,22 @@
+{
+  "tab_keep": "Fortaleza",
+  "tab_trade": "Comerciar",
+  "tab_bazaar": "Bazar",
+  "tab_vault": "Bóveda",
+  "tab_scrolls": "Pergaminos",
+  "treasury_balance": "BALANCE DE TESORERÍA",
+  "available_trade": "Disponible para comerciar",
+  "new_trade": "Nuevo Comercio",
+  "open_vault": "Abrir Bóveda",
+  "ledger": "Libro de Comercios",
+  "settings": "Ajustes",
+  "account_details": "Detalles de Cuenta",
+  "payment_methods": "Métodos de Pago",
+  "security_2fa": "Seguridad y 2FA",
+  "trade_notifications": "Notificaciones",
+  "dark_magic_theme": "Magia Oscura (Tema)",
+  "light_magic_theme": "Magia Blanca (Tema)",
+  "language": "Idioma",
+  "save": "Guardar",
+  "abandon_quest": "Abandonar Misión (Salir)"
+}

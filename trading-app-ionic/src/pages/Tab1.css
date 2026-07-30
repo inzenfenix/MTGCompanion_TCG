@@ -1,0 +1,135 @@
+.scroll-container {
+  /* MTG Text Box Background */
+  background-color: #e2d8c3;
+  background-image: url('https://www.transparenttextures.com/patterns/cream-paper.png');
+  color: #1a1a1a;
+  
+  /* MTG Text Box Border Style */
+  border: 2px solid #2b2b2b;
+  border-radius: 8px;
+  
+  /* Subtle inner shadow like a card text box */
+  box-shadow: 
+    inset 0 0 10px rgba(0, 0, 0, 0.2), 
+    0 8px 15px rgba(0, 0, 0, 0.7);
+    
+  position: relative;
+  margin: 15px;
+  padding: 30px 20px;
+  min-height: calc(100vh - 140px);
+  font-family: 'Georgia', serif; /* Mimicking MTG's MPlantin body text */
+}
+
+.scroll-container h1,
+.scroll-container h2,
+.scroll-container h3 {
+  color: #111;
+  text-shadow: none;
+  font-family: 'Cinzel', serif; /* Beleren-esque for titles */
+}
+
+.scroll-container p {
+  color: #333;
+}
+
+/* Custom MTG List Item to fix Ionic alignment issues */
+.ledger-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 15px;
+  border-top: 2px solid rgba(0,0,0,0.1);
+  padding-top: 15px;
+}
+
+.mtg-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 10px;
+  background: rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+.mtg-list-item-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex: 1;
+}
+
+.mtg-icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.05);
+}
+
+.mtg-card-info h3 {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin: 0 0 4px 0;
+  color: #111;
+}
+
+.mtg-card-info p {
+  font-size: 0.85rem;
+  margin: 0;
+  color: #555;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mtg-amount {
+  font-weight: 900;
+  font-size: 1.2rem;
+  font-family: 'Inter', sans-serif;
+}
+
+/* MTG Mana Colors */
+.mtg-amount.positive {
+  color: #00733e; /* MTG Green */
+}
+
+.mtg-amount.negative {
+  color: #d3202a; /* MTG Red */
+}
+
+.mtg-icon-positive {
+  color: #00733e;
+}
+
+.mtg-icon-negative {
+  color: #d3202a;
+}
+
+/* MTG Gold Buttons */
+.quick-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.action-btn {
+  flex: 1;
+  /* MTG Gold gradient */
+  --background: linear-gradient(to bottom, #f0e1a1, #d4af37);
+  --color: #1a1a1a;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  --border-radius: 4px;
+  --border-style: solid;
+  --border-width: 1px;
+  --border-color: #5c4a1b;
+  --box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+.action-btn::part(native) {
+  padding: 15px 5px;
+}

@@ -1,0 +1,22 @@
+{
+  "tab_keep": "Forteresse",
+  "tab_trade": "Commerce",
+  "tab_bazaar": "Bazar",
+  "tab_vault": "Coffre",
+  "tab_scrolls": "Parchemins",
+  "treasury_balance": "TRÉSORERIE",
+  "available_trade": "Disponible pour le commerce",
+  "new_trade": "Nouveau Commerce",
+  "open_vault": "Ouvrir le Coffre",
+  "ledger": "Livre de Comptes",
+  "settings": "Paramètres",
+  "account_details": "Détails du Compte",
+  "payment_methods": "Méthodes de Paiement",
+  "security_2fa": "Sécurité et 2FA",
+  "trade_notifications": "Notifications de Commerce",
+  "dark_magic_theme": "Magie Noire (Thème)",
+  "light_magic_theme": "Magie Blanche (Thème)",
+  "language": "Langue",
+  "save": "Enregistrer",
+  "abandon_quest": "Abandonner la Quête (Quitter)"
+}

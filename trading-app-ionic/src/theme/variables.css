@@ -1,0 +1,346 @@
+/* Ionic Variables and Custom Medieval Theme */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;700&display=swap');
+:root {
+  /* Ionic Color Palette mapped to Medieval Theme */
+  --ion-color-primary: #d4af37; /* Gold */
+  --ion-color-primary-rgb: 212,175,55;
+  --ion-color-primary-contrast: #120e0a;
+  --ion-color-primary-contrast-rgb: 18,14,10;
+  --ion-color-primary-shade: #bb9a30;
+  --ion-color-primary-tint: #d8b74b;
+
+  --ion-color-secondary: #8b0000; /* Deep Red */
+  --ion-color-secondary-rgb: 139,0,0;
+  --ion-color-secondary-contrast: #ffffff;
+  --ion-color-secondary-contrast-rgb: 255,255,255;
+  --ion-color-secondary-shade: #7a0000;
+  --ion-color-secondary-tint: #971a1a;
+
+  --ion-color-tertiary: #2e4a22; /* Forest Green */
+  --ion-color-tertiary-rgb: 46,74,34;
+  --ion-color-tertiary-contrast: #ffffff;
+  --ion-color-tertiary-contrast-rgb: 255,255,255;
+  --ion-color-tertiary-shade: #28411e;
+  --ion-color-tertiary-tint: #435c38;
+
+  --ion-color-success: #2dd36f;
+  --ion-color-success-rgb: 45,211,111;
+  --ion-color-success-contrast: #ffffff;
+  --ion-color-success-contrast-rgb: 255,255,255;
+  --ion-color-success-shade: #28ba62;
+  --ion-color-success-tint: #42d77d;
+
+  --ion-color-warning: #ffc409;
+  --ion-color-warning-rgb: 255,196,9;
+  --ion-color-warning-contrast: #000000;
+  --ion-color-warning-contrast-rgb: 0,0,0;
+  --ion-color-warning-shade: #e0ac08;
+  --ion-color-warning-tint: #ffca22;
+
+  --ion-color-danger: #eb445a;
+  --ion-color-danger-rgb: 235,68,90;
+  --ion-color-danger-contrast: #ffffff;
+  --ion-color-danger-contrast-rgb: 255,255,255;
+  --ion-color-danger-shade: #cf3c4f;
+  --ion-color-danger-tint: #ed576b;
+
+  --ion-color-dark: #2a2018;
+  --ion-color-dark-rgb: 42,32,24;
+  --ion-color-dark-contrast: #f2e3cd;
+  --ion-color-dark-contrast-rgb: 242,227,205;
+  --ion-color-dark-shade: #251c15;
+  --ion-color-dark-tint: #3f362f;
+
+  --ion-color-medium: #a8947c;
+  --ion-color-medium-rgb: 168,148,124;
+  --ion-color-medium-contrast: #000000;
+  --ion-color-medium-contrast-rgb: 0,0,0;
+  --ion-color-medium-shade: #94826d;
+  --ion-color-medium-tint: #b19f89;
+
+  --ion-color-light: #f4f5f8;
+  --ion-color-light-rgb: 244,245,248;
+  --ion-color-light-contrast: #000000;
+  --ion-color-light-contrast-rgb: 0,0,0;
+  --ion-color-light-shade: #d7d8da;
+  --ion-color-light-tint: #f5f6f9;
+}
+
+/* Force Dark Mode / Medieval Mode Everywhere */
+:root {
+  --ion-background-color: #120e0a;
+  --ion-background-color-rgb: 18,14,10;
+  
+  --ion-text-color: #f2e3cd;
+  --ion-text-color-rgb: 242,227,205;
+  
+  --ion-color-step-50: #1d1814;
+  --ion-color-step-100: #29211d;
+  --ion-color-step-150: #342b27;
+  --ion-color-step-200: #3f3431;
+  --ion-color-step-250: #4b3e3b;
+  --ion-color-step-300: #564744;
+  --ion-color-step-350: #62514e;
+  --ion-color-step-400: #6d5a58;
+  --ion-color-step-450: #796462;
+  --ion-color-step-500: #846d6b;
+  --ion-color-step-550: #8f7775;
+  --ion-color-step-600: #9b807f;
+  --ion-color-step-650: #a68a89;
+  --ion-color-step-700: #b29393;
+  --ion-color-step-750: #bd9d9d;
+  --ion-color-step-800: #c9a6a6;
+  --ion-color-step-850: #d4b0b0;
+  --ion-color-step-900: #e0b9ba;
+  --ion-color-step-950: #ebc3c4;
+
+  --ion-toolbar-background: rgba(10, 5, 8, 0.5);
+  --ion-tab-bar-background: rgba(10, 5, 8, 0.5);
+  --ion-tab-bar-color-selected: #ff4444;
+  --ion-item-background: rgba(10, 5, 8, 0.8);
+  --ion-background-color: transparent !important;
+  
+  --ion-font-family: 'Inter', sans-serif;
+}
+
+/* Global Styles */
+
+html, body, ion-app, ion-router-outlet, ion-tabs {
+  background: transparent !important;
+  --background: transparent !important;
+}
+
+body {
+  background-color: transparent !important;
+}
+
+ion-content {
+  --background: transparent;
+}
+
+ion-title, h1, h2, h3, h4, h5, h6 {
+  font-family: 'Cinzel', serif !important;
+  font-weight: 700 !important;
+  color: #f2e3cd;
+  text-shadow: 0 2px 10px rgba(139, 0, 0, 0.5);
+}
+
+ion-header ion-toolbar {
+  --background: rgba(10, 5, 8, 0.5) !important;
+  --border-width: 0 0 1px 0;
+  --border-color: rgba(139, 0, 0, 0.4);
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+ion-tab-bar {
+  --background: rgba(10, 5, 8, 0.5) !important;
+  --border-width: 1px 0 0 0;
+  --border-color: rgba(139, 0, 0, 0.4);
+  padding-bottom: env(safe-area-inset-bottom);
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+/* 
+  LIGHT MAGIC THEME (Foggy White/Cyan) 
+*/
+body.light-magic {
+  --ion-text-color: #263238; /* Dark gray blue for readability */
+  --ion-toolbar-background: rgba(255, 255, 255, 0.5) !important;
+  --ion-tab-bar-background: rgba(255, 255, 255, 0.6) !important;
+  --ion-tab-bar-color-selected: #00acc1; /* Cyan active state */
+}
+
+body.light-magic ion-title, 
+body.light-magic h1, 
+body.light-magic h2, 
+body.light-magic h3, 
+body.light-magic h4 {
+  color: #00838f !important;
+  text-shadow: 0 2px 10px rgba(255, 255, 255, 0.9) !important;
+}
+
+body.light-magic ion-header ion-toolbar,
+body.light-magic ion-tab-bar {
+  --border-color: rgba(0, 188, 212, 0.3) !important;
+  --background: rgba(255, 255, 255, 0.15) !important;
+  background: transparent !important;
+}
+
+body.light-magic .mtg-container {
+  background: rgba(255, 255, 255, 0.15) !important;
+  border-color: rgba(0, 188, 212, 0.3) !important;
+  color: #263238 !important;
+  box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.4), 0 8px 32px rgba(0, 188, 212, 0.1) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
+body.light-magic .mtg-container p {
+  color: #37474f !important;
+}
+
+body.light-magic .mtg-btn {
+  --background: linear-gradient(135deg, rgba(77, 208, 225, 0.8), rgba(38, 198, 218, 0.8)) !important;
+  --background-hover: linear-gradient(135deg, #26c6da, #00acc1) !important;
+  --color: #ffffff !important;
+  --border-color: rgba(128, 222, 234, 0.5) !important;
+  --box-shadow: 0 4px 15px rgba(0, 188, 212, 0.3) !important;
+  backdrop-filter: blur(5px) !important;
+}
+
+body.light-magic .mtg-card-item {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(0, 188, 212, 0.3) !important;
+  box-shadow: 0 4px 15px rgba(0, 188, 212, 0.1) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+
+body.light-magic .mtg-card-image-placeholder {
+  background-color: transparent !important;
+  background-image: radial-gradient(circle at center, rgba(255,255,255,0.4) 0%, rgba(224,247,250,0.1) 100%) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+body.light-magic .mtg-list-item-row {
+  --background: rgba(255, 255, 255, 0.2) !important;
+  --color: #263238 !important;
+  --border-color: rgba(0, 188, 212, 0.2) !important;
+}
+
+body.light-magic .mtg-list-item-row ion-icon {
+  color: #00acc1 !important;
+}
+
+body.light-magic .mtg-list-item-row ion-label[slot="end"] {
+  color: #00838f !important;
+}
+
+/* Custom MTG Popover for Dropdowns */
+ion-popover.mtg-popover::part(content) {
+  background: rgba(20, 10, 15, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(139, 0, 0, 0.3);
+  border-radius: 12px;
+}
+
+ion-popover.mtg-popover ion-list,
+ion-popover.mtg-popover ion-select-popover {
+  background: transparent !important;
+  --background: transparent !important;
+}
+
+ion-popover.mtg-popover ion-item {
+  --background: transparent !important;
+  --color: #f2e3cd;
+  --border-color: rgba(139, 0, 0, 0.2);
+}
+
+ion-popover.mtg-popover ion-item::part(native) {
+  border-bottom: 1px solid rgba(139, 0, 0, 0.2);
+}
+
+ion-popover.mtg-popover ion-item:hover, 
+ion-popover.mtg-popover ion-item.item-has-focus {
+  --background: rgba(139, 0, 0, 0.3) !important;
+}
+
+ion-popover.mtg-popover ion-radio {
+  --color: #c2b5b5;
+  --color-checked: #ff4444;
+}
+
+/* Light Magic Popover */
+body.light-magic ion-popover.mtg-popover::part(content) {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(0, 188, 212, 0.3);
+}
+
+body.light-magic ion-popover.mtg-popover ion-item {
+  --color: #263238;
+  --border-color: rgba(0, 188, 212, 0.2);
+}
+
+body.light-magic ion-popover.mtg-popover ion-item::part(native) {
+  border-bottom: 1px solid rgba(0, 188, 212, 0.2);
+}
+
+body.light-magic ion-popover.mtg-popover ion-item:hover {
+  --background: rgba(0, 188, 212, 0.15) !important;
+}
+
+body.light-magic ion-popover.mtg-popover ion-radio {
+  --color: #00acc1;
+  --color-checked: #00838f;
+}
+
+.medieval-card {
+  --background: #2a2018;
+  border: 1px solid #3d3227;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* Segments */
+ion-segment {
+  --background: rgba(0, 0, 0, 0.2);
+}
+
+ion-segment-button {
+  --color: #c2b5b5;
+  --color-checked: #d4af37;
+  --indicator-color: rgba(212, 175, 55, 0.2);
+}
+
+body.light-magic ion-segment {
+  --background: rgba(255, 255, 255, 0.2);
+}
+
+body.light-magic ion-segment-button {
+  --color: #546e7a;
+  --color-checked: #00838f;
+  --indicator-color: rgba(0, 188, 212, 0.3);
+}
+
+.parchment-card {
+  background-color: #eaddc5;
+  color: #2a2018;
+  border: 2px solid #8b7355;
+  border-radius: 4px;
+  padding: 20px;
+  box-shadow: inset 0 0 20px rgba(139, 115, 85, 0.2), 0 4px 6px rgba(0, 0, 0, 0.5);
+  position: relative;
+  overflow: hidden;
+}
+.parchment-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: url('https://www.transparenttextures.com/patterns/old-wall.png');
+  opacity: 0.3;
+  pointer-events: none;
+}
+.parchment-card h2, .parchment-card h3 {
+  color: #8b0000;
+  text-shadow: none;
+}
+.parchment-card ion-text {
+  color: #2a2018;
+}
+
+.gold-btn {
+  --background: linear-gradient(to bottom, #d4af37, #aa8c2c);
+  --color: #120e0a;
+  font-family: 'Cinzel', serif;
+  font-weight: bold;
+  --border-radius: 4px;
+  text-shadow: none;
+  --box-shadow: 0 4px 6px rgba(0,0,0,0.6);
+}
+
+.gold-text {
+  color: var(--ion-color-primary);
+}
