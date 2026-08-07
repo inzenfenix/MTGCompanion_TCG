@@ -1,0 +1,129 @@
+"""
+MTG Card Scanner — Certamen 2
+prepare_condition_dataset.py: genera el dataset sintético de condición (Stage 4).
+
+Bootstrap de datos mientras se consiguen/verifican los datasets reales de
+Roboflow (ver README.md, sección 9). Para cada carta muestreada, genera una
+versión por grado (NM/LP/MP/HP/DMG) con synthetic_wear.py, todas a partir de
+la misma imagen limpia — el dataset resultante queda balanceado por
+construcción (mismo N de cartas en cada grado).
+
+No reemplaza fotos reales — es para tener algo entrenable hoy y medir si el
+enfoque (transfer learning sobre el mismo backbone que las otras etapas)
+funciona en absoluto, antes de invertir en conseguir/etiquetar fotos reales.
+
+Uso:
+    python prepare_condition_dataset.py                # 500 cartas de muestra
+    python prepare_condition_dataset.py --n 100          # muestra chica, iterar rápido
+"""
+
+import argparse
+import csv
+import json
+import pathlib
+import random
+import re
+import sys
+import time
+
+import cv2
+import requests
+
+from card_preprocessing import normalizar_carta
+from synthetic_wear import aplicar_desgaste, GRADOS
+
+CERTAMEN2_DIR = pathlib.Path(__file__).resolve().parent
+CARDS_JSON = CERTAMEN2_DIR.parent / "certamen_1" / "data" / "cards.json"
+FUENTE_IMAGENES_DIR = CERTAMEN2_DIR / "data" / "ocr_images"  # reusa el cache de text_validator_baseline.py (calidad "large")
+DATASET_DIR = CERTAMEN2_DIR / "data" / "condition_dataset"    # gitignored
+
+HEADERS = {"User-Agent": "MTG-Scanner-Academic/1.0"}
+SEED = 42
+
+
+def url_calidad(image_url: str, calidad: str) -> str:
+    return re.sub(r"/(small|normal|large|png)/", f"/{calidad}/", image_url, count=1)
+
+
+def descargar_si_falta(card: dict, session: requests.Session) -> pathlib.Path | None:
+    ruta = FUENTE_IMAGENES_DIR / f"{card['id']}.jpg"
+    if ruta.exists():
+        return ruta
+    try:
+        resp = session.get(url_calidad(card["image_url"], "large"), headers=HEADERS, timeout=30)
+        resp.raise_for_status()
+        FUENTE_IMAGENES_DIR.mkdir(parents=True, exist_ok=True)
+        ruta.write_bytes(resp.content)
+        time.sleep(0.06)
+        return ruta
+    except requests.RequestException as e:
+        print(f"  aviso: no se pudo descargar {card['id']}: {e}")
+        return None
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Genera el dataset sintético NM/LP/MP/HP/DMG para Stage 4.")
+    parser.add_argument("--n", type=int, default=500, help="Cantidad de cartas base a muestrear (default: 500)")
+    parser.add_argument("--seed", type=int, default=SEED)
+    args = parser.parse_args()
+
+    if not CARDS_JSON.exists():
+        print(f"Error: no existe {CARDS_JSON}. Corré certamen_1/01_scraper.py primero.")
+        sys.exit(1)
+
+    with open(CARDS_JSON, encoding="utf-8") as f:
+        cards = json.load(f)
+    candidatas = [c for c in cards if c.get("image_url")]
+
+    rng = random.Random(args.seed)
+    muestra = rng.sample(candidatas, min(args.n, len(candidatas)))
+    print(f"Cartas base: {len(muestra):,}  ×  {len(GRADOS)} grados = {len(muestra) * len(GRADOS):,} imágenes")
+
+    session = requests.Session()
+    for grado in GRADOS:
+        (DATASET_DIR / grado).mkdir(parents=True, exist_ok=True)
+
+    filas_index = []
+    ok, saltadas = 0, 0
+
+    for i, card in enumerate(muestra):
+        ruta_fuente = descargar_si_falta(card, session)
+        if ruta_fuente is None:
+            saltadas += 1
+            continue
+
+        img = cv2.imread(str(ruta_fuente))
+        if img is None:
+            saltadas += 1
+            continue
+
+        # Los renders de Scryfall ya vienen recortados borde a borde — no
+        # localizar (ver card_preprocessing.py y README sección 8 sobre por
+        # qué la detección de contornos no es confiable en estas imágenes).
+        carta, _ = normalizar_carta(img, intentar_localizar=False)
+
+        for grado in GRADOS:
+            seed_variante = hash((card["id"], grado)) % (2**31)
+            desgastada = aplicar_desgaste(carta, grado, seed=seed_variante)
+            destino = DATASET_DIR / grado / f"{card['id']}.jpg"
+            cv2.imwrite(str(destino), desgastada)
+            filas_index.append({"card_id": card["id"], "name": card["name"], "grado": grado, "path": str(destino)})
+
+        ok += 1
+        if (i + 1) % 100 == 0:
+            print(f"  {i + 1}/{len(muestra)} cartas procesadas...")
+
+    index_path = DATASET_DIR / "index.csv"
+    with open(index_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=["card_id", "name", "grado", "path"])
+        writer.writeheader()
+        writer.writerows(filas_index)
+
+    print(f"\nCartas procesadas: {ok:,}  |  saltadas: {saltadas:,}")
+    print(f"Total de imágenes generadas: {len(filas_index):,}  ({ok:,} × {len(GRADOS)} grados)")
+    print(f"Dataset: {DATASET_DIR}")
+    print(f"Índice : {index_path}")
+
+
+if __name__ == "__main__":
+    main()

@@ -550,15 +550,23 @@ para volumen, transfer learning es razonable (mismo argumento que ya
 funciona para el detector MTG/no-MTG con pocos miles de imágenes).
 
 **Qué falta:**
-- [ ] Verificar licencias de los datasets de Roboflow antes de descargarlos.
-- [ ] Script de preparación de dataset (descargar/normalizar los datasets de
-      Roboflow, unificar labels a NM/LP/MP/HP/DMG).
-- [ ] Aumentación sintética de desgaste con OpenCV (scratches, whitening,
-      dobleces simulados sobre renders limpios de Scryfall) como multiplicador
-      de volumen — no reemplaza fotos reales, las complementa.
+- [x] Aumentación sintética de desgaste con OpenCV (`synthetic_wear.py`):
+      scratches, whitening de bordes, esquinas redondeadas, crease, manchas —
+      5 grados (NM/LP/MP/HP/DMG), intensidad creciente por grado. Probado
+      visualmente sobre renders reales de Scryfall — separación clara entre
+      grados (`python synthetic_wear.py --carta <img>` genera un grid NM..DMG).
+- [x] Script de preparación de dataset (`prepare_condition_dataset.py`):
+      muestrea N cartas, genera las 5 variantes de cada una, guarda en
+      `data/condition_dataset/{grado}/{card_id}.jpg` + `index.csv`. Dataset
+      balanceado por construcción (mismo N por grado). Probado a escala
+      chica (40 cartas × 5 = 200 imágenes); escalar con `--n` cuando haya
+      GPU libre para entrenar.
+- [ ] Verificar licencias de los datasets de Roboflow antes de descargarlos
+      (sección 9) — complemento real de volumen, no hecho todavía.
 - [ ] Script de entrenamiento por framework (nombre tentativo:
       `condition_grader.py`, PyTorch y TensorFlow) — mismo patrón de
-      `07_binary_classifier.py`/`08_optuna_binary_classifier.py`.
+      `07_binary_classifier.py`/`08_optuna_binary_classifier.py`, consume
+      `data/condition_dataset/`.
 - [ ] Conectar la salida a Stage 3 (`price_estimator_baseline.py`) como
       feature adicional, sin sacar el input manual (dejarlo como override).
 - [ ] Optuna sobre este modelo también, una vez tenga un baseline entrenando
