@@ -113,7 +113,11 @@ las otras dos etapas:
 
 - [ ] Migrar la versión TensorFlow de `MobileNetV2` a `MobileNetV3` (en curso).
 - [x] Optuna sobre la versión PyTorch — ver sección 0.
-- [ ] Exportar ambas versiones a ONNX (sección 3).
+- [x] Exportar PyTorch a ONNX: `pytorch/09_export_onnx.py`
+      (`torch.onnx.export` + verificación de paridad numérica contra
+      `onnxruntime`, diff máxima ~0 en la corrida de prueba). Falta el lado
+      TensorFlow (`tf2onnx`, mismo patrón) — pendiente hasta que termine la
+      migración a MobileNetV3.
 
 ### Stage 2 — Validador de texto (OCR)
 
@@ -295,6 +299,63 @@ versionado, igual que Certamen 1) y `models/price_baseline_model.joblib`
 (binario del pipeline entrenado, ~90 MB — **gitignored**, no versionado,
 mismo criterio que `pytorch/models/` y `tensorFlow/models/` en Certamen 1).
 
+### 5.2 Baseline de Stage 2 — `text_validator_baseline.py`
+
+Mismo espíritu que 5.1 pero para el validador de texto: un baseline sin
+modelo propio entrenado (**OpenCV + OCR + similitud de strings**), antes de
+construir las dos versiones "de verdad" por framework.
+
+```bash
+cd Proyecto/certamen_2
+python text_validator_baseline.py                # 800 cartas de muestra
+python text_validator_baseline.py --n 200          # muestra chica, iterar rápido
+```
+
+Pipeline: recorte fijo de la caja de texto (proporciones del frame moderno,
+sin corrección de perspectiva real todavía) → OCR con `pytesseract` → similitud
+(`difflib`) contra `name` + `oracle_text` de la carta candidata. Descarga su
+propia sub-muestra en calidad "large" (`certamen_2/data/ocr_images/`,
+gitignored) — las imágenes "small" del dataset compartido (146×204px) son
+ilegibles para OCR.
+
+**Resultado de la corrida real (800 cartas, 1600 pares positivo/negativo):**
+
+| Métrica | Valor |
+|---|---|
+| ROC-AUC | 0.833 |
+| Accuracy (umbral óptimo) | 0.840 |
+| Score promedio — positivo | 0.517 |
+| Score promedio — negativo | 0.168 |
+
+Un baseline sin modelo propio entrenado separa positivos de negativos con
+AUC 0.83 — señal fuerte de que el enfoque (OCR + comparación de texto) es
+viable antes de invertir en un clasificador entrenado. `ejemplos_ocr.png` en
+`output/text_validator_baseline/latest/` muestra que el OCR lee texto real y
+legible (ej. "If a Giant source you control would deal damage to a
+permane…" para *Calamity Bearer*, calzando exacto con su `oracle_text`).
+
+### 5.3 Demo del flujo completo — `full_pipeline_demo.py`
+
+Encadena Stage 1 (`pytorch/scanner.py`, subproceso) → Stage 2 → Stage 3 sobre
+una sola foto, con lo que existe hoy (baselines, no los modelos "de verdad"):
+
+```bash
+cd Proyecto/certamen_2
+python full_pipeline_demo.py ruta/a/carta.jpg
+```
+
+Corrida real sobre una foto de celular de *Bastion of Remembrance* encontró
+un bug real en el camino: Stage 1 identificó mal la carta (58.1% de
+similitud, correctamente marcada `NO_MAGIC`) porque
+`pytorch/data/index_pt.json` — la galería de embeddings donde busca Stage 1 —
+sigue siendo el subconjunto de 5,000 cartas de los inicios de Certamen 1;
+*Bastion of Remembrance* existe en el dataset actual de 58k pero nunca se
+re-indexó. Stage 2 leyó el texto real por OCR y correctamente marcó que no
+confirmaba al candidato equivocado de Stage 1 — exactamente la redundancia
+que Stage 2 está diseñado para dar. Pendiente (no bloqueante, necesita GPU):
+reconstruir el índice de PyTorch contra el dataset completo
+(`pytorch/03_pt_embedder.py --force`).
+
 ## 6. Qué falta para arrancar (roadmap)
 
 - [x] Extender `CAMPOS` con `oracle_text`, `prices`, `frame`, `border_color`,
@@ -302,18 +363,27 @@ mismo criterio que `pytorch/models/` y `tensorFlow/models/` en Certamen 1).
 - [x] Re-scrapear / backfill del dataset compartido (58,174 impresiones).
 - [x] Baseline tabular de Stage 3 (`price_estimator_baseline.py`) — hecho, ver
       sección 5.1.
-- [ ] Terminar la descarga de imágenes (`02_downloader.py`, en curso).
-- [ ] Migrar TensorFlow de MobileNetV2 a MobileNetV3 en las tres etapas.
+- [x] Descarga de imágenes completa (`02_downloader.py`): 58,174/58,174.
+- [x] Baseline OCR de Stage 2 (`text_validator_baseline.py`) — hecho, ver
+      sección 5.2.
+- [x] Demo del flujo completo (`full_pipeline_demo.py`) encadenando Stage
+      1→2→3 sobre una foto — con los baselines de hoy, no los modelos
+      "de verdad" todavía.
+- [x] Optuna sobre Stage 1 en ambos frameworks (sección 0).
+- [x] Exportar Stage 1 PyTorch a ONNX (`pytorch/09_export_onnx.py`).
+- [ ] Migrar TensorFlow de MobileNetV2 a MobileNetV3 en las tres etapas (en curso).
+- [ ] Reconstruir `pytorch/data/index_pt.json` (embeddings) contra el dataset
+      completo — sigue en su subconjunto original de 5,000 cartas, causa
+      identificaciones erróneas evitables (encontrado corriendo
+      `full_pipeline_demo.py`, ver sección 5.3).
 - [ ] Script de entrenamiento Stage 2 (nombre tentativo: `08_text_validator.py`,
-      por framework).
+      por framework) — versión "de verdad", no el baseline.
 - [ ] Stage 3 "de verdad" por framework (nombre tentativo: `09_price_estimator.py`),
       sumando el embedding visual al baseline tabular de la sección 5.1.
 - [ ] Aplicar Optuna a Stage 2 y Stage 3 una vez tengan un baseline entrenando
-      (mismo patrón que la sección 0), y a Stage 1 en PyTorch (pendiente).
-- [ ] Exportar los 6 modelos a ONNX y armar el registro `best_model.json` por
-      etapa (sección 2).
-- [ ] Extender `scanner.py` (o `Testing/compare_scanners.py`) para exponer el
-      flujo completo: foto → carta + confianza → validación de texto → precio.
+      (mismo patrón que la sección 0).
+- [ ] Exportar TensorFlow a ONNX (`tf2onnx`) y armar el registro
+      `best_model.json` por etapa (sección 2).
 - [ ] Métricas a reportar: ROC-AUC del validador de texto; MAE / RMSE / R² del
       estimador de precio sobre un hold-out.
 
