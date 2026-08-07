@@ -54,51 +54,64 @@ TIPOS_PRIMARIOS = [
 COLUMNAS_CATEGORICAS = ["rarity", "set_type", "frame", "border_color"]
 
 
+def extraer_usd(card: dict) -> float | None:
+    """Extrae prices.usd como float, o None si falta/es inválido/es <= 0."""
+    usd_raw = (card.get("prices") or {}).get("usd")
+    if usd_raw is None:
+        return None
+    try:
+        usd = float(usd_raw)
+    except (TypeError, ValueError):
+        return None
+    return usd if usd > 0 else None
+
+
+def fila_features(card: dict) -> dict:
+    """
+    Aplana una carta a su fila de features (sin el target `usd`) — la misma
+    transformación que usa el entrenamiento, reusable para inferencia
+    (ver full_pipeline_demo.py, que predice el precio de una carta recién
+    identificada sin pasar por construir_features/el dataset completo).
+    """
+    type_line = card.get("type_line") or ""
+    colors = card.get("colors") or []
+    color_identity = card.get("color_identity") or []
+    finishes = card.get("finishes") or []
+    frame_effects = card.get("frame_effects") or []
+    released_at = card.get("released_at") or ""
+    anio_str = released_at[:4]
+    anio = int(anio_str) if anio_str.isdigit() else None
+
+    fila = {
+        "cmc": card.get("cmc") or 0,
+        "rarity": card.get("rarity") or "unknown",
+        "set_type": card.get("set_type") or "unknown",
+        "frame": str(card.get("frame") or "unknown"),
+        "border_color": card.get("border_color") or "unknown",
+        "n_colores": len(color_identity),
+        "es_incoloro": int(len(colors) == 0),
+        "es_legendaria": int("Legendary" in type_line),
+        "n_frame_effects": len(frame_effects),
+        "tiene_foil": int("foil" in finishes),
+        "tiene_etched": int("etched" in finishes),
+        "anio": anio if anio is not None else 2000,
+        "antiguedad_anios": (ANIO_ACTUAL - anio) if anio is not None else 25,
+    }
+    for color in COLORES:
+        fila[f"color_{color}"] = int(color in colors)
+    for tipo in TIPOS_PRIMARIOS:
+        fila[f"tipo_{tipo.lower()}"] = int(tipo in type_line)
+    return fila
+
+
 def construir_features(cards: list) -> pd.DataFrame:
     """Aplana cada carta del dataset compartido a features tabulares + target `usd`."""
     filas = []
     for c in cards:
-        precios = c.get("prices") or {}
-        usd_raw = precios.get("usd")
-        if usd_raw is None:
+        usd = extraer_usd(c)
+        if usd is None:
             continue
-        try:
-            usd = float(usd_raw)
-        except (TypeError, ValueError):
-            continue
-        if usd <= 0:
-            continue
-
-        type_line = c.get("type_line") or ""
-        colors = c.get("colors") or []
-        color_identity = c.get("color_identity") or []
-        finishes = c.get("finishes") or []
-        frame_effects = c.get("frame_effects") or []
-        released_at = c.get("released_at") or ""
-        anio_str = released_at[:4]
-        anio = int(anio_str) if anio_str.isdigit() else None
-
-        fila = {
-            "usd": usd,
-            "cmc": c.get("cmc") or 0,
-            "rarity": c.get("rarity") or "unknown",
-            "set_type": c.get("set_type") or "unknown",
-            "frame": str(c.get("frame") or "unknown"),
-            "border_color": c.get("border_color") or "unknown",
-            "n_colores": len(color_identity),
-            "es_incoloro": int(len(colors) == 0),
-            "es_legendaria": int("Legendary" in type_line),
-            "n_frame_effects": len(frame_effects),
-            "tiene_foil": int("foil" in finishes),
-            "tiene_etched": int("etched" in finishes),
-            "anio": anio if anio is not None else 2000,
-            "antiguedad_anios": (ANIO_ACTUAL - anio) if anio is not None else 25,
-        }
-        for color in COLORES:
-            fila[f"color_{color}"] = int(color in colors)
-        for tipo in TIPOS_PRIMARIOS:
-            fila[f"tipo_{tipo.lower()}"] = int(tipo in type_line)
-
+        fila = {"usd": usd, **fila_features(c)}
         filas.append(fila)
 
     return pd.DataFrame(filas)
