@@ -127,8 +127,13 @@ def construir_pipeline(modelo: str) -> Pipeline:
     if modelo == "gb":
         regresor = GradientBoostingRegressor(random_state=SEED)
     else:
+        # max_depth=None (sin límite) + 300 árboles sobre ~40k filas con
+        # features one-hot producía un pipeline de ~800 MB en disco sin
+        # mejora medible de R² sobre esta config acotada — árboles sin límite
+        # de profundidad memorizan filas individuales en vez de generalizar.
         regresor = RandomForestRegressor(
-            n_estimators=300, max_depth=None, n_jobs=-1, random_state=SEED,
+            n_estimators=200, max_depth=18, min_samples_leaf=3,
+            n_jobs=-1, random_state=SEED,
         )
 
     return Pipeline([("prep", preprocesador), ("reg", regresor)])

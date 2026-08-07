@@ -267,13 +267,13 @@ mayoría de las cartas son bulk de centavos, pocas cuestan cientos de dólares).
 
 | Métrica | Valor |
 |---|---|
-| MAE (USD) | $2.69 |
-| Median AE (USD) | $0.19 |
-| RMSE (USD) | $43.32 |
-| R² (USD) | 0.258 |
-| R² (log-USD) | 0.454 |
+| MAE (USD) | $2.59 |
+| Median AE (USD) | $0.20 |
+| RMSE (USD) | $45.23 |
+| R² (USD) | 0.191 |
+| R² (log-USD) | 0.521 |
 
-El modelo acierta bien el grueso de cartas baratas (Median AE de 19 centavos)
+El modelo acierta bien el grueso de cartas baratas (Median AE de 20 centavos)
 pero pierde precisión en las "chase cards" caras (RMSE en USD dominado por
 esos pocos casos de cientos/miles de dólares) — visible en
 `output/price_baseline/latest/pred_vs_actual.png`, donde la nube se pega a la
@@ -283,9 +283,16 @@ fuertes — tiene sentido con la intuición de mercado de MTG. Es exactamente el
 tipo de resultado que la sección 2 (selección de mejor framework por etapa)
 va a tener que superar con el embedding visual sumado.
 
+> El `RandomForestRegressor` original no limitaba `max_depth` (300 árboles
+> sin tope) — entrenaba un pipeline de ~800 MB en disco memorizando filas
+> individuales en vez de generalizar, sin mejora real de R². Acotar
+> `max_depth=18` + `min_samples_leaf=3` (200 árboles) bajó el modelo a ~90 MB
+> y **subió** R²(log-USD) de 0.454 a 0.521 — menos overfitting, no solo menos
+> peso en disco.
+
 Artefactos: `output/price_baseline/{timestamp}/` (metrics + gráficos,
 versionado, igual que Certamen 1) y `models/price_baseline_model.joblib`
-(binario del pipeline entrenado, ~800 MB — **gitignored**, no versionado,
+(binario del pipeline entrenado, ~90 MB — **gitignored**, no versionado,
 mismo criterio que `pytorch/models/` y `tensorFlow/models/` en Certamen 1).
 
 ## 6. Qué falta para arrancar (roadmap)
