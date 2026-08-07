@@ -10,7 +10,7 @@ import {
   setupIonicReact
 } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
-import { home, scan, library, settings, scanOutline, libraryOutline } from 'ionicons/icons';
+import { home, settings, scanOutline, libraryOutline } from 'ionicons/icons';
 import Tab1 from './pages/Tab1';
 import Tab2 from './pages/Tab2';
 import Tab3 from './pages/Tab3';
@@ -56,7 +56,7 @@ import './i18n';
 setupIonicReact();
 
 import DreamyBackground from './components/DreamyBackground';
-import { compassOutline, searchOutline } from 'ionicons/icons';
+import { searchOutline } from 'ionicons/icons';
 import { useTranslation } from 'react-i18next';
 
 const App: React.FC = () => {

@@ -25,6 +25,12 @@ export default tseslint.config(
       ],
       'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
       'no-debugger': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
+      // Prefijo _ para variables/args intencionalmente sin usar todavía
+      // (ej. route params de páginas placeholder que aún no leen datos reales).
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
     },
   },
 )

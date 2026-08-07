@@ -5,7 +5,9 @@ import { storefrontOutline } from 'ionicons/icons';
 import { motion } from 'framer-motion';
 
 const CardDetails: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  // TODO: usar _id para pedir la carta real (Stage 1 identificación + Stage 3
+  // precio) una vez el pipeline esté conectado — hoy la página es estática.
+  const { id: _id } = useParams<{ id: string }>();
 
   return (
     <IonPage>
@@ -24,7 +26,7 @@ const CardDetails: React.FC = () => {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.4 }}
         >
-          <div style={{ height: '300px', backgroundColor: '#1a0f12', borderRadius: '8px', border: '1px solid rgba(139, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundImage: 'radial-gradient(circle at center, #2a1115 0%, #1a0f12 100%)', boxShadow: '0 10px 30px rgba(0,0,0,0.8)' }}>
+          <div className="mtg-card-image-placeholder" style={{ height: '300px', boxShadow: '0 10px 30px rgba(0,0,0,0.8)' }}>
              <span style={{color: '#c2b5b5', fontStyle: 'italic'}}>[ High-Res Card Image ]</span>
           </div>
 
