@@ -18,8 +18,10 @@ tocar ni duplicar el dataset "small" de certamen_1.
 
 Pipeline por carta:
     1. Descargar (o reusar) la imagen en calidad "large".
-    2. OpenCV: recortar la caja de texto de reglas (proporciones aproximadas
-       del frame moderno de Magic — ver CROP_TEXTO).
+    2. OpenCV (card_preprocessing.py): localizar la carta en la foto, corregir
+       perspectiva, normalizar contraste — luego recortar la caja de texto de
+       reglas dentro de esa carta ya encuadrada (proporciones aproximadas del
+       frame moderno de Magic — ver CROP_TEXTO).
     3. pytesseract: OCR sobre el recorte (grayscale + threshold).
     4. Comparar el texto leído contra `name` + `oracle_text` de la carta
        candidata (positivo = su propia carta, negativo = una carta al azar)
@@ -50,6 +52,8 @@ import numpy as np
 import pytesseract
 import requests
 from sklearn.metrics import roc_auc_score, roc_curve
+
+from card_preprocessing import mejorar_contraste, normalizar_carta
 
 CERTAMEN2_DIR = pathlib.Path(__file__).resolve().parent
 CARDS_JSON = CERTAMEN2_DIR.parent / "certamen_1" / "data" / "cards.json"
@@ -93,10 +97,9 @@ HEADERS = {"User-Agent": "MTG-Scanner-Academic/1.0"}
 SEED = 42
 
 # Proporciones aproximadas de la caja de texto de reglas sobre el frame
-# moderno de Magic (x0, y0, x1, y1), como fracción del tamaño de la carta.
-# No es perspective-correction real (para eso está OpenCV en la app Ionic,
-# ver examen/README.md) — acá las imágenes de Scryfall ya vienen encuadradas,
-# solo hace falta recortar la región de texto dentro del encuadre.
+# moderno de Magic (x0, y0, x1, y1), como fracción del tamaño de la carta ya
+# localizada/corregida por card_preprocessing.normalizar_carta (no de la foto
+# cruda) — ver ese módulo para la detección real de la carta en el frame.
 CROP_TEXTO = (0.07, 0.52, 0.93, 0.88)
 
 
@@ -122,13 +125,28 @@ def descargar_imagen(card: dict, calidad: str, session: requests.Session) -> pat
         return None
 
 
-def recortar_texto(imagen_path: pathlib.Path) -> np.ndarray | None:
+def recortar_texto(imagen_path: pathlib.Path, es_render_pre_recortado: bool = True) -> np.ndarray | None:
+    """
+    Carga la foto, normaliza la carta (card_preprocessing) y recorta la caja
+    de texto de reglas dentro de esa carta ya encuadrada.
+
+    `es_render_pre_recortado=True` (default acá, porque este script siempre
+    procesa renders de Scryfall) salta la detección de contornos — ver el
+    docstring de `normalizar_carta` sobre por qué esa detección no es
+    confiable sobre imágenes que ya vienen recortadas borde a borde.
+    `full_pipeline_demo.py` pasa `False` porque ahí sí hay una foto real con
+    fondo alrededor de la carta.
+    """
     img = cv2.imread(str(imagen_path))
     if img is None:
         return None
-    h, w = img.shape[:2]
+
+    carta, _ = normalizar_carta(img, intentar_localizar=not es_render_pre_recortado)
+    carta = mejorar_contraste(carta)
+
+    h, w = carta.shape[:2]
     x0, y0, x1, y1 = CROP_TEXTO
-    recorte = img[int(y0 * h):int(y1 * h), int(x0 * w):int(x1 * w)]
+    recorte = carta[int(y0 * h):int(y1 * h), int(x0 * w):int(x1 * w)]
 
     gris = cv2.cvtColor(recorte, cv2.COLOR_BGR2GRAY)
     # Upscale — el recorte es chico incluso en calidad "large"; tesseract rinde mejor con más DPI efectivo.

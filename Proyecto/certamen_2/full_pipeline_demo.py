@@ -115,7 +115,11 @@ def stage1_identificar(imagen: pathlib.Path, top: int) -> dict:
 def stage2_validar_texto(imagen: pathlib.Path, carta: dict) -> dict:
     """OpenCV + OCR sobre la foto original, comparado contra la carta identificada en Stage 1."""
     asegurar_tessdata()
-    recorte = recortar_texto(imagen)
+    # es_render_pre_recortado=False: acá sí es una foto real con fondo
+    # alrededor de la carta (a diferencia de text_validator_baseline.py, que
+    # siempre procesa renders de Scryfall ya recortados) — la detección de
+    # contornos vale la pena intentarla.
+    recorte = recortar_texto(imagen, es_render_pre_recortado=False)
     if recorte is None:
         return {"ocr_text": "", "score": 0.0, "confirma": False}
 

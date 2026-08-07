@@ -311,8 +311,9 @@ python text_validator_baseline.py                # 800 cartas de muestra
 python text_validator_baseline.py --n 200          # muestra chica, iterar rápido
 ```
 
-Pipeline: recorte fijo de la caja de texto (proporciones del frame moderno,
-sin corrección de perspectiva real todavía) → OCR con `pytesseract` → similitud
+Pipeline: `card_preprocessing.py` (localizar carta + corregir perspectiva +
+normalizar contraste — ver sección 8) → recorte fijo de la caja de texto
+dentro de la carta ya encuadrada → OCR con `pytesseract` → similitud
 (`difflib`) contra `name` + `oracle_text` de la carta candidata. Descarga su
 propia sub-muestra en calidad "large" (`certamen_2/data/ocr_images/`,
 gitignored) — las imágenes "small" del dataset compartido (146×204px) son
@@ -322,13 +323,13 @@ ilegibles para OCR.
 
 | Métrica | Valor |
 |---|---|
-| ROC-AUC | 0.833 |
-| Accuracy (umbral óptimo) | 0.840 |
-| Score promedio — positivo | 0.517 |
-| Score promedio — negativo | 0.168 |
+| ROC-AUC | 0.818 |
+| Accuracy (umbral óptimo) | 0.823 |
+| Score promedio — positivo | 0.496 |
+| Score promedio — negativo | 0.164 |
 
 Un baseline sin modelo propio entrenado separa positivos de negativos con
-AUC 0.83 — señal fuerte de que el enfoque (OCR + comparación de texto) es
+AUC ~0.82 — señal fuerte de que el enfoque (OCR + comparación de texto) es
 viable antes de invertir en un clasificador entrenado. `ejemplos_ocr.png` en
 `output/text_validator_baseline/latest/` muestra que el OCR lee texto real y
 legible (ej. "If a Giant source you control would deal damage to a
@@ -386,36 +387,29 @@ reconstruir el índice de PyTorch contra el dataset completo
       `best_model.json` por etapa (sección 2).
 - [ ] Métricas a reportar: ROC-AUC del validador de texto; MAE / RMSE / R² del
       estimador de precio sobre un hold-out.
-- [ ] Condición de la carta: hoy es un input declarado por el usuario +
-      multiplicador de mercado (sección 7) — evaluar si vale la pena un
-      clasificador visual real más adelante, y de qué fuente saldrían fotos
-      etiquetadas por condición sin repetir el problema de derechos de eBay.
+- [x] `card_preprocessing.py`: localizar carta + corregir perspectiva +
+      normalizar contraste, compartido entre Stage 2 y Stage 4 — ver sección 8.
+- [x] Condición de la carta: stopgap por regla (`--condition` + multiplicador)
+      implementado — ver sección 7.
+- [ ] Stage 4 — clasificador de condición por framework (PyTorch +
+      TensorFlow), datasets públicos ya identificados — ver sección 9,
+      todavía sin implementar.
 
 ## 7. Por qué este enfoque
 
-Se descartaron dos alternativas más simples (ver discusión en el chat del
+Se descartó una alternativa más simple (ver discusión en el chat del
 proyecto):
-- **Detector de daño/condición de la carta** — encaja con un ángulo comercial
-  de tasación, pero requiere un dataset etiquetado a mano desde cero (mint /
-  played / damaged) que no tenemos. `prices.usd` de Scryfall es un precio de
-  referencia esencialmente near-mint (sus imágenes son scans oficiales
-  pristinos, cero variación de condición) — el sistema hoy no tiene ninguna
-  señal de condición en ningún lado. **Stopgap implementado en
-  `full_pipeline_demo.py`** (7 ago): condición como input declarado por quien
-  escanea (`--condition NM/LP/MP/HP/DMG`), ajustada al precio predicho con
-  multiplicadores estándar de la industria (`CONDITION_MULTIPLIERS` en
-  `price_estimator_baseline.py`) — no es una señal aprendida, es una regla.
-  Un clasificador visual de condición de verdad seguiría necesitando fotos
-  etiquetadas por condición; la fuente más plausible (listings de eBay, con
-  condición autodeclarada por el vendedor) tiene el mismo problema de
-  derechos/ToS que ya se descartó para diversidad de estilo (sección 5) —
-  usar la API oficial de eBay en vez de scrapear HTML sería el camino menos
-  malo, pero la pregunta de derechos de uso comercial no desaparece solo por
-  usar la API, y las etiquetas de condición autodeclaradas por vendedores son
-  ruidosas (no es grading profesional). No se persiguió esta vía todavía.
 - **Solo estimador de precio** (sin el validador de texto) — es un flujo de un
   solo modelo nuevo, no dos, y no ataca el problema real de identificación
   ambigua que puede tener el sistema de Certamen 1.
+
+Un **detector de daño/condición de la carta** se consideró y se descartó
+inicialmente por el mismo motivo (dataset etiquetado por condición que no
+teníamos) — pero se retomó el 7 de agosto: la condición de una carta es un
+concepto visual genérico (scratches, whitening de bordes, esquinas
+redondeadas), no específico de Magic, así que no hace falta un dataset
+MTG-only para entrenarlo. Ver sección 9 — es ahora Stage 4 del pipeline,
+también por framework.
 
 Combinar validador de texto + estimador de precio da dos modelos genuinamente
 encadenados (la salida de uno es prerequisito del otro) resolviendo un problema
@@ -423,3 +417,149 @@ concreto. Duplicar cada etapa en ambos frameworks y compararlos por métrica
 (sección 2), en vez de comprometerse a uno solo desde el inicio, deja elegir
 el mejor de cada etapa con datos en vez de a priori — y ONNX (sección 3)
 hace que esa elección no ate la app final a un solo framework.
+
+## 8. OpenCV — localización y normalización de la carta
+
+Hasta el 7 de agosto, OpenCV solo se usaba dentro de Stage 2 (`recortar_texto`
+en `text_validator_baseline.py`) y ahí nomás para *preparar* la imagen para
+OCR (grayscale, upscale, threshold) — nada del pipeline hacía el trabajo de
+"encontrar la carta dentro de una foto real con fondo alrededor", pese a que
+el diagrama de arquitectura (sección 1) y el plan del examen ya lo daban por
+hecho. Cada etapa asumía que la imagen de entrada ya era "solo la carta"
+— cierto para los renders de Scryfall, falso para una foto de celular real.
+
+`card_preprocessing.py` (nuevo) hace ese trabajo una sola vez, compartido
+entre Stage 2 y el nuevo Stage 4 (sección 9): localizar el rectángulo de la
+carta en la foto, corregir perspectiva (`cv2.getPerspectiveTransform` +
+`warpPerspective`) a un tamaño canónico fijo (750×1050), y normalizar
+contraste (CLAHE). Es el equivalente en Python de lo que hará OpenCV.js del
+lado del cliente en la app Ionic — mismo algoritmo, referencia para portar
+a JS más adelante.
+
+**Cómo se llegó al algoritmo actual (vale la pena registrar el camino, no
+solo el resultado):**
+
+1. Primer intento: Canny + `approxPolyDP` buscando un contorno de 4 lados
+   ("document scanner" clásico). Falló en la primera foto real de prueba
+   (celular, carta en funda plástica sobre tela oscura) — el borde real de
+   la carta contra el fondo tiene muy poco contraste de luminancia, así que
+   casi no aparece en el mapa de edges, mientras que una zona con textura
+   brillante en una esquina del fondo generaba ruido que dominaba como
+   "contorno más grande".
+2. Segundo intento: mismo Canny, pero `minAreaRect` sobre el contorno externo
+   más grande en vez de exigir una aproximación poligonal limpia a 4 puntos
+   (más tolerante a bordes imperfectos). Mismo problema de fondo: seguía sin
+   encontrar nada, porque el problema no era la forma del contorno sino que
+   Canny no detectaba el borde real en absoluto.
+3. Diagnóstico visual (guardar y mirar el mapa de edges): confirmó que era
+   un problema de segmentación (carta más clara que el fondo, no un borde
+   nítido) — no un problema de tracing de contornos. Cambio a Otsu sobre
+   brillo (`cv2.threshold(..., THRESH_OTSU)`) + apertura/cierre morfológico
+   para limpiar ruido, en vez de Canny. Esto sí localizó la carta
+   correctamente en la foto de prueba real.
+4. Pero al validar contra el corpus real (`text_validator_baseline.py`,
+   renders de Scryfall), el ROC-AUC bajó de 0.833 a 0.742 — la detección por
+   Otsu enganchaba la caja de ilustración interna de la carta (que por
+   casualidad comparte aspect ratio con la carta completa) en vez de fallar
+   limpiamente a "no encontré nada", porque esas imágenes no tienen fondo
+   real contra el cual segmentar. Se probaron filtros de área, solidez
+   (`contourArea/hull area`) y extent (`contourArea/minAreaRect area`) para
+   distinguir ese falso positivo de una detección real — ninguno separaba
+   limpiamente los dos casos (el falso positivo medía *mejor* solidez que la
+   detección real y buena sobre la foto de celular).
+5. Solución final, más honesta que seguir ajustando umbrales: en vez de que
+   el módulo intente adivinar "¿esta imagen tiene fondo real o no?", quien
+   llama lo declara. `normalizar_carta(..., intentar_localizar=bool)` —
+   `text_validator_baseline.py` pasa `False` (siempre procesa renders
+   pre-recortados, la detección no aporta y a veces daña), `full_pipeline_demo.py`
+   pasa `False` para Stage 2 vía `es_render_pre_recortado=False` en fotos
+   reales. Con este flag, el ROC-AUC de Stage 2 volvió a 0.818 (n=800, dentro
+   del ruido de la corrida original) y la foto de celular real sigue
+   localizando y enderezando la carta correctamente.
+
+**Limitación conocida, sin resolver:** la detección por contornos (Otsu +
+`minAreaRect`) es una heurística clásica, no un modelo entrenado — funciona
+en la foto de prueba que tenemos, pero no hay garantía de que generalice a
+fondos muy distintos (mesas claras, fondos con patrones, ángulos extremos).
+Los datasets encontrados para Stage 4 (sección 9) probablemente vengan con
+sus propias fotos ya razonablemente encuadradas, así que esto no bloquea ese
+trabajo, pero es la pieza más frágil de todo el preprocesamiento y candidata
+a reemplazar por un detector entrenado (o al menos afinar con más fotos
+reales de prueba) más adelante — no algo que un curso necesite resolver a la
+perfección, pero sí algo para no perder de vista en la interrogación oral.
+
+## 9. Modelo nuevo 3 — Clasificador de condición (Stage 4)
+
+Motivación (7 de agosto): el estimador de precio (Stage 3) predice un precio
+de referencia (esencialmente near-mint, ver sección 7) sin ninguna señal de
+la condición física real de la carta fotografiada — hoy eso se tapa con un
+multiplicador declarado por el usuario (`--condition`, sección 7). Un
+clasificador visual de condición de verdad cierra ese hueco, y a diferencia
+de lo que se pensó originalmente, **no hace falta un dataset de Magic para
+entrenarlo** — desgaste (scratches, whitening de bordes, esquinas
+redondeadas, dobleces) es un concepto visual genérico, igual en una carta de
+Magic que en una de Pokémon o un card deportivo.
+
+Es Stage 4: corre **en paralelo con Stage 1**, no después — ambos consumen la
+misma carta ya localizada/normalizada por `card_preprocessing.py` (sección
+8), y ninguno de los dos necesita saber qué etapa produjo qué primero. Su
+salida (grado de condición) se suma a Stage 3 como feature adicional, además
+del input manual que ya existe.
+
+```
+                    foto ─▶ card_preprocessing.py (localizar + normalizar)
+                                    │
+                    ┌───────────────┴───────────────┐
+                    ▼                                 ▼
+   Stage 1 — Detector + retrieval        Stage 4 — Clasificador de condición
+   (¿qué carta es?)                      (¿en qué estado está?)
+                    │                                 │
+                    └───────────────┬───────────────┘
+                                    ▼
+                    Stage 2 — Validador de texto (¿confirma?)
+                                    │
+                                    ▼
+                    Stage 3 — Estimador de precio (metadata + condición → USD)
+```
+
+**Datos — no se necesitó scrapear nada nuevo, ya existen datasets públicos
+para exactamente este problema** (buscado el 7 de agosto):
+
+- [MTG Card Grading (Roboflow Universe)](https://universe.roboflow.com/stall-ysun2/mtg-card-grading)
+  — 335 imágenes de daño en cartas MTG, específico, listo para usar.
+- [Card Grader (Roboflow Universe)](https://universe.roboflow.com/group-6-major-project/card-grader)
+  — cross-TCG (deportivas, Pokémon, MTG), grados por Edge Wear / Scratch /
+  Corner Wear — confirma que el desgaste generaliza entre juegos de cartas.
+- [Stanford CS230 — "MTG Card Grader Using Image Classification and Detection"](http://cs230.stanford.edu/projects_spring_2020/reports/38794151.pdf)
+  — mismo problema exacto, bins NM / LP / HP / Damaged (casi idénticos a
+  `CONDITION_MULTIPLIERS`), referencia de metodología.
+- [rthorst/mint_condition (GitHub)](https://github.com/rthorst/mint_condition)
+  — ~90k fotos de eBay de cartas *ya gradeadas profesionalmente* (PSA/BGS,
+  grado visible en la funda de la foto) — la fuente de labels más confiable
+  si algún día hace falta más volumen que los datasets de arriba. No se
+  persiguió todavía — antes de scrapear eBay para esto, agotar lo que ya es
+  público y gratis (los tres puntos anteriores). **Verificar licencia** de
+  cada dataset de Roboflow antes de usarlo — no asumida acá.
+
+**Arquitectura**: mismo patrón que las demás etapas — transfer learning
+sobre el mismo backbone por framework (`EfficientNet_b0` PyTorch,
+`MobileNetV3` TensorFlow una vez migrado), cabeza de clasificación
+(NM/LP/MP/HP/DMG o un score continuo de desgaste) en vez de la cabeza
+binaria de Stage 1. Con ~335 imágenes MTG-específicas + el dataset cross-TCG
+para volumen, transfer learning es razonable (mismo argumento que ya
+funciona para el detector MTG/no-MTG con pocos miles de imágenes).
+
+**Qué falta:**
+- [ ] Verificar licencias de los datasets de Roboflow antes de descargarlos.
+- [ ] Script de preparación de dataset (descargar/normalizar los datasets de
+      Roboflow, unificar labels a NM/LP/MP/HP/DMG).
+- [ ] Aumentación sintética de desgaste con OpenCV (scratches, whitening,
+      dobleces simulados sobre renders limpios de Scryfall) como multiplicador
+      de volumen — no reemplaza fotos reales, las complementa.
+- [ ] Script de entrenamiento por framework (nombre tentativo:
+      `condition_grader.py`, PyTorch y TensorFlow) — mismo patrón de
+      `07_binary_classifier.py`/`08_optuna_binary_classifier.py`.
+- [ ] Conectar la salida a Stage 3 (`price_estimator_baseline.py`) como
+      feature adicional, sin sacar el input manual (dejarlo como override).
+- [ ] Optuna sobre este modelo también, una vez tenga un baseline entrenando
+      (mismo patrón que la sección 0).

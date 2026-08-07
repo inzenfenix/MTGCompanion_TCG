@@ -1,0 +1,10 @@
+{
+  "n_muestra": 800,
+  "n_pares": 1600,
+  "calidad_descarga": "large",
+  "roc_auc": 0.81830625,
+  "umbral_optimo": 0.39520958083832336,
+  "accuracy_en_umbral_optimo": 0.823125,
+  "score_promedio_positivo": 0.4955267828296898,
+  "score_promedio_negativo": 0.163569542858082
+}
