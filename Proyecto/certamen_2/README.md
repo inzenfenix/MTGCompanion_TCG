@@ -386,6 +386,10 @@ reconstruir el índice de PyTorch contra el dataset completo
       `best_model.json` por etapa (sección 2).
 - [ ] Métricas a reportar: ROC-AUC del validador de texto; MAE / RMSE / R² del
       estimador de precio sobre un hold-out.
+- [ ] Condición de la carta: hoy es un input declarado por el usuario +
+      multiplicador de mercado (sección 7) — evaluar si vale la pena un
+      clasificador visual real más adelante, y de qué fuente saldrían fotos
+      etiquetadas por condición sin repetir el problema de derechos de eBay.
 
 ## 7. Por qué este enfoque
 
@@ -393,7 +397,22 @@ Se descartaron dos alternativas más simples (ver discusión en el chat del
 proyecto):
 - **Detector de daño/condición de la carta** — encaja con un ángulo comercial
   de tasación, pero requiere un dataset etiquetado a mano desde cero (mint /
-  played / damaged) que no tenemos.
+  played / damaged) que no tenemos. `prices.usd` de Scryfall es un precio de
+  referencia esencialmente near-mint (sus imágenes son scans oficiales
+  pristinos, cero variación de condición) — el sistema hoy no tiene ninguna
+  señal de condición en ningún lado. **Stopgap implementado en
+  `full_pipeline_demo.py`** (7 ago): condición como input declarado por quien
+  escanea (`--condition NM/LP/MP/HP/DMG`), ajustada al precio predicho con
+  multiplicadores estándar de la industria (`CONDITION_MULTIPLIERS` en
+  `price_estimator_baseline.py`) — no es una señal aprendida, es una regla.
+  Un clasificador visual de condición de verdad seguiría necesitando fotos
+  etiquetadas por condición; la fuente más plausible (listings de eBay, con
+  condición autodeclarada por el vendedor) tiene el mismo problema de
+  derechos/ToS que ya se descartó para diversidad de estilo (sección 5) —
+  usar la API oficial de eBay en vez de scrapear HTML sería el camino menos
+  malo, pero la pregunta de derechos de uso comercial no desaparece solo por
+  usar la API, y las etiquetas de condición autodeclaradas por vendedores son
+  ruidosas (no es grading profesional). No se persiguió esta vía todavía.
 - **Solo estimador de precio** (sin el validador de texto) — es un flujo de un
   solo modelo nuevo, no dos, y no ataca el problema real de identificación
   ambigua que puede tener el sistema de Certamen 1.

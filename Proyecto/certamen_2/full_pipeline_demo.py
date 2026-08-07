@@ -25,6 +25,13 @@ etapas incluso sobre fotos limpias de Scryfall.
 Uso:
     python full_pipeline_demo.py ruta/a/carta.jpg
     python full_pipeline_demo.py ruta/a/carta.jpg --top 5
+    python full_pipeline_demo.py ruta/a/carta.jpg --condition LP   # carta con desgaste visible
+
+Nota sobre condición: Stage 3 predice un precio de referencia (~near-mint —
+no hay señal de condición en los datos, ver price_estimator_baseline.py). Sin
+un clasificador visual de condición entrenado (necesita fotos etiquetadas por
+condición que no tenemos), `--condition` es la condición que declara quien
+escanea, no algo que el modelo infiere de la foto.
 """
 
 import argparse
@@ -38,7 +45,12 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from price_estimator_baseline import fila_features, MODELS_DIR as PRICE_MODELS_DIR
+from price_estimator_baseline import (
+    ajustar_por_condicion,
+    CONDITION_MULTIPLIERS,
+    fila_features,
+    MODELS_DIR as PRICE_MODELS_DIR,
+)
 from text_validator_baseline import (
     asegurar_tessdata,
     normalizar,
@@ -116,8 +128,12 @@ def stage2_validar_texto(imagen: pathlib.Path, carta: dict) -> dict:
     }
 
 
-def stage3_estimar_precio(carta: dict) -> dict:
-    """Predice prices.usd con el baseline tabular entrenado (certamen_2/models/)."""
+def stage3_estimar_precio(carta: dict, condicion: str = "NM") -> dict:
+    """
+    Predice prices.usd (near-mint) con el baseline tabular entrenado
+    (certamen_2/models/) y lo ajusta por la condición declarada — el modelo
+    no infiere condición de la foto, ver docstring del módulo.
+    """
     modelo_path = PRICE_MODELS_DIR / "price_baseline_model.joblib"
     if not modelo_path.exists():
         return {"disponible": False}
@@ -125,11 +141,14 @@ def stage3_estimar_precio(carta: dict) -> dict:
     pipeline = joblib.load(modelo_path)
     fila = pd.DataFrame([fila_features(carta)])
     pred_log = pipeline.predict(fila)[0]
-    pred_usd = max(0.0, float(np.expm1(pred_log)))
+    pred_nm_usd = max(0.0, float(np.expm1(pred_log)))
+    pred_usd = ajustar_por_condicion(pred_nm_usd, condicion)
 
     precio_real = (carta.get("prices") or {}).get("usd")
     return {
         "disponible": True,
+        "condicion": condicion.upper(),
+        "precio_estimado_nm_usd": pred_nm_usd,
         "precio_estimado_usd": pred_usd,
         "precio_real_usd": float(precio_real) if precio_real else None,
     }
@@ -139,6 +158,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Corre las 3 etapas del pipeline sobre una foto.")
     parser.add_argument("imagen", type=pathlib.Path, help="Ruta a la foto de la carta")
     parser.add_argument("--top", type=int, default=5, help="Candidatos a mostrar en Stage 1 (default: 5)")
+    parser.add_argument("--condition", default="NM", choices=list(CONDITION_MULTIPLIERS),
+                        help="Condición declarada de la carta física (default: NM = near-mint)")
     args = parser.parse_args()
 
     if not args.imagen.exists():
@@ -174,16 +195,17 @@ def main() -> None:
     print(f"  Score de confirmación : {s2['score']:.3f}")
     print(f"  ¿Confirma la carta?   : {'sí' if s2['confirma'] else 'no'}")
 
-    print("\n[Stage 3] Estimando precio (metadata → USD)...")
-    s3 = stage3_estimar_precio(carta)
+    print(f"\n[Stage 3] Estimando precio (metadata → USD, condición declarada: {args.condition})...")
+    s3 = stage3_estimar_precio(carta, condicion=args.condition)
     if not s3["disponible"]:
         print("  Aviso: no existe certamen_2/models/price_baseline_model.joblib —")
         print("  corré price_estimator_baseline.py primero.")
     else:
-        print(f"  Precio estimado : ${s3['precio_estimado_usd']:.2f}")
+        print(f"  Precio estimado (near-mint) : ${s3['precio_estimado_nm_usd']:.2f}")
+        print(f"  Precio estimado ({s3['condicion']})".ljust(30) + f": ${s3['precio_estimado_usd']:.2f}")
         if s3["precio_real_usd"] is not None:
-            error = abs(s3["precio_estimado_usd"] - s3["precio_real_usd"])
-            print(f"  Precio real     : ${s3['precio_real_usd']:.2f}  (error: ${error:.2f})")
+            print(f"  Precio real (Scryfall, NM)  : ${s3['precio_real_usd']:.2f}"
+                  "  — referencia near-mint, no comparable 1:1 si la condición declarada no es NM")
         else:
             print("  Precio real     : no disponible en Scryfall para esta carta")
 

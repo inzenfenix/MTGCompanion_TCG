@@ -53,6 +53,36 @@ TIPOS_PRIMARIOS = [
 ]
 COLUMNAS_CATEGORICAS = ["rarity", "set_type", "frame", "border_color"]
 
+# El modelo entrenado predice un precio de referencia (`prices.usd` de
+# Scryfall es esencialmente "precio típico near-mint" — no hay señal de
+# condición en ningún lado del dataset: las imágenes de Scryfall son scans
+# oficiales pristinos, no fotos de un ejemplar físico real). Como no
+# entrenamos un clasificador visual de condición (necesitaría fotos
+# etiquetadas por condición que no tenemos — ver README.md, "Por qué este
+# enfoque"), la condición se pide como input del usuario y se aplica acá como
+# un multiplicador de mercado. Son rangos aproximados de uso común en la
+# industria (TCGplayer, Card Kingdom, etc. publican tablas similares) — un
+# stopgap, no un dato aprendido, y editable si el equipo prefiere otros
+# porcentajes.
+CONDITION_MULTIPLIERS = {
+    "NM": 1.00,   # Near Mint
+    "LP": 0.85,   # Lightly Played
+    "MP": 0.70,   # Moderately Played
+    "HP": 0.50,   # Heavily Played
+    "DMG": 0.30,  # Damaged
+}
+
+
+def ajustar_por_condicion(precio_nm: float, condicion: str) -> float:
+    """Aplica el multiplicador de condición sobre un precio near-mint estimado."""
+    condicion = (condicion or "NM").upper()
+    multiplicador = CONDITION_MULTIPLIERS.get(condicion)
+    if multiplicador is None:
+        raise ValueError(
+            f"Condición desconocida: {condicion!r}. Opciones: {list(CONDITION_MULTIPLIERS)}"
+        )
+    return precio_nm * multiplicador
+
 
 def extraer_usd(card: dict) -> float | None:
     """Extrae prices.usd como float, o None si falta/es inválido/es <= 0."""
