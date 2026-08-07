@@ -1,8 +1,10 @@
-# MTG Card Scanner — Certamen 2 (plan)
+# MTG Card Scanner — Certamen 2
 
-> 🚧 Planeación — todavía no implementado. Este documento es la base para arrancar
-> la entrega 2: qué problema resolvemos, qué modelos nuevos hacen falta y qué
-> datos necesitan.
+> 🚧 En construcción. Hecho hasta ahora: Optuna sobre el detector MTG/no-MTG
+> (sección 0), el dataset compartido re-scrapeado con estilo/texto/precio
+> (sección 5) y el baseline tabular de Stage 3 (sección 5.1). El resto de
+> este documento es el plan acordado para el flujo de tres modelos que
+> alimenta la app Ionic — ver [Proyecto/examen/README.md](../examen/README.md).
 
 ## Consigna
 
@@ -14,140 +16,106 @@
 > aplicado para su proyecto y determinado cuál es la mejor combinación de
 > parámetros." — Alex, sobre `optuna_ejemplo.py`.
 
-Dos entregas distintas, con plazos distintos: Optuna tiene deadline de **una
-semana** y aplica a un modelo que ya existe hoy; el flujo de dos modelos nuevos
-es el resto de Certamen 2 y tiene más margen. Van por separado más abajo.
+## 0. Optuna sobre el detector MTG/no-MTG — ✅ hecho
 
-## 0. Entrega inmediata — Optuna (esta semana)
+Entrega de la semana de Optuna, ya ejecutada de punta a punta:
 
-El ejemplo (`optuna_ejemplo.py`) optimiza un MLP de Keras sobre Iris: define un
-`objective(trial)` que arma el modelo con hiperparámetros propuestos por
-Optuna, lo entrena, y retorna la métrica a maximizar; un `study` con sampler
-TPE corre `N_TRIALS` de esa función y se queda con la mejor combinación.
+- [x] `optuna` agregado a `tensorFlow/requirements.txt`.
+- [x] `tensorFlow/08_optuna_binary_classifier.py`: envuelve el entrenamiento de
+      `07_binary_classifier.py` en un `objective(trial)` (lr, weight decay,
+      batch size, unidades/dropout de la cabeza, optimizer, fracción de
+      backbone congelada) y corre un `study` con sampler TPE.
+- [x] Corrida real completada — resultados en
+      `Proyecto/certamen_1/output/tensorflow/optuna/2026-07-21_104919/`
+      (`best_params.json`, `optuna_historia.png`, `optuna_importancia.png`,
+      `final_metrics.json`) y `tensorFlow/models/mtg_detector.keras` reentrenado
+      con los mejores hiperparámetros. Instrucciones de reanudar/trasladar la
+      corrida en `output/tensorflow/optuna/README.md`.
+- [x] Repetido para PyTorch: `pytorch/08_optuna_binary_classifier.py`, mismo
+      search space y mismo formato de artefactos que la versión TensorFlow.
+      Requirió un refactor menor de `07_binary_classifier.py` (la arquitectura
+      `MTGDetector` se movió a `pytorch/src/binary_classifier.py`, parametrizada
+      por `head_units`/`freeze_ratio`/`dropout`, para que la corrida normal y
+      Optuna entrenen exactamente el mismo modelo) y actualizar `scanner.py`
+      para reconstruir la arquitectura desde `mtg_detector_cfg.json` en vez de
+      asumir los defaults — necesario porque PyTorch guarda solo pesos
+      (`state_dict`), a diferencia de `.keras` que empaqueta arquitectura +
+      pesos. Corrida real (n=3000, 20 trials, 6 épocas/trial, 15 finales) en
+      curso — resultados en `Proyecto/certamen_1/output/pytorch/optuna/latest/`
+      cuando termine.
 
-**No hace falta esperar a los modelos nuevos de Certamen 2 para aplicar esto**
-— ya tenemos un modelo entrenándose hoy con hiperparámetros fijos a mano:
-`07_binary_classifier.py` (el detector MTG/no-MTG, en ambos frameworks). Para
-la entrega inmediata se implementó Optuna sobre la versión **TensorFlow**, que
-es el candidato natural para esta semana:
+## 1. Arquitectura del pipeline completo
 
-- Ya existe y entrena rápido (no hay que levantar nada nuevo).
-- La versión TensorFlow ya usa Keras — mismo framework que el ejemplo, se
-  adapta casi directo.
-- Su constructor estaba configurado con `Adam(3e-4)`, `BATCH_SIZE = 32`,
-  `freeze_ratio = 0.65` y cabeza `Dropout(0.3) → Dense(256) → ReLU →
-  Dropout(0.2) → Dense(1)`. Ahora esos valores se pueden proponer desde Optuna
-  sin cambiar el comportamiento predeterminado de `07_binary_classifier.py`.
-
-Espacio de búsqueda propuesto (mapeado 1:1 a esas constantes):
-
-| Hiperparámetro | Baseline | Rango implementado con Optuna |
-|---|---|---|
-| Learning rate | `3e-4` | `suggest_float("learning_rate", 1e-5, 1e-2, log=True)` |
-| Weight decay | `0.0` | `suggest_float("weight_decay", 1e-6, 1e-2, log=True)` |
-| Batch size | `32` | `suggest_categorical("batch_size", [16, 32, 64])` |
-| Unidades cabeza densa | `256` | `suggest_int("head_units", 64, 512, step=64)` |
-| Dropout (x2) | `0.3` / `0.2` | `suggest_float("dropout", 0.0, 0.5, step=0.05)` aplicado a ambos |
-| Optimizer | `Adam` | `suggest_categorical("optimizer", ["adam", "adamw", "sgd"])` |
-| Fracción de backbone congelada | `0.65` | `suggest_categorical("freeze_ratio", [0.50, 0.65, 0.80, 1.00])` |
-
-Métrica a maximizar: `val_accuracy` (o `val_f1` si la clase MTG/no-MTG queda
-desbalanceada) — igual que el ejemplo usa `val_accuracy` de Iris.
-
-**Estado y pasos concretos:**
-
-- [x] Agregar `optuna` a `requirements.txt` de `tensorFlow/` (y de `pytorch/` si
-      se hace también ahí).
-- [x] Script nuevo `tensorFlow/08_optuna_binary_classifier.py`: envolver el
-      entrenamiento de `07_binary_classifier.py` en un `objective(trial)` con
-      la tabla de arriba, correr un `study` (10–30 trials según tiempo
-      disponible) y guardar `optuna_historia.png` + `optuna_importancia.png` en
-      `output/tensorflow/optuna/{timestamp}/` — mismo patrón de `output/` ya
-      usado por `04_evaluate.py` (historial versionado, no sobreescribe).
-- [ ] Reentrenar el modelo final con los mejores hiperparámetros encontrados y
-      reemplazar `tensorFlow/models/mtg_detector.keras`.
-- [ ] Si alcanza el tiempo: repetir lo mismo para `pytorch/07_binary_classifier.py`
-      (mismo patrón, Optuna es agnóstico al framework — solo cambia cómo se
-      arma y entrena el modelo dentro de `objective`).
-- [ ] Guardar `best_params.json` junto a los gráficos, para que quede registrado
-      qué combinación ganó y con qué métrica.
-
-Los dos últimos ítems se marcan solo después de ejecutar el experimento real;
-tener el código implementado no equivale a haber medido una combinación
-ganadora.
-
-### Ejecutar la entrega Optuna
-
-Desde `Proyecto/certamen_1`, reconstruir el dataset compartido con los scripts
-ya usados en Certamen 1:
-
-```powershell
-py -3.12 -m venv tensorFlow\.venv
-tensorFlow\.venv\Scripts\python.exe -m pip install --upgrade pip
-tensorFlow\.venv\Scripts\python.exe -m pip install -r tensorFlow\requirements.txt
-
-tensorFlow\.venv\Scripts\python.exe 01_scraper.py --max-cards 5000 --quality small
-tensorFlow\.venv\Scripts\python.exe 02_downloader.py
-```
-
-Smoke test corto, desde `Proyecto/certamen_1/tensorFlow`:
-
-```powershell
-.venv\Scripts\python.exe 08_optuna_binary_classifier.py `
-  --n 500 --trials 2 --trial-epochs 1 --no-final-train
-```
-
-Corrida nocturna que determina los mejores parámetros y reentrena el modelo:
-
-```powershell
-.venv\Scripts\python.exe 08_optuna_binary_classifier.py `
-  --n 3000 --trials 20 --trial-epochs 6 --final-epochs 15
-```
-
-`--trials` representa el total objetivo del estudio. Si se interrumpe, reanudar
-el mismo SQLite sin repetir trials terminados:
-
-```powershell
-.venv\Scripts\python.exe 08_optuna_binary_classifier.py `
-  --resume-dir ..\output\tensorflow\optuna\2026-07-21_220000 `
-  --trials 20
-```
-
-Cada corrida guarda `study.db`, `run_config.json`, `trials.csv`,
-`best_params.json`, `optuna_historia.png` y `optuna_importancia.png` en
-`output/tensorflow/optuna/{timestamp}/`. Si se permite el reentrenamiento final,
-también guarda `final_metrics.json`, `final_training_history.json` y reemplaza
-`tensorFlow/models/mtg_detector.keras` solo después de validar el checkpoint.
-
-## 1. Flujo de dos modelos (el resto de Certamen 2)
-
-Certamen 1 ya identifica una carta a partir de una foto (detector MTG/no-MTG +
-retrieval por similitud visual). Certamen 2 extiende ese resultado con **dos
-modelos nuevos, encadenados**, para resolver un problema de punta a punta:
-
-> Dada una foto de una carta, identificarla con confianza y estimar su precio
-> de mercado.
-
-### Flujo de modelos propuesto
+Conversación de equipo (7 ago): el resto de Certamen 2 no son "dos modelos
+sueltos" sino **tres etapas encadenadas**, cada una replicada en ambos
+frameworks — 3 × 2 = **6 modelos entrenados en total**. La razón de duplicar
+cada etapa es la misma que en Certamen 1: comparar PyTorch vs. TensorFlow con
+las mismas métricas, y quedarnos con el que mejor rinda en cada etapa
+específica (no necesariamente el mismo framework gana las tres).
 
 ```
-foto ─▶ [Certamen 1: detector MTG/no-MTG + retrieval visual] ─▶ carta candidata + similitud
-                                                                        │
-                                                                        ▼
-                                        [Modelo nuevo 1: validador de texto/OCR]
-                                        lee el nombre/texto de reglas de la carta y
-                                        confirma o descarta la carta candidata
-                                                                        │
-                                                                        ▼
-                                        [Modelo nuevo 2: estimador de precio (regresión)]
-                                        predice el precio de mercado a partir de la
-                                        metadata de la carta ya confirmada
-                                                                        │
-                                                                        ▼
-                                        carta identificada + precio estimado (USD)
+foto ─▶ OpenCV (recorte/perspectiva/normalización)
+              │
+              ▼
+   ┌─────────────────────────────────────────────┐
+   │ Stage 1 — Detector MTG / no-MTG              │  ya existe (Certamen 1)
+   │   PyTorch: EfficientNet_b0                   │  Optuna: ✅ TF, ✅ PT
+   │   TensorFlow: MobileNetV3                    │
+   └─────────────────────────────────────────────┘
+              │ (si es MTG)
+              ▼
+   ┌─────────────────────────────────────────────┐
+   │ Stage 2 — Validador de texto (OCR)           │  nuevo — Certamen 2
+   │   PyTorch: EfficientNet_b0 + cabeza propia    │
+   │   TensorFlow: MobileNetV3 + cabeza propia     │
+   └─────────────────────────────────────────────┘
+              │ (texto confirma la carta candidata)
+              ▼
+   ┌─────────────────────────────────────────────┐
+   │ Stage 3 — Estimador de precio (regresión)    │  nuevo — Certamen 2
+   │   PyTorch: EfficientNet_b0 + cabeza propia    │
+   │   TensorFlow: MobileNetV3 + cabeza propia     │
+   └─────────────────────────────────────────────┘
+              │
+              ▼
+   selector: por etapa, se queda con el framework de mejor métrica (sección 2)
+              │
+              ▼
+   carta identificada + texto validado + precio estimado (USD)
 ```
 
-### Modelo nuevo 1 — Validador de texto (clasificación)
+### Backbones
+
+- **PyTorch**: `EfficientNet_b0` — sin cambios, es el que ya usa Certamen 1.
+- **TensorFlow**: se migra `MobileNetV2` → **`MobileNetV3`** (Small o Large a
+  definir según tiempo de entrenamiento disponible) para las tres etapas.
+  Motivo: mejor trade-off precio/latencia que V2 y pensado desde el diseño
+  para inferencia móvil — encaja directo con el objetivo final (correr en la
+  app Ionic vía ONNX).
+- Las tres etapas **comparten el mismo backbone por framework** (transfer
+  learning, distintas cabezas/fine-tuning por tarea) — es la misma estrategia
+  que ya usa `07_binary_classifier.py`, extendida a las otras dos tareas.
+
+  > ⚠️ Supuesto a confirmar en equipo: para Stage 2 (texto) esto implica que el
+  > "modelo propio" es un clasificador de imagen (verifica visualmente la
+  > región de texto) en vez del enfoque original de bag-of-words +
+  > feedforward sobre texto de OCR. Se mantiene OCR (`pytesseract`/`easyocr`)
+  > para *extraer* el texto, pero la confirmación por backbone es la línea por
+  > defecto de este documento porque unifica arquitectura, entrenamiento,
+  > tuning con Optuna y exportación a ONNX en las tres etapas. Si el equipo
+  > prefiere el bag-of-words original para Stage 2, es un cambio de una
+  > sección, no del resto del plan.
+
+### Stage 1 — Detector MTG/no-MTG (existente, en migración)
+
+Ya construido y evaluado en Certamen 1. Pendiente para dejarlo alineado con
+las otras dos etapas:
+
+- [ ] Migrar la versión TensorFlow de `MobileNetV2` a `MobileNetV3` (en curso).
+- [x] Optuna sobre la versión PyTorch — ver sección 0.
+- [ ] Exportar ambas versiones a ONNX (sección 3).
+
+### Stage 2 — Validador de texto (OCR)
 
 Motivación: la similitud visual sola puede confundir cartas con la misma
 ilustración pero distinta edición/versión (reprints), o fallar con fotos de
@@ -155,62 +123,194 @@ mala calidad. El texto impreso en la carta (nombre, tipo, texto de reglas) es
 una señal independiente de la visual.
 
 Pipeline:
-1. OCR sobre la región de texto de la carta (`pytesseract` / `easyocr` —
-   herramienta, no modelo propio).
-2. Modelo propio: clasificador de palabras entrenado por nosotros —
-   arquitectura Bag-of-Words → Red Feedforward, basada en
-   [`Material/detector_palabras.py`](../../Material/detector_palabras.py) —
-   que compara el texto leído contra el de la carta candidata y da un score de
-   confirmación (¿es texto consistente con esa carta o no?).
+1. **OpenCV**: recorte y corrección de perspectiva de la región de texto de la
+   carta (misma normalización que ya hace falta para Stage 1, reutilizada).
+2. **OCR** (`pytesseract` / `easyocr` — herramienta, no modelo propio) extrae
+   el texto de esa región.
+3. **Modelo propio** (por framework, ver supuesto arriba): compara el texto
+   leído contra `oracle_text` / `name` de la carta candidata (ya identificada
+   por Stage 1 + retrieval de Certamen 1) y da un score de confirmación.
 
-Dataset: `oracle_text` y `name` ya están en `data/cards.json` (vía Scryfall) —
-no hace falta scrapear nada nuevo para el texto de referencia. Los negativos
-pueden salir de texto de otras cartas o de las imágenes Pokémon ya descargadas
+Dataset: `oracle_text` y `name` recién se agregaron a `CAMPOS` en
+`01_scraper.py` (antes no estaban — esta era una suposición incorrecta de una
+versión anterior de este plan). Falta re-scrapear o hacer un pase incremental
+sobre `data/cards.json` para tenerlos. Los negativos pueden salir de texto de
+otras cartas o de las imágenes Pokémon ya descargadas
 (`data/images_negatives/`).
 
-Hiperparámetros a tunear con Optuna una vez exista el baseline (mismo patrón
-de la sección 0): número de capas, unidades por capa, dropout, optimizer, lr,
-batch size — literalmente el mismo espacio de búsqueda que
-`Material/detector_palabras.py` / `optuna_ejemplo.py`, porque la arquitectura
-es la misma (Bag-of-Words → Feedforward).
+### Stage 3 — Estimador de precio (regresión)
 
-### Modelo nuevo 2 — Estimador de precio (regresión)
-
-Motivación: da valor comercial concreto a la identificación (ver plan del
-examen) — no solo "qué carta es", sino "cuánto vale hoy".
+Motivación: da valor comercial concreto a la identificación (ver
+[plan del examen](../examen/README.md)) — no solo "qué carta es", sino
+"cuánto vale hoy".
 
 Entrada: metadata de la carta ya confirmada (rareza, set, `cmc`, colores,
-`type_line`, antigüedad/`released_at`, `set_type`).
+`type_line`, antigüedad/`released_at`, `set_type`) + el embedding visual del
+backbone compartido como feature adicional.
 Salida: precio estimado en USD (regresión).
 
-Dataset: Scryfall expone un campo `prices` (`usd`, `usd_foil`, `eur`, `tix`) en
-el mismo bulk data que ya usa `01_scraper.py` — solo falta agregarlo a la lista
-`CAMPOS`. No hace falta series históricas de precio, un snapshot actual alcanza
-para un regresor de referencia (random forest / gradient boosting a modo de
-baseline, con la opción de un MLP simple después).
+Dataset: `prices` (`usd`, `usd_foil`, `eur`, `tix`) recién se agregó a
+`CAMPOS` en `01_scraper.py` (mismo bulk data que ya usa `01_scraper.py`, solo
+faltaba pedirlo). Un snapshot actual alcanza para un regresor de referencia —
+no hace falta series históricas de precio.
 
-Hiperparámetros a tunear con Optuna una vez exista el baseline: si es
-random forest/gradient boosting → `n_estimators`, `max_depth`, `learning_rate`,
-`subsample`; si es un MLP → mismo espacio que el validador de texto, cambiando
-la métrica a minimizar (MAE o RMSE, `direction="minimize"`) en vez de maximizar
-accuracy.
+## 2. Selección del mejor framework por etapa
 
-## 2. Qué falta para arrancar
+El pipeline final no asume de antemano que un framework gana las tres etapas.
+Por cada etapa se corre `04_evaluate.py`-style (mismo patrón de Certamen 1:
+métricas versionadas en `output/`) para ambos frameworks y se compara:
 
-- [ ] Agregar `prices` a `CAMPOS` en `01_scraper.py` y re-scrapear (o hacer un
-      pase incremental sobre `data/cards.json` existente).
-- [ ] Script de entrenamiento del validador de texto (nombre tentativo:
-      `08_text_validator.py`).
-- [ ] Script de entrenamiento del estimador de precio (nombre tentativo:
-      `09_price_estimator.py`).
-- [ ] Aplicar Optuna a ambos modelos nuevos una vez tengan un baseline
-      entrenando (mismo patrón que la sección 0).
+- Stage 1 y 2 (clasificación): ROC-AUC como métrica principal.
+- Stage 3 (regresión): RMSE / R² como métrica principal.
+
+El ganador de cada etapa queda registrado (ej. `output/best_model.json`,
+`{"stage1": "pytorch", "stage2": "tensorflow", "stage3": "pytorch"}`) y es lo
+que el pipeline final consulta antes de correr cada etapa. Regla operativa
+cuando una métrica sale baja: la primera palanca es **agregar más datos**
+(ampliar `--n` / `--max-cards`) antes de cambiar de arquitectura o de
+hiperparámetros — es más barato y suele explicar la mayoría de los casos de
+ROC-AUC bajo en este proyecto (dataset desbalanceado o chico).
+
+## 3. ONNX — portabilidad a la app Ionic
+
+Reemplaza el enfoque anterior del [plan del examen](../examen/README.md), que
+proponía llevar solo TensorFlow (vía TensorFlow.js) a la app. Con ONNX como
+formato de exportación común:
+
+- PyTorch exporta con `torch.onnx.export` (ya es su ruta nativa).
+- TensorFlow exporta con `tf2onnx` sobre el modelo Keras.
+- La app Ionic corre inferencia con **`onnxruntime-web`**, sin importar qué
+  framework ganó cada etapa (sección 2) — el selector de mejor framework deja
+  de ser una decisión de "a qué framework le apostamos para siempre" y pasa a
+  ser una decisión por etapa, resuelta en tiempo de build/deploy.
+
+Esto también evita el salto extra que tenía la ruta PyTorch → ONNX →
+onnxruntime-web mencionado en el plan anterior del examen: ahora **ambos**
+frameworks pasan por ONNX, es la ruta principal para los dos, no un rodeo para
+uno solo.
+
+## 4. Automatización del entrenamiento (Electron, en paralelo)
+
+Un integrante del equipo está construyendo una app Electron que envuelve los
+scripts Python existentes (scraper, downloader, embedders, clasificadores,
+Optuna) para automatizar la creación de los 6 modelos sin tocar la terminal.
+Para que eso funcione sin fricción, los scripts nuevos de Stage 2 y Stage 3
+deben mantener el mismo contrato que ya usan `01_scraper.py` / `02_downloader.py`
+/ `04_evaluate.py`:
+
+- CLI vía `argparse`, nunca interacción por input().
+- Exit code `0` solo si terminó bien; `sys.exit(1)` en cualquier prerequisito
+  faltante (mismo criterio que se aplicó en Certamen 1, ver
+  [certamen_1/README.md](../certamen_1/README.md)).
+- Salidas a rutas predecibles y versionadas bajo `output/` (`--output-dir`),
+  igual que `04_evaluate.py`.
+
+## 5. Datos — estado (7 ago)
+
+- [x] Agregar `oracle_text` y `prices` a `CAMPOS` en `01_scraper.py`.
+- [x] Diversidad de estilo: `01_scraper.py` ahora conserva hasta 3 impresiones
+      por nombre de carta (antes: 1, la más reciente), priorizando firmas de
+      estilo distintas (`frame`/`border_color`/`frame_effects`). También se
+      agregaron `frame`, `border_color`, `frame_effects`, `finishes` a `CAMPOS`
+      — señal de estilo y de foil/precio. Se descartó eBay como fuente (riesgo
+      de ToS/derechos de imagen en una app de uso comercial, precios de
+      publicación en vez de venta real, labels ruidosos) — ver discusión en
+      el chat del proyecto.
+- [x] Bug encontrado y arreglado en el camino: Scryfall migró bulk-data de
+      JSON plano (`download_uri`/`size`) a JSONL comprimido con gzip
+      (`jsonl_download_uri`/`compressed_size`). `01_scraper.py` ya soporta el
+      formato nuevo.
+- [x] Re-scrapeado el dataset compartido con el `CAMPOS` actualizado:
+      **58,174 impresiones** sobre **31,514 nombres únicos** (1.85
+      impresiones/carta en promedio), **88.7 % con `prices.usd` utilizable**
+      (51,623 cartas). `data/cards.json` pasó de 2.7 MB a 58.8 MB.
+- [ ] Descarga de imágenes (`02_downloader.py`) en curso para las ~53k
+      impresiones nuevas (5,000 ya estaban cacheadas de antes).
+- [x] Baseline tabular de Stage 3 entrenado y evaluado — ver sección 5.1.
+- [ ] Preparar el dataset de recorte de región de texto (Stage 2) con OpenCV
+      — pendiente de que termine la descarga de imágenes.
+
+Fuentes de datos — ya cubren "distintas bases de datos": **Scryfall**
+(catálogo, `oracle_text`, `prices`, estilo) y **pokemontcg.io** (negativos
+para el detector, ya integrado desde Certamen 1). No se identificó necesidad
+de una tercera fuente todavía; si más adelante hace falta precio histórico
+(no solo snapshot), ahí sí habría que sumar otra API.
+
+### 5.1 Baseline de Stage 3 — `price_estimator_baseline.py`
+
+Antes de construir las dos versiones "de verdad" de Stage 3 (PyTorch
+EfficientNet_b0 + TensorFlow MobileNetV3, con el embedding visual como
+feature adicional — sección 1), se armó un baseline **tabular, framework-
+agnóstico** (`scikit-learn`) que solo usa metadata — no necesita que la
+descarga de imágenes termine. Sirve como piso de referencia: si los modelos
+con backbone no superan claramente este baseline, no vale la pena el costo
+extra de entrenarlos con imágenes.
+
+```bash
+cd Proyecto/certamen_2
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+python price_estimator_baseline.py                  # RandomForest (default)
+python price_estimator_baseline.py --model gb        # GradientBoosting
+python price_estimator_baseline.py --n 5000           # sub-muestra, para iterar rápido
+```
+
+Features: rareza, `cmc`, cantidad de colores, tipo primario (creature/instant/
+etc.), legendaria o no, año/antigüedad, `set_type`, `frame`, `border_color`,
+disponibilidad de foil/etched, cantidad de `frame_effects`. Target:
+`prices.usd`, entrenado en escala `log1p` (el precio está muy sesgado: la
+mayoría de las cartas son bulk de centavos, pocas cuestan cientos de dólares).
+
+**Resultado de la corrida real (RandomForest, dataset completo, 41,298 train /
+10,325 test):**
+
+| Métrica | Valor |
+|---|---|
+| MAE (USD) | $2.69 |
+| Median AE (USD) | $0.19 |
+| RMSE (USD) | $43.32 |
+| R² (USD) | 0.258 |
+| R² (log-USD) | 0.454 |
+
+El modelo acierta bien el grueso de cartas baratas (Median AE de 19 centavos)
+pero pierde precisión en las "chase cards" caras (RMSE en USD dominado por
+esos pocos casos de cientos/miles de dólares) — visible en
+`output/price_baseline/latest/pred_vs_actual.png`, donde la nube se pega a la
+diagonal en la zona barata y se dispersa arriba de ~$50. `feature_importance.png`
+muestra que `rarity` (rare/mythic), antigüedad/año y `cmc` son las señales más
+fuertes — tiene sentido con la intuición de mercado de MTG. Es exactamente el
+tipo de resultado que la sección 2 (selección de mejor framework por etapa)
+va a tener que superar con el embedding visual sumado.
+
+Artefactos: `output/price_baseline/{timestamp}/` (metrics + gráficos,
+versionado, igual que Certamen 1) y `models/price_baseline_model.joblib`
+(binario del pipeline entrenado, ~800 MB — **gitignored**, no versionado,
+mismo criterio que `pytorch/models/` y `tensorFlow/models/` en Certamen 1).
+
+## 6. Qué falta para arrancar (roadmap)
+
+- [x] Extender `CAMPOS` con `oracle_text`, `prices`, `frame`, `border_color`,
+      `frame_effects`, `finishes`.
+- [x] Re-scrapear / backfill del dataset compartido (58,174 impresiones).
+- [x] Baseline tabular de Stage 3 (`price_estimator_baseline.py`) — hecho, ver
+      sección 5.1.
+- [ ] Terminar la descarga de imágenes (`02_downloader.py`, en curso).
+- [ ] Migrar TensorFlow de MobileNetV2 a MobileNetV3 en las tres etapas.
+- [ ] Script de entrenamiento Stage 2 (nombre tentativo: `08_text_validator.py`,
+      por framework).
+- [ ] Stage 3 "de verdad" por framework (nombre tentativo: `09_price_estimator.py`),
+      sumando el embedding visual al baseline tabular de la sección 5.1.
+- [ ] Aplicar Optuna a Stage 2 y Stage 3 una vez tengan un baseline entrenando
+      (mismo patrón que la sección 0), y a Stage 1 en PyTorch (pendiente).
+- [ ] Exportar los 6 modelos a ONNX y armar el registro `best_model.json` por
+      etapa (sección 2).
 - [ ] Extender `scanner.py` (o `Testing/compare_scanners.py`) para exponer el
       flujo completo: foto → carta + confianza → validación de texto → precio.
-- [ ] Métricas a reportar: accuracy del validador de texto; MAE / RMSE / R² del
+- [ ] Métricas a reportar: ROC-AUC del validador de texto; MAE / RMSE / R² del
       estimador de precio sobre un hold-out.
 
-## 3. Por qué este enfoque
+## 7. Por qué este enfoque
 
 Se descartaron dos alternativas más simples (ver discusión en el chat del
 proyecto):
@@ -223,4 +323,7 @@ proyecto):
 
 Combinar validador de texto + estimador de precio da dos modelos genuinamente
 encadenados (la salida de uno es prerequisito del otro) resolviendo un problema
-concreto, y deja el terreno preparado para el ángulo comercial del examen.
+concreto. Duplicar cada etapa en ambos frameworks y compararlos por métrica
+(sección 2), en vez de comprometerse a uno solo desde el inicio, deja elegir
+el mejor de cada etapa con datos en vez de a priori — y ONNX (sección 3)
+hace que esa elección no ate la app final a un solo framework.

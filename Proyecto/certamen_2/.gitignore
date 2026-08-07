@@ -1,0 +1,7 @@
+.venv/
+models/
+data/
+.tessdata/
+output/*/*/*.joblib
+__pycache__/
+*.pyc

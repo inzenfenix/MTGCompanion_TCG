@@ -11,8 +11,10 @@ framework-ia-UDD/
 ├── Material/      # material y scripts de referencia entregados en clase
 └── Proyecto/      # proyecto del curso
     ├── certamen_1/  # entrega 1 — ver README propio
-    ├── certamen_2/  # entrega 2 — plan (WIP)
+    ├── certamen_2/  # entrega 2 — pipeline de 3 etapas (WIP, ver README propio)
     └── examen/      # entrega final — plan (WIP)
+
+trading-app-ionic/   # frontend Ionic React de la app final (scaffold construido, sin conectar a los modelos todavía)
 ```
 
 ## El proyecto
@@ -35,19 +37,32 @@ entender en la práctica sus diferencias de diseño, rendimiento y ergonomía.
 
 ### Próximos pasos
 
-- **Certamen 2** — flujo de dos modelos nuevos: un validador de texto/OCR que
-  confirma la carta identificada (basado en `Material/detector_palabras.py`) y
-  un estimador de precio de mercado por regresión. Ver
+- **Certamen 2** — pipeline de tres etapas encadenadas (detector MTG/no-MTG →
+  validador de texto/OCR → estimador de precio por regresión), cada una
+  entrenada en ambos frameworks (6 modelos en total) y con Optuna para
+  hiperparámetros — la entrega de Optuna sobre el detector ya está hecha. Ver
   [Proyecto/certamen_2/README.md](Proyecto/certamen_2/README.md).
-- **Examen** — empaquetar todo como una app Ionic de uso comercial (OpenCV.js +
-  TensorFlow.js corriendo del lado del cliente). Ver
+- **Examen** — empaquetar todo como la app Ionic de uso comercial en
+  [`trading-app-ionic/`](trading-app-ionic/README.md) (scaffold ya construido),
+  conectada vía OpenCV.js + ONNX (`onnxruntime-web`) corriendo del lado del
+  cliente — el modelo ganador de cada etapa, sin importar el framework. Ver
   [Proyecto/examen/README.md](Proyecto/examen/README.md).
+- **Automatización del entrenamiento** — un integrante del equipo está
+  construyendo una app Electron que envuelve los scripts Python (scraper,
+  downloader, embedders, clasificadores, Optuna) para correr todo el pipeline
+  sin terminal.
 
 ### Stack
 
 - **PyTorch** — `torch`, `torchvision` (EfficientNet_b0)
-- **TensorFlow** — `tensorflow`/Keras (MobileNetV2)
-- **Scryfall API** — catálogo e imágenes de cartas MTG
+- **TensorFlow** — `tensorflow`/Keras (MobileNetV2 hoy, migrando a MobileNetV3
+  en Certamen 2)
+- **Optuna** — tuning de hiperparámetros de los modelos de ambos frameworks
+- **OpenCV** — recorte/perspectiva/normalización de la carta antes de cada modelo
+- **ONNX** / `onnxruntime-web` — formato de exportación común para correr el
+  modelo ganador de cada etapa (PyTorch o TensorFlow) del lado del cliente
+- **Ionic React** — frontend de la app final (`trading-app-ionic/`)
+- **Scryfall API** — catálogo, imágenes, texto de reglas y precios de cartas MTG
 - **pokemontcg.io** — imágenes negativas para el clasificador binario
 - Python científico: `numpy`, `scikit-learn`, `matplotlib`, `Pillow`
 
@@ -64,3 +79,10 @@ entender en la práctica sus diferencias de diseño, rendimiento y ergonomía.
 La interfaz comercial del escáner de cartas se está construyendo actualmente con Ionic React. 
 - Puedes encontrar su código, estado de avance, y las **instrucciones de despliegue** en su respectiva carpeta.
 - ➡️ **[Ir al README de la aplicación Ionic](trading-app-ionic/README.md)**
+
+## Automatización del pipeline (Electron)
+
+La creación de los modelos (scraping, embeddings, entrenamiento, Optuna) se está
+empaquetando en una app Electron aparte para no depender de la terminal.
+- ➡️ **[Contrato de integración para la app Electron](PIPELINE_INTEGRATION.md)**
+  — inventario de scripts, venvs, argumentos y convenciones de salida.

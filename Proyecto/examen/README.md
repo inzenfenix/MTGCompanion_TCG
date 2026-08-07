@@ -1,14 +1,19 @@
 # MTG Card Scanner — Examen final (plan)
 
-> 🚧 Planeación — todavía no implementado. Este documento es la base para
-> arrancar la app final; se termina de aterrizar una vez estén los dos modelos
-> nuevos de [Certamen 2](../certamen_2/README.md).
+> 🚧 Planeación — el frontend ya tiene un scaffold real en
+> [`trading-app-ionic/`](../../trading-app-ionic/README.md) (Ionic React,
+> temas, i18n, tabs), pero sin conectar todavía a ningún modelo. Este
+> documento se termina de aterrizar una vez estén los 6 modelos del
+> [pipeline de Certamen 2](../certamen_2/README.md) y su exportación a ONNX.
 
 ## Restricciones conocidas (indicadas por el profesor)
 
 - La aplicación final debe estar construida en **Ionic**.
-- Debe usar **OpenCV.js** y **TensorFlow.js** — es decir, la inferencia corre
-  del lado del cliente (navegador / app), no como un script de Python.
+- Debe usar **OpenCV.js** y correr inferencia **del lado del cliente**
+  (navegador / app), no como un script de Python. El profesor mencionó
+  TensorFlow.js como ruta; el equipo optó por **ONNX + `onnxruntime-web`**
+  en su lugar (ver sección siguiente) porque cubre ambos frameworks del
+  proyecto (PyTorch y TensorFlow), no solo uno.
 - La aplicación debe tener **uso comercial** real, no ser solo una demo técnica.
 - Presentación con interrogación oral individual — la nota de aprobación
   depende de aprobar esa interrogación (o sea: cada integrante tiene que poder
@@ -34,56 +39,60 @@ Modelo de negocio de referencia (freemium):
 ## Arquitectura base
 
 ```
-┌─────────────────────────── Ionic + Angular (Capacitor) ───────────────────────────┐
+┌─────────────────────────── Ionic React (Capacitor) ────────────────────────────────┐
 │                                                                                      │
 │  Cámara (Capacitor Camera) ─▶ OpenCV.js (recorte/perspectiva de la carta) ─▶        │
-│  TensorFlow.js (embedding de la carta) ─▶ búsqueda de similitud ─▶ carta candidata  │
+│  onnxruntime-web (Stage 1/2/3, el ganador de cada etapa — ver Certamen 2 §2) ─▶     │
+│  carta identificada + texto validado + precio estimado                             │
 │                                                                                      │
 └──────────────────────────────────────────────────────────────────────────────────────┘
-                          │                                    │
-                          ▼                                    ▼
-              validador de texto (Certamen 2)        estimador de precio (Certamen 2)
 ```
 
-### Por qué TensorFlow (no PyTorch) para el modelo que corre en el cliente
+Detalle completo del pipeline de 3 etapas (detector → validador de texto →
+estimador de precio, cada una en PyTorch y TensorFlow) en
+[Proyecto/certamen_2/README.md](../certamen_2/README.md#1-arquitectura-del-pipeline-completo).
+Este documento cubre solo la parte específica de la app final.
 
-Ambos pipelines de Certamen 1 son válidos, pero para el examen conviene elegir
-**uno solo** como el que efectivamente corre en la app. TensorFlow tiene una
-ruta de conversión directa y soportada a TensorFlow.js
-(`tensorflowjs_converter` sobre el modelo Keras/MobileNetV2 ya entrenado);
-PyTorch necesitaría pasar primero por ONNX y de ahí a onnxruntime-web, un salto
-extra sin beneficio claro acá. Esto no descarta el trabajo de PyTorch — sigue
-siendo la comparación central de Certamen 1 — solo define cuál de los dos se
-"productiviza" en la app final.
+### Por qué ONNX (no TensorFlow.js) para lo que corre en el cliente
+
+Certamen 2 duplica cada etapa en PyTorch y TensorFlow y elige el ganador por
+métrica (no necesariamente el mismo framework en las tres etapas). Atarse a
+TensorFlow.js habría obligado a descartar el resultado si PyTorch ganaba
+alguna etapa. Con **ONNX** como formato de exportación común (`torch.onnx.export`
+para PyTorch, `tf2onnx` para TensorFlow) y **`onnxruntime-web`** como runtime en
+el cliente, la app corre el modelo que efectivamente ganó cada etapa sin
+importar en qué framework se entrenó.
 
 ### Piezas por resolver
 
 - **Preprocesamiento (OpenCV.js)**: detectar el rectángulo de la carta dentro
   del frame de la cámara, corregir perspectiva, normalizar tamaño/iluminación
   antes de pasarla al modelo — el equivalente en el navegador a lo que hoy hace
-  `PIL`/`torchvision.transforms` en Python.
+  `PIL`/`torchvision.transforms` en Python, y el mismo recorte que usa
+  Stage 2 (región de texto) en Certamen 2.
 - **Búsqueda de similitud en el cliente**: el índice de embeddings (~29 k
   cartas) hay que decidir si se sirve completo al cliente (viable si el
   tamaño en memoria es razonable — es una matriz `Float32Array` chica por
   carta) o si conviene un backend liviano solo para el nearest-neighbor
   (ej. una Cloud Function) si no entra cómodo en el dispositivo.
-- **Validador de texto y estimador de precio (Certamen 2)**: livianos por
-  diseño (bag-of-words / regresión tabular) — candidatos naturales a también
-  correr client-side vía TensorFlow.js, o como un microservicio simple si el
-  OCR es más práctico en un backend.
+- **Validador de texto y estimador de precio (Certamen 2, Stage 2/3)**:
+  exportados a ONNX igual que Stage 1 — mismo runtime `onnxruntime-web` en el
+  cliente, sin necesitar un backend para servirlos.
 - **Hosting de la app**: PWA (más simple para la presentación del examen) vs.
   build nativo con Capacitor para Android/iOS (más "comercial" pero con más
   fricción de setup) — a decidir según tiempo disponible.
 
 ## Qué falta para arrancar
 
-- [ ] Tener los dos modelos de Certamen 2 entrenados y evaluados.
-- [ ] Exportar el modelo de embeddings TensorFlow a formato `tfjs`.
-- [ ] Prototipo Ionic mínimo: cámara → OpenCV.js → TensorFlow.js → resultado
-      en pantalla (sin backend), siguiendo el
+- [ ] Tener los 6 modelos de Certamen 2 entrenados, evaluados y con ganador
+      elegido por etapa (`output/best_model.json`).
+- [ ] Exportar los modelos ganadores a ONNX (`torch.onnx.export` / `tf2onnx`).
+- [ ] Conectar `trading-app-ionic/` (ya tiene UI/tabs/temas construidos) a
+      `onnxruntime-web`: cámara → OpenCV.js → ONNX → resultado en pantalla,
+      siguiendo el
       [tutorial de Ionic](https://ionicframework.com/docs/angular/your-first-app),
       el [tutorial de OpenCV.js](https://forum.opencv.org/t/opencv-js-tutorials-in-spanish-tutoriales-opencv-js-en-espanol/10220)
-      y el [tutorial de TensorFlow.js](https://www.tensorflow.org/js/tutorials?hl=es-419).
+      y la [documentación de onnxruntime-web](https://onnxruntime.ai/docs/tutorials/web/).
 - [ ] Definir si la búsqueda de similitud vive en el cliente o en un backend
       liviano.
 - [ ] Preparar la narrativa comercial para la presentación (a quién le vende,

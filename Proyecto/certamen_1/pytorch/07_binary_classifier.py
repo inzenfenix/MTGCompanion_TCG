@@ -30,8 +30,6 @@ import numpy as np
 import requests
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torchvision.models as models
 import torchvision.transforms as T
 from PIL import Image
 from sklearn.metrics import (
@@ -40,6 +38,8 @@ from sklearn.metrics import (
 )
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
+
+from src.binary_classifier import FREEZE_RATIO, MTGDetector, build_binary_classifier
 
 # ── Configuración ─────────────────────────────────────────────────────────────
 SCRIPT_DIR      = pathlib.Path(__file__).resolve().parent
@@ -56,10 +56,10 @@ SEED         = 42
 N_PER_CLASS  = 3000   # cartas por clase (MTG y no-MTG)
 EPOCHS       = 15
 BATCH_SIZE   = 32
-LR           = 3e-4
-WEIGHT_DECAY = 1e-4
 VAL_SPLIT    = 0.20
-FREEZE_UNTIL = 6      # congelar bloques EfficientNet 0-5, entrenar 6-8 + head
+# LR, weight decay, freeze ratio, arquitectura de cabeza: ver defaults de
+# build_binary_classifier() en src/binary_classifier.py (única fuente de verdad,
+# compartida con 08_optuna_binary_classifier.py).
 
 POKEMON_API   = "https://api.pokemontcg.io/v2/cards"
 POKEMON_HDR   = {"User-Agent": "MTG-Scanner-Academic/1.0 (UDD Frameworks de IA)"}
@@ -251,61 +251,31 @@ def preparar_muestras(rutas_mtg: list, rutas_neg: list, n: int) -> tuple:
 
 
 # ── SECCIÓN 3: Arquitectura del modelo ────────────────────────────────────────
-
-class MTGDetector(nn.Module):
-    """
-    EfficientNet_b0 adaptado como clasificador binario MTG / no-MTG.
-
-    Bloques 0–(freeze_until-1): parámetros congelados (características ImageNet).
-    Bloques freeze_until–8    : fine-tuning (características de alto nivel).
-    Cabeza binaria            : Linear(1280 → 256) → ReLU → Linear(256 → 1).
-    La salida es un logit crudo; aplicar sigmoid() para obtener probabilidad.
-    """
-
-    def __init__(self, freeze_until: int = FREEZE_UNTIL):
-        super().__init__()
-        base = models.efficientnet_b0(
-            weights=models.EfficientNet_B0_Weights.IMAGENET1K_V1
-        )
-        for i, bloque in enumerate(base.features):
-            for p in bloque.parameters():
-                p.requires_grad = (i >= freeze_until)
-
-        self.features = base.features
-        self.avgpool  = base.avgpool
-        self.flatten  = nn.Flatten()
-        self.head     = nn.Sequential(
-            nn.Dropout(0.3),
-            nn.Linear(1280, 256),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.2),
-            nn.Linear(256, 1),
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        h = self.flatten(self.avgpool(self.features(x)))  # (B, 1280)
-        return self.head(h).squeeze(1)                    # (B,) logits
+# MTGDetector y build_binary_classifier viven en src/binary_classifier.py —
+# compartido con 08_optuna_binary_classifier.py para que ambos entrenen
+# exactamente la misma arquitectura (ver ese módulo para el detalle).
 
 
 # ── SECCIÓN 4: Entrenamiento ──────────────────────────────────────────────────
 
-def entrenar(model: MTGDetector, train_dl: DataLoader, val_dl: DataLoader,
-             epochs: int) -> list:
+def entrenar(model: MTGDetector, optimizador: torch.optim.Optimizer,
+             train_dl: DataLoader, val_dl: DataLoader, epochs: int,
+             model_path: pathlib.Path | None = None) -> list:
     """
     Fine-tune del MTGDetector. Guarda el mejor checkpoint según val_loss.
     Retorna historial [{epoch, train_loss, val_loss}, ...].
+
+    `optimizador` se recibe ya construido (en vez de armarlo acá adentro) para
+    que 08_optuna_binary_classifier.py pueda reusar esta misma función con el
+    optimizer/hiperparámetros que esté probando cada trial.
     """
     criterio    = nn.BCEWithLogitsLoss()
-    optimizador = torch.optim.AdamW(
-        filter(lambda p: p.requires_grad, model.parameters()),
-        lr=LR, weight_decay=WEIGHT_DECAY,
-    )
     scheduler   = torch.optim.lr_scheduler.CosineAnnealingLR(optimizador, T_max=epochs)
 
     mejor_val   = float("inf")
     historial   = []
-    model_path  = MODELS_DIR / "mtg_detector.pth"
-    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    model_path  = model_path or (MODELS_DIR / "mtg_detector.pth")
+    model_path.parent.mkdir(parents=True, exist_ok=True)
 
     for epoch in range(1, epochs + 1):
         # ── Train ──────────────────────────────────────────────────────────
@@ -529,12 +499,12 @@ def main():
 
     # ── 4. Modelo + entrenamiento ─────────────────────────────────────────
     print(f"\n[4/5] Entrenando MTGDetector (EfficientNet_b0, {epochs} épocas)...")
-    print(f"  Bloques entrenables: {FREEZE_UNTIL}–8 + cabeza binaria")
-    model = MTGDetector(freeze_until=FREEZE_UNTIL).to(DEVICE)
+    model, optimizador = build_binary_classifier(device=DEVICE)
+    print(f"  Bloques congelados: 0–{model.freeze_until - 1}  |  entrenables: {model.freeze_until}–8 + cabeza binaria")
     n_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"  Parámetros entrenables: {n_trainable / 1e6:.2f}M\n")
 
-    historial = entrenar(model, train_dl, val_dl, epochs)
+    historial = entrenar(model, optimizador, train_dl, val_dl, epochs)
 
     # ── 5. Evaluación ─────────────────────────────────────────────────────
     print("\n[5/5] Evaluando mejor checkpoint...")
@@ -556,12 +526,17 @@ def main():
         json.dump(metricas, f, indent=2)
     print(f"\n  → {metricas_path}")
 
-    # Guardar config del detector (usada por scanner.py)
+    # Guardar config del detector (usada por scanner.py para reconstruir la
+    # arquitectura exacta antes de cargar el state_dict — necesario porque
+    # 08_optuna_binary_classifier.py puede publicar un modelo con head_units/
+    # freeze_ratio/dropout distintos a los defaults de acá).
     cfg = {
         "threshold"    : 0.5,
         "model_path"   : "models/mtg_detector.pth",
         "n_per_class"  : n,
-        "freeze_until" : FREEZE_UNTIL,
+        "freeze_ratio" : model.freeze_ratio,
+        "head_units"   : model.head_units,
+        "dropout"      : None,
         "img_size"     : IMG_SIZE,
     }
     cfg_path = MODELS_DIR / "mtg_detector_cfg.json"

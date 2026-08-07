@@ -30,6 +30,8 @@ import torchvision.models as models
 import torchvision.transforms as T
 from PIL import Image
 
+from src.binary_classifier import MTGDetector
+
 # ── Configuración ─────────────────────────────────────────────────────────────
 SCRIPT_DIR      = pathlib.Path(__file__).resolve().parent
 DATA_DIR        = SCRIPT_DIR / "data"                    # artefactos locales (embeddings, índice)
@@ -71,34 +73,11 @@ COLOR_NAMES = {"W": "White", "U": "Blue", "B": "Black", "R": "Red", "G": "Green"
 
 
 # ── Clasificador binario MTG / No-MTG ─────────────────────────────────────────
-
-class MTGDetector(nn.Module):
-    """
-    EfficientNet_b0 con cabeza binaria.
-    Misma arquitectura que 07_binary_classifier.py.
-    Salida: logit escalar (aplicar sigmoid para obtener P(MTG)).
-    """
-
-    def __init__(self):
-        super().__init__()
-        base = models.efficientnet_b0(
-            weights=models.EfficientNet_B0_Weights.IMAGENET1K_V1
-        )
-        self.features = base.features
-        self.avgpool  = base.avgpool
-        self.flatten  = nn.Flatten()
-        self.head     = nn.Sequential(
-            nn.Dropout(0.3),
-            nn.Linear(1280, 256),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.2),
-            nn.Linear(256, 1),
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        h = self.flatten(self.avgpool(self.features(x)))
-        return self.head(h).squeeze(1)
-
+# MTGDetector vive en src/binary_classifier.py (compartida con
+# 07_binary_classifier.py y 08_optuna_binary_classifier.py). La arquitectura
+# se reconstruye acá según mtg_detector_cfg.json en vez de asumir los defaults
+# — necesario porque un modelo publicado por Optuna puede tener head_units/
+# freeze_ratio/dropout distintos a los históricos (256 / 0.65 / None).
 
 _detector_cache = None
 
@@ -115,12 +94,17 @@ def cargar_detector(threshold: float = 0.5) -> tuple:
         return None
 
     if _detector_cache is None:
+        cfg = {}
         if cfg_path.exists():
             with open(cfg_path) as f:
                 cfg = json.load(f)
             threshold = cfg.get("threshold", 0.5)
 
-        detector = MTGDetector()
+        detector = MTGDetector(
+            freeze_ratio=cfg.get("freeze_ratio", 0.65),
+            head_units=cfg.get("head_units", 256),
+            dropout=cfg.get("dropout"),
+        )
         detector.load_state_dict(
             torch.load(model_path, map_location=DEVICE, weights_only=True)
         )
