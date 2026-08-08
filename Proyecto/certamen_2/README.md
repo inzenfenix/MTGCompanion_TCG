@@ -633,8 +633,62 @@ puliendo el bootstrap sintético.
 - [x] Conectar la salida a Stage 3 (`pytorch/predict_condition.py` +
       `full_pipeline_demo.py`) — hecho, ver arriba. `--condition` queda como
       override manual.
-- [ ] Verificar licencias de los datasets de Roboflow antes de descargarlos
-      — complemento real de volumen/realismo sobre el bootstrap sintético,
-      más importante ahora que se vio la limitación de arriba.
+- [x] Verificar licencias y descargar los datasets de Roboflow — **ambos son
+      CC BY 4.0** (confirmado vía la API REST de Roboflow; el SDK de Python
+      no expone el campo `license` en su modelo de objetos, hubo que pegarle
+      directo a `api.roboflow.com/{workspace}/{project}`). Requiere una API
+      key personal (gratis, cuenta propia) — no se versiona, va en
+      `certamen_2/.env` (gitignored).
+- [x] `import_roboflow_condition_data.py`: los dos datasets vienen anotados
+      para **detección de objetos** (cajas marcando dónde hay daño —
+      "Dano"/Scratch/Edge Wear/Corner Wear), no para clasificación de carta
+      completa como NM/LP/MP/HP/DMG — no hay mapeo directo. Heurística:
+      contar cajas de daño por imagen, convertir el conteo a grado con
+      umbrales por cuartiles de la distribución real de cada dataset
+      (`mtg-card-grading`: 0→NM, 1–12→LP, 13–18→MP, 19–33→HP, 34+→DMG;
+      `card-grader` cross-TCG: 0→NM, 1–4→LP, 5–7→MP, 8–11→HP, 12+→DMG —
+      escalas distintas porque un dataset anota daño mucho más granular que
+      el otro). Explícitamente una aproximación, no un estándar de grading
+      profesional — mismo criterio que ya se aplicó a `synthetic_wear.py`.
+      **1,355 fotos reales importadas** (803 de `mtg-card-grading` + 552 de
+      `card-grader`), pasadas por `card_preprocessing.normalizar_carta`
+      antes de guardarse (son fotos de eBay con fondo real, no renders
+      limpios) y sumadas a `condition_dataset/index.csv` junto a las 4,000
+      sintéticas (total: 5,355 filas). Distribución real sesgada hacia NM
+      (590/216/181/191/177 NM→DMG) — tiene sentido: vendedores fotografían
+      más sus cartas en buen estado. Inspeccionado visualmente: un ejemplo
+      DMG mostró un card-back genuinamente gastado (scratches, esquinas
+      peladas reales) y un ejemplo NM (Nicol Bolas, God-Pharaoh) se veía
+      impecable — la heurística y la localización funcionan razonablemente
+      sobre este dataset variado.
+- [ ] Reentrenar con el dataset combinado (sintético + real) y comparar
+      contra el baseline sintético-solo — no hecho todavía, el estudio
+      Optuna en curso (arriba) sigue corriendo sobre el split sintético
+      original que ya tenía cargado en memoria al arrancar (agregar filas a
+      `index.csv` a mitad de una corrida no lo afecta). Repetir después.
 - [ ] Optuna sobre este modelo también (`src/condition_classifier.py` ya está
-      parametrizado para eso, mismo patrón que la sección 0).
+      parametrizado para eso, mismo patrón que la sección 0) — corriendo
+      ahora mismo (ver estado en la sección de arriba una vez termine).
+
+**Para reproducir la importación de datos reales** (necesita una cuenta
+gratis de Roboflow — [roboflow.com](https://roboflow.com) → Settings →
+Roboflow API → Private API Key):
+
+```bash
+cd Proyecto/certamen_2
+echo "ROBOFLOW_API_KEY=tu_key_acá" > .env      # gitignored, no se versiona
+pip install roboflow python-dotenv
+
+python -c "
+import os
+from dotenv import load_dotenv; load_dotenv()
+from roboflow import Roboflow
+rf = Roboflow(api_key=os.environ['ROBOFLOW_API_KEY'])
+rf.workspace('stall-ysun2').project('mtg-card-grading').version(6) \
+  .download('coco', location='data/roboflow_raw/mtg_v6')
+rf.workspace('group-6-major-project').project('card-grader').version(2) \
+  .download('coco', location='data/roboflow_raw/cross_tcg_v2')
+"
+
+python import_roboflow_condition_data.py
+```
