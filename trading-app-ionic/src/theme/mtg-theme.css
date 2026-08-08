@@ -54,7 +54,11 @@
 }
 
 .mtg-btn:hover::part(native) {
-  box-shadow: 0 0 20px rgba(255, 50, 50, 0.6);
+  /* Antes: 0 0 20px rgba(255, 50, 50, 0.6) — el rojo saturado + glow ancho
+     leía como luces de máquina tragamonedas. Mismo tono que --box-shadow en
+     reposo, apenas más intenso, para que el hover se sienta como un realce
+     sutil y no como un efecto de neón. */
+  box-shadow: 0 0 12px rgba(139, 0, 0, 0.5);
 }
 
 .mtg-btn-content {

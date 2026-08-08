@@ -36,7 +36,7 @@ const CardDetails: React.FC = () => {
             
             <div style={{ margin: '25px 0' }}>
               <p style={{ margin: '0', color: '#c2b5b5', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '2px' }}>Current Market Value</p>
-              <h2 style={{ fontSize: '3rem', margin: '5px 0', color: '#44ff44' }}>$45.00</h2>
+              <h2 style={{ fontSize: '3rem', margin: '5px 0', color: 'var(--ion-color-tertiary-tint)' }}>$45.00</h2>
             </div>
 
             <div style={{ background: 'rgba(20, 10, 15, 0.4)', padding: '15px', borderRadius: '8px', border: '1px solid rgba(139, 0, 0, 0.2)', textAlign: 'left', marginBottom: '30px' }}>

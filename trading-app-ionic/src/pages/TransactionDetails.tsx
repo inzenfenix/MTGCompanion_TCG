@@ -31,7 +31,7 @@ const TransactionDetails: React.FC = () => {
           transition={{ duration: 0.4 }}
         >
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-            <IonIcon icon={checkmarkCircleOutline} style={{ fontSize: '80px', color: '#44ff44' }} />
+            <IonIcon icon={checkmarkCircleOutline} style={{ fontSize: '80px', color: 'var(--ion-color-tertiary-tint)' }} />
             <h2>Transaction Complete</h2>
             <p style={{fontStyle: 'italic'}}>Sealed by WebPay</p>
           </div>
@@ -56,7 +56,7 @@ const TransactionDetails: React.FC = () => {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed rgba(139, 0, 0, 0.3)' }}>
               <span style={{color: '#c2b5b5', fontSize: '1.2rem'}}>Total {isBuy ? 'Paid' : 'Received'}:</span>
-              <strong style={{color: isBuy ? '#ff4444' : '#44ff44', fontSize: '1.5rem', fontFamily: 'Cinzel'}}>
+              <strong style={{color: isBuy ? 'var(--ion-color-secondary-tint)' : 'var(--ion-color-tertiary-tint)', fontSize: '1.5rem', fontFamily: 'Cinzel'}}>
                 ${amount.toFixed(2)}
               </strong>
             </div>

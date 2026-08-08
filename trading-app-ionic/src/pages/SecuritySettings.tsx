@@ -20,7 +20,7 @@ const SecuritySettings: React.FC = () => {
         <motion.div className="mtg-container" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }}>
           
           <IonItem className="mtg-list-item-row" lines="none" style={{borderRadius: '8px', marginBottom: '20px'}}>
-            <IonIcon icon={shieldCheckmarkOutline} slot="start" style={{color: '#44ff44'}} />
+            <IonIcon icon={shieldCheckmarkOutline} slot="start" style={{color: 'var(--ion-color-tertiary-tint)'}} />
             <IonLabel style={{color: '#f2e3cd'}}>Enable 2FA (Authenticator)</IonLabel>
             <IonToggle checked={twoFactor} onIonChange={e => setTwoFactor(e.detail.checked)} slot="end" style={{'--handle-background-checked': '#d4af37', '--background-checked': '#8b0000'}} />
           </IonItem>

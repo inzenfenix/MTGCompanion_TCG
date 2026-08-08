@@ -96,9 +96,9 @@ const Tab1: React.FC = () => {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(128, 128, 128, 0.1)' }}>
-                      <IonIcon 
-                        icon={tx.type === 'buy' ? trendingDown : trendingUp} 
-                        style={{ color: tx.type === 'buy' ? '#ff4444' : '#44ff44', fontSize: '20px' }}
+                      <IonIcon
+                        icon={tx.type === 'buy' ? trendingDown : trendingUp}
+                        style={{ color: tx.type === 'buy' ? 'var(--ion-color-secondary-tint)' : 'var(--ion-color-tertiary-tint)', fontSize: '20px' }}
                       />
                     </div>
                     <div>
@@ -108,7 +108,7 @@ const Tab1: React.FC = () => {
                       </p>
                     </div>
                   </div>
-                  <div style={{ fontWeight: 900, fontSize: '1.2rem', fontFamily: 'Inter', color: tx.type === 'buy' ? '#ff4444' : '#44ff44' }}>
+                  <div style={{ fontWeight: 900, fontSize: '1.2rem', fontFamily: 'Inter', color: tx.type === 'buy' ? 'var(--ion-color-secondary-tint)' : 'var(--ion-color-tertiary-tint)' }}>
                     {tx.type === 'buy' ? '-' : '+'}${tx.amount.toFixed(2)}
                   </div>
                 </motion.div>

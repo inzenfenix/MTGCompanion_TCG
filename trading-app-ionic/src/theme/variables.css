@@ -1,5 +1,49 @@
 /* Ionic Variables and Custom Medieval Theme */
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;700&display=swap');
+
+/* Cinzel/Inter self-hospedadas (public/fonts/) en vez de @import a Google
+   Fonts: esta app corre en un WebView de Capacitor sin conexión garantizada
+   en todo momento — el @import anterior significaba que la marca (los
+   títulos en Cinzel) dependía de una request de red externa en cada arranque
+   frío, y sin red caía silenciosamente a una fuente del sistema. Mismos
+   pesos que pedía el @import original (Cinzel 400/700, Inter 400/500/700) —
+   Google sirve esos pesos desde el mismo archivo woff2 por familia (subset
+   "latin"), así que alcanza con un archivo por familia acá también. */
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/cinzel-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/cinzel-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/inter-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/inter-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/inter-latin.woff2') format('woff2');
+}
+
 :root {
   /* Ionic Color Palette mapped to Medieval Theme */
   --ion-color-primary: #d4af37; /* Gold */

@@ -61,24 +61,24 @@ const TabSearch: React.FC = () => {
                   <>
                     <motion.div variants={itemVariants}>
                       <IonItem className="mtg-list-item-row" lines="full" button routerLink="/card/1">
-                        <IonIcon icon={locationOutline} slot="start" style={{color: '#ff4444'}} />
+                        <IonIcon icon={locationOutline} slot="start" style={{color: 'var(--ion-color-secondary-tint)'}} />
                         <IonLabel>
                           <h3 style={{color: '#f2e3cd', fontWeight: 'bold'}}>LootGoblin99</h3>
                           <p style={{color: '#c2b5b5'}}>Has: Chalice of the Void</p>
                         </IonLabel>
-                        <IonLabel slot="end" style={{color: '#44ff44', textAlign: 'right'}}>
+                        <IonLabel slot="end" style={{color: 'var(--ion-color-tertiary-tint)', textAlign: 'right'}}>
                           <div style={{fontWeight: 'bold'}}>0.2 miles</div>
                         </IonLabel>
                       </IonItem>
                     </motion.div>
                     <motion.div variants={itemVariants}>
                       <IonItem className="mtg-list-item-row" lines="full" button>
-                        <IonIcon icon={locationOutline} slot="start" style={{color: '#ff4444'}} />
+                        <IonIcon icon={locationOutline} slot="start" style={{color: 'var(--ion-color-secondary-tint)'}} />
                         <IonLabel>
                           <h3 style={{color: '#f2e3cd', fontWeight: 'bold'}}>SpellSlinger007</h3>
                           <p style={{color: '#c2b5b5'}}>Looking for: Tarmogoyf</p>
                         </IonLabel>
-                        <IonLabel slot="end" style={{color: '#44ff44', textAlign: 'right'}}>
+                        <IonLabel slot="end" style={{color: 'var(--ion-color-tertiary-tint)', textAlign: 'right'}}>
                           <div style={{fontWeight: 'bold'}}>1.5 miles</div>
                         </IonLabel>
                       </IonItem>
@@ -93,7 +93,7 @@ const TabSearch: React.FC = () => {
                           <h3 style={{color: '#f2e3cd', fontWeight: 'bold'}}>Dragon's Lair Games</h3>
                           <p style={{color: '#c2b5b5'}}>Verified Store • High Inventory</p>
                         </IonLabel>
-                        <IonLabel slot="end" style={{color: '#44ff44', textAlign: 'right'}}>
+                        <IonLabel slot="end" style={{color: 'var(--ion-color-tertiary-tint)', textAlign: 'right'}}>
                           <div style={{fontWeight: 'bold'}}>3.0 miles</div>
                         </IonLabel>
                       </IonItem>

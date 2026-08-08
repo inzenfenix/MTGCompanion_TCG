@@ -90,7 +90,7 @@ const Tab2: React.FC = () => {
                       <h3 style={{ margin: '0 0 5px 0', color: '#f2e3cd' }}>Chalice of the Void</h3>
                       <p style={{ margin: '0', color: '#c2b5b5' }}>Mirrodin • Rare • Condition: Near Mint</p>
                       
-                      <div style={{ fontSize: '3rem', color: '#44ff44', margin: '15px 0', fontFamily: 'Cinzel', fontWeight: 'bold' }}>
+                      <div style={{ fontSize: '3rem', color: 'var(--ion-color-tertiary-tint)', margin: '15px 0', fontFamily: 'Cinzel', fontWeight: 'bold' }}>
                         ${price.toFixed(2)}
                       </div>
                       
@@ -169,7 +169,7 @@ const Tab2: React.FC = () => {
                       <p style={{color: '#c2b5b5', margin: '0 0 10px 0'}}>Purchasing from: <strong style={{color: '#f2e3cd'}}>Grand Magus</strong></p>
                       <h3 style={{ margin: '0', color: '#f2e3cd' }}>Chalice of the Void</h3>
                       
-                      <div style={{ fontSize: '3.5rem', color: '#44ff44', margin: '15px 0', fontFamily: 'Cinzel', fontWeight: 'bold' }}>
+                      <div style={{ fontSize: '3.5rem', color: 'var(--ion-color-tertiary-tint)', margin: '15px 0', fontFamily: 'Cinzel', fontWeight: 'bold' }}>
                         $45.00
                       </div>
                     </div>

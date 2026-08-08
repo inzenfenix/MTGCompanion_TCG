@@ -1,3 +1,4 @@
+import { Suspense, lazy } from 'react';
 import { Redirect, Route } from 'react-router-dom';
 import {
   IonApp,
@@ -11,16 +12,21 @@ import {
 } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
 import { home, settings, scanOutline, libraryOutline } from 'ionicons/icons';
-import Tab1 from './pages/Tab1';
-import Tab2 from './pages/Tab2';
-import Tab3 from './pages/Tab3';
-import Tab4 from './pages/Tab4';
-import TabSearch from './pages/TabSearch';
-import TransactionDetails from './pages/TransactionDetails';
-import CardDetails from './pages/CardDetails';
-import AccountSettings from './pages/AccountSettings';
-import PaymentSettings from './pages/PaymentSettings';
-import SecuritySettings from './pages/SecuritySettings';
+
+// Code-split por página: IonRouterOutlet necesita que sus hijos directos sean
+// <Route> (los inspecciona para las animaciones de transición entre páginas),
+// así que el Suspense va DENTRO de cada Route, envolviendo solo el
+// componente lazy — envolver el <Route> mismo rompe esa introspección.
+const Tab1 = lazy(() => import('./pages/Tab1'));
+const Tab2 = lazy(() => import('./pages/Tab2'));
+const Tab3 = lazy(() => import('./pages/Tab3'));
+const Tab4 = lazy(() => import('./pages/Tab4'));
+const TabSearch = lazy(() => import('./pages/TabSearch'));
+const TransactionDetails = lazy(() => import('./pages/TransactionDetails'));
+const CardDetails = lazy(() => import('./pages/CardDetails'));
+const AccountSettings = lazy(() => import('./pages/AccountSettings'));
+const PaymentSettings = lazy(() => import('./pages/PaymentSettings'));
+const SecuritySettings = lazy(() => import('./pages/SecuritySettings'));
 
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/react/css/core.css';
@@ -69,34 +75,34 @@ const App: React.FC = () => {
         <IonTabs>
         <IonRouterOutlet>
           <Route exact path="/tab1">
-            <Tab1 />
+            <Suspense fallback={null}><Tab1 /></Suspense>
           </Route>
           <Route exact path="/tab2">
-            <Tab2 />
+            <Suspense fallback={null}><Tab2 /></Suspense>
           </Route>
           <Route exact path="/tab3">
-            <Tab3 />
+            <Suspense fallback={null}><Tab3 /></Suspense>
           </Route>
           <Route exact path="/tab4">
-            <Tab4 />
+            <Suspense fallback={null}><Tab4 /></Suspense>
           </Route>
           <Route exact path="/search">
-            <TabSearch />
+            <Suspense fallback={null}><TabSearch /></Suspense>
           </Route>
           <Route path="/transaction/:id">
-            <TransactionDetails />
+            <Suspense fallback={null}><TransactionDetails /></Suspense>
           </Route>
           <Route path="/card/:id">
-            <CardDetails />
+            <Suspense fallback={null}><CardDetails /></Suspense>
           </Route>
           <Route path="/account">
-            <AccountSettings />
+            <Suspense fallback={null}><AccountSettings /></Suspense>
           </Route>
           <Route path="/payment">
-            <PaymentSettings />
+            <Suspense fallback={null}><PaymentSettings /></Suspense>
           </Route>
           <Route path="/security">
-            <SecuritySettings />
+            <Suspense fallback={null}><SecuritySettings /></Suspense>
           </Route>
           <Route exact path="/">
             <Redirect to="/tab1" />

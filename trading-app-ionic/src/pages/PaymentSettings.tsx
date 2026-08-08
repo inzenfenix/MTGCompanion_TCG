@@ -19,7 +19,7 @@ const PaymentSettings: React.FC = () => {
           
           <IonList className="mtg-list" style={{background: 'transparent', marginBottom: '20px'}}>
             <IonItem className="mtg-list-item-row" lines="none" style={{borderRadius: '8px', marginBottom: '10px'}}>
-              <IonIcon icon={cardOutline} slot="start" style={{color: '#44ff44'}} />
+              <IonIcon icon={cardOutline} slot="start" style={{color: 'var(--ion-color-tertiary-tint)'}} />
               <IonLabel>
                 <h2 style={{color: '#f2e3cd'}}>WebPay Credit Card</h2>
                 <p style={{color: '#c2b5b5'}}>**** **** **** 4242</p>
