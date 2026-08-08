@@ -10,9 +10,11 @@ import {
 } from '@ionic/react';
 import { trendingUp, trendingDown, timeOutline, scanOutline, libraryOutline } from 'ionicons/icons';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 const Tab1: React.FC = () => {
   const router = useIonRouter();
+  const { t } = useTranslation();
 
   const transactions = [
     { id: 1, type: 'buy', amount: 45.00, card: 'Chalice of the Void', date: '2026-07-28' },
@@ -38,7 +40,7 @@ const Tab1: React.FC = () => {
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonTitle>The Keep</IonTitle>
+          <IonTitle>{t('keep_title')}</IonTitle>
         </IonToolbar>
       </IonHeader>
       <IonContent fullscreen>
@@ -54,11 +56,11 @@ const Tab1: React.FC = () => {
             transition={{ duration: 0.6, type: 'spring' }}
             style={{ textAlign: 'center', marginBottom: '25px', marginTop: '10px' }}
           >
-            <h2 style={{ fontSize: '1.2rem', margin: '0 0 5px 0', letterSpacing: '2px', color: '#f2e3cd' }}>TREASURY BALANCE</h2>
+            <h2 style={{ fontSize: '1.2rem', margin: '0 0 5px 0', letterSpacing: '2px', color: '#f2e3cd' }}>{t('treasury_balance')}</h2>
             <h1 style={{ fontSize: '3.5rem', margin: '0', color: '#f2e3cd', fontFamily: 'Cinzel', fontWeight: 'bold' }}>
               $1,250.00
             </h1>
-            <p style={{ margin: '5px 0', fontStyle: 'italic', color: '#c2b5b5' }}>Available for trade</p>
+            <p style={{ margin: '5px 0', fontStyle: 'italic', color: '#c2b5b5' }}>{t('available_trade')}</p>
           </motion.div>
 
           <motion.div 
@@ -70,20 +72,20 @@ const Tab1: React.FC = () => {
             <IonButton className="mtg-btn" style={{flex: 1}} onClick={() => router.push('/tab2', 'forward')}>
               <div className="mtg-btn-content">
                 <IonIcon icon={scanOutline} style={{ fontSize: '1.2rem' }} />
-                <span>New Trade</span>
+                <span>{t('new_trade')}</span>
               </div>
             </IonButton>
-            
+
             <IonButton className="mtg-btn" style={{flex: 1}} onClick={() => router.push('/tab3', 'forward')}>
               <div className="mtg-btn-content">
                 <IonIcon icon={libraryOutline} style={{ fontSize: '1.2rem' }} />
-                <span>Open Vault</span>
+                <span>{t('open_vault')}</span>
               </div>
             </IonButton>
           </motion.div>
 
           <h2 style={{ paddingLeft: '5px', fontSize: '1.4rem', color: '#f2e3cd', margin: '0' }}>
-            Ledger of Trades
+            {t('ledger')}
           </h2>
           
           <motion.div variants={containerVariants} initial="hidden" animate="visible">

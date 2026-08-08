@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonSearchbar, IonSegment, IonSegmentButton, IonLabel, IonIcon, IonList, IonItem } from '@ionic/react';
 import { locationOutline, storefrontOutline, personOutline } from 'ionicons/icons';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 const TabSearch: React.FC = () => {
+  const { t } = useTranslation();
   const [searchType, setSearchType] = useState<'nearby' | 'stores'>('nearby');
   const [searchText, setSearchText] = useState('');
 
@@ -21,23 +23,23 @@ const TabSearch: React.FC = () => {
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonTitle>The Bazaar</IonTitle>
+          <IonTitle>{t('bazaar_title')}</IonTitle>
         </IonToolbar>
         <IonToolbar style={{ '--background': 'rgba(10, 5, 8, 0.8)' }}>
-          <IonSearchbar 
-            value={searchText} 
+          <IonSearchbar
+            value={searchText}
             onIonInput={e => setSearchText(e.detail.value!)}
-            placeholder="Search artifacts (e.g. Black Lotus)"
+            placeholder={t('search_artifacts_example_placeholder')}
             style={{'--background': 'rgba(255,255,255,0.1)', '--color': '#f2e3cd', '--icon-color': '#f2e3cd', '--placeholder-color': '#c2b5b5'}}
           />
         </IonToolbar>
         <IonToolbar style={{ '--background': 'rgba(10, 5, 8, 0.8)' }}>
           <IonSegment value={searchType} onIonChange={e => setSearchType(e.detail.value as 'nearby' | 'stores')}>
             <IonSegmentButton value="nearby">
-              <IonLabel><IonIcon icon={personOutline} style={{verticalAlign: 'middle'}}/> Players Nearby</IonLabel>
+              <IonLabel><IonIcon icon={personOutline} style={{verticalAlign: 'middle'}}/> {t('players_nearby')}</IonLabel>
             </IonSegmentButton>
             <IonSegmentButton value="stores">
-              <IonLabel><IonIcon icon={storefrontOutline} style={{verticalAlign: 'middle'}}/> Local Stores</IonLabel>
+              <IonLabel><IonIcon icon={storefrontOutline} style={{verticalAlign: 'middle'}}/> {t('local_stores')}</IonLabel>
             </IonSegmentButton>
           </IonSegment>
         </IonToolbar>
@@ -51,9 +53,9 @@ const TabSearch: React.FC = () => {
         >
           <AnimatePresence mode="wait">
             <motion.div key={searchType} variants={containerVariants} initial="hidden" animate="visible" exit="hidden">
-              <h2 style={{marginTop: '0'}}>{searchType === 'nearby' ? 'Wandering Merchants' : 'Established Guilds'}</h2>
+              <h2 style={{marginTop: '0'}}>{searchType === 'nearby' ? t('wandering_merchants') : t('established_guilds')}</h2>
               <p style={{fontStyle: 'italic', color: '#c2b5b5', marginBottom: '20px'}}>
-                {searchType === 'nearby' ? 'Other players in your vicinity looking to trade.' : 'Official Local Game Stores with inventory.'}
+                {searchType === 'nearby' ? t('nearby_desc') : t('stores_desc')}
               </p>
 
               <IonList className="mtg-list">
@@ -64,10 +66,10 @@ const TabSearch: React.FC = () => {
                         <IonIcon icon={locationOutline} slot="start" style={{color: 'var(--ion-color-secondary-tint)'}} />
                         <IonLabel>
                           <h3 style={{color: '#f2e3cd', fontWeight: 'bold'}}>LootGoblin99</h3>
-                          <p style={{color: '#c2b5b5'}}>Has: Chalice of the Void</p>
+                          <p style={{color: '#c2b5b5'}}>{t('has_card')} Chalice of the Void</p>
                         </IonLabel>
                         <IonLabel slot="end" style={{color: 'var(--ion-color-tertiary-tint)', textAlign: 'right'}}>
-                          <div style={{fontWeight: 'bold'}}>0.2 miles</div>
+                          <div style={{fontWeight: 'bold'}}>0.2 {t('miles')}</div>
                         </IonLabel>
                       </IonItem>
                     </motion.div>
@@ -76,10 +78,10 @@ const TabSearch: React.FC = () => {
                         <IonIcon icon={locationOutline} slot="start" style={{color: 'var(--ion-color-secondary-tint)'}} />
                         <IonLabel>
                           <h3 style={{color: '#f2e3cd', fontWeight: 'bold'}}>SpellSlinger007</h3>
-                          <p style={{color: '#c2b5b5'}}>Looking for: Tarmogoyf</p>
+                          <p style={{color: '#c2b5b5'}}>{t('looking_for')} Tarmogoyf</p>
                         </IonLabel>
                         <IonLabel slot="end" style={{color: 'var(--ion-color-tertiary-tint)', textAlign: 'right'}}>
-                          <div style={{fontWeight: 'bold'}}>1.5 miles</div>
+                          <div style={{fontWeight: 'bold'}}>1.5 {t('miles')}</div>
                         </IonLabel>
                       </IonItem>
                     </motion.div>
@@ -91,10 +93,10 @@ const TabSearch: React.FC = () => {
                         <IonIcon icon={storefrontOutline} slot="start" style={{color: '#d4af37'}} />
                         <IonLabel>
                           <h3 style={{color: '#f2e3cd', fontWeight: 'bold'}}>Dragon's Lair Games</h3>
-                          <p style={{color: '#c2b5b5'}}>Verified Store • High Inventory</p>
+                          <p style={{color: '#c2b5b5'}}>{t('verified_store')}</p>
                         </IonLabel>
                         <IonLabel slot="end" style={{color: 'var(--ion-color-tertiary-tint)', textAlign: 'right'}}>
-                          <div style={{fontWeight: 'bold'}}>3.0 miles</div>
+                          <div style={{fontWeight: 'bold'}}>3.0 {t('miles')}</div>
                         </IonLabel>
                       </IonItem>
                     </motion.div>

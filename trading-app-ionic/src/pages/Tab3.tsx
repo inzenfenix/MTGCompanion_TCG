@@ -12,8 +12,10 @@ import {
   useIonRouter
 } from '@ionic/react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 const Tab3: React.FC = () => {
+  const { t } = useTranslation();
   const [searchText, setSearchText] = useState('');
   const router = useIonRouter();
 
@@ -40,13 +42,13 @@ const Tab3: React.FC = () => {
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonTitle>The Vault</IonTitle>
+          <IonTitle>{t('vault_title')}</IonTitle>
         </IonToolbar>
         <IonToolbar style={{ '--background': 'rgba(10, 5, 8, 0.8)' }}>
-          <IonSearchbar 
-            value={searchText} 
+          <IonSearchbar
+            value={searchText}
             onIonInput={e => setSearchText(e.detail.value!)}
-            placeholder="Search artifacts..."
+            placeholder={t('search_artifacts_placeholder')}
             style={{'--background': 'rgba(255,255,255,0.1)', '--color': '#f2e3cd', '--icon-color': '#f2e3cd', '--placeholder-color': '#c2b5b5'}}
           />
         </IonToolbar>
