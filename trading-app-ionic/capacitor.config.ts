@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'io.ionic.starter',
-  appName: 'trading-app-ionic',
+  appId: 'com.udd.mtgcompanion',
+  appName: 'MTG Companion',
   webDir: 'dist'
 };
 

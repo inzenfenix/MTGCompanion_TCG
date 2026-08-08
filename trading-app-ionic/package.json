@@ -53,5 +53,5 @@
     "vite": "^8.2.1",
     "vitest": "^4.1.10"
   },
-  "description": "An Ionic project"
+  "description": "MTG Companion — mobile card scanner & marketplace (Ionic React + Capacitor, Android)"
 }
