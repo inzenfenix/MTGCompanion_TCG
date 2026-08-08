@@ -37,6 +37,10 @@ import sys
 import time
 import random
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -504,6 +508,20 @@ def main():
         cards_info = {c["id"]: c for c in json.load(f)}
 
     metricas, ejemplos_ok, ejemplos_fail, extras = evaluar(cards_info)
+
+    # Curva ROC y matriz de confusión por rareza — se calculaban solo para
+    # graficar PNGs; se persisten también en el JSON para poder graficarlas
+    # en el desktop-runner.
+    metricas["roc_curve"] = {"fpr": extras["fpr"], "tpr": extras["tpr"]}
+    if extras["true_rarity_list"]:
+        orden = ["common", "uncommon", "rare", "mythic"]
+        y_true_rar = [orden.index(r) for r in extras["true_rarity_list"] if r in orden]
+        y_pred_rar = [orden.index(r) for r in extras["pred_rarity_list"] if r in orden]
+        cm_rareza = confusion_matrix(y_true_rar, y_pred_rar, labels=list(range(4)))
+        metricas["confusion_matrix_rarity"] = {
+            "labels": ["Common", "Uncommon", "Rare", "Mythic"],
+            "matrix": cm_rareza.tolist(),
+        }
 
     # Guardar JSON de métricas
     out_json = RESULTS_DIR / "metrics_pt.json"

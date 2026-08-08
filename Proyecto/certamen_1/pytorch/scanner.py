@@ -20,7 +20,12 @@ Requisitos para el clasificador binario:
 import argparse
 import json
 import pathlib
+import sys
 import time
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
 
 import numpy as np
 import torch
@@ -38,6 +43,7 @@ DATA_DIR        = SCRIPT_DIR / "data"                    # artefactos locales (e
 SHARED_DATA_DIR = SCRIPT_DIR.parent / "data"             # dataset compartido (cards.json, imágenes)
 IMAGES_DIR      = SHARED_DATA_DIR / "images"
 MODELS_DIR      = SCRIPT_DIR / "models"
+RESULTS_DIR     = SCRIPT_DIR / "results"
 IMG_SIZE   = 224
 DEVICE     = "cuda" if torch.cuda.is_available() else "cpu"
 SIMILARITY_THRESHOLD = 0.75   # umbral de similitud óptimo (ver pytorch/results/metrics_pt.json → opt_threshold)
@@ -259,6 +265,17 @@ def imprimir_resultados(resultados: list, cards_info: dict, query_path: str, tie
     print()
 
 
+def guardar_resultado(resultado: dict) -> None:
+    """
+    Escribe results/last_scan.json con la última corrida — es lo que lee el
+    runner de Electron para mostrar los resultados en la UI en vez de solo
+    texto plano en la consola.
+    """
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    with open(RESULTS_DIR / "last_scan.json", "w", encoding="utf-8") as f:
+        json.dump(resultado, f, indent=2, ensure_ascii=False)
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -290,13 +307,14 @@ Ejemplos:
     img_path = pathlib.Path(args.imagen)
     if not img_path.exists():
         print(f"Error: archivo no encontrado: {img_path}")
-        return
+        sys.exit(1)
 
     if args.top < 1:
         print("Error: --top debe ser >= 1")
-        return
+        sys.exit(1)
 
     n_tta = max(1, args.tta)
+    detector_info = None
 
     # ── Paso 1: Clasificador binario MTG / No-MTG ─────────────────────────
     if not args.skip_detect:
@@ -304,6 +322,7 @@ Ejemplos:
         if resultado is not None:
             detector, threshold = resultado
             es_mtg, prob = clasificar_imagen(str(img_path), detector, threshold)
+            detector_info = {"ran": True, "is_mtg": es_mtg, "probability": prob, "threshold": threshold}
 
             ancho = 90
             print()
@@ -314,6 +333,15 @@ Ejemplos:
                 print(f"    Para forzar la búsqueda de todas formas: --skip-detect")
                 print("═" * ancho)
                 print()
+                guardar_resultado({
+                    "kind": "scanner",
+                    "framework": "pytorch",
+                    "image": str(img_path),
+                    "detector": detector_info,
+                    "is_magic": False,
+                    "top1": None,
+                    "candidates": [],
+                })
                 return
             print(f"  ✓ Carta MTG detectada (P={prob:.4f})")
             print("═" * ancho)
@@ -327,7 +355,7 @@ Ejemplos:
         gallery_emb, gallery_ids, cards_info = cargar_indice(finetuned=args.finetuned)
     except FileNotFoundError as e:
         print(f"Error: {e}")
-        return
+        sys.exit(1)
 
     modelo_label = "fine-tuned" if args.finetuned else "baseline"
     print(f"  Índice: {len(gallery_ids):,} cartas  |  Device: {DEVICE}  |  Modelo: {modelo_label}")
@@ -350,6 +378,32 @@ Ejemplos:
     # Mostrar resultados
     tiempos = {"extraccion_ms": extraccion_ms, "busqueda_ms": busqueda_ms}
     imprimir_resultados(resultados, cards_info, str(img_path), tiempos, args.threshold)
+
+    top1_sim = resultados[0][1]
+    candidates = []
+    for i, (card_id, sim) in enumerate(resultados, 1):
+        card = cards_info.get(card_id, {})
+        candidates.append({
+            "rank": i,
+            "id": card_id,
+            "name": card.get("name", "?"),
+            "similarity": sim,
+            "set_name": card.get("set_name"),
+            "cmc": card.get("cmc"),
+            "colors": card.get("colors"),
+            "rarity": card.get("rarity"),
+        })
+    guardar_resultado({
+        "kind": "scanner",
+        "framework": "pytorch",
+        "image": str(img_path),
+        "detector": detector_info,
+        "is_magic": top1_sim >= args.threshold,
+        "threshold": args.threshold,
+        "top1": candidates[0],
+        "candidates": candidates,
+        "timings_ms": tiempos,
+    })
 
 
 if __name__ == "__main__":

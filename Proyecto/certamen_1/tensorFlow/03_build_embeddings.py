@@ -6,7 +6,7 @@ from src.scryfall_client import image_inventory
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Construye el indice de embeddings con MobileNetV2.")
+    parser = argparse.ArgumentParser(description="Construye el indice de embeddings con MobileNetV3Small.")
     parser.add_argument("--force", action="store_true", help="Reconstruye aunque el indice ya exista.")
     args = parser.parse_args()
 

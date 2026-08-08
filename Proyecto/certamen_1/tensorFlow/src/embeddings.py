@@ -15,9 +15,9 @@ def normalize_embedding(embedding: np.ndarray) -> np.ndarray:
 
 
 def build_feature_extractor():
-    from tensorflow.keras.applications import MobileNetV2
+    from tensorflow.keras.applications import MobileNetV3Small
 
-    model = MobileNetV2(
+    model = MobileNetV3Small(
         weights="imagenet",
         include_top=False,
         pooling="avg",
@@ -28,12 +28,11 @@ def build_feature_extractor():
 
 
 def embed_pil_image(model, image) -> np.ndarray:
-    from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
-
+    # MobileNetV3 incluye el rescaling como parte del modelo (capa Rescaling);
+    # preprocess_input es un passthrough y espera pixeles en rango [0, 255].
     image = image.convert("RGB").resize(IMG_SIZE)
     array = np.asarray(image, dtype=np.float32)
     array = np.expand_dims(array, axis=0)
-    array = preprocess_input(array)
     embedding = model.predict(array, verbose=0)[0]
     return normalize_embedding(embedding)
 

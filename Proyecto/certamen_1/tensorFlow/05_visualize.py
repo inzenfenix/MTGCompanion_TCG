@@ -83,7 +83,7 @@ def construir_leyenda_rareza() -> list:
 # ── t-SNE ────────────────────────────────────────────────────────────────────
 
 def calcular_tsne(emb_matrix: np.ndarray, n: int) -> tuple:
-    """Reduce dimensionalidad de 1280-dim (MobileNetV2) → 2-dim con t-SNE."""
+    """Reduce dimensionalidad de 576-dim (MobileNetV3Small) → 2-dim con t-SNE."""
     np.random.seed(SEED)
     idx = np.random.choice(len(emb_matrix), min(n, len(emb_matrix)), replace=False)
     sample = emb_matrix[idx]
@@ -112,7 +112,7 @@ def graficar_tsne_color(coords: np.ndarray, idx: np.ndarray, cards_info: dict, a
     ax.scatter(coords[:, 0], coords[:, 1], c=colores, s=6, alpha=0.75, linewidths=0)
 
     ax.set_title(
-        f"t-SNE — Embeddings MobileNetV2 (TensorFlow)\n"
+        f"t-SNE — Embeddings MobileNetV3Small (TensorFlow)\n"
         f"{len(idx):,} cartas MTG coloreadas por color de maná",
         fontsize=13, fontweight="bold",
     )
@@ -136,7 +136,7 @@ def graficar_tsne_rareza(coords: np.ndarray, idx: np.ndarray, cards_info: dict, 
     ax.scatter(coords[:, 0], coords[:, 1], c=colores, s=6, alpha=0.75, linewidths=0)
 
     ax.set_title(
-        f"t-SNE — Embeddings MobileNetV2 (TensorFlow)\n"
+        f"t-SNE — Embeddings MobileNetV3Small (TensorFlow)\n"
         f"{len(idx):,} cartas MTG coloreadas por rareza",
         fontsize=13, fontweight="bold",
     )

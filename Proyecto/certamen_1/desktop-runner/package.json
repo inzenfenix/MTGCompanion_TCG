@@ -1,0 +1,24 @@
+{
+  "name": "mtg-scanner-desktop-runner",
+  "private": true,
+  "version": "0.1.0",
+  "description": "App de escritorio (Electron + NestJS + React/shadcn) para correr los pipelines de certamen_1 (pytorch/tensorFlow) sin usar la terminal manualmente.",
+  "workspaces": [
+    "apps/server",
+    "apps/renderer",
+    "apps/electron"
+  ],
+  "scripts": {
+    "dev:server": "npm run start:dev --workspace apps/server",
+    "dev:renderer": "npm run dev --workspace apps/renderer",
+    "build:server": "npm run build --workspace apps/server",
+    "build:renderer": "npm run build --workspace apps/renderer",
+    "build:electron": "npm run build --workspace apps/electron",
+    "build": "npm run build:server && npm run build:renderer && npm run build:electron",
+    "dev": "concurrently -k -n SERVER,RENDERER -c blue,green \"npm run dev:server\" \"npm run dev:renderer\"",
+    "electron": "npm run build && electron apps/electron/dist/main.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

@@ -20,8 +20,13 @@ import argparse
 import json
 import pathlib
 import random
+import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
 
 import matplotlib
 matplotlib.use("Agg")
@@ -260,7 +265,8 @@ def preparar_muestras(rutas_mtg: list, rutas_neg: list, n: int) -> tuple:
 
 def entrenar(model: MTGDetector, optimizador: torch.optim.Optimizer,
              train_dl: DataLoader, val_dl: DataLoader, epochs: int,
-             model_path: pathlib.Path | None = None) -> list:
+             model_path: pathlib.Path | None = None,
+             history_path: pathlib.Path | None = None) -> list:
     """
     Fine-tune del MTGDetector. Guarda el mejor checkpoint según val_loss.
     Retorna historial [{epoch, train_loss, val_loss}, ...].
@@ -268,6 +274,10 @@ def entrenar(model: MTGDetector, optimizador: torch.optim.Optimizer,
     `optimizador` se recibe ya construido (en vez de armarlo acá adentro) para
     que 08_optuna_binary_classifier.py pueda reusar esta misma función con el
     optimizer/hiperparámetros que esté probando cada trial.
+
+    Si se pasa `history_path`, el historial se reescribe completo (JSON) tras
+    cada época — permite que un proceso externo (el desktop-runner) haga
+    polling del archivo y muestre el loss en vivo mientras entrena.
     """
     criterio    = nn.BCEWithLogitsLoss()
     scheduler   = torch.optim.lr_scheduler.CosineAnnealingLR(optimizador, T_max=epochs)
@@ -309,6 +319,10 @@ def entrenar(model: MTGDetector, optimizador: torch.optim.Optimizer,
             marker = "  ← guardado"
 
         print(f"  Época {epoch:02d}/{epochs}  train={train_loss:.4f}  val={val_loss:.4f}{marker}")
+
+        if history_path is not None:
+            with open(history_path, "w") as f:
+                json.dump(historial, f, indent=2)
 
     return historial
 
@@ -504,7 +518,8 @@ def main():
     n_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"  Parámetros entrenables: {n_trainable / 1e6:.2f}M\n")
 
-    historial = entrenar(model, optimizador, train_dl, val_dl, epochs)
+    historial = entrenar(model, optimizador, train_dl, val_dl, epochs,
+                          history_path=RESULTS_DIR / "training_history.json")
 
     # ── 5. Evaluación ─────────────────────────────────────────────────────
     print("\n[5/5] Evaluando mejor checkpoint...")
@@ -519,6 +534,11 @@ def main():
     print(f"  Recall    : {metricas['recall']:.4f}")
     print(f"  F1-Score  : {metricas['f1']:.4f}")
     print(f"  ROC-AUC   : {metricas['roc_auc']:.4f}")
+
+    # Curva ROC y matriz de confusión — para graficar en el desktop-runner
+    # (ya se calculan para las figuras PNG, acá se persisten además en JSON).
+    metricas["roc_curve"] = {"fpr": fpr.tolist(), "tpr": tpr.tolist()}
+    metricas["confusion_matrix"] = confusion_matrix(y_true, y_pred).tolist()
 
     # Guardar métricas JSON
     metricas_path = RESULTS_DIR / "metrics_binary.json"

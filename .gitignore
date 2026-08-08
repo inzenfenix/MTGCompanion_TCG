@@ -188,3 +188,23 @@ cython_debug/
 *.npy
 *.pkl
 *.pb
+
+# Node.js / npm (desktop-runner y cualquier otro paquete Node del repo)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+
+# Excepción: la regla Python "lib/" de más arriba también matchea el código
+# fuente real de desktop-runner/apps/renderer/src/lib/ (api.ts, utils.ts, etc.).
+!Proyecto/certamen_1/desktop-runner/**/src/lib/
+
+# Electron build output
+out/
+release/
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini

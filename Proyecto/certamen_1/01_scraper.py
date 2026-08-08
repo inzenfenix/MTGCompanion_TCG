@@ -26,7 +26,12 @@ import io
 import json
 import pathlib
 import random
+import sys
 import requests
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
 
 # ── Configuración ─────────────────────────────────────────────────────────────
 DATA_DIR = pathlib.Path(__file__).resolve().parent / "data"

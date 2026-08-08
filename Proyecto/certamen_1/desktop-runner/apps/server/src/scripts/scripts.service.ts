@@ -1,0 +1,397 @@
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
+import { randomUUID } from 'crypto';
+import { ArgDef, ENVS, EnvId, LiveFileDef, ResultFileDef, RUN_ALL_SEQUENCES, ScriptDef, SCRIPTS, findScript } from './scripts.config';
+import { LogsGateway } from './logs.gateway';
+
+export interface RunRecord {
+  id: string;
+  scriptId: string;
+  status: 'running' | 'success' | 'error' | 'stopped';
+  startedAt: number;
+  endedAt?: number;
+  exitCode?: number | null;
+}
+
+export interface RunAllStepResult {
+  scriptId: string;
+  label: string;
+  runId: string;
+  status: 'success' | 'error' | 'stopped';
+  exitCode: number | null;
+  durationMs: number;
+}
+
+@Injectable()
+export class ScriptsService {
+  private readonly logger = new Logger(ScriptsService.name);
+  private readonly runs = new Map<string, RunRecord>();
+  private readonly children = new Map<string, ChildProcessWithoutNullStreams>();
+  private readonly stopRequested = new Set<string>();
+  private readonly livePollers = new Map<string, NodeJS.Timeout>();
+
+  constructor(private readonly gateway: LogsGateway) {}
+
+  // ── Listado / estado ────────────────────────────────────────────────────
+
+  listScripts() {
+    return SCRIPTS.map((s) => ({
+      id: s.id,
+      group: s.group,
+      label: s.label,
+      description: s.description,
+      env: s.env,
+      args: s.args,
+      venvReady: this.venvReady(s.env),
+    }));
+  }
+
+  listEnvs() {
+    return Object.values(ENVS).map((e) => ({
+      id: e.id,
+      label: e.label,
+      needsVenv: e.dir !== null,
+      ready: this.venvReady(e.id),
+    }));
+  }
+
+  getRun(runId: string): RunRecord {
+    const run = this.runs.get(runId);
+    if (!run) throw new NotFoundException(`No existe la corrida ${runId}`);
+    return run;
+  }
+
+  // ── Resolución de intérpretes / venvs ──────────────────────────────────
+
+  private venvPythonPath(envId: EnvId): string | null {
+    const env = ENVS[envId];
+    if (!env.dir) return null;
+    const venvDir = path.join(env.dir, '.venv');
+    const winPy = path.join(venvDir, 'Scripts', 'python.exe');
+    const nixPy = path.join(venvDir, 'bin', 'python');
+    return process.platform === 'win32' ? winPy : nixPy;
+  }
+
+  private venvReady(envId: EnvId): boolean {
+    if (envId === 'system') return true;
+    const py = this.venvPythonPath(envId);
+    return !!py && fs.existsSync(py);
+  }
+
+  /** Devuelve el comando de python a usar para un env, asegurando el venv si hace falta. */
+  private async resolvePython(envId: EnvId): Promise<string> {
+    if (envId === 'system') return this.systemPython();
+    if (!this.venvReady(envId)) {
+      await this.ensureVenv(envId);
+    }
+    const py = this.venvPythonPath(envId);
+    if (!py || !fs.existsSync(py)) {
+      throw new BadRequestException(`No se pudo preparar el venv de "${envId}".`);
+    }
+    return py;
+  }
+
+  private systemPythonCache: string | null = null;
+
+  private systemPython(): string {
+    if (this.systemPythonCache) return this.systemPythonCache;
+    // En la mayoría de instalaciones modernas "python3" existe en Unix y "python" en Windows.
+    this.systemPythonCache = process.platform === 'win32' ? 'python' : 'python3';
+    return this.systemPythonCache;
+  }
+
+  /**
+   * Crea el venv de un entorno (si falta) e instala su requirements.txt.
+   * Streamea progreso por WebSocket bajo el runId sintético "venv:<envId>".
+   */
+  async ensureVenv(envId: EnvId): Promise<void> {
+    const env = ENVS[envId];
+    if (!env.dir || !env.requirementsFile) return; // 'system': nada que preparar
+
+    const runId = `venv:${envId}`;
+    const venvDir = path.join(env.dir, '.venv');
+
+    if (this.venvReady(envId)) {
+      this.gateway.emitVenvProgress(envId, 'venv ya existe, nada que hacer.');
+      return;
+    }
+
+    if (!fs.existsSync(env.requirementsFile)) {
+      throw new BadRequestException(`No se encontró ${env.requirementsFile}`);
+    }
+
+    this.gateway.emitStatus(runId, 'running');
+    this.gateway.emitVenvProgress(envId, `Creando venv en ${venvDir} ...`);
+    await this.execAndStream(runId, this.systemPython(), ['-m', 'venv', venvDir], env.dir);
+
+    const pip =
+      process.platform === 'win32'
+        ? path.join(venvDir, 'Scripts', 'pip.exe')
+        : path.join(venvDir, 'bin', 'pip');
+
+    this.gateway.emitVenvProgress(envId, `Instalando dependencias desde ${path.basename(env.requirementsFile)} ...`);
+    await this.execAndStream(runId, pip, ['install', '-r', env.requirementsFile], env.dir);
+
+    this.gateway.emitVenvProgress(envId, 'Listo.');
+    this.gateway.emitStatus(runId, 'success');
+  }
+
+  /** Corre un comando y streamea su output por el gateway bajo un runId, esperando a que termine. */
+  private execAndStream(runId: string, cmd: string, args: string[], cwd: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const child = spawn(cmd, args, { cwd, env: { ...process.env, PYTHONUNBUFFERED: '1' } });
+      child.stdout.on('data', (d) => this.gateway.emitLog(runId, 'stdout', d.toString()));
+      child.stderr.on('data', (d) => this.gateway.emitLog(runId, 'stderr', d.toString()));
+      child.on('error', (err) => reject(err));
+      child.on('close', (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`"${cmd} ${args.join(' ')}" terminó con código ${code}`));
+      });
+    });
+  }
+
+  // ── Construcción de argv a partir de la definición + valores del form ──
+
+  private buildArgv(script: ScriptDef, values: Record<string, unknown>): string[] {
+    const argv: string[] = [];
+    const positionals: ArgDef[] = [];
+    const flags: ArgDef[] = [];
+    for (const def of script.args) (def.flag ? flags : positionals).push(def);
+
+    for (const def of flags) {
+      const raw = values[def.name];
+      if (def.kind === 'boolean') {
+        if (raw === true) argv.push(def.flag as string);
+        continue;
+      }
+      if (raw === undefined || raw === null || raw === '') {
+        if (def.required) throw new BadRequestException(`Falta el argumento requerido "${def.name}"`);
+        continue;
+      }
+      argv.push(def.flag as string, String(raw));
+    }
+
+    for (const def of positionals) {
+      const raw = values[def.name];
+      if (def.kind === 'files') {
+        const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+        for (const item of list) argv.push(String(item));
+        continue;
+      }
+      if (raw === undefined || raw === null || raw === '') {
+        if (def.required) throw new BadRequestException(`Falta el argumento requerido "${def.name}"`);
+        continue;
+      }
+      argv.push(String(raw));
+    }
+
+    return argv;
+  }
+
+  // ── Ejecutar un script individual ──────────────────────────────────────
+
+  async runScript(scriptId: string, values: Record<string, unknown>): Promise<{ runId: string; done: Promise<RunAllStepResult> }> {
+    const script = findScript(scriptId);
+    if (!script) throw new NotFoundException(`Script "${scriptId}" no existe`);
+
+    const python = await this.resolvePython(script.env);
+    const argv = this.buildArgv(script, values ?? {});
+    const runId = randomUUID();
+    const startedAt = Date.now();
+
+    this.runs.set(runId, { id: runId, scriptId, status: 'running', startedAt });
+    this.gateway.emitStatus(runId, 'running');
+    this.gateway.emitLog(runId, 'stdout', `$ ${path.basename(python)} ${script.script} ${argv.join(' ')}\n`);
+
+    // "-u" + PYTHONUNBUFFERED: sin esto Python bufferea stdout por bloque (no por línea)
+    // al detectar que no está conectado a una terminal real, y el output no llega al
+    // renderer hasta que el buffer se llena o el proceso termina.
+    const child: ChildProcessWithoutNullStreams = spawn(python, ['-u', script.script, ...argv], {
+      cwd: script.cwd,
+      env: { ...process.env, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8' },
+    });
+
+    this.children.set(runId, child);
+
+    child.stdout.on('data', (d) => this.gateway.emitLog(runId, 'stdout', d.toString()));
+    child.stderr.on('data', (d) => this.gateway.emitLog(runId, 'stderr', d.toString()));
+
+    const liveFile = script.liveFile?.(values ?? {});
+    if (liveFile) this.startLivePolling(runId, liveFile);
+
+    const done = new Promise<RunAllStepResult>((resolve) => {
+      const finish = (outcome: 'success' | 'error', exitCode: number | null) => {
+        this.stopLivePolling(runId);
+        this.children.delete(runId);
+        const status: RunAllStepResult['status'] = this.stopRequested.delete(runId) ? 'stopped' : outcome;
+        const record = this.runs.get(runId);
+        if (record) {
+          record.status = status;
+          record.endedAt = Date.now();
+          record.exitCode = exitCode;
+        }
+        this.gateway.emitStatus(runId, status, { exitCode });
+        if (status === 'success' && script.resultFiles) {
+          this.readResultFiles(script.resultFiles(values ?? {})).then((results) => {
+            if (results.length) this.gateway.emitResult(runId, results);
+          });
+        }
+        resolve({
+          scriptId,
+          label: script.label,
+          runId,
+          status,
+          exitCode,
+          durationMs: Date.now() - startedAt,
+        });
+      };
+
+      child.on('error', (err) => {
+        this.gateway.emitLog(runId, 'stderr', `\n[error al lanzar el proceso] ${err.message}\n`);
+        finish('error', null);
+      });
+      child.on('close', (code) => finish(code === 0 ? 'success' : 'error', code));
+    });
+
+    return { runId, done };
+  }
+
+  /**
+   * Resuelve un segmento "latest" en una ruta cuando no es ni un symlink real
+   * ni una carpeta. Varios scripts (04_evaluate.py, 08_optuna_binary_classifier.py)
+   * crean output/.../latest como symlink a la carpeta con timestamp más reciente,
+   * pero dentro de una carpeta sincronizada con OneDrive el symlink puede quedar
+   * "aplanado" a un archivo de texto plano — y su contenido no es confiable:
+   * a veces es el nombre relativo de la carpeta, a veces una ruta absoluta de
+   * OTRA máquina (ver update_latest en pytorch/src/optuna_support.py, que usa
+   * run_dir.resolve()). En vez de confiar en ese contenido, se ignora y se
+   * busca directamente la subcarpeta con timestamp más reciente por nombre
+   * (el formato YYYY-MM-DD_HHMMSS ordena cronológicamente como string).
+   */
+  private async resolveLatestPath(fullPath: string): Promise<string> {
+    const parts = fullPath.split(path.sep);
+    const idx = parts.indexOf('latest');
+    if (idx === -1) return fullPath;
+
+    const latestPath = parts.slice(0, idx + 1).join(path.sep);
+    try {
+      const stat = await fs.promises.stat(latestPath);
+      if (stat.isDirectory()) return fullPath; // symlink/copia real: ya apunta bien
+    } catch {
+      // 'latest' no existe — se sigue igual al escaneo de abajo.
+    }
+
+    const parentDir = parts.slice(0, idx).join(path.sep);
+    try {
+      const entries = await fs.promises.readdir(parentDir, { withFileTypes: true });
+      const timestamped = entries
+        .filter((e) => e.isDirectory() && /^\d{4}-\d{2}-\d{2}_\d{6}$/.test(e.name))
+        .map((e) => e.name)
+        .sort();
+      const newest = timestamped[timestamped.length - 1];
+      if (newest) return [...parts.slice(0, idx), newest, ...parts.slice(idx + 1)].join(path.sep);
+    } catch {
+      // directorio padre inaccesible — no hay nada más que intentar.
+    }
+    return fullPath;
+  }
+
+  /**
+   * Lee los JSON de resultado que un script escribió (además de imprimirlos
+   * por consola). Si un archivo no existe (p.ej. shared-evaluate corrió solo
+   * "pytorch" y no hay metrics_tf.json) simplemente se lo salta en vez de fallar.
+   */
+  private async readResultFiles(defs: ResultFileDef[]): Promise<{ kind: string; label: string; data: unknown }[]> {
+    const results: { kind: string; label: string; data: unknown }[] = [];
+    for (const def of defs) {
+      try {
+        const resolvedPath = await this.resolveLatestPath(def.path);
+        const raw = await fs.promises.readFile(resolvedPath, 'utf-8');
+        results.push({ kind: def.kind, label: def.label, data: JSON.parse(raw) });
+      } catch {
+        // no existe o no es JSON válido — se omite, no es un error de la corrida.
+      }
+    }
+    return results;
+  }
+
+  // ── Datos en vivo mientras una corrida está "running" ──────────────────
+
+  /**
+   * Poll-ea `def.path` cada 1.5s mientras la corrida sigue viva y emite
+   * 'live-stats' cada vez que el contenido cambia (comparado por texto crudo,
+   * evita parsear JSON dos veces por tick). El archivo puede no existir todavía
+   * (se crea recién tras la primera época) — se ignora hasta que aparezca.
+   */
+  private startLivePolling(runId: string, def: LiveFileDef): void {
+    let lastRaw: string | null = null;
+    const tick = async () => {
+      try {
+        const raw = await fs.promises.readFile(def.path, 'utf-8');
+        if (raw === lastRaw) return;
+        lastRaw = raw;
+        this.gateway.emitLiveStats(runId, def.kind, JSON.parse(raw));
+      } catch {
+        // el archivo todavía no existe o no es JSON válido en este tick — se reintenta.
+      }
+    };
+    this.livePollers.set(runId, setInterval(tick, 1500));
+  }
+
+  private stopLivePolling(runId: string): void {
+    const timer = this.livePollers.get(runId);
+    if (!timer) return;
+    clearInterval(timer);
+    this.livePollers.delete(runId);
+  }
+
+  // ── Detener una corrida ─────────────────────────────────────────────────
+
+  /**
+   * Mata el proceso (y su árbol de subprocesos, vía taskkill /t en Windows —
+   * scripts como compare_scanners.py lanzan sus propios subprocesos por venv).
+   */
+  stopRun(runId: string): boolean {
+    const child = this.children.get(runId);
+    if (!child || child.pid === undefined) return false;
+
+    this.stopRequested.add(runId);
+    this.gateway.emitLog(runId, 'stderr', '\n[detenido por el usuario]\n');
+
+    if (process.platform === 'win32') {
+      spawn('taskkill', ['/pid', String(child.pid), '/t', '/f']);
+    } else {
+      child.kill('SIGTERM');
+    }
+    return true;
+  }
+
+  // ── "Correr todo" para un framework ────────────────────────────────────
+
+  async runAll(framework: 'pytorch' | 'tensorflow'): Promise<{ overallRunId: string; steps: RunAllStepResult[]; ok: boolean }> {
+    const sequence = RUN_ALL_SEQUENCES[framework];
+    if (!sequence) throw new BadRequestException(`Framework desconocido: ${framework}`);
+
+    const overallRunId = `run-all:${framework}:${Date.now()}`;
+    const steps: RunAllStepResult[] = [];
+
+    for (const scriptId of sequence) {
+      const overrides = scriptId === 'shared-evaluate' ? { model: framework } : {};
+      const script = findScript(scriptId);
+      const { runId, done } = await this.runScript(scriptId, overrides);
+      // El frontend usa este evento para saber a qué runId suscribirse y
+      // mostrar la consola en vivo del paso actual (si no, "Correr todo" no
+      // tiene forma de saber qué corrida está en curso hasta el reporte final).
+      this.gateway.emitRunAllStep({ overallRunId, framework, scriptId, label: script?.label ?? scriptId, runId });
+      const result = await done;
+      steps.push(result);
+      if (result.status !== 'success') break; // detener secuencia ante error o cancelación
+    }
+
+    const ok = steps.length === sequence.length && steps.every((s) => s.status === 'success');
+    this.gateway.server?.emit('run-all-report', { overallRunId, framework, steps, ok });
+    return { overallRunId, steps, ok };
+  }
+}

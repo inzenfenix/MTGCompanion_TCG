@@ -21,11 +21,16 @@ Requisitos:
 """
 
 import argparse
+import os
 import pathlib
 import re
 import subprocess
 import sys
 import time
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
 
 TESTING_DIR  = pathlib.Path(__file__).resolve().parent
 CERTAMEN_DIR = TESTING_DIR.parent
@@ -47,9 +52,14 @@ def _venv_python(framework_dir: pathlib.Path) -> str:
 
 
 def _run(cmd: list, cwd: pathlib.Path) -> tuple:
+    # Los scanners imprimen caracteres Unicode (═, ✓, ✗, ●, ◆, ★...). Sin esto,
+    # en Windows el subproceso hereda la codepage de la consola (cp1252) y
+    # revienta con UnicodeEncodeError al hacer print() de esos caracteres.
+    env = dict(os.environ, PYTHONIOENCODING="utf-8")
     t0 = time.perf_counter()
     try:
-        proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=TIMEOUT_S)
+        proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True,
+                               encoding="utf-8", env=env, timeout=TIMEOUT_S)
         return proc.stdout, proc.stderr, proc.returncode, time.perf_counter() - t0
     except subprocess.TimeoutExpired:
         return "", f"timeout ({TIMEOUT_S}s)", -1, time.perf_counter() - t0

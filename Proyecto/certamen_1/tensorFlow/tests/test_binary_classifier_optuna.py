@@ -35,7 +35,7 @@ class OptimizerFactoryTests(unittest.TestCase):
 
 class BinaryClassifierBuilderTests(unittest.TestCase):
     @patch(
-        "src.binary_classifier.tf.keras.applications.MobileNetV2",
+        "src.binary_classifier.tf.keras.applications.MobileNetV3Small",
         side_effect=fake_backbone,
     )
     def test_defaults_keep_existing_head(self, _mock):
@@ -54,7 +54,7 @@ class BinaryClassifierBuilderTests(unittest.TestCase):
         self.assertIsInstance(model.optimizer, tf.keras.optimizers.Adam)
 
     @patch(
-        "src.binary_classifier.tf.keras.applications.MobileNetV2",
+        "src.binary_classifier.tf.keras.applications.MobileNetV3Small",
         side_effect=fake_backbone,
     )
     def test_applies_trial_head_parameters(self, _mock):

@@ -5,7 +5,7 @@ MTG Card Scanner — Certamen 1
 Pipeline:
     1. Descarga metadatos e imágenes de cartas Pokémon desde pokemontcg.io (negativos).
     2. Construye dataset balanceado: N cartas MTG + N cartas Pokémon (clases iguales).
-    3. Fine-tune MobileNetV2 con cabeza binaria (binary_crossentropy).
+    3. Fine-tune MobileNetV3Small con cabeza binaria (binary_crossentropy).
     4. Evalúa: confusion matrix, F1-score, ROC-AUC.
     5. Guarda modelo en models/mtg_detector.keras para usar en scanner.py.
 
@@ -225,7 +225,10 @@ def preparar_muestras(rutas_mtg: list, rutas_neg: list, n: int) -> tuple:
 def build_dataset(samples: list, training: bool, batch_size: int = BATCH_SIZE) -> tf.data.Dataset:
     paths = [s[0] for s in samples]
     labels = [float(s[1]) for s in samples]
-    preprocess = tf.keras.applications.mobilenet_v2.preprocess_input
+    # MobileNetV3 incluye el rescaling como parte del modelo; preprocess_input
+    # es un passthrough (espera pixeles en [0, 255], que es lo que produce
+    # _decode_resize/AUGMENT).
+    preprocess = tf.keras.applications.mobilenet_v3.preprocess_input
 
     ds = tf.data.Dataset.from_tensor_slices((paths, labels))
     if training:
@@ -242,7 +245,29 @@ def build_dataset(samples: list, training: bool, batch_size: int = BATCH_SIZE) -
 
 # ── SECCIÓN 3: Entrenamiento ───────────────────────────────────────────────────
 
-def entrenar(model: tf.keras.Model, train_ds: tf.data.Dataset, val_ds: tf.data.Dataset, epochs: int) -> list:
+class _HistoryJsonWriter(tf.keras.callbacks.Callback):
+    """Reescribe `history_path` con el historial acumulado tras cada época,
+    para que un proceso externo (el desktop-runner) pueda pollear el archivo
+    y mostrar el loss en vivo mientras entrena."""
+
+    def __init__(self, history_path: pathlib.Path):
+        super().__init__()
+        self.history_path = history_path
+        self.historial: list = []
+
+    def on_epoch_end(self, epoch, logs=None):
+        logs = logs or {}
+        self.historial.append({
+            "epoch": epoch + 1,
+            "train_loss": float(logs.get("loss", 0.0)),
+            "val_loss": float(logs.get("val_loss", 0.0)),
+        })
+        with open(self.history_path, "w") as f:
+            json.dump(self.historial, f, indent=2)
+
+
+def entrenar(model: tf.keras.Model, train_ds: tf.data.Dataset, val_ds: tf.data.Dataset, epochs: int,
+             history_path: pathlib.Path | None = None) -> list:
     """Fine-tune del detector. Guarda el mejor checkpoint según val_loss."""
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     model_path = MODELS_DIR / "mtg_detector.keras"
@@ -253,12 +278,15 @@ def entrenar(model: tf.keras.Model, train_ds: tf.data.Dataset, val_ds: tf.data.D
     scheduler = tf.keras.callbacks.LearningRateScheduler(
         lambda epoch, lr: float(3e-4 * 0.5 * (1 + np.cos(np.pi * epoch / epochs)))
     )
+    callbacks = [checkpoint, scheduler]
+    if history_path is not None:
+        callbacks.append(_HistoryJsonWriter(history_path))
 
     history = model.fit(
         train_ds,
         validation_data=val_ds,
         epochs=epochs,
-        callbacks=[checkpoint, scheduler],
+        callbacks=callbacks,
         shuffle=False,  # el shuffle ya se hace en build_dataset() via tf.data
         verbose=2,
     )
@@ -435,12 +463,13 @@ def main():
     y_true_val = np.array([l for _, l in val_samples], dtype=int)
 
     # ── 4. Modelo + entrenamiento ─────────────────────────────────────────
-    print(f"\n[4/5] Entrenando MTGDetector (MobileNetV2, {epochs} épocas)...")
+    print(f"\n[4/5] Entrenando MTGDetector (MobileNetV3Small, {epochs} épocas)...")
     model = build_binary_classifier()
     n_trainable = sum(np.prod(v.shape) for v in model.trainable_variables)
     print(f"  Parámetros entrenables: {n_trainable / 1e6:.2f}M\n")
 
-    historial = entrenar(model, train_ds, val_ds, epochs)
+    historial = entrenar(model, train_ds, val_ds, epochs,
+                          history_path=RESULTS_DIR / "training_history.json")
 
     # ── 5. Evaluación ─────────────────────────────────────────────────────
     print("\n[5/5] Evaluando mejor checkpoint...")
@@ -453,6 +482,11 @@ def main():
     print(f"  Recall    : {metricas['recall']:.4f}")
     print(f"  F1-Score  : {metricas['f1']:.4f}")
     print(f"  ROC-AUC   : {metricas['roc_auc']:.4f}")
+
+    # Curva ROC y matriz de confusión — para graficar en el desktop-runner
+    # (ya se calculan para las figuras PNG, acá se persisten además en JSON).
+    metricas["roc_curve"] = {"fpr": fpr.tolist(), "tpr": tpr.tolist()}
+    metricas["confusion_matrix"] = confusion_matrix(y_true, y_pred).tolist()
 
     metricas_path = RESULTS_DIR / "metrics_binary.json"
     with open(metricas_path, "w") as f:

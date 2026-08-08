@@ -2,7 +2,7 @@ import tensorflow as tf
 
 from src.config import IMG_SIZE
 
-FREEZE_RATIO = 0.65  # fraccion de capas de MobileNetV2 que quedan congeladas (desde la entrada)
+FREEZE_RATIO = 0.65  # fraccion de capas de MobileNetV3Small que quedan congeladas (desde la entrada)
 
 
 def build_optimizer(
@@ -34,7 +34,7 @@ def build_binary_classifier(
     optimizer_name: str = "adam",
 ) -> tf.keras.Model:
     """
-    MobileNetV2 adaptada como clasificador binario MTG / no-MTG.
+    MobileNetV3Small adaptada como clasificador binario MTG / no-MTG.
 
     Las primeras `freeze_ratio` capas quedan congeladas (features de ImageNet
     de bajo nivel); el resto se afina junto con la cabeza binaria. El backbone
@@ -54,7 +54,7 @@ def build_binary_classifier(
 
     dropout_1, dropout_2 = (0.3, 0.2) if dropout is None else (dropout, dropout)
 
-    base = tf.keras.applications.MobileNetV2(
+    base = tf.keras.applications.MobileNetV3Small(
         weights="imagenet",
         include_top=False,
         pooling="avg",

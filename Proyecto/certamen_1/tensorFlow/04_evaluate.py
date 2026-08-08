@@ -246,7 +246,7 @@ def evaluar(cards_info: dict) -> tuple:
     n = len(mrr_vals)
     metricas = {
         "framework": "TensorFlow",
-        "backbone": "MobileNetV2",
+        "backbone": "MobileNetV3Small",
         "n_gallery": n_total,
         "n_query": n,
         "top1_accuracy": top1_ok / n,
@@ -309,7 +309,7 @@ def calcular_metricas_clasificacion(top1_accuracy: float, y_true: list, scores: 
 def graficar_ejemplos(ejemplos_ok: list, ejemplos_fail: list):
     """Grid 2x4: fila superior = correctas, fila inferior = incorrectas."""
     fig, axes = plt.subplots(2, 4, figsize=(16, 8))
-    fig.suptitle("MTG Card Scanner — TensorFlow (MobileNetV2)\nEjemplos de recuperación con imagen augmentada",
+    fig.suptitle("MTG Card Scanner — TensorFlow (MobileNetV3Small)\nEjemplos de recuperación con imagen augmentada",
                  fontsize=13, fontweight="bold")
 
     def mostrar(ax, ejemplo: dict, ok: bool):
@@ -357,7 +357,7 @@ def graficar_metricas(metricas: dict):
     bars = ax.barh(nombres, valores, color=colores, edgecolor="black", linewidth=0.7)
     ax.set_xlim(0, 1.05)
     ax.set_xlabel("Score")
-    ax.set_title(f"MTG Card Scanner — TensorFlow MobileNetV2\n"
+    ax.set_title(f"MTG Card Scanner — TensorFlow MobileNetV3Small\n"
                  f"Galería: {metricas['n_gallery']:,} cartas  |  Consultas: {metricas['n_query']:,}",
                  fontsize=11, fontweight="bold")
 
@@ -386,7 +386,7 @@ def graficar_roc(roc_data: tuple):
     ax.plot([0, 1], [0, 1], color="#BDC3C7", linestyle="--", linewidth=1, label="Azar (AUC = 0.500)")
     ax.set_xlabel("Tasa de Falsos Positivos (FPR)")
     ax.set_ylabel("Tasa de Verdaderos Positivos (TPR)")
-    ax.set_title("MTG Card Scanner — TensorFlow MobileNetV2\nCurva ROC — similitud top-1 como score de confianza",
+    ax.set_title("MTG Card Scanner — TensorFlow MobileNetV3Small\nCurva ROC — similitud top-1 como score de confianza",
                  fontsize=11, fontweight="bold")
     ax.legend(loc="lower right")
     ax.grid(alpha=0.3)
@@ -413,7 +413,7 @@ def graficar_confusion_rareza(rarezas_true: list, rarezas_pred: list):
     ax.set_yticklabels(etiquetas)
     ax.set_xlabel("Rareza predicha (top-1)")
     ax.set_ylabel("Rareza real")
-    ax.set_title("MTG Card Scanner — TensorFlow MobileNetV2\nConfusion Matrix por Rareza",
+    ax.set_title("MTG Card Scanner — TensorFlow MobileNetV3Small\nConfusion Matrix por Rareza",
                  fontsize=11, fontweight="bold")
 
     umbral = matriz.max() / 2 if matriz.max() else 0
@@ -447,7 +447,7 @@ def graficar_metricas_clasificacion(clas_metrics: dict):
     ax.set_xlim(0, 1.05)
     ax.set_xlabel("Score")
     ax.set_title(
-        f"MTG Card Scanner — TensorFlow MobileNetV2\n"
+        f"MTG Card Scanner — TensorFlow MobileNetV3Small\n"
         f"Métricas de clasificación (umbral óptimo = {clas_metrics['threshold_optimo']:.3f})",
         fontsize=11, fontweight="bold",
     )
@@ -488,6 +488,21 @@ def main():
         scores=clasificacion["scores"],
     )
     metricas["clasificacion"] = clas_metrics
+
+    # Curva ROC y matriz de confusión por rareza — se calculaban solo para
+    # graficar PNGs; se persisten también en el JSON para poder graficarlas
+    # en el desktop-runner.
+    fpr, tpr, _roc_auc = roc_data
+    metricas["roc_curve"] = {"fpr": fpr.tolist(), "tpr": tpr.tolist()}
+    if clasificacion["rarezas_true"]:
+        etiquetas = list(RARITY_ORDER)
+        presentes = set(clasificacion["rarezas_true"]) | set(clasificacion["rarezas_pred"])
+        etiquetas += sorted(r for r in presentes if r not in etiquetas)
+        cm_rareza = confusion_matrix(clasificacion["rarezas_true"], clasificacion["rarezas_pred"], labels=etiquetas)
+        metricas["confusion_matrix_rarity"] = {
+            "labels": etiquetas,
+            "matrix": cm_rareza.tolist(),
+        }
 
     out_json = RESULTS_DIR / "metrics_tf.json"
     with open(out_json, "w") as f:

@@ -17,9 +17,14 @@ Usamos un thread pool pequeño con delay para respetar esta política.
 import argparse
 import json
 import pathlib
+import sys
 import time
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
 
 try:
     from tqdm import tqdm

@@ -33,8 +33,13 @@ Salida:
 
 import json
 import pathlib
+import sys
 import time
 import random
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
 
 import numpy as np
 import torch

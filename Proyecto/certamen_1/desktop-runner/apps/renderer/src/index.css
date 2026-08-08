@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-slate-50 text-foreground;
+}
+
+:root {
+  /* Paleta categórica para los gráficos (shadcn chart / recharts) — orden fijo,
+     validada con el validador de paletas del skill de dataviz (CVD + contraste). */
+  --chart-1: #2a78d6; /* azul */
+  --chart-2: #eb6834; /* naranjo */
+  --chart-3: #1baf7a; /* aqua */
+  --chart-4: #eda100; /* amarillo */
+  --chart-5: #e87ba4; /* magenta */
+}

@@ -32,6 +32,10 @@ import subprocess
 import sys
 import time
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+
 # TensorFlow no publica wheels para versiones de Python demasiado nuevas
 # (a veces tarda meses en dar soporte a un release nuevo de Python). Si el
 # intérprete por defecto falla instalando un requirements.txt que pide
@@ -48,7 +52,7 @@ FRAMEWORKS = {
     },
     "tensorflow": {
         "dir": CERTAMEN_DIR / "tensorFlow",
-        "label": "TensorFlow (MobileNetV2)",
+        "label": "TensorFlow (MobileNetV3Small)",
     },
 }
 
