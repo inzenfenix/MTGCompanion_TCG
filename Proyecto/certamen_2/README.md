@@ -1,10 +1,14 @@
 # MTG Card Scanner — Certamen 2
 
-> 🚧 En construcción. Hecho hasta ahora: Optuna sobre el detector MTG/no-MTG
-> (sección 0), el dataset compartido re-scrapeado con estilo/texto/precio
-> (sección 5) y el baseline tabular de Stage 3 (sección 5.1). El resto de
-> este documento es el plan acordado para el flujo de tres modelos que
-> alimenta la app Ionic — ver [Proyecto/examen/README.md](../examen/README.md).
+> 🚧 En construcción. Hecho hasta ahora: Optuna + migración a MobileNetV3Small
+> sobre el detector MTG/no-MTG (sección 0 y sección 1), el dataset compartido
+> re-scrapeado con estilo/texto/precio (sección 5), los baselines de Stage 2
+> y 3 (secciones 5.1/5.2), y Stage 4 completo — clasificador de condición,
+> ambos frameworks, Optuna, dataset combinado con fotos reales, comparación
+> de generalización (sección 9). Falta: las versiones "de verdad" (no
+> baseline) de Stage 2/3, y exportar TensorFlow a ONNX. El resto de este
+> documento es el plan acordado para el flujo de tres modelos que alimenta la
+> app Ionic — ver [Proyecto/examen/README.md](../examen/README.md).
 
 ## Consigna
 
@@ -103,11 +107,12 @@ foto ─▶ OpenCV (recorte/perspectiva/normalización)
 ### Backbones
 
 - **PyTorch**: `EfficientNet_b0` — sin cambios, es el que ya usa Certamen 1.
-- **TensorFlow**: se migra `MobileNetV2` → **`MobileNetV3`** (Small o Large a
-  definir según tiempo de entrenamiento disponible) para las tres etapas.
-  Motivo: mejor trade-off precio/latencia que V2 y pensado desde el diseño
-  para inferencia móvil — encaja directo con el objetivo final (correr en la
-  app Ionic vía ONNX).
+- **TensorFlow**: se migra `MobileNetV2` → **`MobileNetV3Small`** para las
+  tres etapas. Motivo: mejor trade-off precio/latencia que V2 y pensado desde
+  el diseño para inferencia móvil — encaja directo con el objetivo final
+  (correr en la app Ionic vía ONNX). **Stage 1 ya migrado (8 ago, ver
+  abajo)** — Stage 4 ya nació directo en V3Small (sección 9); Stage 2/3
+  todavía no tienen versión "de verdad" con backbone (siguen en baseline).
 - Las tres etapas **comparten el mismo backbone por framework** (transfer
   learning, distintas cabezas/fine-tuning por tarea) — es la misma estrategia
   que ya usa `07_binary_classifier.py`, extendida a las otras dos tareas.
@@ -122,18 +127,38 @@ foto ─▶ OpenCV (recorte/perspectiva/normalización)
   > prefiere el bag-of-words original para Stage 2, es un cambio de una
   > sección, no del resto del plan.
 
-### Stage 1 — Detector MTG/no-MTG (existente, en migración)
+### Stage 1 — Detector MTG/no-MTG (existente, migrado)
 
 Ya construido y evaluado en Certamen 1. Pendiente para dejarlo alineado con
 las otras dos etapas:
 
-- [ ] Migrar la versión TensorFlow de `MobileNetV2` a `MobileNetV3` (en curso).
+- [x] Migrar la versión TensorFlow de `MobileNetV2` a `MobileNetV3Small`
+      (8 ago, JoacoRW) — `src/binary_classifier.py` y `src/embeddings.py`
+      (retrieval). De paso corrigió un bug latente: `embeddings.py` seguía
+      llamando `mobilenet_v2.preprocess_input` sobre embeddings de V3 —V3
+      hace el rescaling adentro del modelo (capa `Rescaling`), así que ese
+      preprocess_input residual habría corrompido en silencio el rango de
+      píxeles de cada embedding. Resultado real, mismo split galería/consulta
+      (5,000/1,000) antes y después:
+
+      | Métrica | MobileNetV2 (antes) | MobileNetV3Small (después) |
+      |---|---|---|
+      | Top-1 retrieval accuracy | 26.4% | **40.9%** |
+      | MRR | 0.317 | **0.477** |
+      | F1 (clasificación) | 0.528 | **0.631** |
+      | ROC-AUC | 0.735 | 0.714 |
+
+      Para contexto, PyTorch (`EfficientNet_b0`, sin cambios) está en 41.2%
+      top-1 / MRR 0.454 sobre el mismo split — TensorFlow pasó de ir
+      claramente atrás (26% vs. 41%) a estar prácticamente empatado. V2 era
+      un cuello de botella real en Stage 1, no solo una etapa pendiente de
+      prolijidad.
 - [x] Optuna sobre la versión PyTorch — ver sección 0.
 - [x] Exportar PyTorch a ONNX: `pytorch/09_export_onnx.py`
       (`torch.onnx.export` + verificación de paridad numérica contra
       `onnxruntime`, diff máxima ~0 en la corrida de prueba). Falta el lado
-      TensorFlow (`tf2onnx`, mismo patrón) — pendiente hasta que termine la
-      migración a MobileNetV3.
+      TensorFlow (`tf2onnx`, mismo patrón) — ya no bloqueado por la
+      migración (que terminó), sigue pendiente nomás.
 
 ### Stage 2 — Validador de texto (OCR)
 
@@ -388,7 +413,11 @@ reconstruir el índice de PyTorch contra el dataset completo
       "de verdad" todavía.
 - [x] Optuna sobre Stage 1 en ambos frameworks (sección 0).
 - [x] Exportar Stage 1 PyTorch a ONNX (`pytorch/09_export_onnx.py`).
-- [ ] Migrar TensorFlow de MobileNetV2 a MobileNetV3 en las tres etapas (en curso).
+- [x] Migrar TensorFlow de MobileNetV2 a MobileNetV3Small en Stage 1 (8 ago,
+      ver sección "Stage 1 — Detector MTG/no-MTG" arriba: +14.5 pts de top-1
+      retrieval accuracy). Stage 4 ya nació en V3Small. Falta Stage 2/3, que
+      todavía no tienen versión "de verdad" con backbone (siguen en baseline,
+      ver ítems de abajo).
 - [ ] Reconstruir `pytorch/data/index_pt.json` (embeddings) contra el dataset
       completo — sigue en su subconjunto original de 5,000 cartas, causa
       identificaciones erróneas evitables (encontrado corriendo
@@ -562,10 +591,12 @@ para exactamente este problema** (buscado el 7 de agosto):
 
 **Arquitectura**: mismo patrón que las demás etapas — transfer learning sobre
 el mismo backbone por framework. PyTorch usa `EfficientNet_b0` (igual que
-Stage 1); TensorFlow usa **`MobileNetV3Small`** directamente — Stage 4 es
-código nuevo sin atar a la migración de Stage 1 (que sigue en MobileNetV2,
-ver sección 1), así que no tenía sentido construirlo sobre V2 para migrarlo
-después. Cabeza de clasificación de 5 salidas (softmax) en vez de la cabeza
+Stage 1); TensorFlow usa **`MobileNetV3Small`** directamente — al momento de
+construir Stage 4, Stage 1 todavía estaba en MobileNetV2 (ver sección 1;
+migró recién el 8 ago), así que no tenía sentido construir Stage 4 sobre V2
+para migrarlo después. Con la migración de Stage 1 ya hecha, los cuatro
+modelos TensorFlow del proyecto comparten backbone. Cabeza de clasificación
+de 5 salidas (softmax) en vez de la cabeza
 binaria de Stage 1 — `pytorch/src/condition_classifier.py` y
 `tensorFlow/src/condition_classifier.py`, mismo patrón que
 `src/binary_classifier.py` en ambos frameworks (freeze_ratio/head_units/
