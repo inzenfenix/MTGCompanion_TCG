@@ -583,16 +583,23 @@ MedianPruner, `trial-epochs=6`, `final-epochs=15`):**
 
 | Framework | Accuracy fijo → Optuna | F1 macro fijo → Optuna | Mejor trial |
 |---|---|---|---|
-| TensorFlow | 0.6550 → **0.7575** (+10.3 pts) | 0.6603 → **0.7546** | trial 12: lr=6.23e-4, adam, head_units=512, dropout=0.5, freeze_ratio=0.5, batch_size=16 |
-| PyTorch | 0.7475 → *en curso* | — | mejor hasta ahora: trial 2, val_accuracy=0.88125 con lr=5.99e-4, adam, head_units=512, dropout=0.5, freeze_ratio=0.5, batch_size=16 |
+| PyTorch | 0.7475 → **0.9525** (+20.5 pts) | 0.7442 → **0.9523** | trial 13/20: lr=6.41e-4, adam, head_units=448, dropout=0.35, weight_decay=4.00e-5, freeze_ratio=0.5, batch_size=16 |
+| TensorFlow | 0.6550 → **0.7575** (+10.3 pts) | 0.6603 → **0.7546** | trial 12/20: lr=6.23e-4, adam, head_units=512, dropout=0.5, freeze_ratio=0.5, batch_size=16 |
 
-TensorFlow sube 10 puntos con Optuna — su baseline fijo dejaba mucho sobre la
-mesa (los hiperparámetros de Stage 1 no eran óptimos para 5 clases con
-límites de decisión más finos que la binaria NM/no-NM). Notable: PyTorch y
-TensorFlow convergen al **mismo tipo de receta** (lr en el orden de 6e-4,
-adam, head_units=512, dropout=0.5, freeze_ratio=0.5) — señal de que no es
-ruido del sampler sino una región genuinamente buena del espacio para esta
-tarea. Resultados completos y matrices de confusión en
+Ambos frameworks mejoran sensiblemente con Optuna — sus hiperparámetros
+fijos (heredados de Stage 1) dejaban mucho sobre la mesa para 5 clases con
+límites de decisión más finos que la binaria NM/no-NM. PyTorch da el salto
+más grande por lejos: **95.25% de accuracy** sobre el split sintético
+(mismo tipo de techo alto-en-datos-curados que Stage 1 con Optuna, sección
+0 — hay que validar contra fotos reales antes de confiar en el número
+final), ampliando su ventaja sobre TensorFlow en esta etapa de ~9 a
+**~17.5 puntos**. Ambas recetas ganadoras convergen a la misma
+región del espacio (lr ~6e-4, adam, freeze_ratio=0.5, batch_size=16,
+dropout 0.35–0.5) — señal de que no es ruido del sampler sino una zona
+genuinamente buena para esta tarea, aunque PyTorch la explota mucho mejor
+(métricas por grado balanceadas, el peor recall es LP con 88.1%; ver
+`por_grado` en `final_metrics.json`). Resultados completos, matrices de
+confusión e importancia de hiperparámetros en
 `output/{pytorch,tensorflow}/optuna_condition/latest/`.
 
 Dataset: 800 cartas base × 5 grados = 4,000 imágenes sintéticas
@@ -683,9 +690,9 @@ puliendo el bootstrap sintético.
       PyTorch (framework ganador) apenas termine su Optuna, usando los
       mejores hiperparámetros encontrados.
 - [x] Optuna sobre este modelo también (`src/condition_classifier.py` ya
-      estaba parametrizado para eso, mismo patrón que la sección 0) —
-      **TensorFlow terminado** (+10.3 pts sobre el baseline fijo, ver tabla
-      arriba); **PyTorch en curso** al momento de escribir esto.
+      estaba parametrizado para eso, mismo patrón que la sección 0) — hecho
+      en ambos frameworks, ver tabla arriba (PyTorch +20.5 pts, TensorFlow
+      +10.3 pts sobre sus respectivos baselines fijos).
 
 **Para reproducir la importación de datos reales** (necesita una cuenta
 gratis de Roboflow — [roboflow.com](https://roboflow.com) → Settings →

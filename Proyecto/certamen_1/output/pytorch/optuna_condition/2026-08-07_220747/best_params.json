@@ -1,0 +1,17 @@
+{
+  "trial_number": 13,
+  "best_value": 0.895,
+  "metric": "val_accuracy",
+  "params": {
+    "learning_rate": 0.0006411408385833918,
+    "weight_decay": 3.996038514374632e-05,
+    "batch_size": 16,
+    "head_units": 448,
+    "dropout": 0.35000000000000003,
+    "optimizer": "adam",
+    "freeze_ratio": 0.5
+  },
+  "study_name": "condition_grader_pytorch",
+  "completed_trials": 11,
+  "total_trials": 20
+}
