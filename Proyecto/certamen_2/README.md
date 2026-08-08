@@ -627,7 +627,9 @@ en paralelo con Stage 1, sobre la carta ya localizada/normalizada por
 sobre recortes limpios, no fotos con fondo) — y usa su predicción como
 condición por default en Stage 3, en vez del valor fijo `NM` de antes.
 `--condition` sigue existiendo como override manual, no desactiva Stage 4,
-solo lo ignora para el cálculo de precio.
+solo lo ignora para el cálculo de precio. **Actualizado (8 ago)**: carga
+`condition_grader_combined.pth`, no el sintético-solo — ver comparación
+cabeza a cabeza más abajo, la razón por la que se hizo el cambio.
 
 **Primer resultado real sobre una foto real, y una limitación honesta**:
 sobre la foto de celular de *Bastion of Remembrance* (la misma que reveló el
@@ -718,13 +720,50 @@ con desgaste ambiguo que un sistema de grading profesional pondría en MP o
 LP. Matriz de confusión y curva de entrenamiento en
 `output/pytorch/condition_grader_combined/latest/`.
 
-Conclusión práctica: agregar fotos reales no fue gratis en accuracy medida
-sobre el split sintético original, pero el modelo entrenado con datos
-combinados es el que realmente vio artefactos de fotografía durante el
-entrenamiento — la hipótesis (sección de arriba, sobre Bastion of
-Remembrance) es que generaliza mejor a fotos de celular reales que el
-modelo sintético-solo, aunque verificarlo requeriría correr ambos modelos
-sobre el mismo set de fotos reales no vistas, algo que queda pendiente.
+**Comparación cabeza a cabeza en fotos reales holdout (8 ago)**:
+`pytorch/13_analizar_generalizacion_real.py` (nuevo) responde la pregunta
+que quedó pendiente arriba — ¿generaliza mejor a fotos reales el modelo que
+las vio en entrenamiento? Metodología: se evalúan ambos modelos (arquitectura
+idéntica, freeze_ratio=0.5/head_units=448/dropout=0.35 — la única variable es
+el dataset de entrenamiento) sobre las **266 fotos reales** que cayeron en el
+split de validación de `12_condition_grader_combined.py` (mismo seed=42) —
+holdout genuino para el modelo combinado (nunca las vio en train) y también
+para el sintético-solo (nunca vio *ninguna* foto real, así que cualquiera le
+sirve de test limpio).
+
+| Modelo | Accuracy | F1 (macro) |
+|---|---|---|
+| Sintético-solo (Optuna, 95.25% en su propio val) | **0.3872** | 0.2446 |
+| Combinado (sintético + real) | **0.7218** | 0.5892 |
+
+Diferencia de **+33.5 puntos de accuracy**. El modelo sintético-solo —pese a
+su 95.25% en su propio split— colapsa a fotos reales: la matriz de confusión
+muestra que sobre-predice NM y DMG casi indiscriminadamente (ve "brillo de
+funda" o "blur de cámara" como señal de desgaste, o los ignora del todo, sin
+distinguir grados intermedios). El modelo combinado, con solo 800 fotos
+reales de entrenamiento adicionales, generaliza sensiblemente mejor. **Esto
+confirma con datos la hipótesis planteada arriba sobre Bastion of
+Remembrance** (sección 0 y esta misma sección): el techo alto medido en
+datos curados/sintéticos no predice el desempeño en fotos reales, y unas
+pocas fotos reales durante el entrenamiento valen mucho más que agrandar el
+dataset sintético. Conclusión práctica: **el modelo combinado
+(`condition_grader_combined.pth`) es el que debería usarse en producción**,
+no el de mayor accuracy nominal.
+
+**Diagnóstico del label noise en HP**: la misma corrida re-lee los COCO JSON
+originales de Roboflow para recuperar el conteo de cajas de daño por imagen
+(no se guarda en `index.csv`) y lo cruza con los 64 errores del modelo
+combinado que involucran HP. **62% de esos errores caen a ≤2 cajas de un
+umbral de cuartil** — el tipo de caso donde una sola caja de anotación de
+diferencia cambia el grado asignado, consistente con que buena parte del
+problema es ruido de la heurística de etiquetado, no del modelo. El
+desglose por dataset de origen lo confirma: **51/64 errores vienen de
+`cross_tcg_v2`** (umbrales finos: 4/7/11 cajas) contra solo 13/64 de
+`mtg_v6` (umbrales gruesos: 12/18/33) — el dataset con fronteras más
+angostas entre grados es, como se esperaría, el que más ruido de etiqueta
+mete cerca de HP. Detalle completo (los 64 casos, con conteo y distancia al
+umbral) en
+`output/pytorch/condition_grader_combined/analisis_generalizacion_real.json`.
 
 **Para reproducir la importación de datos reales** (necesita una cuenta
 gratis de Roboflow — [roboflow.com](https://roboflow.com) → Settings →

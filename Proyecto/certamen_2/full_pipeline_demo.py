@@ -19,10 +19,13 @@ una vez esté todo exportado a ONNX (ver README.md, secciones 1 y 3):
                               → precio estimado, comparado contra prices.usd real (si existe)
 
 Requisitos: pytorch/.venv ya creado (Certamen 1, incluye
-models/condition_grader.pth — ver pytorch/10_condition_grader.py) +
-certamen_2/.venv con este mismo requirements.txt. No corre el clasificador
-binario de PyTorch como gate (usa --skip-detect en el scanner) porque acá
-interesa forzar las etapas incluso sobre fotos limpias de Scryfall.
+models/condition_grader_combined.pth — ver
+pytorch/12_condition_grader_combined.py; es el modelo entrenado con datos
+reales+sintéticos, no el sintético-solo — generaliza mucho mejor a fotos
+reales, ver README.md sección 9) + certamen_2/.venv con este mismo
+requirements.txt. No corre el clasificador binario de PyTorch como gate
+(usa --skip-detect en el scanner) porque acá interesa forzar las etapas
+incluso sobre fotos limpias de Scryfall.
 
 Uso:
     python full_pipeline_demo.py ruta/a/carta.jpg

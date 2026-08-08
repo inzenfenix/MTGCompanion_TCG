@@ -6,10 +6,20 @@ recortada/normalizada (ver ../../certamen_2/card_preprocessing.py).
 CLI standalone, en el mismo espíritu que scanner.py — salida parseable para
 que certamen_2/full_pipeline_demo.py la invoque como subproceso (así no hace
 falta instalar torch en certamen_2/.venv). PyTorch es el framework ganador de
-Stage 4 (0.7475 acc vs. 0.6550 de TensorFlow, ver certamen_2/README.md
-sección 9) — es el que corre en el pipeline; la versión TensorFlow
-(tensorFlow/09_condition_grader.py) queda disponible para seguir comparando,
-no para producción.
+Stage 4 (ver certamen_2/README.md sección 9) — es el que corre en el
+pipeline; la versión TensorFlow (tensorFlow/09_condition_grader.py) queda
+disponible para seguir comparando, no para producción.
+
+Carga `condition_grader_combined.pth` (entrenado con sintético + 1,184 fotos
+reales de Roboflow), no el `condition_grader.pth` sintético-solo pese a que
+este último mide más alto en su propio split (95.25% vs 90.24%, ambos con
+los mismos hiperparámetros de Optuna). Motivo, medido no supuesto: sobre 266
+fotos reales holdout el sintético-solo cae a 38.7% de accuracy (colapsa —
+sobre-predice NM/DMG) contra 72.2% del combinado — ver
+`12_condition_grader_combined.py` y `13_analizar_generalizacion_real.py`,
+certamen_2/README.md sección 9. El número más alto en el split de origen no
+es el criterio; lo es cuál generaliza a fotos reales, que es para lo que
+existe este modelo.
 
 Uso:
     python predict_condition.py <imagen>
@@ -47,8 +57,8 @@ def cargar_grader():
     if _grader_cache is not None:
         return _grader_cache
 
-    model_path = MODELS_DIR / "condition_grader.pth"
-    cfg_path = MODELS_DIR / "condition_grader_cfg.json"
+    model_path = MODELS_DIR / "condition_grader_combined.pth"
+    cfg_path = MODELS_DIR / "condition_grader_combined_cfg.json"
     if not model_path.exists():
         return None
 

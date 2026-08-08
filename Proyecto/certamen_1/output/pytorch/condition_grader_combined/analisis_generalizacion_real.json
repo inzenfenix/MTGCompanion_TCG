@@ -1,0 +1,535 @@
+{
+  "comparacion_fotos_reales": {
+    "n_fotos_reales_holdout": 266,
+    "sintetico_solo": {
+      "accuracy": 0.38721804511278196,
+      "f1_macro": 0.2446202810283326
+    },
+    "combinado": {
+      "accuracy": 0.7218045112781954,
+      "f1_macro": 0.589244296412576
+    }
+  },
+  "diagnostico_hp": {
+    "total_errores_relacionados_hp": 64,
+    "cerca_de_umbral_leq_2": 40,
+    "por_dataset": {
+      "cross_tcg_v2": 51,
+      "mtg_v6": 13
+    },
+    "detalle": [
+      {
+        "card_id": "roboflow_cross_456",
+        "real": "LP",
+        "predicho": "HP",
+        "conteo_dano": 4,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 0
+      },
+      {
+        "card_id": "roboflow_mtg_200",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 44,
+        "dataset": "mtg_v6",
+        "distancia_a_umbral": 11
+      },
+      {
+        "card_id": "roboflow_cross_233",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 18,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 7
+      },
+      {
+        "card_id": "roboflow_cross_6",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 1,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 1
+      },
+      {
+        "card_id": "roboflow_mtg_485",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 39,
+        "dataset": "mtg_v6",
+        "distancia_a_umbral": 6
+      },
+      {
+        "card_id": "roboflow_cross_223",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 13,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 2
+      },
+      {
+        "card_id": "roboflow_cross_52",
+        "real": "MP",
+        "predicho": "HP",
+        "conteo_dano": 6,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 1
+      },
+      {
+        "card_id": "roboflow_cross_27",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 0,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 0
+      },
+      {
+        "card_id": "roboflow_cross_334",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 13,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 2
+      },
+      {
+        "card_id": "roboflow_cross_453",
+        "real": "LP",
+        "predicho": "HP",
+        "conteo_dano": 3,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 1
+      },
+      {
+        "card_id": "roboflow_cross_429",
+        "real": "LP",
+        "predicho": "HP",
+        "conteo_dano": 3,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 1
+      },
+      {
+        "card_id": "roboflow_mtg_10",
+        "real": "HP",
+        "predicho": "DMG",
+        "conteo_dano": 15,
+        "dataset": "mtg_v6",
+        "distancia_a_umbral": 3
+      },
+      {
+        "card_id": "roboflow_cross_386",
+        "real": "LP",
+        "predicho": "HP",
+        "conteo_dano": 4,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 0
+      },
+      {
+        "card_id": "roboflow_cross_346",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 18,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 7
+      },
+      {
+        "card_id": "roboflow_cross_171",
+        "real": "LP",
+        "predicho": "HP",
+        "conteo_dano": 1,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 1
+      },
+      {
+        "card_id": "roboflow_cross_4",
+        "real": "MP",
+        "predicho": "HP",
+        "conteo_dano": 7,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 0
+      },
+      {
+        "card_id": "roboflow_mtg_32",
+        "real": "HP",
+        "predicho": "LP",
+        "conteo_dano": 12,
+        "dataset": "mtg_v6",
+        "distancia_a_umbral": 0
+      },
+      {
+        "card_id": "roboflow_mtg_555",
+        "real": "HP",
+        "predicho": "LP",
+        "conteo_dano": 22,
+        "dataset": "mtg_v6",
+        "distancia_a_umbral": 4
+      },
+      {
+        "card_id": "roboflow_cross_323",
+        "real": "MP",
+        "predicho": "HP",
+        "conteo_dano": 6,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 1
+      },
+      {
+        "card_id": "roboflow_cross_14",
+        "real": "MP",
+        "predicho": "HP",
+        "conteo_dano": 11,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 0
+      },
+      {
+        "card_id": "roboflow_cross_297",
+        "real": "LP",
+        "predicho": "HP",
+        "conteo_dano": 4,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 0
+      },
+      {
+        "card_id": "roboflow_cross_436",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 13,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 2
+      },
+      {
+        "card_id": "roboflow_cross_437",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 14,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 3
+      },
+      {
+        "card_id": "roboflow_cross_186",
+        "real": "NM",
+        "predicho": "HP",
+        "conteo_dano": 0,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 0
+      },
+      {
+        "card_id": "roboflow_cross_146",
+        "real": "MP",
+        "predicho": "HP",
+        "conteo_dano": 7,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 0
+      },
+      {
+        "card_id": "roboflow_mtg_549",
+        "real": "HP",
+        "predicho": "MP",
+        "conteo_dano": 20,
+        "dataset": "mtg_v6",
+        "distancia_a_umbral": 2
+      },
+      {
+        "card_id": "roboflow_cross_16",
+        "real": "MP",
+        "predicho": "HP",
+        "conteo_dano": 0,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 0
+      },
+      {
+        "card_id": "roboflow_mtg_118",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 68,
+        "dataset": "mtg_v6",
+        "distancia_a_umbral": 35
+      },
+      {
+        "card_id": "roboflow_cross_201",
+        "real": "MP",
+        "predicho": "HP",
+        "conteo_dano": 5,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 1
+      },
+      {
+        "card_id": "roboflow_cross_225",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 17,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 6
+      },
+      {
+        "card_id": "roboflow_mtg_24",
+        "real": "LP",
+        "predicho": "HP",
+        "conteo_dano": 0,
+        "dataset": "mtg_v6",
+        "distancia_a_umbral": 0
+      },
+      {
+        "card_id": "roboflow_cross_224",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 20,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 9
+      },
+      {
+        "card_id": "roboflow_cross_184",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 14,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 3
+      },
+      {
+        "card_id": "roboflow_cross_35",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 0,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 0
+      },
+      {
+        "card_id": "roboflow_cross_59",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 15,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 4
+      },
+      {
+        "card_id": "roboflow_cross_362",
+        "real": "MP",
+        "predicho": "HP",
+        "conteo_dano": 5,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 1
+      },
+      {
+        "card_id": "roboflow_cross_66",
+        "real": "MP",
+        "predicho": "HP",
+        "conteo_dano": 6,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 1
+      },
+      {
+        "card_id": "roboflow_cross_476",
+        "real": "LP",
+        "predicho": "HP",
+        "conteo_dano": 3,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 1
+      },
+      {
+        "card_id": "roboflow_mtg_681",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 37,
+        "dataset": "mtg_v6",
+        "distancia_a_umbral": 4
+      },
+      {
+        "card_id": "roboflow_cross_311",
+        "real": "LP",
+        "predicho": "HP",
+        "conteo_dano": 1,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 1
+      },
+      {
+        "card_id": "roboflow_cross_414",
+        "real": "LP",
+        "predicho": "HP",
+        "conteo_dano": 4,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 0
+      },
+      {
+        "card_id": "roboflow_cross_460",
+        "real": "LP",
+        "predicho": "HP",
+        "conteo_dano": 1,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 1
+      },
+      {
+        "card_id": "roboflow_cross_206",
+        "real": "LP",
+        "predicho": "HP",
+        "conteo_dano": 4,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 0
+      },
+      {
+        "card_id": "roboflow_cross_58",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 14,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 3
+      },
+      {
+        "card_id": "roboflow_cross_102",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 13,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 2
+      },
+      {
+        "card_id": "roboflow_cross_92",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 18,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 7
+      },
+      {
+        "card_id": "roboflow_cross_308",
+        "real": "LP",
+        "predicho": "HP",
+        "conteo_dano": 3,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 1
+      },
+      {
+        "card_id": "roboflow_cross_103",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 15,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 4
+      },
+      {
+        "card_id": "roboflow_cross_44",
+        "real": "MP",
+        "predicho": "HP",
+        "conteo_dano": 5,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 1
+      },
+      {
+        "card_id": "roboflow_cross_14",
+        "real": "MP",
+        "predicho": "HP",
+        "conteo_dano": 11,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 0
+      },
+      {
+        "card_id": "roboflow_cross_4",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 7,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 0
+      },
+      {
+        "card_id": "roboflow_cross_422",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 15,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 4
+      },
+      {
+        "card_id": "roboflow_mtg_660",
+        "real": "HP",
+        "predicho": "DMG",
+        "conteo_dano": 25,
+        "dataset": "mtg_v6",
+        "distancia_a_umbral": 7
+      },
+      {
+        "card_id": "roboflow_mtg_131",
+        "real": "HP",
+        "predicho": "LP",
+        "conteo_dano": 21,
+        "dataset": "mtg_v6",
+        "distancia_a_umbral": 3
+      },
+      {
+        "card_id": "roboflow_cross_350",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 15,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 4
+      },
+      {
+        "card_id": "roboflow_cross_41",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 25,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 14
+      },
+      {
+        "card_id": "roboflow_cross_197",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 16,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 5
+      },
+      {
+        "card_id": "roboflow_mtg_599",
+        "real": "HP",
+        "predicho": "MP",
+        "conteo_dano": 26,
+        "dataset": "mtg_v6",
+        "distancia_a_umbral": 7
+      },
+      {
+        "card_id": "roboflow_mtg_386",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 35,
+        "dataset": "mtg_v6",
+        "distancia_a_umbral": 2
+      },
+      {
+        "card_id": "roboflow_cross_449",
+        "real": "LP",
+        "predicho": "HP",
+        "conteo_dano": 4,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 0
+      },
+      {
+        "card_id": "roboflow_cross_375",
+        "real": "MP",
+        "predicho": "HP",
+        "conteo_dano": 6,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 1
+      },
+      {
+        "card_id": "roboflow_cross_278",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 12,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 1
+      },
+      {
+        "card_id": "roboflow_cross_455",
+        "real": "MP",
+        "predicho": "HP",
+        "conteo_dano": 5,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 1
+      },
+      {
+        "card_id": "roboflow_cross_87",
+        "real": "DMG",
+        "predicho": "HP",
+        "conteo_dano": 17,
+        "dataset": "cross_tcg_v2",
+        "distancia_a_umbral": 6
+      }
+    ]
+  }
+}
