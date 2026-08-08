@@ -571,12 +571,29 @@ binaria de Stage 1 — `pytorch/src/condition_classifier.py` y
 `src/binary_classifier.py` en ambos frameworks (freeze_ratio/head_units/
 dropout parametrizados, listo para Optuna después).
 
-**Entrenado y evaluado (7 ago), resultado real:**
+**Entrenado y evaluado (7 ago), resultado real (hiperparámetros fijos):**
 
 | Framework | Backbone | Accuracy | F1 (macro) |
 |---|---|---|---|
 | PyTorch | EfficientNet_b0 | **0.7475** | 0.7442 |
 | TensorFlow | MobileNetV3Small | 0.6550 | 0.6603 |
+
+**Optuna sobre Stage 4 (7 ago, mismo patrón que sección 0 — 20 trials, TPE +
+MedianPruner, `trial-epochs=6`, `final-epochs=15`):**
+
+| Framework | Accuracy fijo → Optuna | F1 macro fijo → Optuna | Mejor trial |
+|---|---|---|---|
+| TensorFlow | 0.6550 → **0.7575** (+10.3 pts) | 0.6603 → **0.7546** | trial 12: lr=6.23e-4, adam, head_units=512, dropout=0.5, freeze_ratio=0.5, batch_size=16 |
+| PyTorch | 0.7475 → *en curso* | — | mejor hasta ahora: trial 2, val_accuracy=0.88125 con lr=5.99e-4, adam, head_units=512, dropout=0.5, freeze_ratio=0.5, batch_size=16 |
+
+TensorFlow sube 10 puntos con Optuna — su baseline fijo dejaba mucho sobre la
+mesa (los hiperparámetros de Stage 1 no eran óptimos para 5 clases con
+límites de decisión más finos que la binaria NM/no-NM). Notable: PyTorch y
+TensorFlow convergen al **mismo tipo de receta** (lr en el orden de 6e-4,
+adam, head_units=512, dropout=0.5, freeze_ratio=0.5) — señal de que no es
+ruido del sampler sino una región genuinamente buena del espacio para esta
+tarea. Resultados completos y matrices de confusión en
+`output/{pytorch,tensorflow}/optuna_condition/latest/`.
 
 Dataset: 800 cartas base × 5 grados = 4,000 imágenes sintéticas
 (`synthetic_wear.py`), split 80/20 **por carta** (no por imagen — las 5
@@ -661,14 +678,14 @@ puliendo el bootstrap sintético.
       peladas reales) y un ejemplo NM (Nicol Bolas, God-Pharaoh) se veía
       impecable — la heurística y la localización funcionan razonablemente
       sobre este dataset variado.
-- [ ] Reentrenar con el dataset combinado (sintético + real) y comparar
-      contra el baseline sintético-solo — no hecho todavía, el estudio
-      Optuna en curso (arriba) sigue corriendo sobre el split sintético
-      original que ya tenía cargado en memoria al arrancar (agregar filas a
-      `index.csv` a mitad de una corrida no lo afecta). Repetir después.
-- [ ] Optuna sobre este modelo también (`src/condition_classifier.py` ya está
-      parametrizado para eso, mismo patrón que la sección 0) — corriendo
-      ahora mismo (ver estado en la sección de arriba una vez termine).
+- [ ] Reentrenar con el dataset combinado (sintético + real, 5,355 filas) y
+      comparar contra el baseline sintético-solo — pendiente, se hace con
+      PyTorch (framework ganador) apenas termine su Optuna, usando los
+      mejores hiperparámetros encontrados.
+- [x] Optuna sobre este modelo también (`src/condition_classifier.py` ya
+      estaba parametrizado para eso, mismo patrón que la sección 0) —
+      **TensorFlow terminado** (+10.3 pts sobre el baseline fijo, ver tabla
+      arriba); **PyTorch en curso** al momento de escribir esto.
 
 **Para reproducir la importación de datos reales** (necesita una cuenta
 gratis de Roboflow — [roboflow.com](https://roboflow.com) → Settings →

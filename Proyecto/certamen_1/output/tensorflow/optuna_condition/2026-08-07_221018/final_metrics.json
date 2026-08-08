@@ -1,0 +1,44 @@
+{
+  "accuracy": 0.7575,
+  "f1_macro": 0.7546261391581947,
+  "precision_macro": 0.7822533114664716,
+  "recall_macro": 0.7575,
+  "n_val": 800,
+  "por_grado": {
+    "NM": {
+      "precision": 0.8309859154929577,
+      "recall": 0.7375,
+      "f1": 0.7814569536423841
+    },
+    "LP": {
+      "precision": 0.6601941747572816,
+      "recall": 0.85,
+      "f1": 0.7431693989071039
+    },
+    "MP": {
+      "precision": 0.979381443298969,
+      "recall": 0.59375,
+      "f1": 0.7392996108949417
+    },
+    "HP": {
+      "precision": 0.697986577181208,
+      "recall": 0.65,
+      "f1": 0.6731391585760518
+    },
+    "DMG": {
+      "precision": 0.7427184466019418,
+      "recall": 0.95625,
+      "f1": 0.8360655737704918
+    }
+  },
+  "split": "validation_used_for_model_selection",
+  "best_params": {
+    "learning_rate": 0.0006233843477099821,
+    "weight_decay": 1.1089509545987041e-06,
+    "batch_size": 16,
+    "head_units": 512,
+    "dropout": 0.5,
+    "optimizer": "adam",
+    "freeze_ratio": 0.5
+  }
+}

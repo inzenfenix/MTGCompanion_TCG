@@ -1,0 +1,17 @@
+{
+  "trial_number": 12,
+  "best_value": 0.637499988079071,
+  "metric": "val_accuracy",
+  "params": {
+    "learning_rate": 0.0006233843477099821,
+    "weight_decay": 1.1089509545987041e-06,
+    "batch_size": 16,
+    "head_units": 512,
+    "dropout": 0.5,
+    "optimizer": "adam",
+    "freeze_ratio": 0.5
+  },
+  "study_name": "condition_grader_tensorflow",
+  "completed_trials": 14,
+  "total_trials": 20
+}
