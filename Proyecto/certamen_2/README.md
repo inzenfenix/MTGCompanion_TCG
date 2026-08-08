@@ -407,10 +407,12 @@ reconstruir el índice de PyTorch contra el dataset completo
       normalizar contraste, compartido entre Stage 2 y Stage 4 — ver sección 8.
 - [x] Condición de la carta: stopgap por regla (`--condition` + multiplicador)
       implementado — ver sección 7.
-- [x] Stage 4 — clasificador de condición, ambos frameworks entrenados y
-      evaluados (PyTorch 0.7475 acc, TensorFlow 0.6550 acc) — ver sección 9.
-      Datasets públicos reales (Roboflow) todavía sin verificar/descargar,
-      hoy corre 100% sobre el bootstrap sintético.
+- [x] Stage 4 — clasificador de condición, ambos frameworks entrenados,
+      evaluados y **conectado a Stage 3** en `full_pipeline_demo.py`
+      (PyTorch 0.7475 acc, TensorFlow 0.6550 acc) — ver sección 9. Sobre una
+      foto real predijo HP con 63.8% confianza — plausible pero no
+      verificado, entrenado 100% sobre desgaste sintético todavía.
+      Datasets públicos reales (Roboflow) sin verificar/descargar.
 
 ## 7. Por qué este enfoque
 
@@ -593,6 +595,31 @@ grados lejanos (NM nunca se confunde con DMG). El modelo está aprendiendo la
 estructura ordinal real del desgaste, no ruido — y los errores que comete son
 del tipo menos grave posible (una carta HP predicha como MP, no como NM).
 
+**Conectado a Stage 3 (7 ago)**: `pytorch/predict_condition.py` (nuevo) carga
+el modelo ganador (PyTorch) y expone una salida parseable, en el mismo
+espíritu que `scanner.py`. `full_pipeline_demo.py` lo corre como Stage 4 —
+en paralelo con Stage 1, sobre la carta ya localizada/normalizada por
+`card_preprocessing.py` (mismo motivo que Stage 1/2: el modelo se entrenó
+sobre recortes limpios, no fotos con fondo) — y usa su predicción como
+condición por default en Stage 3, en vez del valor fijo `NM` de antes.
+`--condition` sigue existiendo como override manual, no desactiva Stage 4,
+solo lo ignora para el cálculo de precio.
+
+**Primer resultado real sobre una foto real, y una limitación honesta**:
+sobre la foto de celular de *Bastion of Remembrance* (la misma que reveló el
+índice de embeddings desactualizado, sección 5.3), Stage 4 predijo **HP
+(Heavily Played) con 63.8% de confianza**. Plausible, pero no verificable acá
+— y hay una razón concreta para no tomarlo al pie de la letra todavía: el
+modelo entrenó *exclusivamente* con desgaste sintético (`synthetic_wear.py`)
+sobre renders limpios, nunca vio artefactos reales de fotografía (brillo de
+funda, blur de cámara, gradientes de luz) durante el entrenamiento — esos
+artefactos pueden leerse como "desgaste" sin que la carta esté realmente
+dañada. Mismo patrón que la caída de 100%→90.8% de Stage 1 sobre esta misma
+foto (sección 0): el techo medido en datos curados no es una garantía sobre
+fotos reales. Es exactamente el tipo de caso donde complementar con fotos
+reales (datasets de Roboflow, ítem de abajo) importaría más que seguir
+puliendo el bootstrap sintético.
+
 **Qué falta:**
 - [x] Aumentación sintética de desgaste con OpenCV (`synthetic_wear.py`):
       scratches, whitening de bordes, esquinas redondeadas, crease, manchas —
@@ -603,10 +630,11 @@ del tipo menos grave posible (una carta HP predicha como MP, no como NM).
       y `tensorFlow/09_condition_grader.py`, mismo patrón de
       `07_binary_classifier.py`. Corrida real completada para ambos, ver
       tabla arriba.
+- [x] Conectar la salida a Stage 3 (`pytorch/predict_condition.py` +
+      `full_pipeline_demo.py`) — hecho, ver arriba. `--condition` queda como
+      override manual.
 - [ ] Verificar licencias de los datasets de Roboflow antes de descargarlos
-      — complemento real de volumen sobre el bootstrap sintético, no hecho
-      todavía.
-- [ ] Conectar la salida a Stage 3 (`price_estimator_baseline.py`) como
-      feature adicional, sin sacar el input manual (dejarlo como override).
+      — complemento real de volumen/realismo sobre el bootstrap sintético,
+      más importante ahora que se vio la limitación de arriba.
 - [ ] Optuna sobre este modelo también (`src/condition_classifier.py` ya está
       parametrizado para eso, mismo patrón que la sección 0).

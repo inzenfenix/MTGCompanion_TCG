@@ -3,35 +3,37 @@ MTG Card Scanner — Certamen 2
 full_pipeline_demo.py: encadena las 3 etapas del pipeline sobre una sola foto.
 
 Muestra el flujo completo funcionando hoy, con lo que ya existe (bases +
-baselines), como preview de lo que la app Ionic hará en el cliente una vez
-estén los modelos "de verdad" (ver README.md, secciones 1 y 3):
+modelos entrenados), como preview de lo que la app Ionic hará en el cliente
+una vez esté todo exportado a ONNX (ver README.md, secciones 1 y 3):
 
     foto ─▶ Stage 1 (pytorch/scanner.py, subproceso en su propio venv)
               → carta candidata + similitud + veredicto MTG/no-MTG
                     │
                     ▼
-         Stage 2 (text_validator_baseline: OpenCV + OCR)
-              → ¿el texto leído en la foto es consistente con esa carta?
-                    │
-                    ▼
-         Stage 3 (price_estimator_baseline: metadata → USD)
-              → precio estimado, comparado contra prices.usd real (si existe)
+         Stage 2 (text_validator_baseline: OpenCV + OCR)      Stage 4 (pytorch/predict_condition.py)
+         → ¿el texto leído confirma la carta?                  → condición física (NM/LP/MP/HP/DMG)
+                    │                                                    │
+                    └──────────────────────┬─────────────────────────────┘
+                                            ▼
+                         Stage 3 (price_estimator_baseline: metadata + condición → USD)
+                              → precio estimado, comparado contra prices.usd real (si existe)
 
-Requisitos: pytorch/.venv ya creado (Certamen 1) + certamen_2/.venv con este
-mismo requirements.txt. No corre el clasificador binario de PyTorch como
-gate (usa --skip-detect en el scanner) porque acá interesa forzar las 3
-etapas incluso sobre fotos limpias de Scryfall.
+Requisitos: pytorch/.venv ya creado (Certamen 1, incluye
+models/condition_grader.pth — ver pytorch/10_condition_grader.py) +
+certamen_2/.venv con este mismo requirements.txt. No corre el clasificador
+binario de PyTorch como gate (usa --skip-detect en el scanner) porque acá
+interesa forzar las etapas incluso sobre fotos limpias de Scryfall.
 
 Uso:
     python full_pipeline_demo.py ruta/a/carta.jpg
     python full_pipeline_demo.py ruta/a/carta.jpg --top 5
-    python full_pipeline_demo.py ruta/a/carta.jpg --condition LP   # carta con desgaste visible
+    python full_pipeline_demo.py ruta/a/carta.jpg --condition LP   # forzar condición, ignora Stage 4
 
-Nota sobre condición: Stage 3 predice un precio de referencia (~near-mint —
-no hay señal de condición en los datos, ver price_estimator_baseline.py). Sin
-un clasificador visual de condición entrenado (necesita fotos etiquetadas por
-condición que no tenemos), `--condition` es la condición que declara quien
-escanea, no algo que el modelo infiere de la foto.
+Nota sobre condición: por default, Stage 4 (PyTorch, el framework ganador de
+esa etapa — ver certamen_2/README.md sección 9) predice la condición de la
+foto y esa es la que usa Stage 3. `--condition` es un override manual (por si
+Stage 4 se equivoca, o para forzar un escenario) — no desactiva Stage 4, solo
+ignora su resultado para el cálculo de precio.
 """
 
 import argparse
@@ -40,11 +42,14 @@ import pathlib
 import re
 import subprocess
 import sys
+import tempfile
 
+import cv2
 import joblib
 import numpy as np
 import pandas as pd
 
+from card_preprocessing import mejorar_contraste, normalizar_carta
 from price_estimator_baseline import (
     ajustar_por_condicion,
     CONDITION_MULTIPLIERS,
@@ -69,6 +74,10 @@ _PT_LINE_RE = {
     "card_name": re.compile(r"^card_name=(.+)$"),
     "similarity": re.compile(r"^similarity=([\d.]+)$"),
     "verdict": re.compile(r"^(MAGIC|NO_MAGIC)$"),
+}
+_CONDITION_LINE_RE = {
+    "grado": re.compile(r"^grado=(\w+)$"),
+    "confianza": re.compile(r"^confianza=([\d.]+)$"),
 }
 
 
@@ -132,6 +141,54 @@ def stage2_validar_texto(imagen: pathlib.Path, carta: dict) -> dict:
     }
 
 
+def stage4_predecir_condicion(imagen: pathlib.Path) -> dict:
+    """
+    Corre pytorch/predict_condition.py (el framework ganador de Stage 4, ver
+    README.md sección 9) como subproceso sobre la carta ya localizada/
+    normalizada — el modelo se entrenó sobre recortes limpios con desgaste
+    sintético (certamen_2/synthetic_wear.py), no sobre fotos con fondo, así
+    que alimentarlo con la foto cruda sería el mismo desajuste train/inferencia
+    que ya se documentó para Stage 1/2 (ver README.md, secciones 5.3 y 8).
+    """
+    img = cv2.imread(str(imagen))
+    if img is None:
+        return {"disponible": False}
+
+    carta_normalizada, _ = normalizar_carta(img, intentar_localizar=True)
+    carta_normalizada = mejorar_contraste(carta_normalizada)
+
+    python_bin = _venv_python(PYTORCH_DIR)
+    if not python_bin.exists():
+        return {"disponible": False}
+
+    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+        tmp_path = pathlib.Path(tmp.name)
+    try:
+        cv2.imwrite(str(tmp_path), carta_normalizada)
+        cmd = [str(python_bin), "predict_condition.py", str(tmp_path.resolve())]
+        proc = subprocess.run(cmd, cwd=PYTORCH_DIR, capture_output=True, text=True)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    if proc.returncode != 0:
+        return {"disponible": False, "error": proc.stderr[-500:]}
+
+    resultado = {}
+    for linea in proc.stdout.splitlines():
+        linea = linea.strip()
+        for campo, patron in _CONDITION_LINE_RE.items():
+            m = patron.match(linea)
+            if m:
+                resultado[campo] = m.group(1)
+
+    if "grado" not in resultado:
+        return {"disponible": False, "error": proc.stdout[-500:]}
+
+    resultado["disponible"] = True
+    resultado["confianza"] = float(resultado.get("confianza", 0.0))
+    return resultado
+
+
 def stage3_estimar_precio(carta: dict, condicion: str = "NM") -> dict:
     """
     Predice prices.usd (near-mint) con el baseline tabular entrenado
@@ -159,11 +216,11 @@ def stage3_estimar_precio(carta: dict, condicion: str = "NM") -> dict:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Corre las 3 etapas del pipeline sobre una foto.")
+    parser = argparse.ArgumentParser(description="Corre las 4 etapas del pipeline sobre una foto.")
     parser.add_argument("imagen", type=pathlib.Path, help="Ruta a la foto de la carta")
     parser.add_argument("--top", type=int, default=5, help="Candidatos a mostrar en Stage 1 (default: 5)")
-    parser.add_argument("--condition", default="NM", choices=list(CONDITION_MULTIPLIERS),
-                        help="Condición declarada de la carta física (default: NM = near-mint)")
+    parser.add_argument("--condition", default=None, choices=list(CONDITION_MULTIPLIERS),
+                        help="Override manual de condición — si no se pasa, usa la predicción de Stage 4")
     args = parser.parse_args()
 
     if not args.imagen.exists():
@@ -177,7 +234,7 @@ def main() -> None:
         cards_by_name = {c["name"]: c for c in json.load(f)}
 
     print("═" * 78)
-    print("  Pipeline completo — Certamen 2 (Stage 1 → 2 → 3)")
+    print("  Pipeline completo — Certamen 2 (Stage 1 → 2 → 3, + Stage 4 en paralelo)")
     print(f"  Foto: {args.imagen}")
     print("═" * 78)
 
@@ -186,6 +243,15 @@ def main() -> None:
     print(f"  Carta candidata : {s1['card_name']}")
     print(f"  Similitud       : {s1['similarity'] * 100:.1f}%")
     print(f"  Veredicto       : {'MAGIC' if s1['es_magic'] else 'NO_MAGIC'}")
+
+    print("\n[Stage 4] Clasificando condición (PyTorch, EfficientNet_b0 — ganador de esta etapa)...")
+    s4 = stage4_predecir_condicion(args.imagen)
+    if s4["disponible"]:
+        print(f"  Condición predicha : {s4['grado']}  (confianza: {s4['confianza'] * 100:.1f}%)")
+    else:
+        print("  Aviso: no se pudo predecir condición — corré pytorch/10_condition_grader.py primero.")
+        if s4.get("error"):
+            print(f"  {s4['error']}")
 
     carta = cards_by_name.get(s1["card_name"])
     if carta is None:
@@ -199,8 +265,19 @@ def main() -> None:
     print(f"  Score de confirmación : {s2['score']:.3f}")
     print(f"  ¿Confirma la carta?   : {'sí' if s2['confirma'] else 'no'}")
 
-    print(f"\n[Stage 3] Estimando precio (metadata → USD, condición declarada: {args.condition})...")
-    s3 = stage3_estimar_precio(carta, condicion=args.condition)
+    if args.condition is not None:
+        condicion_final = args.condition
+        origen_condicion = "override manual"
+    elif s4["disponible"]:
+        condicion_final = s4["grado"]
+        origen_condicion = f"Stage 4, confianza {s4['confianza'] * 100:.1f}%"
+    else:
+        condicion_final = "NM"
+        origen_condicion = "default (Stage 4 no disponible)"
+
+    print("\n[Stage 3] Estimando precio (metadata + condición → USD)...")
+    print(f"  Condición usada  : {condicion_final}  ({origen_condicion})")
+    s3 = stage3_estimar_precio(carta, condicion=condicion_final)
     if not s3["disponible"]:
         print("  Aviso: no existe certamen_2/models/price_baseline_model.joblib —")
         print("  corré price_estimator_baseline.py primero.")
@@ -216,6 +293,7 @@ def main() -> None:
     print("\n" + "═" * 78)
     print(f"  Resultado: {s1['card_name']}"
           f"{' ✓ texto confirma' if s2['confirma'] else ' ✗ texto no confirma'}"
+          f"  |  condición: {condicion_final}"
           + (f"  |  ~${s3['precio_estimado_usd']:.2f}" if s3.get("disponible") else ""))
     print("═" * 78)
 
