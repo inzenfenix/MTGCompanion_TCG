@@ -407,9 +407,10 @@ reconstruir el índice de PyTorch contra el dataset completo
       normalizar contraste, compartido entre Stage 2 y Stage 4 — ver sección 8.
 - [x] Condición de la carta: stopgap por regla (`--condition` + multiplicador)
       implementado — ver sección 7.
-- [ ] Stage 4 — clasificador de condición por framework (PyTorch +
-      TensorFlow), datasets públicos ya identificados — ver sección 9,
-      todavía sin implementar.
+- [x] Stage 4 — clasificador de condición, ambos frameworks entrenados y
+      evaluados (PyTorch 0.7475 acc, TensorFlow 0.6550 acc) — ver sección 9.
+      Datasets públicos reales (Roboflow) todavía sin verificar/descargar,
+      hoy corre 100% sobre el bootstrap sintético.
 
 ## 7. Por qué este enfoque
 
@@ -557,33 +558,55 @@ para exactamente este problema** (buscado el 7 de agosto):
   público y gratis (los tres puntos anteriores). **Verificar licencia** de
   cada dataset de Roboflow antes de usarlo — no asumida acá.
 
-**Arquitectura**: mismo patrón que las demás etapas — transfer learning
-sobre el mismo backbone por framework (`EfficientNet_b0` PyTorch,
-`MobileNetV3` TensorFlow una vez migrado), cabeza de clasificación
-(NM/LP/MP/HP/DMG o un score continuo de desgaste) en vez de la cabeza
-binaria de Stage 1. Con ~335 imágenes MTG-específicas + el dataset cross-TCG
-para volumen, transfer learning es razonable (mismo argumento que ya
-funciona para el detector MTG/no-MTG con pocos miles de imágenes).
+**Arquitectura**: mismo patrón que las demás etapas — transfer learning sobre
+el mismo backbone por framework. PyTorch usa `EfficientNet_b0` (igual que
+Stage 1); TensorFlow usa **`MobileNetV3Small`** directamente — Stage 4 es
+código nuevo sin atar a la migración de Stage 1 (que sigue en MobileNetV2,
+ver sección 1), así que no tenía sentido construirlo sobre V2 para migrarlo
+después. Cabeza de clasificación de 5 salidas (softmax) en vez de la cabeza
+binaria de Stage 1 — `pytorch/src/condition_classifier.py` y
+`tensorFlow/src/condition_classifier.py`, mismo patrón que
+`src/binary_classifier.py` en ambos frameworks (freeze_ratio/head_units/
+dropout parametrizados, listo para Optuna después).
+
+**Entrenado y evaluado (7 ago), resultado real:**
+
+| Framework | Backbone | Accuracy | F1 (macro) |
+|---|---|---|---|
+| PyTorch | EfficientNet_b0 | **0.7475** | 0.7442 |
+| TensorFlow | MobileNetV3Small | 0.6550 | 0.6603 |
+
+Dataset: 800 cartas base × 5 grados = 4,000 imágenes sintéticas
+(`synthetic_wear.py`), split 80/20 **por carta** (no por imagen — las 5
+variantes de una misma carta comparten arte/composición; splitear por imagen
+dejaría la misma carta en train y val, y el modelo podría aprender a
+reconocer la carta en vez del desgaste). PyTorch gana esta etapa por ~9
+puntos — primer dato real para la sección 2 (selección de mejor framework
+por etapa): no necesariamente el mismo framework gana las tres/cuatro
+etapas, y acá no ganó el mismo que en Stage 1 vs. cómo venía TensorFlow
+tradicionalmente en el curso.
+
+Ambas matrices de confusión (`output/{pytorch,tensorflow}/condition_grader/latest/confusion_matrix.png`)
+muestran el mismo patrón sano: casi todos los errores son entre grados
+**adyacentes** (NM↔LP, MP↔HP, HP↔DMG) — prácticamente cero confusión entre
+grados lejanos (NM nunca se confunde con DMG). El modelo está aprendiendo la
+estructura ordinal real del desgaste, no ruido — y los errores que comete son
+del tipo menos grave posible (una carta HP predicha como MP, no como NM).
 
 **Qué falta:**
 - [x] Aumentación sintética de desgaste con OpenCV (`synthetic_wear.py`):
       scratches, whitening de bordes, esquinas redondeadas, crease, manchas —
-      5 grados (NM/LP/MP/HP/DMG), intensidad creciente por grado. Probado
-      visualmente sobre renders reales de Scryfall — separación clara entre
-      grados (`python synthetic_wear.py --carta <img>` genera un grid NM..DMG).
+      5 grados (NM/LP/MP/HP/DMG), intensidad creciente por grado.
 - [x] Script de preparación de dataset (`prepare_condition_dataset.py`):
-      muestrea N cartas, genera las 5 variantes de cada una, guarda en
-      `data/condition_dataset/{grado}/{card_id}.jpg` + `index.csv`. Dataset
-      balanceado por construcción (mismo N por grado). Probado a escala
-      chica (40 cartas × 5 = 200 imágenes); escalar con `--n` cuando haya
-      GPU libre para entrenar.
+      escalado a 800 cartas × 5 = 4,000 imágenes (antes probado a 40 cartas).
+- [x] Script de entrenamiento por framework — `pytorch/10_condition_grader.py`
+      y `tensorFlow/09_condition_grader.py`, mismo patrón de
+      `07_binary_classifier.py`. Corrida real completada para ambos, ver
+      tabla arriba.
 - [ ] Verificar licencias de los datasets de Roboflow antes de descargarlos
-      (sección 9) — complemento real de volumen, no hecho todavía.
-- [ ] Script de entrenamiento por framework (nombre tentativo:
-      `condition_grader.py`, PyTorch y TensorFlow) — mismo patrón de
-      `07_binary_classifier.py`/`08_optuna_binary_classifier.py`, consume
-      `data/condition_dataset/`.
+      — complemento real de volumen sobre el bootstrap sintético, no hecho
+      todavía.
 - [ ] Conectar la salida a Stage 3 (`price_estimator_baseline.py`) como
       feature adicional, sin sacar el input manual (dejarlo como override).
-- [ ] Optuna sobre este modelo también, una vez tenga un baseline entrenando
-      (mismo patrón que la sección 0).
+- [ ] Optuna sobre este modelo también (`src/condition_classifier.py` ya está
+      parametrizado para eso, mismo patrón que la sección 0).
