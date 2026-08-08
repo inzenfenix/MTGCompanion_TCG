@@ -685,14 +685,46 @@ puliendo el bootstrap sintético.
       peladas reales) y un ejemplo NM (Nicol Bolas, God-Pharaoh) se veía
       impecable — la heurística y la localización funcionan razonablemente
       sobre este dataset variado.
-- [ ] Reentrenar con el dataset combinado (sintético + real, 5,355 filas) y
-      comparar contra el baseline sintético-solo — pendiente, se hace con
-      PyTorch (framework ganador) apenas termine su Optuna, usando los
-      mejores hiperparámetros encontrados.
+- [x] Reentrenar con el dataset combinado (sintético + real) y comparar
+      contra el baseline sintético-solo — hecho (8 ago), ver subsección
+      abajo.
 - [x] Optuna sobre este modelo también (`src/condition_classifier.py` ya
       estaba parametrizado para eso, mismo patrón que la sección 0) — hecho
       en ambos frameworks, ver tabla arriba (PyTorch +20.5 pts, TensorFlow
       +10.3 pts sobre sus respectivos baselines fijos).
+
+**Reentrenado con dataset combinado (8 ago)**: `pytorch/12_condition_grader_combined.py`
+(nuevo) reentrena PyTorch — framework ganador — usando los mejores
+hiperparámetros de Optuna (arriba) pero sobre `condition_dataset/index.csv`
+ya con las fotos reales mezcladas (de las 1,355 importadas, 1,184 quedaron
+como "carta base" propia tras el split — cada foto real es su propia unidad,
+sin variantes hermanas — más las 800 cartas sintéticas = 1,984 unidades,
+4,279 train / 1,076 val, split por carta igual que siempre).
+
+| Corrida | Validación | Accuracy | F1 (macro) |
+|---|---|---|---|
+| Optuna (sintético-solo) | 800 imágenes, 100% sintéticas | 0.9525 | 0.9523 |
+| Combinado (sintético + real) | 1,076 imágenes, mezcla real+sintética | 0.9024 | 0.8985 |
+
+**No es una comparación directa** — el segundo número es más bajo, pero
+sobre un set de validación objetivamente más difícil (incluye fotos reales
+con ruido de fotografía, no solo renders con desgaste sintético), así que
+no se puede leer como "empeoró". Lo interesante está en el desglose por
+grado: NM/LP/MP/DMG se mantienen todos ≥88% de F1, pero **HP tiene
+precision de apenas 73.5%** (aunque su recall es el más alto de todos,
+92.8%) — el modelo sobre-predice HP, probablemente porque los umbrales de
+Roboflow (heurística de conteo de cajas, ver abajo) meten en HP fotos reales
+con desgaste ambiguo que un sistema de grading profesional pondría en MP o
+LP. Matriz de confusión y curva de entrenamiento en
+`output/pytorch/condition_grader_combined/latest/`.
+
+Conclusión práctica: agregar fotos reales no fue gratis en accuracy medida
+sobre el split sintético original, pero el modelo entrenado con datos
+combinados es el que realmente vio artefactos de fotografía durante el
+entrenamiento — la hipótesis (sección de arriba, sobre Bastion of
+Remembrance) es que generaliza mejor a fotos de celular reales que el
+modelo sintético-solo, aunque verificarlo requeriría correr ambos modelos
+sobre el mismo set de fotos reales no vistas, algo que queda pendiente.
 
 **Para reproducir la importación de datos reales** (necesita una cuenta
 gratis de Roboflow — [roboflow.com](https://roboflow.com) → Settings →
