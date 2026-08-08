@@ -40,9 +40,25 @@ Entrega de la semana de Optuna, ya ejecutada de punta a punta:
       para reconstruir la arquitectura desde `mtg_detector_cfg.json` en vez de
       asumir los defaults — necesario porque PyTorch guarda solo pesos
       (`state_dict`), a diferencia de `.keras` que empaqueta arquitectura +
-      pesos. Corrida real (n=3000, 20 trials, 6 épocas/trial, 15 finales) en
-      curso — resultados en `Proyecto/certamen_1/output/pytorch/optuna/latest/`
-      cuando termine.
+      pesos. Corrida real completada (n=3000, 20 trials — 4 podados por el
+      pruner, 15 épocas finales) — resultados en
+      `Proyecto/certamen_1/output/pytorch/optuna/latest/`. Ganador: trial 0
+      (`optimizer=adam, lr=1.3e-4, weight_decay=6.4e-3, batch_size=16,
+      head_units=128, dropout=0.0, freeze_ratio=0.65`), `val_accuracy=1.0000`
+      en el split de validación (renders oficiales, ambas clases).
+
+      **Ese 1.0 es real pero acotado al tipo de imagen con el que se mide**:
+      el detector separa "render oficial de Magic" de "render oficial de
+      Pokémon" — dos clases con bordes, tipografía e iconografía muy
+      distintos, sobre un backbone ya preentrenado en ImageNet — no es un
+      problema de clasificación fina. Confirmado con una foto de celular real
+      (no un render limpio, no parte de ningún split): `P(MTG)=0.9084` sobre
+      la misma carta que reveló el índice de embeddings desactualizado
+      (sección 5.3) — sigue clasificando correcto, pero la confianza baja de
+      100% a ~91% apenas sale de la distribución de entrenamiento/validación.
+      Mismo patrón ya visto en esta entrega (embeddings, condición): las
+      métricas sobre datos curados son un techo, no una garantía sobre fotos
+      reales.
 
 ## 1. Arquitectura del pipeline completo
 

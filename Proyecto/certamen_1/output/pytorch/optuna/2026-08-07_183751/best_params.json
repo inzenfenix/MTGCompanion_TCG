@@ -1,0 +1,17 @@
+{
+  "trial_number": 0,
+  "best_value": 1.0,
+  "metric": "val_accuracy",
+  "params": {
+    "learning_rate": 0.0001329291894316216,
+    "weight_decay": 0.006351221010640704,
+    "batch_size": 16,
+    "head_units": 128,
+    "dropout": 0.0,
+    "optimizer": "adam",
+    "freeze_ratio": 0.65
+  },
+  "study_name": "mtg_detector_pytorch",
+  "completed_trials": 16,
+  "total_trials": 20
+}
