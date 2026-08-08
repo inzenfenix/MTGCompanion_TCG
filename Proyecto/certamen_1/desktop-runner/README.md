@@ -81,6 +81,13 @@ tienen un botón "Elegir…" que abre el file picker nativo de Electron.
 recomendada del framework y se detiene en el primer error, con un reporte
 final de qué pasos quedaron OK.
 
+**"Correr TODO"** — panel fijo arriba de las tabs (no vive adentro de
+ninguna, aplica a las dos): PyTorch completo → TensorFlow completo →
+comparación de ambos scanners sobre `testing_photos/`, un solo click, se
+detiene en el primer error igual que el de arriba. Deliberadamente no
+incluye scraper/downloader (dataset compartido) — eso se corre una vez
+aparte, no en cada corrida de entrenamiento.
+
 ## Pendiente / fuera de alcance de esta primera versión
 
 - **Empaquetar como instalador** (`.exe`/`.dmg`): hoy se corre con

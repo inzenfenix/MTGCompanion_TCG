@@ -53,4 +53,14 @@ export class ScriptsController {
     this.scriptsService.runAll(framework).catch(() => undefined);
     return { started: true, framework };
   }
+
+  // Ruta separada de 'run-all/:framework' (no 'run-all/everything') a propósito:
+  // ese :framework es un route param libre, así que 'everything' matchearía esa
+  // misma ruta y terminaría en runAll('everything'), que no es un framework válido.
+  @Post('run-everything')
+  @HttpCode(202)
+  async runEverything() {
+    this.scriptsService.runEverything().catch(() => undefined);
+    return { started: true };
+  }
 }

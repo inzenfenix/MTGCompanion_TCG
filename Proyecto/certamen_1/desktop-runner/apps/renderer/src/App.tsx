@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Tabs } from '@/components/ui/tabs';
 import { ScriptCard } from '@/components/ScriptCard';
 import { RunAllPanel } from '@/components/RunAllPanel';
+import { RunEverythingPanel } from '@/components/RunEverythingPanel';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type { ScriptGroup, ScriptInfo } from '@/lib/types';
@@ -43,6 +44,10 @@ export default function App() {
           Corré los pipelines de certamen_1 (PyTorch / TensorFlow) sin usar la terminal.
         </p>
       </header>
+
+      <div className="mb-6">
+        <RunEverythingPanel />
+      </div>
 
       <Tabs value={group} onValueChange={(v) => setGroup(v as ScriptGroup)} items={GROUPS} className="mb-6" />
 

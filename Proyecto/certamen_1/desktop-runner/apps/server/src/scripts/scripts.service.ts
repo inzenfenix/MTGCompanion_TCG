@@ -370,6 +370,33 @@ export class ScriptsService {
 
   // ── "Correr todo" para un framework ────────────────────────────────────
 
+  /**
+   * Corre una secuencia de scriptIds en orden, emitiendo 'run-all-step' antes
+   * de cada uno y frenando en el primer error/cancelación. Compartido por
+   * `runAll` (un framework) y `runEverything` (todo) para no duplicar la
+   * lógica de streaming — lo único que cambia es qué secuencia arman y qué
+   * `framework` va en los eventos (el frontend lo usa para filtrar).
+   */
+  private async runSequence(
+    overallRunId: string,
+    framework: string,
+    sequence: { scriptId: string; overrides?: Record<string, unknown> }[],
+    steps: RunAllStepResult[],
+  ): Promise<boolean> {
+    for (const { scriptId, overrides } of sequence) {
+      const script = findScript(scriptId);
+      const { runId, done } = await this.runScript(scriptId, overrides ?? {});
+      // El frontend usa este evento para saber a qué runId suscribirse y
+      // mostrar la consola en vivo del paso actual (si no, "Correr todo" no
+      // tiene forma de saber qué corrida está en curso hasta el reporte final).
+      this.gateway.emitRunAllStep({ overallRunId, framework, scriptId, label: script?.label ?? scriptId, runId });
+      const result = await done;
+      steps.push(result);
+      if (result.status !== 'success') return false; // detener secuencia ante error o cancelación
+    }
+    return true;
+  }
+
   async runAll(framework: 'pytorch' | 'tensorflow'): Promise<{ overallRunId: string; steps: RunAllStepResult[]; ok: boolean }> {
     const sequence = RUN_ALL_SEQUENCES[framework];
     if (!sequence) throw new BadRequestException(`Framework desconocido: ${framework}`);
@@ -377,21 +404,54 @@ export class ScriptsService {
     const overallRunId = `run-all:${framework}:${Date.now()}`;
     const steps: RunAllStepResult[] = [];
 
-    for (const scriptId of sequence) {
-      const overrides = scriptId === 'shared-evaluate' ? { model: framework } : {};
-      const script = findScript(scriptId);
-      const { runId, done } = await this.runScript(scriptId, overrides);
-      // El frontend usa este evento para saber a qué runId suscribirse y
-      // mostrar la consola en vivo del paso actual (si no, "Correr todo" no
-      // tiene forma de saber qué corrida está en curso hasta el reporte final).
-      this.gateway.emitRunAllStep({ overallRunId, framework, scriptId, label: script?.label ?? scriptId, runId });
-      const result = await done;
-      steps.push(result);
-      if (result.status !== 'success') break; // detener secuencia ante error o cancelación
+    const finishedCleanly = await this.runSequence(
+      overallRunId,
+      framework,
+      sequence.map((scriptId) => ({ scriptId, overrides: scriptId === 'shared-evaluate' ? { model: framework } : {} })),
+      steps,
+    );
+
+    const ok = finishedCleanly && steps.length === sequence.length;
+    this.gateway.server?.emit('run-all-report', { overallRunId, framework, steps, ok });
+    return { overallRunId, steps, ok };
+  }
+
+  // ── "Correr TODO" (ambos frameworks + comparación final) ────────────────
+
+  /**
+   * Botón "Do all": PyTorch completo → TensorFlow completo → comparación de
+   * ambos scanners sobre testing_photos/. Deliberadamente NO incluye
+   * shared-scraper/shared-downloader (dataset compartido) — esos son un paso
+   * de preparación que se corre una vez, no en cada corrida de entrenamiento
+   * (re-descargar ~3.6 GB de imágenes cada vez que se aprieta "correr todo"
+   * sería un desperdicio; quedan como botones propios en la pestaña "Dataset
+   * compartido"). Mismo criterio "para en el primer error" que `runAll`.
+   */
+  async runEverything(): Promise<{ overallRunId: string; steps: RunAllStepResult[]; ok: boolean }> {
+    const overallRunId = `run-all:everything:${Date.now()}`;
+    const steps: RunAllStepResult[] = [];
+    const totalScripts = RUN_ALL_SEQUENCES.pytorch.length + RUN_ALL_SEQUENCES.tensorflow.length + 1; // +1 = test-compare
+
+    let ok = true;
+    for (const framework of ['pytorch', 'tensorflow'] as const) {
+      ok = await this.runSequence(
+        overallRunId,
+        'everything',
+        RUN_ALL_SEQUENCES[framework].map((scriptId) => ({
+          scriptId,
+          overrides: scriptId === 'shared-evaluate' ? { model: framework } : {},
+        })),
+        steps,
+      );
+      if (!ok) break;
     }
 
-    const ok = steps.length === sequence.length && steps.every((s) => s.status === 'success');
-    this.gateway.server?.emit('run-all-report', { overallRunId, framework, steps, ok });
+    if (ok) {
+      ok = await this.runSequence(overallRunId, 'everything', [{ scriptId: 'test-compare' }], steps);
+    }
+
+    ok = ok && steps.length === totalScripts;
+    this.gateway.server?.emit('run-all-report', { overallRunId, framework: 'everything', steps, ok });
     return { overallRunId, steps, ok };
   }
 }

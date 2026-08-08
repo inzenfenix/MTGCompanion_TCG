@@ -25,6 +25,8 @@ export const api = {
   stop: (runId: string) => fetch(`${API_BASE}/runs/${runId}/stop`, { method: 'POST' }).then((r) => json<{ ok: boolean }>(r)),
   runAll: (framework: 'pytorch' | 'tensorflow') =>
     fetch(`${API_BASE}/run-all/${framework}`, { method: 'POST' }).then((r) => json<{ started: boolean }>(r)),
+  runEverything: () =>
+    fetch(`${API_BASE}/run-everything`, { method: 'POST' }).then((r) => json<{ started: boolean }>(r)),
 };
 
 let socket: Socket | null = null;
@@ -66,7 +68,7 @@ export interface LiveStatsEvent {
 
 export interface RunAllStepStartedEvent {
   overallRunId: string;
-  framework: 'pytorch' | 'tensorflow';
+  framework: 'pytorch' | 'tensorflow' | 'everything';
   scriptId: string;
   label: string;
   runId: string;
@@ -74,7 +76,7 @@ export interface RunAllStepStartedEvent {
 
 export interface RunAllReportEvent {
   overallRunId: string;
-  framework: 'pytorch' | 'tensorflow';
+  framework: 'pytorch' | 'tensorflow' | 'everything';
   steps: RunAllStepResult[];
   ok: boolean;
 }
