@@ -16,6 +16,17 @@ export interface EnvDef {
   /** Carpeta donde vive requirements.txt y donde se crea .venv. null = no usa venv (python del sistema). */
   dir: string | null;
   requirementsFile: string | null;
+  /**
+   * Binarios de Python a probar, en orden, al CREAR el venv (no al correrlo
+   * después — ahí siempre se usa el python de adentro del venv ya creado).
+   * El primero que responda a "--version" gana; si ninguno está, cae al
+   * python genérico del sistema (ver systemPython() en scripts.service.ts).
+   * Existe por paquetes como TensorFlow, que no publican wheel para la
+   * versión de Python más nueva del sistema apenas sale (ej. no hay
+   * tensorflow para 3.14 todavía) — sin esto, "python3" resuelve a esa
+   * versión nueva y la instalación falla con "no matching distribution".
+   */
+  preferredPythonBins?: string[];
 }
 
 export const ENVS: Record<EnvId, EnvDef> = {
@@ -30,6 +41,9 @@ export const ENVS: Record<EnvId, EnvDef> = {
     label: 'TensorFlow (MobileNetV3Small)',
     dir: path.join(CERTAMEN_DIR, 'tensorFlow'),
     requirementsFile: path.join(CERTAMEN_DIR, 'tensorFlow', 'requirements.txt'),
+    // TensorFlow suele tardar meses/años en soportar la última versión de
+    // Python — se prueban las últimas que sí tienen wheel conocido primero.
+    preferredPythonBins: ['python3.12', 'python3.11', 'python3.10'],
   },
   testing: {
     id: 'testing',

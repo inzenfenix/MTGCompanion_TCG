@@ -3,8 +3,9 @@ import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
-import { ArgDef, ENVS, EnvId, LiveFileDef, ResultFileDef, RUN_ALL_SEQUENCES, ScriptDef, SCRIPTS, findScript } from './scripts.config';
+import { ArgDef, ENVS, EnvDef, EnvId, LiveFileDef, ResultFileDef, RUN_ALL_SEQUENCES, ScriptDef, SCRIPTS, findScript } from './scripts.config';
 import { LogsGateway } from './logs.gateway';
+import { detectGpu, GpuDetectionResult } from './gpu-detect';
 
 export interface RunRecord {
   id: string;
@@ -63,6 +64,10 @@ export class ScriptsService {
     return run;
   }
 
+  getGpuInfo(): Promise<GpuDetectionResult> {
+    return detectGpu();
+  }
+
   // ── Resolución de intérpretes / venvs ──────────────────────────────────
 
   private venvPythonPath(envId: EnvId): string | null {
@@ -74,10 +79,25 @@ export class ScriptsService {
     return process.platform === 'win32' ? winPy : nixPy;
   }
 
+  /**
+   * Marca que un venv terminó de instalarse (venv creado Y requirements.txt
+   * instalado sin error), no solo que existe. Se escribe al final de
+   * ensureVenv() — si esa promesa nunca resuelve (falla a mitad de camino),
+   * el marker no existe y venvReady() sigue reportando false. Sin esto, un
+   * venv a medio instalar (ej. python -m venv corrió pero pip falló) se veía
+   * como "listo" en la UI porque el binario de python ya existía.
+   */
+  private venvMarkerPath(envId: EnvId): string | null {
+    const env = ENVS[envId];
+    if (!env.dir) return null;
+    return path.join(env.dir, '.venv', '.mtg-runner-ready');
+  }
+
   private venvReady(envId: EnvId): boolean {
     if (envId === 'system') return true;
     const py = this.venvPythonPath(envId);
-    return !!py && fs.existsSync(py);
+    const marker = this.venvMarkerPath(envId);
+    return !!py && !!marker && fs.existsSync(py) && fs.existsSync(marker);
   }
 
   /** Devuelve el comando de python a usar para un env, asegurando el venv si hace falta. */
@@ -102,12 +122,61 @@ export class ScriptsService {
     return this.systemPythonCache;
   }
 
+  /** true si `cmd --version` corre sin error (existe y es ejecutable). */
+  private probeCommand(cmd: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      let child;
+      try {
+        child = spawn(cmd, ['--version']);
+      } catch {
+        resolve(false);
+        return;
+      }
+      let settled = false;
+      const done = (ok: boolean) => {
+        if (settled) return;
+        settled = true;
+        resolve(ok);
+      };
+      child.on('error', () => done(false));
+      child.on('exit', (code) => done(code === 0));
+    });
+  }
+
+  /**
+   * Python a usar para CREAR el venv de un env (no para correrlo después —
+   * una vez creado, siempre se usa el intérprete de adentro del venv). Prueba
+   * env.preferredPythonBins en orden (ver el comentario en scripts.config.ts)
+   * y cae al python genérico del sistema si ninguno está instalado.
+   */
+  private async resolveCreationPython(env: EnvDef): Promise<string> {
+    for (const candidate of env.preferredPythonBins ?? []) {
+      if (await this.probeCommand(candidate)) return candidate;
+    }
+    return this.systemPython();
+  }
+
   /**
    * Crea el venv de un entorno (si falta) e instala su requirements.txt.
    * Streamea progreso por WebSocket bajo el runId sintético "venv:<envId>".
+   *
+   * Si venvReady() da false pero la carpeta .venv YA existe (instalación
+   * previa a medias, o creada con otro intérprete — ej. un reintento después
+   * de que preferredPythonBins cambiara), se borra entera antes de crear de
+   * nuevo. Nada de intentar reutilizarla: `python -m venv` sobre un venv
+   * existente no pisa symlinks que ya estén (bin/python, bin/pip) aunque se
+   * le pida un intérprete distinto — pip terminaba instalando en el Python
+   * nuevo mientras bin/python seguía apuntando al viejo, dos "venv" pisados
+   * uno sobre otro sin que ningún comando fallara. Reinstalar de cero es
+   * barato igual: pip ya tiene todo cacheado localmente.
    */
   async ensureVenv(envId: EnvId): Promise<void> {
     const env = ENVS[envId];
+    // El :envId de la ruta es un string cualquiera en runtime — el tipo EnvId
+    // no lo garantiza. Sin este chequeo, un id inválido revienta accediendo
+    // a env.dir de "undefined" y sale como 500 "Internal server error" en
+    // vez de un 400 con un mensaje que diga qué pasó.
+    if (!env) throw new BadRequestException(`Entorno desconocido: "${envId}"`);
     if (!env.dir || !env.requirementsFile) return; // 'system': nada que preparar
 
     const runId = `venv:${envId}`;
@@ -123,19 +192,108 @@ export class ScriptsService {
     }
 
     this.gateway.emitStatus(runId, 'running');
-    this.gateway.emitVenvProgress(envId, `Creando venv en ${venvDir} ...`);
-    await this.execAndStream(runId, this.systemPython(), ['-m', 'venv', venvDir], env.dir);
 
-    const pip =
-      process.platform === 'win32'
-        ? path.join(venvDir, 'Scripts', 'pip.exe')
-        : path.join(venvDir, 'bin', 'pip');
+    try {
+      if (fs.existsSync(venvDir)) {
+        this.gateway.emitVenvProgress(envId, `Venv anterior incompleto en ${venvDir} — se borra antes de reinstalar ...`);
+        fs.rmSync(venvDir, { recursive: true, force: true });
+      }
 
-    this.gateway.emitVenvProgress(envId, `Instalando dependencias desde ${path.basename(env.requirementsFile)} ...`);
-    await this.execAndStream(runId, pip, ['install', '-r', env.requirementsFile], env.dir);
+      const creationPython = await this.resolveCreationPython(env);
+      this.gateway.emitVenvProgress(envId, `Creando venv en ${venvDir} (${creationPython}) ...`);
+      await this.execAndStream(runId, creationPython, ['-m', 'venv', venvDir], env.dir);
 
-    this.gateway.emitVenvProgress(envId, 'Listo.');
-    this.gateway.emitStatus(runId, 'success');
+      const pip =
+        process.platform === 'win32'
+          ? path.join(venvDir, 'Scripts', 'pip.exe')
+          : path.join(venvDir, 'bin', 'pip');
+
+      // pytorch/tensorflow: instalar el paquete GPU-aware ANTES de requirements.txt,
+      // para que requirements.txt (que solo pide "torch>=2.11"/"tensorflow>=2.16")
+      // vea la versión ya instalada, la de más arriba gana, y no la pise con el wheel
+      // default de PyPI. testing/system no tocan GPU — no llevan torch/tensorflow.
+      if (envId === 'pytorch' || envId === 'tensorflow') {
+        await this.installGpuAwarePackage(envId, runId, pip, env.dir);
+      }
+
+      this.gateway.emitVenvProgress(envId, `Instalando dependencias desde ${path.basename(env.requirementsFile)} ...`);
+      await this.execAndStream(runId, pip, ['install', '-r', env.requirementsFile], env.dir);
+
+      const marker = this.venvMarkerPath(envId);
+      if (marker) fs.writeFileSync(marker, JSON.stringify({ createdAt: new Date().toISOString(), python: creationPython }));
+
+      this.gateway.emitVenvProgress(envId, 'Listo.');
+      this.gateway.emitStatus(runId, 'success');
+    } catch (err) {
+      // Sin este catch, la excepción se iba sin loguear un mensaje claro por
+      // WebSocket y llegaba al cliente como un 500 "Internal server error"
+      // genérico (el filtro default de Nest no expone el motivo real) — acá
+      // se manda el motivo real por los dos canales: log en vivo y la
+      // respuesta HTTP que ve quien llamó a POST /envs/:envId/ensure.
+      const message = err instanceof Error ? err.message : String(err);
+      this.gateway.emitVenvProgress(envId, `Falló: ${message}`);
+      this.gateway.emitStatus(runId, 'error');
+      throw new BadRequestException(`No se pudo preparar el venv de "${envId}": ${message}`);
+    }
+  }
+
+  /**
+   * Detecta GPU (NVIDIA/AMD/ninguna) e instala el wheel de torch/tensorflow
+   * que corresponda ANTES del resto de requirements.txt:
+   *  - NVIDIA: nada especial — el wheel default de PyPI ya trae soporte CUDA.
+   *  - AMD (ROCm, solo Linux): prueba los canales de gpu-detect.ts en orden
+   *    (rocm7.1 → rocm6.4 → rocm6.2) hasta que uno instale sin error.
+   *    TensorFlow no tiene wheel ROCm mantenido para las versiones que pide
+   *    este proyecto (>=2.16) — solo aplica a "pytorch"; para "tensorflow"
+   *    con AMD detectado, solo se loguea y se sigue con CPU.
+   *  - Ninguna GPU / falló la instalación ROCm: wheels CPU explícitos para
+   *    pytorch (más chicos que el default con CUDA sin uso); tensorflow no
+   *    tiene índice "cpu" separado, así que ahí no hace falta nada especial.
+   * Nunca tira: si todo falla, deja que el requirements.txt de después
+   * instale lo que pueda — siempre termina en algo funcional en CPU.
+   */
+  private async installGpuAwarePackage(envId: 'pytorch' | 'tensorflow', runId: string, pip: string, cwd: string): Promise<void> {
+    const gpu = await detectGpu();
+    for (const note of gpu.notes) this.gateway.emitVenvProgress(envId, note);
+
+    if (envId === 'tensorflow') {
+      if (gpu.backend === 'rocm') {
+        this.gateway.emitVenvProgress(
+          envId,
+          'TensorFlow no tiene wheel ROCm mantenido para tensorflow>=2.16 vía pip (solo Docker) — se instala en modo CPU.',
+        );
+      }
+      return; // TF no tiene índice especial que elegir en ningún caso — lo resuelve requirements.txt.
+    }
+
+    // A partir de acá, envId === 'pytorch'.
+    if (gpu.backend === 'rocm') {
+      for (const channel of gpu.rocmChannels) {
+        this.gateway.emitVenvProgress(envId, `Instalando PyTorch (ROCm, canal ${channel}) ...`);
+        try {
+          await this.execAndStream(
+            runId,
+            pip,
+            ['install', '--index-url', `https://download.pytorch.org/whl/${channel}`, 'torch', 'torchvision'],
+            cwd,
+          );
+          return;
+        } catch {
+          this.gateway.emitVenvProgress(envId, `Canal ${channel} no funcionó, probando el siguiente ...`);
+        }
+      }
+      this.gateway.emitVenvProgress(envId, 'Ningún canal ROCm funcionó — sigue con CPU.');
+      // cae al bloque de abajo (wheels CPU explícitos)
+    } else if (gpu.backend === 'cuda') {
+      return; // nada que hacer, requirements.txt ya instala el wheel CUDA default
+    }
+
+    try {
+      this.gateway.emitVenvProgress(envId, 'Instalando PyTorch (CPU) ...');
+      await this.execAndStream(runId, pip, ['install', '--index-url', 'https://download.pytorch.org/whl/cpu', 'torch', 'torchvision'], cwd);
+    } catch {
+      this.gateway.emitVenvProgress(envId, 'No se pudo usar el índice CPU de PyTorch — requirements.txt instala el wheel default.');
+    }
   }
 
   /** Corre un comando y streamea su output por el gateway bajo un runId, esperando a que termine. */
@@ -205,12 +363,19 @@ export class ScriptsService {
     this.gateway.emitStatus(runId, 'running');
     this.gateway.emitLog(runId, 'stdout', `$ ${path.basename(python)} ${script.script} ${argv.join(' ')}\n`);
 
+    // Si gpu-detect.ts marcó que esta GPU AMD necesita el alias de gfx target
+    // (variantes móviles de RDNA2 sin kernels ROCm precompilados), hace falta
+    // en cada corrida, no solo al instalar — sin esto el proceso segfaultea
+    // apenas toca la GPU. No-op si no aplica (CUDA, CPU, o AMD sin override).
+    const gpu = await detectGpu();
+    const gpuEnv = gpu.hsaOverrideGfxVersion ? { HSA_OVERRIDE_GFX_VERSION: gpu.hsaOverrideGfxVersion } : {};
+
     // "-u" + PYTHONUNBUFFERED: sin esto Python bufferea stdout por bloque (no por línea)
     // al detectar que no está conectado a una terminal real, y el output no llega al
     // renderer hasta que el buffer se llena o el proceso termina.
     const child: ChildProcessWithoutNullStreams = spawn(python, ['-u', script.script, ...argv], {
       cwd: script.cwd,
-      env: { ...process.env, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8' },
+      env: { ...process.env, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8', ...gpuEnv },
     });
 
     this.children.set(runId, child);

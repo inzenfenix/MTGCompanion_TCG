@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import pathlib
 import shutil
 import warnings
@@ -168,7 +169,12 @@ def update_latest(output_root: pathlib.Path, run_dir: pathlib.Path) -> None:
             shutil.rmtree(latest)
 
     run_dir = pathlib.Path(run_dir).resolve()
+    # Relativo a output_root, no absoluto: un symlink absoluto queda apuntando
+    # a la ruta exacta de la máquina donde se corrió el script (ej.
+    # "/home/x/Documents/GitHub/..."), y se rompe en cualquier otro clone del
+    # repo cuyo path no calce carácter por carácter (mayúsculas incluidas).
     try:
-        latest.symlink_to(run_dir, target_is_directory=True)
+        target = os.path.relpath(run_dir, start=latest.parent)
+        latest.symlink_to(target, target_is_directory=True)
     except OSError:
         shutil.copytree(run_dir, latest)

@@ -1,12 +1,24 @@
 import { io, Socket } from 'socket.io-client';
-import type { EnvInfo, RunAllStepResult, ScriptInfo } from './types';
+import type { EnvInfo, GpuInfo, RunAllStepResult, ScriptInfo } from './types';
 
 export const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'http://127.0.0.1:4550';
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
-    throw new Error(text || `HTTP ${res.status}`);
+    // Nest devuelve {"statusCode":...,"message":"...","error":"..."} — sin
+    // esto, el error que llega al componente es el JSON crudo tal cual
+    // ("{"statusCode":500,...}"), que es lo que se veía en la UI en vez del
+    // motivo real de la falla.
+    let message = text || `HTTP ${res.status}`;
+    try {
+      const parsed = JSON.parse(text);
+      if (typeof parsed?.message === 'string') message = parsed.message;
+      else if (Array.isArray(parsed?.message)) message = parsed.message.join(', ');
+    } catch {
+      // no era JSON — se deja el texto crudo (o el statusText) como está
+    }
+    throw new Error(message);
   }
   return res.json();
 }
@@ -14,6 +26,7 @@ async function json<T>(res: Response): Promise<T> {
 export const api = {
   scripts: () => fetch(`${API_BASE}/scripts`).then((r) => json<ScriptInfo[]>(r)),
   envs: () => fetch(`${API_BASE}/envs`).then((r) => json<EnvInfo[]>(r)),
+  gpu: () => fetch(`${API_BASE}/gpu`).then((r) => json<GpuInfo>(r)),
   ensureVenv: (envId: string) =>
     fetch(`${API_BASE}/envs/${envId}/ensure`, { method: 'POST' }).then((r) => json<{ ok: boolean }>(r)),
   run: (scriptId: string, values: Record<string, unknown>) =>

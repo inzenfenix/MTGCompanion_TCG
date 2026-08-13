@@ -33,6 +33,18 @@ export interface EnvInfo {
 
 export type RunStatus = 'idle' | 'running' | 'success' | 'error' | 'stopped';
 
+export type GpuBackend = 'cuda' | 'rocm' | 'cpu';
+
+/** Mismo shape que GpuDetectionResult del server (apps/server/src/scripts/gpu-detect.ts). */
+export interface GpuInfo {
+  backend: GpuBackend;
+  vendor: 'nvidia' | 'amd' | 'none';
+  deviceName: string | null;
+  rocmChannels: string[];
+  hsaOverrideGfxVersion: string | null;
+  notes: string[];
+}
+
 export interface RunAllStepResult {
   scriptId: string;
   label: string;

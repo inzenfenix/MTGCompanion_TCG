@@ -20,6 +20,11 @@ export class ScriptsController {
     return this.scriptsService.listEnvs();
   }
 
+  @Get('gpu')
+  getGpuInfo() {
+    return this.scriptsService.getGpuInfo();
+  }
+
   @Get('runs/:runId')
   getRun(@Param('runId') runId: string) {
     return this.scriptsService.getRun(runId);
