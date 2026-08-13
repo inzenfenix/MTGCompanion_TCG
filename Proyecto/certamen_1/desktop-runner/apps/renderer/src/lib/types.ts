@@ -1,4 +1,4 @@
-export type ArgKind = 'number' | 'float' | 'string' | 'boolean' | 'select' | 'file' | 'files';
+export type ArgKind = 'number' | 'float' | 'string' | 'boolean' | 'select' | 'file' | 'files' | 'card-percentage';
 
 export interface ArgDef {
   flag: string | null;
@@ -10,6 +10,8 @@ export interface ArgDef {
   required?: boolean;
   help?: string;
   multiple?: boolean;
+  /** Para kind:"select" — valor de `options` marcado como recomendado (solo cambia la etiqueta mostrada). */
+  recommended?: string;
 }
 
 export type ScriptGroup = 'shared' | 'pytorch' | 'tensorflow' | 'testing';
@@ -52,4 +54,32 @@ export interface RunAllStepResult {
   status: 'success' | 'error' | 'stopped';
   exitCode: number | null;
   durationMs: number;
+}
+
+/** Mismo shape que arma getExportComparison() en scripts.service.ts, por etapa. */
+export interface StageFrameworkMetrics {
+  available: boolean;
+  metrics?: Record<string, any>;
+  exportScriptId: string;
+}
+
+export interface ExportComparisonStage {
+  stage: string;
+  label: string;
+  metricKey: string;
+  metricLabel: string;
+  pytorch: StageFrameworkMetrics;
+  tensorflow: StageFrameworkMetrics;
+  recommendation: 'pytorch' | 'tensorflow' | 'tie' | null;
+}
+
+/** Mismo shape que ScraperCardCountResult del server (scryfall-card-count.ts). */
+export interface ScraperCardCountResult {
+  namesTotal: number;
+  printsTotal: number;
+  estimatedTotal: number;
+  maxPrintingsPerCard: number;
+  query: string;
+  approximate: true;
+  fetchedAt: string;
 }

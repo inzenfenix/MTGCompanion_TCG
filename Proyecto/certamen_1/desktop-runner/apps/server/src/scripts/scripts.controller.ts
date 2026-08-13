@@ -25,6 +25,18 @@ export class ScriptsController {
     return this.scriptsService.getGpuInfo();
   }
 
+  // Ruta estática, no ':id/card-count' — solo shared-scraper la necesita hoy
+  // y así no hay que decidir qué pasa si se pide para un script sin sentido.
+  @Get('scripts/shared-scraper/card-count')
+  getScraperCardCount() {
+    return this.scriptsService.getScraperCardCount();
+  }
+
+  @Get('export/comparison')
+  getExportComparison() {
+    return this.scriptsService.getExportComparison();
+  }
+
   @Get('runs/:runId')
   getRun(@Param('runId') runId: string) {
     return this.scriptsService.getRun(runId);

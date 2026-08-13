@@ -1,5 +1,5 @@
 import { io, Socket } from 'socket.io-client';
-import type { EnvInfo, GpuInfo, RunAllStepResult, ScriptInfo } from './types';
+import type { EnvInfo, ExportComparisonStage, GpuInfo, RunAllStepResult, ScraperCardCountResult, ScriptInfo } from './types';
 
 export const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'http://127.0.0.1:4550';
 
@@ -40,6 +40,9 @@ export const api = {
     fetch(`${API_BASE}/run-all/${framework}`, { method: 'POST' }).then((r) => json<{ started: boolean }>(r)),
   runEverything: () =>
     fetch(`${API_BASE}/run-everything`, { method: 'POST' }).then((r) => json<{ started: boolean }>(r)),
+  exportComparison: () => fetch(`${API_BASE}/export/comparison`).then((r) => json<ExportComparisonStage[]>(r)),
+  scraperCardCount: () =>
+    fetch(`${API_BASE}/scripts/shared-scraper/card-count`).then((r) => json<ScraperCardCountResult>(r)),
 };
 
 let socket: Socket | null = null;

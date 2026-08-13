@@ -59,7 +59,7 @@ export const ENVS: Record<EnvId, EnvDef> = {
   },
 };
 
-export type ArgKind = 'number' | 'float' | 'string' | 'boolean' | 'select' | 'file' | 'files';
+export type ArgKind = 'number' | 'float' | 'string' | 'boolean' | 'select' | 'file' | 'files' | 'card-percentage';
 
 export interface ArgDef {
   /** Nombre del flag (ej. "--max-cards"), o null si es un argumento posicional. */
@@ -74,6 +74,12 @@ export interface ArgDef {
   help?: string;
   /** Para posicionales con nargs="*": permite 0..N archivos. */
   multiple?: boolean;
+  /**
+   * Para kind:"select" — valor de `options` que el runner recomienda por
+   * defecto. Solo cambia cómo se etiqueta la opción en el <select> ("(Recomendado)"),
+   * no el valor que se manda al script.
+   */
+  recommended?: string;
 }
 
 export interface ResultFileDef {
@@ -133,8 +139,31 @@ export const SCRIPTS: ScriptDef[] = [
     script: '01_scraper.py',
     env: 'pytorch',
     args: [
-      { flag: '--max-cards', name: 'max_cards', kind: 'number', label: 'Cap de cartas (0 = sin cap, ~30k)', default: 5000 },
-      { flag: '--quality', name: 'quality', kind: 'select', label: 'Calidad de imagen', options: ['small', 'normal', 'large', 'png'], default: 'small' },
+      {
+        flag: '--max-cards',
+        name: 'max_cards',
+        kind: 'card-percentage',
+        label: 'Porcentaje del catálogo a descargar',
+        // Se mantiene el mismo default "en cartas" que tenía el número plano
+        // (5000) — el slider lo traduce a % apenas conoce el total real
+        // (GET /scripts/shared-scraper/card-count). 100% no es "todas las
+        // impresiones que existen": sigue siendo la definición del propio
+        // script (nombres únicos, hasta MAX_PRINTINGS_POR_CARTA impresiones
+        // c/u, filtros de idioma/set_type/layout aplicados) — ver
+        // filtrar_y_limpiar() en 01_scraper.py.
+        default: 5000,
+        help: '100% = todo lo que permiten los filtros del scraper (sin cap artificial), no "cada impresión de cada carta" — el script ya deduplica a lo sumo 3 impresiones por nombre.',
+      },
+      {
+        flag: '--quality',
+        name: 'quality',
+        kind: 'select',
+        label: 'Calidad de imagen',
+        options: ['small', 'normal', 'large', 'png'],
+        default: 'small',
+        recommended: 'small',
+        help: 'Recomendado: "small" — el pipeline redimensiona toda imagen a 224×224 antes de entrenar (pytorch/03_pt_embedder.py, tensorFlow/src/config.py), así que pedir más resolución de origen no mejora el modelo, solo aumenta tiempo y ancho de banda de descarga.',
+      },
     ],
   },
   {
@@ -272,6 +301,21 @@ export const SCRIPTS: ScriptDef[] = [
     ],
   },
   {
+    id: 'pt-export-onnx-condition',
+    group: 'pytorch',
+    label: '12 · Exportar clasificador de condición a ONNX (Stage 4)',
+    description:
+      'Exporta el clasificador de condición ya entrenado (condition_grader.pth) a ONNX, verificando que las salidas coincidan con el modelo original. No reentrena nada.',
+    cwd: PT_DIR,
+    script: '12_export_onnx_condition.py',
+    env: 'pytorch',
+    args: [
+      { flag: '--imagen', name: 'imagen', kind: 'file', label: 'Imagen de verificación (opcional, si no se usa un tensor aleatorio)' },
+      { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
+      { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0001 },
+    ],
+  },
+  {
     id: 'pt-scanner',
     group: 'pytorch',
     label: 'Scanner · Identificar una carta',
@@ -354,6 +398,36 @@ export const SCRIPTS: ScriptDef[] = [
     ],
   },
   {
+    id: 'tf-export-onnx',
+    group: 'tensorflow',
+    label: '09 · Exportar a ONNX',
+    description:
+      'Exporta el detector MTG/no-MTG ya entrenado (mtg_detector.keras) a ONNX vía tf2onnx, verificando que las salidas coincidan con el modelo original. No reentrena nada.',
+    cwd: TF_DIR,
+    script: '09_export_onnx.py',
+    env: 'tensorflow',
+    args: [
+      { flag: '--imagen', name: 'imagen', kind: 'file', label: 'Imagen de verificación (opcional, si no se usa un array aleatorio)' },
+      { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
+      { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0001 },
+    ],
+  },
+  {
+    id: 'tf-export-onnx-condition',
+    group: 'tensorflow',
+    label: '11 · Exportar clasificador de condición a ONNX (Stage 4)',
+    description:
+      'Exporta el clasificador de condición ya entrenado (condition_grader.keras) a ONNX vía tf2onnx, verificando paridad numérica. No reentrena nada.',
+    cwd: TF_DIR,
+    script: '11_export_onnx_condition.py',
+    env: 'tensorflow',
+    args: [
+      { flag: '--imagen', name: 'imagen', kind: 'file', label: 'Imagen de verificación (opcional, si no se usa un array aleatorio)' },
+      { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
+      { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0001 },
+    ],
+  },
+  {
     id: 'tf-scanner',
     group: 'tensorflow',
     label: 'Scanner · Identificar una carta',
@@ -417,3 +491,50 @@ export const RUN_ALL_SEQUENCES: Record<'pytorch' | 'tensorflow', string[]> = {
 export function findScript(id: string): ScriptDef | undefined {
   return SCRIPTS.find((s) => s.id === id);
 }
+
+// ── Comparación PyTorch vs TensorFlow para la pestaña "Export ONNX" ────────
+
+export type ComparableFramework = 'pytorch' | 'tensorflow';
+
+export interface StageComparisonDef {
+  /** Identificador estable de la etapa (no es el nombre del script). */
+  stage: 'stage1' | 'stage4';
+  label: string;
+  /** Campo de final_metrics.json que decide qué framework "gana". */
+  metricKey: string;
+  metricLabel: string;
+  metricsPath: (fw: ComparableFramework) => string;
+  exportScriptId: (fw: ComparableFramework) => string;
+}
+
+/**
+ * Solo Stage 1 (detector MTG/no-MTG) y Stage 4 (clasificador de condición)
+ * entrenan un CNN en los dos frameworks — Stage 2/3 del pipeline completo
+ * (ver certamen_2/README.md) no son dual-framework, así que no aparecen acá.
+ * Los paths apuntan a output/<framework>/<optuna_dir>/latest/final_metrics.json,
+ * que 08_optuna_binary_classifier.py / 11_optuna_condition_grader.py (pytorch)
+ * y sus equivalentes de tensorFlow/ escriben al terminar una corrida con
+ * entrenamiento final (--no-final-train los deja sin generar).
+ */
+export const EXPORT_STAGES: StageComparisonDef[] = [
+  {
+    stage: 'stage1',
+    label: 'Stage 1 — Detector MTG / no-MTG',
+    metricKey: 'accuracy',
+    metricLabel: 'Accuracy',
+    metricsPath: (fw) => path.join(CERTAMEN_DIR, 'output', fw, 'optuna', 'latest', 'final_metrics.json'),
+    exportScriptId: (fw) => (fw === 'pytorch' ? 'pt-export-onnx' : 'tf-export-onnx'),
+  },
+  {
+    stage: 'stage4',
+    label: 'Stage 4 — Clasificador de condición (NM/LP/MP/HP/DMG)',
+    // f1_macro (no accuracy) porque acá importa el desempeño parejo entre
+    // las 5 clases de condición, no solo el total de aciertos — con clases
+    // no perfectamente balanceadas, accuracy sola puede esconder que un
+    // framework falla sistemáticamente en un grado en particular.
+    metricKey: 'f1_macro',
+    metricLabel: 'F1 (macro)',
+    metricsPath: (fw) => path.join(CERTAMEN_DIR, 'output', fw, 'optuna_condition', 'latest', 'final_metrics.json'),
+    exportScriptId: (fw) => (fw === 'pytorch' ? 'pt-export-onnx-condition' : 'tf-export-onnx-condition'),
+  },
+];
