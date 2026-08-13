@@ -187,7 +187,7 @@ Ejemplos:
 
     if not imagenes:
         print(f"No hay imagenes para comparar. Agrega archivos a {PHOTOS_DIR} o pasa una ruta como argumento.")
-        return
+        sys.exit(1)
 
     for img in imagenes:
         if not img.exists():

@@ -3,19 +3,15 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  IsUUID,
   Min,
   MinLength,
 } from 'class-validator';
 import { CardCondition } from '../../../../generated/prisma';
 
 export class CreateCardDto {
-  // Until auth/JWT lands (see backend/README.md), the owner is passed
-  // explicitly instead of read off a session. Replace with `@Req() user.id`
-  // once that pass ships.
-  @IsUUID()
-  ownerId!: string;
-
+  // ownerId is NOT here — it comes from the JWT (@CurrentUser() in
+  // CardsController), never from the request body. Accepting it here would
+  // let anyone create a card "owned" by someone else.
   @IsString()
   @MinLength(1)
   title!: string;

@@ -61,7 +61,10 @@ export class UsersService {
    * wrong-password outcome (null either way) on purpose: doesn't leak which
    * emails are registered.
    */
-  async validateCredentials(email: string, password: string): Promise<UserResponseDto | null> {
+  async validateCredentials(
+    email: string,
+    password: string,
+  ): Promise<UserResponseDto | null> {
     const user = await this.users.findByEmail(email);
     if (!user) return null;
     const matches = await bcrypt.compare(password, user.passwordHash);

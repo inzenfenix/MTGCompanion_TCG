@@ -4,9 +4,8 @@ export class CreateTransactionDto {
   @IsUUID()
   cardId!: string;
 
-  // Stand-in until auth/JWT lands — same gap as CreateCardDto.ownerId.
-  // sellerId is deliberately NOT accepted here: it's derived from the
+  // buyerId is NOT here — comes from the JWT (@CurrentUser() in
+  // TransactionsController), same reasoning as CreateCardDto.ownerId.
+  // sellerId is deliberately never accepted either: it's derived from the
   // card's current owner inside TransactionsService.
-  @IsUUID()
-  buyerId!: string;
 }

@@ -27,18 +27,18 @@ export class TransactionsService {
     private readonly cards: CardsService,
   ) {}
 
-  async create(dto: CreateTransactionDto) {
+  async create(buyerId: string, dto: CreateTransactionDto) {
     // Card + seller come from the card record, not from the request body —
     // the buyer shouldn't get to name their own price or seller.
     const card = await this.cards.findOne(dto.cardId);
 
-    if (card.ownerId === dto.buyerId) {
+    if (card.ownerId === buyerId) {
       throw new BadRequestException('Cannot buy your own card');
     }
 
     const transaction = await this.transactions.create({
       cardId: card.id,
-      buyerId: dto.buyerId,
+      buyerId,
       sellerId: card.ownerId,
       amount: card.guessedPrice,
     });

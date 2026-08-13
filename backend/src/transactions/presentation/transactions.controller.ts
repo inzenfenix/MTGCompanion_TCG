@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../../auth/presentation/jwt-auth.guard';
+import { CurrentUser } from '../../auth/presentation/current-user.decorator';
+import type { RequestUser } from '../../auth/presentation/jwt.strategy';
 import { TransactionsService } from '../application/transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 
@@ -6,9 +17,10 @@ import { CreateTransactionDto } from './dto/create-transaction.dto';
 export class TransactionsController {
   constructor(private readonly transactions: TransactionsService) {}
 
+  @UseGuards(JwtAuthGuard)
   @Post()
-  create(@Body() dto: CreateTransactionDto) {
-    return this.transactions.create(dto);
+  create(@CurrentUser() user: RequestUser, @Body() dto: CreateTransactionDto) {
+    return this.transactions.create(user.id, dto);
   }
 
   // ?userId=... returns transactions where the user is buyer or seller.

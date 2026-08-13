@@ -19,8 +19,8 @@ export class CardsService {
     private readonly storage: StorageService,
   ) {}
 
-  create(dto: CreateCardDto) {
-    return this.cards.create(dto);
+  create(ownerId: string, dto: CreateCardDto) {
+    return this.cards.create({ ...dto, ownerId });
   }
 
   findAllForOwner(ownerId: string) {
@@ -33,13 +33,21 @@ export class CardsService {
     return card;
   }
 
-  async update(id: string, dto: UpdateCardDto) {
-    await this.findOne(id);
+  /** Same NotFoundException whether the card is missing or belongs to someone else — doesn't confirm a card id exists to a non-owner. */
+  private async findOwned(id: string, currentUserId: string) {
+    const card = await this.findOne(id);
+    if (card.ownerId !== currentUserId)
+      throw new NotFoundException('Card not found');
+    return card;
+  }
+
+  async update(id: string, currentUserId: string, dto: UpdateCardDto) {
+    await this.findOwned(id, currentUserId);
     return this.cards.update(id, dto);
   }
 
-  async remove(id: string) {
-    await this.findOne(id);
+  async remove(id: string, currentUserId: string) {
+    await this.findOwned(id, currentUserId);
     await this.cards.delete(id);
   }
 
@@ -48,17 +56,23 @@ export class CardsService {
   // once the upload actually succeeds.
   async createUploadUrl(
     cardId: string,
+    currentUserId: string,
     originalFilename: string,
     contentType: string,
   ) {
-    await this.findOne(cardId);
+    await this.findOwned(cardId, currentUserId);
     const key = this.storage.buildKey(`cards/${cardId}`, originalFilename);
     const uploadUrl = await this.storage.getUploadUrl(key, contentType);
     return { key, uploadUrl };
   }
 
-  async confirmPhoto(cardId: string, storageKey: string, isPrimary = true) {
-    await this.findOne(cardId);
+  async confirmPhoto(
+    cardId: string,
+    currentUserId: string,
+    storageKey: string,
+    isPrimary = true,
+  ) {
+    await this.findOwned(cardId, currentUserId);
     if (!storageKey.startsWith(`cards/${cardId}/`)) {
       // Guards against a client confirming a key it never got a presigned
       // URL for (e.g. someone else's cardId prefix).

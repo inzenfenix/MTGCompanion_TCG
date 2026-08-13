@@ -21,5 +21,11 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false
-  }
+  },
+  // prisma/seed.ts runs standalone via `prisma db seed` (ts-node, see
+  // prisma.config.ts) — it's not part of the Nest app and sits outside
+  // sourceRoot ("src", see nest-cli.json), so it must stay out of this
+  // tsconfig's default "**/*" include or `nest start --watch` fails with
+  // TS6059 ("not under rootDir").
+  "exclude": ["node_modules", "dist", "prisma"]
 }

@@ -68,7 +68,6 @@ const ListCard: React.FC = () => {
     setIsSubmitting(true);
     try {
       const card = await api.createCard({
-        ownerId: user.id,
         title: title.trim(),
         description: description.trim() || undefined,
         guessedPrice,

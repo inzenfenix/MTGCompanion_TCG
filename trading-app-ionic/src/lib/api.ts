@@ -23,11 +23,29 @@ export class ApiError extends Error {
   }
 }
 
+// Module-level token store rather than passing it around: api.ts is a plain
+// module (no React), so AuthContext calls setAuthToken()/clearAuthToken()
+// after login/logout and every request() call here just reads the current
+// value. onUnauthorized lets AuthContext react to a 401 (expired/invalid
+// token — JWT_ACCESS_TTL is 15min by default) by clearing the session,
+// without api.ts needing to know anything about React state.
+let authToken: string | null = null;
+let onUnauthorized: (() => void) | null = null;
+
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+}
+
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  onUnauthorized = handler;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       ...init?.headers,
     },
   });
@@ -45,6 +63,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       (body && typeof body === 'object' && 'message' in body
         ? String((body as { message: unknown }).message)
         : null) ?? res.statusText;
+
+    if (res.status === 401) onUnauthorized?.();
     throw new ApiError(res.status, message, body);
   }
 
@@ -53,10 +73,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-// ── Users ───────────────────────────────────────────────────────────────
-// No /login endpoint exists yet (see backend/README.md) — these are the only
-// two user operations available this phase. See src/lib/auth/AuthContext.tsx
-// for how they're used to fake a session.
+// ── Auth / Users ────────────────────────────────────────────────────────
+// See src/lib/auth/AuthContext.tsx for how these back the session — it's
+// the only thing in the app that calls setAuthToken()/setUnauthorizedHandler().
+
+export type LoginInput = { email: string; password: string };
+export type LoginResult = { accessToken: string; user: User };
+
+export function login(input: LoginInput): Promise<LoginResult> {
+  return request<LoginResult>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
 
 export type UserSettings = {
   language: string;
@@ -120,8 +149,10 @@ export type Card = {
   photos: CardPhoto[];
 };
 
+// No ownerId here — the backend derives it from the JWT now (see
+// backend/README.md "Estado actual"). Sending one would 400: the
+// ValidationPipe rejects unknown body properties.
 export type CreateCardInput = {
-  ownerId: string;
   title: string;
   description?: string;
   guessedPrice: number;
@@ -132,7 +163,7 @@ export type CreateCardInput = {
   oracleText?: string;
 };
 
-export type UpdateCardInput = Partial<Omit<CreateCardInput, 'ownerId'>>;
+export type UpdateCardInput = Partial<CreateCardInput>;
 
 export function createCard(input: CreateCardInput): Promise<Card> {
   return request<Card>('/cards', { method: 'POST', body: JSON.stringify(input) });
@@ -236,9 +267,10 @@ export type Transaction = {
   updatedAt: string;
 };
 
+// No buyerId here — same reasoning as CreateCardInput.ownerId: derived from
+// the JWT, sending one would 400.
 export type CreateTransactionInput = {
   cardId: string;
-  buyerId: string;
 };
 
 export function createTransaction(input: CreateTransactionInput): Promise<Transaction> {

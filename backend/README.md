@@ -19,14 +19,22 @@ transacciona.
 - ✅ Transacciones entre comprador y vendedor, con un slot de
   `PaymentProvider` listo para MercadoPago (hoy solo hay un
   `NoopPaymentProvider` que deja todo en `PENDING`).
-- 🚧 Sin login/JWT/2FA todavía — deliberadamente fuera de este pase (ver
-  "Qué falta").
+- ✅ Login con JWT (`POST /auth/login`) — `POST/PATCH/DELETE /cards`, los
+  endpoints de fotos y `POST /transactions` requieren
+  `Authorization: Bearer <token>` y el dueño/comprador se toma del token,
+  nunca del body (con chequeo de ownership: editar/borrar una carta ajena
+  da 404, no 403 — no confirma que el id exista). `GET` sigue público.
+- 🚧 Sin refresh tokens ni 2FA todavía — deliberadamente fuera de este pase
+  (ver "Qué falta").
 
 ## 🏗️ Arquitectura
 
 Cada módulo de dominio (`users/`, `cards/`, `transactions/`) sigue la misma
 separación en capas, para que cambiar de ORM, agregar tests con mocks, o
-mover un caso de uso no obligue a tocar el resto:
+mover un caso de uso no obligue a tocar el resto (`auth/` es la excepción:
+no tiene entidad propia, solo orquesta `UsersService` + `@nestjs/jwt`, así
+que sigue la forma más simple de `notifications/`/`payments/` en vez de
+domain/infrastructure/application completos):
 
 ```
 <módulo>/
@@ -82,13 +90,41 @@ con `npm run start:dev`.
    npx prisma migrate dev
    ```
 
-5. **Arrancar la API:**
+5. **Cargar datos de prueba** (opcional, pero recomendado — sin esto la app
+   arranca con la base vacía):
+   ```bash
+   npm run db:seed
+   ```
+   Crea dos cuentas con contraseña conocida y algunas cartas reales de
+   ejemplo (sin foto a propósito, para poder probar el flujo de "agregar
+   foto" de la página de edición):
+   - `test@example.com` / `password123` — dueña de las cartas de ejemplo.
+   - `buyer@example.com` / `password123` — compradora en una transacción de
+     ejemplo contra la anterior.
+
+   Reintentarlo no rompe nada (los usuarios se hacen upsert por email), pero
+   sí duplica las cartas/transacciones de ejemplo — para arrancar de cero,
+   `npx prisma migrate reset` (borra todo y vuelve a correr migraciones +
+   seed) y listo.
+
+6. **Arrancar la API:**
    ```bash
    npm run start:dev
    ```
    Queda escuchando en `http://localhost:3000`.
 
-6. **Probar que registra un usuario y manda el correo de bienvenida:**
+7. **Probar el login con la cuenta de prueba:**
+   ```bash
+   curl -X POST http://localhost:3000/auth/login \
+     -H 'Content-Type: application/json' \
+     -d '{"email":"test@example.com","password":"password123"}'
+   ```
+   Devuelve un `accessToken` — mandalo como `Authorization: Bearer <token>`
+   en `POST/PATCH/DELETE /cards`, los endpoints de fotos, y
+   `POST /transactions` (todos requieren sesión; `GET` sigue público, para
+   poder navegar el catálogo sin iniciar sesión).
+
+8. **Probar que el registro manda el correo de bienvenida:**
    ```bash
    curl -X POST http://localhost:3000/users/register \
      -H 'Content-Type: application/json' \
@@ -110,9 +146,10 @@ dispara y el correo se genera con el contenido correcto).
 
 ## Qué falta (a propósito, fuera de alcance de este pase)
 
-- **Login / JWT / refresh tokens.** Hoy solo existe `POST /users/register`;
-  no hay sesión ni endpoints protegidos. Las variables `JWT_*` ya están
-  reservadas en `.env.example` para cuando se implemente.
+- **Refresh tokens.** El login (`POST /auth/login`) emite un access token
+  (`JWT_ACCESS_TTL`, default 15 minutos) — cuando expira, hay que loguearse
+  de nuevo, no hay endpoint de refresh todavía. `JWT_REFRESH_TTL` ya está
+  reservada en `.env.example` para cuando se implemente.
 - **2FA real.** El schema ya tiene `twoFactorEnabled`/`twoFactorSecret` en
   `UserSettings`, pero sin lógica detrás. El método elegido para cuando se
   implemente es **TOTP** (app autenticadora), no OTP por correo.

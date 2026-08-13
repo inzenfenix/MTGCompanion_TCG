@@ -29,6 +29,7 @@ const PaymentSettings = lazy(() => import('./pages/PaymentSettings'));
 const SecuritySettings = lazy(() => import('./pages/SecuritySettings'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
 const ListCard = lazy(() => import('./pages/ListCard'));
+const EditCard = lazy(() => import('./pages/EditCard'));
 
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/react/css/core.css';
@@ -72,7 +73,7 @@ const App: React.FC = () => {
   const { t } = useTranslation();
   const { user, isLoading } = useAuth();
 
-  // Briefly resolving a persisted user id from localStorage on first load
+  // Briefly resolving a persisted session from localStorage on first load
   // (see AuthContext) — render nothing rather than flash the onboarding
   // screen for a logged-in user.
   if (isLoading) {
@@ -83,9 +84,8 @@ const App: React.FC = () => {
     );
   }
 
-  // No "session" yet (see src/lib/auth/AuthContext.tsx — there's no real
-  // login on the backend this phase) — only the onboarding route is
-  // reachable until the user registers or supplies an existing user id.
+  // No session (see src/lib/auth/AuthContext.tsx) — only the onboarding
+  // route is reachable until the user signs in or registers.
   if (!user) {
     return (
       <IonApp>
@@ -128,8 +128,11 @@ const App: React.FC = () => {
           <Route path="/transaction/:id">
             <Suspense fallback={null}><TransactionDetails /></Suspense>
           </Route>
-          <Route path="/card/:id">
+          <Route exact path="/card/:id">
             <Suspense fallback={null}><CardDetails /></Suspense>
+          </Route>
+          <Route exact path="/card/:id/edit">
+            <Suspense fallback={null}><EditCard /></Suspense>
           </Route>
           <Route exact path="/list-card">
             <Suspense fallback={null}><ListCard /></Suspense>

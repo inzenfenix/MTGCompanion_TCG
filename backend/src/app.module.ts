@@ -9,6 +9,7 @@ import { StorageModule } from './storage/storage.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { UsersModule } from './users/users.module';
+import { AuthModule } from './auth/auth.module';
 import { CardsModule } from './cards/cards.module';
 import { TransactionsModule } from './transactions/transactions.module';
 
@@ -21,6 +22,7 @@ import { TransactionsModule } from './transactions/transactions.module';
     NotificationsModule,
     PaymentsModule,
     UsersModule,
+    AuthModule,
     CardsModule,
     TransactionsModule,
   ],

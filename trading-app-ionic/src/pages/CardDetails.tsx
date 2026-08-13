@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonButtons, IonBackButton, IonButton, IonIcon, IonSpinner } from '@ionic/react';
 import { useParams } from 'react-router';
-import { storefrontOutline } from 'ionicons/icons';
+import { storefrontOutline, pencilOutline } from 'ionicons/icons';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../lib/auth/AuthContext';
 import * as api from '../lib/api';
 
 const CardDetails: React.FC = () => {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
 
   const [card, setCard] = useState<api.Card | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -106,6 +108,15 @@ const CardDetails: React.FC = () => {
                       {card.oracleText}
                     </p>
                   </div>
+                )}
+
+                {card.ownerId === user?.id && (
+                  <IonButton expand="block" fill="outline" className="mtg-btn" routerLink={`/card/${card.id}/edit`} style={{ marginBottom: '10px' }}>
+                    <div className="mtg-btn-content">
+                      <IonIcon icon={pencilOutline} />
+                      <span>{t('edit_card_button')}</span>
+                    </div>
+                  </IonButton>
                 )}
 
                 <IonButton expand="block" className="mtg-btn" routerLink="/tab2">

@@ -137,9 +137,11 @@ const Tab4: React.FC = () => {
               </motion.div>
 
               <motion.div variants={itemVariants}>
-                {/* Clears the persisted user id (see AuthContext) and drops
-                    back to Onboarding — there's no server-side session to
-                    invalidate yet, since there's no login/JWT this phase. */}
+                {/* Clears the stored session (token + user, see AuthContext)
+                    and drops back to Onboarding. Nothing to call on the
+                    backend — JWT is stateless, so there's no server-side
+                    session to invalidate (would change if refresh-token
+                    revocation gets added later). */}
                 <IonItem className="mtg-list-item-row" lines="none" button onClick={logout}>
                   <IonIcon icon={logOutOutline} slot="start" style={{color: '#d3202a'}} />
                   <IonLabel style={{color: '#d3202a', fontWeight: 'bold'}}>{t('abandon_quest')}</IonLabel>
