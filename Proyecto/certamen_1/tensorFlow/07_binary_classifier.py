@@ -438,7 +438,7 @@ def main():
     print(f"  Encontradas: {len(rutas_mtg):,} imágenes MTG")
     if len(rutas_mtg) < 500:
         print("  Error: muy pocas imágenes MTG. Ejecuta ../02_downloader.py primero.")
-        return
+        sys.exit(1)
 
     # ── 2. Negativos (Pokémon) ────────────────────────────────────────────
     print("\n[2/5] Preparando imágenes no-MTG (Pokémon TCG)...")
@@ -446,7 +446,7 @@ def main():
     print(f"  Disponibles: {len(rutas_neg):,} imágenes no-MTG")
     if len(rutas_neg) < 100:
         print("  Error: muy pocas imágenes negativas. Verifica conexión a internet.")
-        return
+        sys.exit(1)
 
     # ── 3. Dataset ────────────────────────────────────────────────────────
     print("\n[3/5] Construyendo dataset balanceado...")

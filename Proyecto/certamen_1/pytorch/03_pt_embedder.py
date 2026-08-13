@@ -143,7 +143,9 @@ def main():
     cards_path = SHARED_DATA_DIR / "cards.json"
     if not cards_path.exists():
         print("Error: ../data/cards.json no existe. Ejecuta ../01_scraper.py primero.")
-        return
+        sys.exit(1)  # antes solo hacía `return` — exit 0 con nada hecho, "Correr TODO"
+        # lo reportaba como éxito y recién fallaba dos pasos después en 04_evaluate.py
+        # con un error más confuso ("embeddings_pt.npy no existe").
 
     with open(cards_path, encoding="utf-8") as f:
         cards = json.load(f)

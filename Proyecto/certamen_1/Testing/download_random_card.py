@@ -97,7 +97,7 @@ Ejemplos:
         ruta = descargar_carta_aleatoria(args.quality)
     except (requests.RequestException, RuntimeError) as e:
         print(f"Error: {e}")
-        return
+        sys.exit(1)
 
     if args.no_compare:
         return
@@ -107,7 +107,11 @@ Ejemplos:
            "--top", str(args.top), "--threshold", str(args.threshold)]
     if args.skip_detect:
         cmd.append("--skip-detect")
-    subprocess.run(cmd)
+    result = subprocess.run(cmd)
+    # Sin esto, si compare_scanners.py fallaba este wrapper igual salía con
+    # código 0 — mismo problema que los `return` de más arriba, pero acá con
+    # el exit code de un subproceso en vez de una excepción local.
+    sys.exit(result.returncode)
 
 
 if __name__ == "__main__":

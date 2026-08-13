@@ -54,6 +54,20 @@ export class UsersService {
     return user ? this.toResponseDto(user) : null;
   }
 
+  /**
+   * Password check lives here (not in AuthModule) so passwordHash never
+   * leaves the Users boundary — AuthService gets back either a clean
+   * UserResponseDto or null, never the hash itself. Same email-not-found vs.
+   * wrong-password outcome (null either way) on purpose: doesn't leak which
+   * emails are registered.
+   */
+  async validateCredentials(email: string, password: string): Promise<UserResponseDto | null> {
+    const user = await this.users.findByEmail(email);
+    if (!user) return null;
+    const matches = await bcrypt.compare(password, user.passwordHash);
+    return matches ? this.toResponseDto(user) : null;
+  }
+
   private toResponseDto(user: UserEntity): UserResponseDto {
     return {
       id: user.id,
