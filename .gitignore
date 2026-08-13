@@ -208,3 +208,10 @@ release/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Claude Code — local session state, not project source. Worktrees created
+# for background agents (isolation: "worktree") are full nested checkouts;
+# `git add -A`/`git add .` from the repo root picks them up as gitlinks
+# (mode 160000) if this isn't ignored — happened once already, see git log.
+.claude/worktrees/
+.claude/settings.local.json
