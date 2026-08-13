@@ -2,8 +2,11 @@
 
 > 🚧 Planeación — el frontend ya tiene un scaffold real en
 > [`trading-app-ionic/`](../../trading-app-ionic/README.md) (Ionic React,
-> temas, i18n, tabs), pero sin conectar todavía a ningún modelo. Este
-> documento se termina de aterrizar una vez estén los 6 modelos del
+> temas, i18n, tabs) **conectado al backend real** (registro de usuario,
+> CRUD de cartas con fotos, Bóveda leyendo datos reales) y con el scaffold
+> de captura de cámara + `onnxruntime-web` para Stage 1 ya escrito — pero
+> sin ningún modelo `.onnx` entrenado todavía. Este documento se termina de
+> aterrizar una vez estén los 6 modelos del
 > [pipeline de Certamen 2](../certamen_2/README.md) y su exportación a ONNX.
 
 ## Restricciones conocidas (indicadas por el profesor)
@@ -98,20 +101,34 @@ importar en qué framework se entrenó.
 
 - [ ] Tener los 6 modelos de Certamen 2 entrenados, evaluados y con ganador
       elegido por etapa (`output/best_model.json`).
-- [ ] Exportar los modelos ganadores a ONNX (`torch.onnx.export` / `tf2onnx`).
-- [ ] Conectar `trading-app-ionic/` (ya tiene UI/tabs/temas construidos) a
-      `onnxruntime-web`: cámara → OpenCV.js → ONNX → resultado en pantalla,
-      siguiendo el
-      [tutorial de Ionic](https://ionicframework.com/docs/angular/your-first-app),
-      el [tutorial de OpenCV.js](https://forum.opencv.org/t/opencv-js-tutorials-in-spanish-tutoriales-opencv-js-en-espanol/10220)
-      y la [documentación de onnxruntime-web](https://onnxruntime.ai/docs/tutorials/web/).
+- [ ] Exportar los modelos ganadores a ONNX (`torch.onnx.export` / `tf2onnx`)
+      y copiar el de Stage 1 a
+      `trading-app-ionic/public/models/stage1-detector.onnx` (o servirlo
+      donde apunte `VITE_STAGE1_MODEL_URL`) — el código que lo carga y corre
+      ya existe (`src/lib/ml/stage1Detector.ts`), solo falta el archivo.
+- [x] Conectar `trading-app-ionic/` a `onnxruntime-web` para **Stage 1**
+      (detector MTG/no-MTG): cámara en vivo (`getUserMedia`+`<canvas>`, ver
+      `src/lib/camera/useLiveCamera.ts`) → `onnxruntime-web` → resultado en
+      pantalla (Tab2, "Identify Artifact"), con manejo explícito del caso
+      "no hay modelo todavía". OpenCV.js (recorte/perspectiva de la carta
+      antes de pasarla al modelo) **no** está implementado — hoy se manda el
+      frame crudo de la cámara. Stage 2 (OCR) y Stage 3 (precio) quedan
+      deliberadamente sin conectar (ver nota más abajo).
 - [ ] Definir si la búsqueda de similitud vive en el cliente o en un backend
       liviano.
 - [x] Backend de cuentas/cartas/transacciones (`backend/`, NestJS + Prisma +
       PostgreSQL) — registro de usuario, correo de bienvenida, CRUD de cartas
-      con fotos, transacciones con slot para MercadoPago. Falta que
-      `trading-app-ionic/` deje de usar sus datos hardcodeados y hable con
-      esta API.
+      con fotos, transacciones con slot para MercadoPago.
+- [x] `trading-app-ionic/` dejó de usar datos hardcodeados para cuentas y
+      cartas: registro/sesión placeholder (`AuthContext` — no hay login/JWT
+      real todavía, ver `backend/README.md`), Bóveda leyendo
+      `GET /cards?ownerId=...`, flujo de listar carta con foto (subida en
+      dos pasos a S3/MinIO). El balance de tesorería de Tab 1 y el flujo de
+      pago con QR/WebPay siguen siendo mock, a propósito (el backend no
+      modela balance ni tiene un proveedor de pago real todavía).
+- [ ] No existe ningún endpoint de estimación de precio (Stage 3) en ningún
+      lado — ni backend ni cliente. Donde la UI muestra un precio, es el
+      `guessedPrice` guardado al listar la carta, no una estimación en vivo.
 - [ ] Preparar la narrativa comercial para la presentación (a quién le vende,
       qué problema le resuelve, por qué pagaría por la versión premium) — cada
       integrante tiene que poder defenderla en la interrogación oral.

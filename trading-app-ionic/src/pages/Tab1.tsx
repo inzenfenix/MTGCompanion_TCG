@@ -16,6 +16,13 @@ const Tab1: React.FC = () => {
   const router = useIonRouter();
   const { t } = useTranslation();
 
+  // Both the balance below and this transaction list are still mock data —
+  // the backend deliberately doesn't model a `balance` field on User yet
+  // (it'll be derived from real transactions once payments are wired up,
+  // see backend/README.md "Qué falta"), and GET /transactions?userId=...
+  // doesn't include card titles, so rendering the real ledger here would
+  // need an extra fetch per row. Tab3 (Vault) is the tab actually wired to
+  // the backend's card data — see src/lib/api.ts.
   const transactions = [
     { id: 1, type: 'buy', amount: 45.00, card: 'Chalice of the Void', date: '2026-07-28' },
     { id: 2, type: 'sell', amount: 12.50, card: 'Lightning Bolt', date: '2026-07-27' },

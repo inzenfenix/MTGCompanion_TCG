@@ -25,9 +25,11 @@ import {
 } from 'ionicons/icons';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../lib/auth/AuthContext';
 
 const Tab4: React.FC = () => {
   const { t, i18n } = useTranslation();
+  const { user, logout } = useAuth();
   const [isLightMode, setIsLightMode] = useState(false);
 
   useEffect(() => {
@@ -71,6 +73,11 @@ const Tab4: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
+          {user && (
+            <p style={{ textAlign: 'center', fontSize: '0.85rem', opacity: 0.8, marginTop: 0 }}>
+              {t('logged_in_as')} <strong style={{ color: '#f2e3cd' }}>{user.displayName}</strong> ({user.email})
+            </p>
+          )}
           <motion.div variants={containerVariants} initial="hidden" animate="visible">
             <IonList className="mtg-list">
               <motion.div variants={itemVariants}>
@@ -130,7 +137,10 @@ const Tab4: React.FC = () => {
               </motion.div>
 
               <motion.div variants={itemVariants}>
-                <IonItem className="mtg-list-item-row" lines="none" button>
+                {/* Clears the persisted user id (see AuthContext) and drops
+                    back to Onboarding — there's no server-side session to
+                    invalidate yet, since there's no login/JWT this phase. */}
+                <IonItem className="mtg-list-item-row" lines="none" button onClick={logout}>
                   <IonIcon icon={logOutOutline} slot="start" style={{color: '#d3202a'}} />
                   <IonLabel style={{color: '#d3202a', fontWeight: 'bold'}}>{t('abandon_quest')}</IonLabel>
                 </IonItem>

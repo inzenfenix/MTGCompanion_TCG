@@ -1,26 +1,57 @@
-import React, { useState } from 'react';
-import { 
-  IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonButton, 
-  IonIcon, IonInput, IonItem, IonLabel, IonSegment, IonSegmentButton 
+import React, { useEffect, useState } from 'react';
+import {
+  IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonButton,
+  IonIcon, IonInput, IonItem, IonLabel, IonSegment, IonSegmentButton
 } from '@ionic/react';
-import { 
-  qrCodeOutline, cameraOutline, checkmarkCircleOutline, 
-  storefrontOutline, walletOutline 
+import {
+  qrCodeOutline, cameraOutline, checkmarkCircleOutline,
+  storefrontOutline, walletOutline, scanOutline
 } from 'ionicons/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import QRCode from 'react-qr-code';
 import { useTranslation } from 'react-i18next';
+import { useLiveCamera } from '../lib/camera/useLiveCamera';
+import { runStage1Detection, type Stage1Status } from '../lib/ml/stage1Detector';
 
 const Tab2: React.FC = () => {
   const { t } = useTranslation();
   const [role, setRole] = useState<'merchant' | 'buyer'>('merchant');
-  
+
   // Merchant state
   const [merchantStep, setMerchantStep] = useState<1 | 2 | 3>(1);
   const [price, setPrice] = useState<number>(45.00);
 
   // Buyer state
   const [buyerStep, setBuyerStep] = useState<1 | 2 | 3>(1);
+
+  // Stage 1 (MTG / no-MTG detector) scaffold — live camera via
+  // getUserMedia+canvas (see useLiveCamera's header comment for why not
+  // @capacitor-community/camera-preview) feeding onnxruntime-web. Stage 2
+  // (OCR) and Stage 3 (price) are explicitly out of scope here — see
+  // src/lib/ml/stage1Detector.ts.
+  const camera = useLiveCamera();
+  const [stage1Status, setStage1Status] = useState<Stage1Status | null>(null);
+  const [isDetecting, setIsDetecting] = useState(false);
+
+  // Camera only needs to run while the merchant is on the capture step —
+  // release the device as soon as they move on or switch roles.
+  useEffect(() => {
+    if (role === 'merchant' && merchantStep === 1) {
+      camera.start();
+    } else {
+      camera.stop();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- start/stop are stable refs from useLiveCamera
+  }, [role, merchantStep]);
+
+  const handleDetect = async () => {
+    const frame = camera.captureFrame();
+    if (!frame) return;
+    setIsDetecting(true);
+    const result = await runStage1Detection(frame);
+    setStage1Status(result);
+    setIsDetecting(false);
+  };
 
   const slideVariants = {
     hidden: { opacity: 0, x: 20 },
@@ -69,10 +100,53 @@ const Tab2: React.FC = () => {
                     <p>{t('show_card_camera')}</p>
 
                     <div style={{ margin: '20px 0', border: '1px solid rgba(0,0,0,0.2)', borderRadius: '4px', background: 'rgba(255,255,255,0.4)', padding: '15px' }}>
-                      <div style={{ height: '200px', backgroundColor: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed rgba(255,255,255,0.5)', marginBottom: '15px' }}>
-                        <p style={{color: '#aaa'}}>{t('camera_feed_placeholder')}</p>
+                      <div style={{ height: '200px', backgroundColor: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed rgba(255,255,255,0.5)', marginBottom: '15px', overflow: 'hidden', position: 'relative' }}>
+                        {/* Real getUserMedia feed — replaces the old static placeholder.
+                            OpenCV.js perspective-correction (see Proyecto/examen/README.md)
+                            is not implemented yet; this shows the raw camera frame. */}
+                        <video
+                          ref={camera.videoRef}
+                          playsInline
+                          muted
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: camera.status === 'streaming' ? 'block' : 'none' }}
+                        />
+                        {camera.status !== 'streaming' && (
+                          <p style={{color: '#aaa', padding: '0 10px', textAlign: 'center'}}>
+                            {camera.status === 'starting' && t('camera_starting')}
+                            {camera.status === 'denied' && t('camera_permission_denied')}
+                            {camera.status === 'unsupported' && t('camera_unsupported')}
+                            {camera.status === 'error' && (camera.errorMessage ?? t('camera_unsupported'))}
+                            {camera.status === 'idle' && t('camera_feed_placeholder')}
+                          </p>
+                        )}
                       </div>
-                      <h3 style={{fontSize: '1rem', marginBottom: '0'}}>{t('system_processing')} <i>{t('waiting_opencv')}</i></h3>
+
+                      <IonButton
+                        expand="block"
+                        fill="outline"
+                        className="mtg-btn"
+                        disabled={camera.status !== 'streaming' || isDetecting}
+                        onClick={handleDetect}
+                        style={{ marginBottom: '10px' }}
+                      >
+                        <div className="mtg-btn-content">
+                          <IonIcon icon={scanOutline} />
+                          <span>{isDetecting ? t('detecting_in_progress') : t('detect_card_button')}</span>
+                        </div>
+                      </IonButton>
+
+                      {stage1Status?.status === 'unavailable' && (
+                        <h3 style={{fontSize: '0.9rem', marginBottom: '0', fontStyle: 'italic'}}>{t('model_not_available')}</h3>
+                      )}
+                      {stage1Status?.status === 'error' && (
+                        <h3 style={{fontSize: '0.9rem', marginBottom: '0', fontStyle: 'italic'}}>{t('model_error', { message: stage1Status.message })}</h3>
+                      )}
+                      {stage1Status?.status === 'ok' && (
+                        <h3 style={{fontSize: '1rem', marginBottom: '0'}}>
+                          {stage1Status.result.isMtgCard ? t('detection_result_card') : t('detection_result_no_card')}
+                          {' — '}{t('detection_confidence', { value: Math.round(stage1Status.result.confidence * 100) })}
+                        </h3>
+                      )}
                     </div>
 
                     <IonButton expand="block" className="mtg-btn" onClick={() => setMerchantStep(2)}>
