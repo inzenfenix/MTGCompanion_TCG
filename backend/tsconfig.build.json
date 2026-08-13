@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Without this, tsc's implicit rootDir is the longest common path of
+    // ALL compiled inputs — including prisma.config.ts at the project
+    // root — which pushes everything under dist/src/* and breaks every
+    // "../../generated/prisma" relative import at runtime (it starts
+    // resolving from dist/, not from backend/). Pinning rootDir to src
+    // keeps dist/'s layout a 1:1 mirror of src/'s, matching what those
+    // relative imports were written against.
+    "rootDir": "./src",
+    // Keeps the incremental cache inside dist/ so nest-cli's deleteOutDir
+    // wipes it along with everything else. Left at the project root (tsc's
+    // default), a stale tsconfig.build.tsbuildinfo survives `deleteOutDir`
+    // and makes the next build silently skip re-emitting into the
+    // now-empty dist/ — `npm run build` looks like it succeeds but leaves
+    // no dist/main.js.
+    "tsBuildInfoFile": "./dist/tsconfig.build.tsbuildinfo"
+  },
+  "exclude": ["node_modules", "test", "dist", "**/*spec.ts", "prisma.config.ts"]
+}

@@ -45,13 +45,25 @@ Modelo de negocio de referencia (freemium):
 │  onnxruntime-web (Stage 1/2/3, el ganador de cada etapa — ver Certamen 2 §2) ─▶     │
 │  carta identificada + texto validado + precio estimado                             │
 │                                                                                      │
-└──────────────────────────────────────────────────────────────────────────────────────┘
+└───────────────────────────────────┬──────────────────────────────────────────────┘
+                                     │ cuenta / cartas guardadas / transacciones
+                                     ▼
+                    ┌──────────────────────────────────┐
+                    │  Backend NestJS (backend/)        │
+                    │  Prisma + PostgreSQL + S3 storage │
+                    └──────────────────────────────────┘
 ```
 
 Detalle completo del pipeline de 3 etapas (detector → validador de texto →
 estimador de precio, cada una en PyTorch y TensorFlow) en
 [Proyecto/certamen_2/README.md](../certamen_2/README.md#1-arquitectura-del-pipeline-completo).
 Este documento cubre solo la parte específica de la app final.
+
+**La inferencia (Stage 1/2/3) sigue siendo 100% del lado del cliente** — el
+backend no participa del escaneo/identificación, solo persiste lo que el
+usuario ya decidió guardar: su cuenta, las cartas de su colección (con foto)
+y las transacciones de compra/venta con otros usuarios. Detalle en
+[`backend/README.md`](../../backend/README.md).
 
 ### Por qué ONNX (no TensorFlow.js) para lo que corre en el cliente
 
@@ -95,6 +107,11 @@ importar en qué framework se entrenó.
       y la [documentación de onnxruntime-web](https://onnxruntime.ai/docs/tutorials/web/).
 - [ ] Definir si la búsqueda de similitud vive en el cliente o en un backend
       liviano.
+- [x] Backend de cuentas/cartas/transacciones (`backend/`, NestJS + Prisma +
+      PostgreSQL) — registro de usuario, correo de bienvenida, CRUD de cartas
+      con fotos, transacciones con slot para MercadoPago. Falta que
+      `trading-app-ionic/` deje de usar sus datos hardcodeados y hable con
+      esta API.
 - [ ] Preparar la narrativa comercial para la presentación (a quién le vende,
       qué problema le resuelve, por qué pagaría por la versión premium) — cada
       integrante tiene que poder defenderla en la interrogación oral.

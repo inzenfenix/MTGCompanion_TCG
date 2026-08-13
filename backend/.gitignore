@@ -1,0 +1,29 @@
+# compiled output
+/dist
+/build
+/generated/prisma
+
+# dependencies
+/node_modules
+
+# env — never commit secrets, .env.example is the template
+.env
+
+# logs
+logs
+*.log
+npm-debug.log*
+
+# tests
+/coverage
+/.nyc_output
+
+# IDE
+.idea
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+.DS_Store

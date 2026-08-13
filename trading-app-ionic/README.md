@@ -16,9 +16,12 @@ El frontend ya cuenta con una interfaz sólida, tematizada e interactiva:
 
 ## 🚧 ¿Qué falta por implementar?
 
-- **Backend / API (NestJS):** Implementación de la base de datos relacional (PostgreSQL) y endpoints de NestJS.
+- **Conectar con el backend real:** el backend (NestJS + Prisma + PostgreSQL) ya existe en
+  [`backend/`](../backend/README.md) — registro de usuario + correo de bienvenida, CRUD de
+  cartas con fotos, y transacciones entre usuarios. Falta que esta app deje de usar sus datos
+  hardcodeados y hable con esa API (`VITE_API_BASE_URL`).
 - **Integración del Modelo de IA:** Conectar el escáner de la aplicación a los modelos desarrollados previamente (PyTorch/TensorFlow) en el repositorio raíz, para identificar la carta, verificar la calidad y predecir su valor económico en tiempo real usando OpenCV.
-- **Flujo de Pagos Real:** Conectar el simulacro de QR con el webhook oficial de transacciones de **WebPay / Mercado Pago**.
+- **Flujo de Pagos Real:** Conectar el simulacro de QR con el webhook oficial de transacciones de **WebPay / Mercado Pago**. El backend ya deja un slot (`PaymentProvider`) listo para esto — hoy solo tiene un stub que no cobra nada de verdad.
 - **Scraping / Geolocalización:** Herramientas para buscar y localizar mediante scraping tiendas físicas cercanas u otros usuarios que tengan las cartas deseadas.
 - **Estado Global:** Migrar la información hardcodeada a una tienda centralizada (como Redux, Zustand, o el Context de React).
 

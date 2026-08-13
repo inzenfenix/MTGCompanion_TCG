@@ -1,0 +1,79 @@
+# Local dev support services only — Postgres, MinIO (S3-compatible storage)
+# and MailHog (SMTP sink). The NestJS API itself is NOT in here on purpose:
+# run it yourself with `npm run start:dev` from backend/, against these.
+#
+# Usage (from backend/):
+#   npm run docker:up      # docker compose -f docker/docker-compose.yml --env-file .env up -d
+#   npm run docker:down    # docker compose -f docker/docker-compose.yml --env-file .env down
+# or directly:
+#   docker compose -f docker/docker-compose.yml --env-file ../.env up -d
+#
+# All variables below come from backend/.env (see .env.example) so there is
+# a single source of truth shared with the Nest app's own config.
+
+name: mtg-companion-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mtg}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mtg}
+      POSTGRES_DB: ${POSTGRES_DB:-mtg_companion}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mtg} -d ${POSTGRES_DB:-mtg_companion}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-mtg_minio_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-mtg_minio_secret}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"     # S3 API — this is what STORAGE_ENDPOINT points at
+      - "${MINIO_CONSOLE_PORT:-9001}:9001" # web console (http://localhost:9001)
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Creates the card-photos bucket on startup so the API never has to.
+  # Runs once and exits — not a long-lived service.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-mtg_minio_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-mtg_minio_secret}
+      STORAGE_BUCKET: ${STORAGE_BUCKET:-mtg-card-photos}
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
+      mc mb --ignore-existing local/$$STORAGE_BUCKET &&
+      mc anonymous set download local/$$STORAGE_BUCKET
+      "
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    restart: unless-stopped
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1025}:1025" # SMTP — this is what SMTP_HOST/PORT points at
+      - "${MAILHOG_WEB_PORT:-8025}:8025"  # web UI (http://localhost:8025) — read the "sent" welcome emails here
+
+volumes:
+  postgres_data:
+  minio_data:

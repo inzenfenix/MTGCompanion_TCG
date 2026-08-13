@@ -1,0 +1,159 @@
+// MTG Companion — Prisma schema
+// Design notes live in backend/README.md. Summary of the shape:
+//   User 1—1 UserSettings, User 1—N Card (owner), User N—N User via Transaction
+//   (buyer/seller), Card 1—N CardPhoto.
+
+// Using the classic "prisma-client-js" generator (CommonJS output, well-worn
+// with Nest's default CJS build) rather than Prisma 7's newer "prisma-client"
+// generator, which emits ESM-only code (`import.meta.url`) and breaks Nest's
+// default CommonJS compilation.
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Users
+// ─────────────────────────────────────────────────────────────────────────
+
+model User {
+  id              String    @id @default(uuid())
+  email           String    @unique
+  passwordHash    String
+  displayName     String
+  emailVerifiedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  settings  UserSettings?
+  cards     Card[]        @relation("CardOwner")
+  purchases Transaction[] @relation("BuyerTransactions")
+  sales     Transaction[] @relation("SellerTransactions")
+
+  @@map("users")
+}
+
+// One row per user. Created together with the User at registration time.
+model UserSettings {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  language String @default("en") // matches src/i18n.ts locales: en / es-LA / fr
+  theme    String @default("dark")
+
+  // 2FA fields are modeled now (target: TOTP) but the enrollment/verification
+  // flow itself is not implemented yet — see backend/README.md "What's next".
+  twoFactorEnabled Boolean @default(false)
+  twoFactorSecret  String? // TOTP secret, set once enrollment ships; never returned by any endpoint
+
+  notifyByEmail Boolean @default(true)
+
+  @@map("user_settings")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Cards
+// ─────────────────────────────────────────────────────────────────────────
+
+enum CardCondition {
+  NM // Near Mint
+  LP // Lightly Played
+  MP // Moderately Played
+  HP // Heavily Played
+  DMG // Damaged
+
+  @@map("card_condition")
+}
+
+model Card {
+  id      String @id @default(uuid())
+  ownerId String
+  owner   User   @relation("CardOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  title        String
+  description  String?
+  guessedPrice Decimal       @db.Decimal(10, 2)
+  condition    CardCondition @default(NM)
+
+  // Optional, filled in once a card is matched against the Scryfall-derived
+  // catalog (Certamen 1/2 Stage 1 retrieval). Kept nullable/free-form here on
+  // purpose: the catalog itself is not duplicated into this DB, this is just
+  // enough to render CardDetails.tsx without a second lookup.
+  scryfallId String?
+  setName    String?
+  rarity     String?
+  oracleText String?
+
+  photos       CardPhoto[]
+  transactions Transaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@map("cards")
+}
+
+model CardPhoto {
+  id     String @id @default(uuid())
+  cardId String
+  card   Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  // Object key inside the storage bucket (see storage module) — not a public
+  // URL. The API resolves a URL (signed or public, depending on bucket
+  // policy) at read time instead of freezing one into the DB.
+  storageKey String
+  isPrimary  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@index([cardId])
+  @@map("card_photos")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Transactions
+// ─────────────────────────────────────────────────────────────────────────
+
+enum TransactionStatus {
+  PENDING
+  PAID
+  CANCELLED
+  FAILED
+
+  @@map("transaction_status")
+}
+
+model Transaction {
+  id String @id @default(uuid())
+
+  cardId String
+  card   Card   @relation(fields: [cardId], references: [id])
+
+  buyerId String
+  buyer   User   @relation("BuyerTransactions", fields: [buyerId], references: [id])
+
+  sellerId String
+  seller   User   @relation("SellerTransactions", fields: [sellerId], references: [id])
+
+  amount Decimal           @db.Decimal(10, 2)
+  status TransactionStatus @default(PENDING)
+
+  // Left empty on purpose — see payments module. Populated once a real
+  // provider (MercadoPago) is wired in.
+  paymentProvider String?
+  paymentRef      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([buyerId])
+  @@index([sellerId])
+  @@index([cardId])
+  @@map("transactions")
+}

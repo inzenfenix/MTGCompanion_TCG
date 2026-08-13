@@ -15,6 +15,7 @@ framework-ia-UDD/
     └── examen/      # entrega final — plan (WIP)
 
 trading-app-ionic/   # frontend Ionic React de la app final (scaffold construido, sin conectar a los modelos todavía)
+backend/             # API NestJS + Prisma + PostgreSQL — cuentas, cartas, transacciones (ver README propio)
 ```
 
 ## El proyecto
@@ -45,7 +46,9 @@ entender en la práctica sus diferencias de diseño, rendimiento y ergonomía.
 - **Examen** — empaquetar todo como la app Ionic de uso comercial en
   [`trading-app-ionic/`](trading-app-ionic/README.md) (scaffold ya construido),
   conectada vía OpenCV.js + ONNX (`onnxruntime-web`) corriendo del lado del
-  cliente — el modelo ganador de cada etapa, sin importar el framework. Ver
+  cliente — el modelo ganador de cada etapa, sin importar el framework. La
+  persistencia (cuentas, cartas, transacciones) corre en un backend NestJS
+  aparte, ver [`backend/`](backend/README.md). Ver
   [Proyecto/examen/README.md](Proyecto/examen/README.md).
 - **Automatización del entrenamiento** — un integrante del equipo está
   construyendo una app Electron que envuelve los scripts Python (scraper,
@@ -62,6 +65,8 @@ entender en la práctica sus diferencias de diseño, rendimiento y ergonomía.
 - **ONNX** / `onnxruntime-web` — formato de exportación común para correr el
   modelo ganador de cada etapa (PyTorch o TensorFlow) del lado del cliente
 - **Ionic React** — frontend de la app final (`trading-app-ionic/`)
+- **NestJS + Prisma + PostgreSQL** — backend de la app final (`backend/`):
+  cuentas, cartas, transacciones
 - **Scryfall API** — catálogo, imágenes, texto de reglas y precios de cartas MTG
 - **pokemontcg.io** — imágenes negativas para el clasificador binario
 - Python científico: `numpy`, `scikit-learn`, `matplotlib`, `Pillow`
@@ -79,6 +84,16 @@ entender en la práctica sus diferencias de diseño, rendimiento y ergonomía.
 La interfaz comercial del escáner de cartas se está construyendo actualmente con Ionic React. 
 - Puedes encontrar su código, estado de avance, y las **instrucciones de despliegue** en su respectiva carpeta.
 - ➡️ **[Ir al README de la aplicación Ionic](trading-app-ionic/README.md)**
+
+## Backend (NestJS + Prisma + PostgreSQL)
+
+La persistencia de la app final (cuentas de usuario, cartas de la colección
+con sus fotos, transacciones de compra/venta) vive en un backend NestJS
+separado, con Postgres y object storage S3-compatible levantados vía Docker
+solo para desarrollo local (el backend en sí no corre en Docker).
+- ➡️ **[Ir al README del backend](backend/README.md)** — instrucciones de
+  despliegue, arquitectura por capas (domain/application/infrastructure/
+  presentation) y qué falta a propósito (login/JWT, 2FA, MercadoPago real).
 
 ## Automatización del pipeline (Electron)
 
