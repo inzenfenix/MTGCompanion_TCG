@@ -14,7 +14,7 @@ framework-ia-UDD/
     ├── certamen_2/  # entrega 2 — pipeline de 3 etapas (WIP, ver README propio)
     └── examen/      # entrega final — plan (WIP)
 
-trading-app-ionic/   # frontend Ionic React de la app final (scaffold construido, sin conectar a los modelos todavía)
+trading-app-ionic/   # frontend Ionic React de la app final — conectado al backend real (cuentas/cartas/transacciones); scaffold de ONNX del lado del cliente listo, sin modelo entrenado todavía
 backend/             # API NestJS + Prisma + PostgreSQL — cuentas, cartas, transacciones (ver README propio)
 ```
 
@@ -44,12 +44,14 @@ entender en la práctica sus diferencias de diseño, rendimiento y ergonomía.
   hiperparámetros — la entrega de Optuna sobre el detector ya está hecha. Ver
   [Proyecto/certamen_2/README.md](Proyecto/certamen_2/README.md).
 - **Examen** — empaquetar todo como la app Ionic de uso comercial en
-  [`trading-app-ionic/`](trading-app-ionic/README.md) (scaffold ya construido),
-  conectada vía OpenCV.js + ONNX (`onnxruntime-web`) corriendo del lado del
-  cliente — el modelo ganador de cada etapa, sin importar el framework. La
-  persistencia (cuentas, cartas, transacciones) corre en un backend NestJS
-  aparte, ver [`backend/`](backend/README.md). Ver
-  [Proyecto/examen/README.md](Proyecto/examen/README.md).
+  [`trading-app-ionic/`](trading-app-ionic/README.md). La persistencia
+  (cuentas, cartas con fotos, transacciones) ya está conectada a un backend
+  NestJS real, ver [`backend/`](backend/README.md). El escaneo de cartas
+  tiene su scaffold de cliente listo — cámara en vivo
+  (`getUserMedia`+canvas) y `onnxruntime-web` corriendo Stage 1
+  (detector MTG/no-MTG) — pero **sin ningún modelo `.onnx` entrenado
+  todavía**: falta correr el export de PyTorch/TensorFlow (Certamen 2) y
+  conectarlo. Ver [Proyecto/examen/README.md](Proyecto/examen/README.md).
 - **Automatización del entrenamiento** — un integrante del equipo está
   construyendo una app Electron que envuelve los scripts Python (scraper,
   downloader, embedders, clasificadores, Optuna) para correr todo el pipeline
@@ -94,6 +96,9 @@ solo para desarrollo local (el backend en sí no corre en Docker).
 - ➡️ **[Ir al README del backend](backend/README.md)** — instrucciones de
   despliegue, arquitectura por capas (domain/application/infrastructure/
   presentation) y qué falta a propósito (login/JWT, 2FA, MercadoPago real).
+  `trading-app-ionic/` ya habla con esta API (registro, cartas + fotos,
+  listado de la Bóveda) — ver su propio README para el detalle de qué está
+  cableado y qué falta.
 
 ## Automatización del pipeline (Electron)
 

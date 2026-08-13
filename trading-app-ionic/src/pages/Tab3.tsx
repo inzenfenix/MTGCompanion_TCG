@@ -1,32 +1,100 @@
-import React, { useState } from 'react';
-import { 
-  IonContent, 
-  IonHeader, 
-  IonPage, 
-  IonTitle, 
-  IonToolbar, 
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  IonContent,
+  IonHeader,
+  IonPage,
+  IonTitle,
+  IonToolbar,
   IonSearchbar,
   IonGrid,
   IonRow,
   IonCol,
-  useIonRouter
+  IonFab,
+  IonFabButton,
+  IonIcon,
+  IonSpinner,
+  IonButton,
+  useIonRouter,
+  useIonViewWillEnter,
 } from '@ionic/react';
+import { addOutline } from 'ionicons/icons';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../lib/auth/AuthContext';
+import * as api from '../lib/api';
+
+/** Small subcomponent so each card's primary photo can resolve its presigned URL independently. */
+const VaultCardThumbnail: React.FC<{ card: api.Card }> = ({ card }) => {
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const primaryPhoto = card.photos.find((p) => p.isPrimary) ?? card.photos[0];
+
+  useEffect(() => {
+    if (!primaryPhoto) return;
+    let cancelled = false;
+    api
+      .getCardPhotoUrl(primaryPhoto.id)
+      .then(({ url }) => {
+        if (!cancelled) setPhotoUrl(url);
+      })
+      .catch(() => {
+        /* No photo to show — falls back to the placeholder below. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [primaryPhoto]);
+
+  if (photoUrl) {
+    return (
+      <div
+        className="mtg-card-image-placeholder"
+        style={{ backgroundImage: `url(${photoUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+      />
+    );
+  }
+
+  return (
+    <div className="mtg-card-image-placeholder">
+      <span style={{ color: '#c2b5b5', fontSize: '0.8rem', opacity: 0.5 }}>[Image]</span>
+    </div>
+  );
+};
 
 const Tab3: React.FC = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [searchText, setSearchText] = useState('');
   const router = useIonRouter();
 
-  const collection = [
-    { id: 1, name: 'Black Lotus', set: 'Alpha', price: 25000.00 },
-    { id: 2, name: 'Mox Sapphire', set: 'Beta', price: 8500.00 },
-    { id: 3, name: 'Ancestral Recall', set: 'Unlimited', price: 5200.00 },
-    { id: 4, name: 'Time Walk', set: 'Beta', price: 7100.00 },
-    { id: 5, name: 'Underground Sea', set: 'Revised', price: 850.00 },
-    { id: 6, name: 'Force of Will', set: 'Alliances', price: 95.00 },
-  ];
+  const [cards, setCards] = useState<api.Card[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const fetchCards = useCallback(() => {
+    if (!user) return;
+    setIsLoading(true);
+    setError(false);
+    api
+      .listCards(user.id)
+      .then(setCards)
+      .catch(() => setError(true))
+      .finally(() => setIsLoading(false));
+  }, [user]);
+
+  // Refetch every time the Vault tab comes into view (e.g. after listing a
+  // new card) — Ionic keeps tab components mounted across tab switches, so
+  // a plain useEffect-on-mount wouldn't pick up cards listed elsewhere.
+  useIonViewWillEnter(() => {
+    fetchCards();
+  });
+
+  useEffect(() => {
+    fetchCards();
+  }, [fetchCards]);
+
+  const filteredCards = cards.filter((card) =>
+    card.title.toLowerCase().includes(searchText.toLowerCase()),
+  );
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -54,39 +122,65 @@ const Tab3: React.FC = () => {
         </IonToolbar>
       </IonHeader>
       <IonContent fullscreen>
-        <motion.div 
+        <motion.div
           className="mtg-container"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4 }}
         >
-          <motion.div variants={containerVariants} initial="hidden" animate="visible">
-            <IonGrid>
-              <IonRow>
-                {collection.map(card => (
-                  <IonCol size="6" key={card.id} style={{ padding: '8px' }}>
-                    <motion.div variants={itemVariants} style={{ height: '100%', cursor: 'pointer' }} onClick={() => router.push(`/card/${card.id}`, 'forward')}>
-                      <div className="mtg-card-item" style={{ height: '100%' }}>
-                        <div className="mtg-card-image-placeholder">
-                          <span style={{color: '#c2b5b5', fontSize: '0.8rem', opacity: 0.5}}>[Image]</span>
-                        </div>
-                        <div className="mtg-card-details">
-                          <div>
-                            <h4 style={{ margin: '0 0 5px 0', fontSize: '0.95rem', color: '#f2e3cd', fontWeight: 'bold' }}>{card.name}</h4>
-                            <p style={{ margin: '0', fontSize: '0.75rem', color: '#c2b5b5' }}>{card.set}</p>
+          {isLoading && (
+            <div style={{ textAlign: 'center', padding: '40px 0' }}>
+              <IonSpinner name="crescent" />
+              <p>{t('vault_loading')}</p>
+            </div>
+          )}
+
+          {!isLoading && error && (
+            <div style={{ textAlign: 'center', padding: '40px 0' }}>
+              <p>{t('vault_error')}</p>
+              <IonButton fill="outline" className="mtg-btn" onClick={fetchCards}>{t('retry')}</IonButton>
+            </div>
+          )}
+
+          {!isLoading && !error && filteredCards.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '40px 0' }}>
+              <p>{t('vault_empty')}</p>
+            </div>
+          )}
+
+          {!isLoading && !error && filteredCards.length > 0 && (
+            <motion.div variants={containerVariants} initial="hidden" animate="visible">
+              <IonGrid>
+                <IonRow>
+                  {filteredCards.map(card => (
+                    <IonCol size="6" key={card.id} style={{ padding: '8px' }}>
+                      <motion.div variants={itemVariants} style={{ height: '100%', cursor: 'pointer' }} onClick={() => router.push(`/card/${card.id}`, 'forward')}>
+                        <div className="mtg-card-item" style={{ height: '100%' }}>
+                          <VaultCardThumbnail card={card} />
+                          <div className="mtg-card-details">
+                            <div>
+                              <h4 style={{ margin: '0 0 5px 0', fontSize: '0.95rem', color: '#f2e3cd', fontWeight: 'bold' }}>{card.title}</h4>
+                              <p style={{ margin: '0', fontSize: '0.75rem', color: '#c2b5b5' }}>{card.setName ?? card.condition}</p>
+                            </div>
+                            <div style={{ marginTop: '10px', fontWeight: 'bold', color: '#f2e3cd', fontFamily: 'Cinzel', fontSize: '1.1rem' }}>
+                              ${card.guessedPrice.toFixed(2)}
+                            </div>
                           </div>
-                          <div style={{ marginTop: '10px', fontWeight: 'bold', color: '#f2e3cd', fontFamily: 'Cinzel', fontSize: '1.1rem' }}>
-                            ${card.price.toFixed(2)}
-                          </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  </IonCol>
-                ))}
-              </IonRow>
-            </IonGrid>
-          </motion.div>
+                      </motion.div>
+                    </IonCol>
+                  ))}
+                </IonRow>
+              </IonGrid>
+            </motion.div>
+          )}
         </motion.div>
+
+        <IonFab vertical="bottom" horizontal="end" slot="fixed" style={{ marginBottom: '20px', marginRight: '10px' }}>
+          <IonFabButton className="mtg-btn" routerLink="/list-card" title={t('list_a_card')}>
+            <IonIcon icon={addOutline} />
+          </IonFabButton>
+        </IonFab>
       </IonContent>
     </IonPage>
   );
