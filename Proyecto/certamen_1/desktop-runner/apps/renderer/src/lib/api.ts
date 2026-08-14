@@ -1,7 +1,19 @@
 import { io, Socket } from 'socket.io-client';
-import type { EnvInfo, ExportComparisonStage, GpuInfo, RunAllStepResult, ScraperCardCountResult, ScriptInfo } from './types';
+import type { EnvInfo, ExportComparisonStage, GpuInfo, RunAllStepResult, RunRecord, ScraperCardCountResult, ScriptInfo } from './types';
 
 export const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'http://127.0.0.1:4550';
+
+// El status HTTP se cuelga en el Error (no solo el mensaje) porque algunos
+// callers necesitan distinguir "el server respondió que esto no existe"
+// (404 — un hecho terminal) de una falla de red transitoria (server caído
+// un instante, p.ej. a mitad de un restart de dev-watch) — ver useRunLogs.
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -18,7 +30,7 @@ async function json<T>(res: Response): Promise<T> {
     } catch {
       // no era JSON — se deja el texto crudo (o el statusText) como está
     }
-    throw new Error(message);
+    throw new ApiError(message, res.status);
   }
   return res.json();
 }
@@ -36,6 +48,7 @@ export const api = {
       body: JSON.stringify(values),
     }).then((r) => json<{ runId: string }>(r)),
   stop: (runId: string) => fetch(`${API_BASE}/runs/${runId}/stop`, { method: 'POST' }).then((r) => json<{ ok: boolean }>(r)),
+  getRun: (runId: string) => fetch(`${API_BASE}/runs/${runId}`).then((r) => json<RunRecord>(r)),
   runAll: (framework: 'pytorch' | 'tensorflow') =>
     fetch(`${API_BASE}/run-all/${framework}`, { method: 'POST' }).then((r) => json<{ started: boolean }>(r)),
   runEverything: () =>

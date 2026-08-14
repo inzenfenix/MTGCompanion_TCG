@@ -12,6 +12,8 @@ export interface ArgDef {
   multiple?: boolean;
   /** Para kind:"select" — valor de `options` marcado como recomendado (solo cambia la etiqueta mostrada). */
   recommended?: string;
+  /** Se recalcula como `factor * valor(arg)` al cambiar `arg`, hasta que el usuario lo edita a mano una vez (ver ScriptCard.tsx). */
+  linkedFrom?: { arg: string; factor: number };
 }
 
 export type ScriptGroup = 'shared' | 'pytorch' | 'tensorflow' | 'testing';
@@ -34,6 +36,16 @@ export interface EnvInfo {
 }
 
 export type RunStatus = 'idle' | 'running' | 'success' | 'error' | 'stopped';
+
+/** Mismo shape que RunRecord del server (scripts.service.ts) — la verdad autoritativa de un run, vía GET /runs/:runId. */
+export interface RunRecord {
+  id: string;
+  scriptId: string;
+  status: RunStatus;
+  startedAt: number;
+  endedAt?: number;
+  exitCode?: number | null;
+}
 
 export type GpuBackend = 'cuda' | 'rocm' | 'cpu';
 

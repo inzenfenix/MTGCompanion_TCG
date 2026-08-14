@@ -138,24 +138,38 @@ def cargar_modelo() -> nn.Module:
     return model.to(DEVICE)
 
 
-def imagen_a_embedding(img: Image.Image, model: nn.Module) -> np.ndarray:
-    """Convierte imagen PIL a embedding L2-normalizado (1280,)."""
+def imagen_a_embedding(img: Image.Image, model: nn.Module) -> torch.Tensor:
+    """
+    Convierte imagen PIL a embedding L2-normalizado (1280,).
+    Se deja como tensor en DEVICE (no se baja a numpy acá) para que
+    buscar_topk pueda hacer la búsqueda contra la galería sin ida y vuelta
+    a CPU en cada query — ver comentario ahí.
+    """
     tensor = TRANSFORM_CLEAN(img).unsqueeze(0).to(DEVICE)
     with torch.no_grad():
         feats = model(tensor)
         feats = F.normalize(feats, p=2, dim=-1)
-    return feats.cpu().numpy()[0]
+    return feats[0]
 
 
 # ── Búsqueda ──────────────────────────────────────────────────────────────────
 
-def buscar_topk(query_emb: np.ndarray, gallery_emb: np.ndarray, k: int) -> np.ndarray:
+def buscar_topk(query_emb: torch.Tensor, gallery_emb: torch.Tensor, k: int) -> tuple[list[int], list[float]]:
     """
-    Retorna los índices de las k cartas más similares en la galería.
+    Retorna (índices, similitudes) de las k cartas más similares en la galería.
     Similitud coseno = producto punto (embeddings ya L2-normalizados).
+
+    Antes esto era gallery_emb @ query_emb en NumPy (CPU) + np.argsort, una
+    vez POR QUERY contra una galería de ~59k embeddings — con miles de
+    queries, esa búsqueda lineal repetida es el cuello de botella real de
+    esta etapa (no la extracción del embedding, que es una sola imagen a la
+    vez). Acá gallery_emb y query_emb ya están como tensores en DEVICE, así
+    que el matmul + top-k corre en GPU y solo bajan a CPU los k resultados
+    finales, no la galería completa en cada vuelta.
     """
-    sims = gallery_emb @ query_emb          # (N_gallery,)
-    return np.argsort(sims)[::-1][:k]
+    sims = gallery_emb @ query_emb          # (N_gallery,) — en DEVICE
+    topk_vals, topk_idx = torch.topk(sims, k)
+    return topk_idx.cpu().tolist(), topk_vals.cpu().tolist()
 
 
 def evaluar(cards_info: dict) -> dict:
@@ -166,16 +180,21 @@ def evaluar(cards_info: dict) -> dict:
     # ── Galería = TODOS los embeddings (imágenes limpias de Scryfall) ──────────
     # Las queries son versiones AUGMENTADAS de un 20% de esas mismas cartas.
     # La carta buscada SÍ existe en la galería → evaluación correcta.
-    gallery_emb = emb_matrix                     # (N, 1280)
-    n_total     = len(all_ids)
+    n_total = len(all_ids)
+
+    model = cargar_modelo()
+    print(f"Device    : {next(model.parameters()).device}")
+
+    # La galería se sube a DEVICE UNA sola vez acá afuera del loop — subirla
+    # de nuevo en cada query (o dejar que la búsqueda corra en CPU vía numpy)
+    # es justamente el cuello de botella que buscar_topk() evita ahora.
+    gallery_emb = torch.from_numpy(emb_matrix).to(DEVICE)   # (N, 1280)
 
     # Seleccionar 20% de posiciones como queries (sin reemplazar)
     rng_np = np.random.default_rng(SEED)
     query_positions = rng_np.choice(n_total, size=int(n_total * TEST_SPLIT), replace=False)
 
-    model = cargar_modelo()
-    print(f"Device    : {next(model.parameters()).device}")
-    rng   = random.Random(SEED)
+    rng = random.Random(SEED)
 
     top1_ok, top5_ok = 0, 0
     mrr_vals = []
@@ -216,20 +235,20 @@ def evaluar(cards_info: dict) -> dict:
 
         # Buscar en galería
         t0 = time.perf_counter()
-        topk_idx = buscar_topk(query_emb, gallery_emb, TOP_K)
+        topk_idx, topk_sims = buscar_topk(query_emb, gallery_emb, TOP_K)
         t1 = time.perf_counter()
         tiempos_busqueda_ms.append((t1 - t0) * 1000)
 
         # gallery_emb = emb_matrix completo → índices == posiciones en all_ids
         retrieved_ids = [all_ids[i] for i in topk_idx]
-        sim_scores    = (gallery_emb @ query_emb)
+        top1_sim      = topk_sims[0]
 
         correcto    = card_id in retrieved_ids
         top1_correcto = int(retrieved_ids[0] == card_id)
 
         # Datos para métricas de clasificación
         top1_correcto_list.append(top1_correcto)
-        top1_sim_list.append(float(sim_scores[topk_idx[0]]))
+        top1_sim_list.append(top1_sim)
         top1_card_info = cards_info.get(retrieved_ids[0], {})
         rarezas_validas = {"common", "uncommon", "rare", "mythic"}
         true_rar = card.get("rarity", "unknown")
@@ -256,7 +275,7 @@ def evaluar(cards_info: dict) -> dict:
                 "query_name"  : card["name"],
                 "match_path"  : str(IMAGES_DIR / f"{retrieved_ids[0]}.jpg"),
                 "match_name"  : top1_card.get("name", "?"),
-                "sim"         : float(sim_scores[topk_idx[0]]),
+                "sim"         : float(top1_sim),
             })
         elif not correcto and len(ejemplos_fail) < 4:
             ejemplos_fail.append({
@@ -264,7 +283,7 @@ def evaluar(cards_info: dict) -> dict:
                 "query_name"  : card["name"],
                 "match_path"  : str(IMAGES_DIR / f"{retrieved_ids[0]}.jpg"),
                 "match_name"  : top1_card.get("name", "?"),
-                "sim"         : float(sim_scores[topk_idx[0]]),
+                "sim"         : float(top1_sim),
             })
 
         if (qi_pos + 1) % 100 == 0:

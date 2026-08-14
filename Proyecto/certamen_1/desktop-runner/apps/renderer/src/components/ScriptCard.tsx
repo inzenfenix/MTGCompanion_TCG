@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { ArgForm } from './ArgForm';
 import { LogConsole } from './LogConsole';
 import { ResultsView } from './ResultsView';
@@ -24,14 +25,35 @@ export function ScriptCard({ script, onVenvChanged }: { script: ScriptInfo; onVe
   const [preparingVenv, setPreparingVenv] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stopping, setStopping] = useState(false);
-  const { lines, currentLine, status, lastActivityAt, results, liveStats } = useRunLogs(runId);
+  const { lines, currentLine, status, exitCode, lastActivityAt, results, liveStats, trackingLost, refresh } = useRunLogs(runId);
+
+  // Args con `linkedFrom` (ej. "delay" en shared-downloader) se recalculan
+  // solos cuando cambia su arg fuente ("workers") — pero solo hasta que el
+  // usuario edita ese campo a mano una vez, ahí queda desvinculado. No hace
+  // falta re-render por esto (no afecta el JSX de por sí), así que es un
+  // ref y no otro useState.
+  const manuallyEditedRef = useRef<Set<string>>(new Set());
 
   const requiredMissing = useMemo(
     () => script.args.some((a) => a.required && !values[a.name] && !(Array.isArray(values[a.name]) && (values[a.name] as unknown[]).length)),
     [script.args, values],
   );
 
-  const handleChange = (name: string, value: unknown) => setValues((prev) => ({ ...prev, [name]: value }));
+  const handleChange = (name: string, value: unknown) => {
+    manuallyEditedRef.current.add(name);
+    setValues((prev) => {
+      const next = { ...prev, [name]: value };
+      const numericValue = typeof value === 'number' ? value : Number(value);
+      if (!Number.isNaN(numericValue)) {
+        for (const linked of script.args) {
+          if (linked.linkedFrom?.arg === name && !manuallyEditedRef.current.has(linked.name)) {
+            next[linked.name] = Math.round(numericValue * linked.linkedFrom.factor * 1000) / 1000;
+          }
+        }
+      }
+      return next;
+    });
+  };
 
   const handleEnsureVenv = async () => {
     setPreparingVenv(true);
@@ -60,7 +82,16 @@ export function ScriptCard({ script, onVenvChanged }: { script: ScriptInfo; onVe
     if (!runId) return;
     setStopping(true);
     try {
-      await api.stop(runId);
+      const { ok } = await api.stop(runId);
+      if (!ok) {
+        // El server no encontró nada que matar — lo más probable es que el
+        // proceso ya haya terminado (o el server se haya reiniciado en
+        // dev-watch, perdiendo el tracking) y el evento de WebSocket que
+        // avisaba eso nunca llegó, dejando el status local pegado en
+        // "running" para siempre. Antes esto no hacía nada visible; ahora
+        // se fuerza una reconciliación contra el estado real.
+        await refresh();
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -104,13 +135,26 @@ export function ScriptCard({ script, onVenvChanged }: { script: ScriptInfo; onVe
 
         {results.length > 0 && <ResultsView results={results} />}
 
+        {(status === 'error' || status === 'stopped') && (
+          <Alert variant={status === 'error' ? 'destructive' : 'warning'}>
+            <AlertTitle>{trackingLost ? 'Se perdió el rastro del proceso' : status === 'error' ? 'Terminó con error' : 'Detenido'}</AlertTitle>
+            <AlertDescription>
+              {trackingLost
+                ? 'El server ya no tiene registro de este proceso (lo más probable: se reinició mientras corría, algo normal en modo dev). Puede que el proceso siga corriendo en segundo plano sin que la app lo sepa — revisa la consola de abajo por si alcanzó a dejar más output, y si quieres asegurarte de que terminó, dale "Reintentar".'
+                : status === 'error'
+                  ? `El script salió con error${exitCode != null ? ` (código ${exitCode})` : ''} — mira el detalle en la consola de abajo.`
+                  : 'Se detuvo antes de terminar (manualmente, o porque el server ya no tenía el proceso — ver detalle en consola).'}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {runId && (
           <LogConsole lines={lines} currentLine={currentLine} status={status} lastActivityAt={lastActivityAt} />
         )}
       </CardContent>
       <CardFooter className="gap-2">
         <Button onClick={handleRun} disabled={status === 'running' || requiredMissing}>
-          {status === 'running' ? 'Corriendo…' : 'Correr'}
+          {status === 'running' ? 'Corriendo…' : status === 'error' || status === 'stopped' ? 'Reintentar' : 'Correr'}
         </Button>
         {status === 'running' && (
           <Button variant="destructive" onClick={handleStop} disabled={stopping}>

@@ -142,10 +142,26 @@ def augmentar_imagen(img_path: pathlib.Path, rng: random.Random) -> Image.Image:
 
 # ── Búsqueda ──────────────────────────────────────────────────────────────────
 
-def buscar_topk(query_emb: np.ndarray, gallery_emb: np.ndarray, k: int) -> np.ndarray:
-    """Índices de las k cartas más similares (similitud coseno = producto punto, embeddings L2-normalizados)."""
+def buscar_topk(query_emb: np.ndarray, gallery_emb: np.ndarray, k: int) -> tuple[list[int], list[float]]:
+    """
+    Retorna (índices, similitudes) de las k cartas más similares en la
+    galería (similitud coseno = producto punto, embeddings L2-normalizados).
+
+    np.argpartition en vez de np.argsort()[::-1][:k]: argpartition es O(N) en
+    vez de O(N log N) — no ordena la galería completa (acá, decenas de miles
+    de cartas) solo para quedarse con las k mejores. Es la misma idea que
+    torch.topk() del lado PyTorch (selección parcial en vez de sort
+    completo); acá se hace en NumPy porque TensorFlow no tiene acceso a GPU
+    en esta máquina (ver README § GPU AMD/ROCm) — la ganancia es algorítmica
+    (CPU), no de paralelismo de GPU.
+    """
     sims = gallery_emb @ query_emb
-    return np.argsort(sims)[::-1][:k]
+    if k >= len(sims):
+        idx = np.argsort(sims)[::-1]
+    else:
+        top_unsorted = np.argpartition(sims, -k)[-k:]
+        idx = top_unsorted[np.argsort(sims[top_unsorted])[::-1]]
+    return idx.tolist(), sims[idx].tolist()
 
 
 def evaluar(cards_info: dict) -> tuple:
@@ -199,12 +215,12 @@ def evaluar(cards_info: dict) -> tuple:
         tiempos_extraccion_ms.append((t1 - t0) * 1000)
 
         t0 = time.perf_counter()
-        topk_idx = buscar_topk(query_emb, gallery_emb, TOP_K)
+        topk_idx, topk_sims = buscar_topk(query_emb, gallery_emb, TOP_K)
         t1 = time.perf_counter()
         tiempos_busqueda_ms.append((t1 - t0) * 1000)
 
         retrieved_ids = [all_ids[i] for i in topk_idx]
-        sim_scores = gallery_emb @ query_emb
+        top1_sim = topk_sims[0]
 
         correcto = card_id in retrieved_ids
         top1_es_correcto = retrieved_ids[0] == card_id
@@ -222,7 +238,7 @@ def evaluar(cards_info: dict) -> tuple:
         top1_card = cards_info.get(retrieved_ids[0], {})
 
         top1_correcto.append(int(top1_es_correcto))
-        top1_scores.append(float(sim_scores[topk_idx[0]]))
+        top1_scores.append(float(top1_sim))
         rarezas_true.append(card.get("rarity", "unknown"))
         rarezas_pred.append(top1_card.get("rarity", "unknown"))
 
@@ -231,7 +247,7 @@ def evaluar(cards_info: dict) -> tuple:
             "query_name": card["name"],
             "match_path": str(PATHS.images_dir / f"{retrieved_ids[0]}.jpg"),
             "match_name": top1_card.get("name", "?"),
-            "sim": float(sim_scores[topk_idx[0]]),
+            "sim": float(top1_sim),
         }
         if correcto and len(ejemplos_ok) < 4:
             ejemplos_ok.append(entry)

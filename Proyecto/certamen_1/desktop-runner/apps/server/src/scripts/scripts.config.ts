@@ -80,6 +80,18 @@ export interface ArgDef {
    * no el valor que se manda al script.
    */
   recommended?: string;
+  /**
+   * Este arg se recalcula automáticamente como `factor * valor(arg)` cada
+   * vez que cambia `arg` — hasta que el usuario lo edita a mano una vez, a
+   * partir de ahí queda desvinculado (ver ScriptCard.tsx). Pensado para
+   * "workers" -> "delay" en shared-downloader: con workers paralelos
+   * independientes, cada uno respetando su propio delay, la tasa de
+   * requests AGREGADA contra Scryfall es workers/delay — sin esto, subir
+   * workers sin subir delay en la misma proporción multiplica esa tasa sin
+   * que se note en el form, que es probablemente lo que causó una descarga
+   * "colgada" (ver README, sección Downloader).
+   */
+  linkedFrom?: { arg: string; factor: number };
 }
 
 export interface ResultFileDef {
@@ -177,7 +189,15 @@ export const SCRIPTS: ScriptDef[] = [
     env: 'pytorch',
     args: [
       { flag: '--workers', name: 'workers', kind: 'number', label: 'Workers en paralelo', default: 4 },
-      { flag: '--delay', name: 'delay', kind: 'float', label: 'Delay entre requests (s)', default: 0.06 },
+      {
+        flag: '--delay',
+        name: 'delay',
+        kind: 'float',
+        label: 'Delay entre requests (s)',
+        default: 0.06,
+        help: 'Se ajusta solo al cambiar "Workers" (mantiene la tasa agregada contra Scryfall constante) — edítalo a mano si quieres desvincularlo.',
+        linkedFrom: { arg: 'workers', factor: 0.015 },
+      },
     ],
   },
   {
@@ -492,7 +512,7 @@ export function findScript(id: string): ScriptDef | undefined {
   return SCRIPTS.find((s) => s.id === id);
 }
 
-// ── Comparación PyTorch vs TensorFlow para la pestaña "Export ONNX" ────────
+// ── Comparación PyTorch vs TensorFlow para la pestaña "Exportar" ──────────
 
 export type ComparableFramework = 'pytorch' | 'tensorflow';
 

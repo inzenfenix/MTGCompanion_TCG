@@ -35,11 +35,10 @@ cd desktop-runner
 npm install
 ```
 
-**Nota:** este proyecto queda dentro de una carpeta sincronizada con OneDrive.
-`node_modules` tiene miles de archivos chicos — si notás que OneDrive se pone
-lento después de instalar, marcá `desktop-runner/node_modules` para que
-OneDrive no lo sincronice ("Liberar espacio" / excluir la carpeta), no afecta
-al proyecto.
+**Nota:** si tu clone del repo vive dentro de una carpeta sincronizada por
+OneDrive/Dropbox/similar, `node_modules` tiene miles de archivos chicos y
+puede ponerse lento — marcá `desktop-runner/node_modules` para que no se
+sincronice ("Liberar espacio" / excluir la carpeta), no afecta al proyecto.
 
 ## Correr en desarrollo
 
@@ -85,7 +84,7 @@ Los scripts de entrenamiento de Stage 4 (`10_condition_grader.py` /
 `10_optuna_condition_grader.py` en tensorFlow/) todavía no están registrados
 acá — solo sus exports a ONNX. Se corren manualmente por ahora; sus
 resultados (`final_metrics.json`) sí se leen y comparan en la pestaña
-"Export ONNX".
+"Exportar".
 
 Cada script muestra sus parámetros reales (los mismos flags de
 `argparse` que ves en `Proyecto/certamen_1/README.md`), con sus valores por
@@ -133,9 +132,9 @@ usable, cae a CPU.
 El resultado de la detección se puede consultar en `GET /gpu` (el server
 NestJS embebido, puerto 4550) y se cachea una sola vez por corrida de la app.
 
-## Export ONNX: comparar frameworks y exportar
+## Exportar: comparar frameworks y exportar a ONNX
 
-Pestaña "Export ONNX", al lado de las demás. Por cada etapa del pipeline que
+Pestaña "Exportar", al lado de las demás. Por cada etapa del pipeline que
 entrena los dos frameworks (Stage 1 — detector MTG/no-MTG, Stage 4 —
 clasificador de condición NM/LP/MP/HP/DMG; Stage 2/3 no aparecen acá, no son
 dual-framework) muestra:
@@ -199,11 +198,34 @@ en vez de un número suelto:
   espíritu a `masters`/`commander`, que hoy quedan afuera del 100%. No se
   agregaron por las suyas: es una decisión de alcance del dataset, no un bug.
 
+## Downloader: por qué "Delay entre requests" se mueve solo
+
+`02_downloader.py` (`shared-downloader`) reparte las descargas entre N
+workers en paralelo, cada uno respetando su propio `--delay` entre sus
+propias requests — pero eso significa que la tasa AGREGADA contra Scryfall
+es `workers / delay`, no solo `1 / delay`. Con los valores por defecto
+(4 workers, 0.06s) ya da ~66 requests/s combinadas; si solo subís
+"Workers" a 8 sin tocar el delay, quedan ~133/s — el doble, sin que se note
+en el form — y una tasa así de agresiva sostenida contra miles de imágenes
+es la sospecha más probable detrás de una descarga que se queda "pegada"
+sin avisar (ver también el fix de timeout/reintentos en `02_downloader.py`
+mismo, que ataca el otro lado del mismo síntoma: una conexión que gotea
+datos muy lento puede ocupar un worker mucho más de lo que sugiere un
+timeout de 30s plano).
+
+Por eso el campo "Delay entre requests" se recalcula solo al cambiar
+"Workers" (`workers * 0.015`, la misma proporción que ya tenían los
+defaults: 4→0.06, 8→0.12, etc. — mantiene la tasa agregada constante sin
+importar cuántos workers seas eligas), hasta que lo edites a mano una vez —
+ahí queda desvinculado. Es un mecanismo genérico (`ArgDef.linkedFrom` en
+`scripts.config.ts`), no algo hardcodeado solo para este script, si hace
+falta la misma relación en otro lado.
+
 ## Pendiente / fuera de alcance de esta primera versión
 
 - **Empaquetar como instalador** (`.exe`/`.dmg`): hoy se corre con
   `npm run electron` desde la terminal (una sola vez, para abrir la app — ya
-  no hace falta volver a la terminal para correr los `.py`). Si querés un
+  no hace falta volver a la terminal para correr los `.py`). Si quieres un
   ejecutable de doble clic, se puede agregar `electron-builder`.
 - El scraping/descarga de dataset (`01_scraper.py`, `02_downloader.py`) puede
   tardar minutos/horas según `--max-cards`; la consola de logs muestra

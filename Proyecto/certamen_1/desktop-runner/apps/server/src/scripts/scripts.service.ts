@@ -87,7 +87,7 @@ export class ScriptsService {
     return getScraperCardCount();
   }
 
-  // ── Comparación PyTorch vs TensorFlow (pestaña "Export ONNX") ──────────
+  // ── Comparación PyTorch vs TensorFlow (pestaña "Exportar") ─────────────
 
   /**
    * Por cada etapa dual-framework (Stage 1, Stage 4), lee final_metrics.json

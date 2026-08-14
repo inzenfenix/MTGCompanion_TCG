@@ -37,7 +37,17 @@ DATA_DIR    = pathlib.Path(__file__).resolve().parent / "data"
 IMAGES_DIR  = DATA_DIR / "images"
 MAX_WORKERS = 4          # paralelo conservador (política Scryfall)
 DELAY_S     = 0.06       # 60 ms entre requests por worker
-TIMEOUT_S   = 30
+# (connect, read) en vez de un timeout único: `requests` reinicia el timeout
+# de lectura en cada byte que llega, no lo aplica a la duración total de la
+# respuesta — una conexión que "gotea" datos muy lento (poco común pero real
+# bajo carga sostenida contra el CDN de Scryfall) puede ocupar un worker
+# mucho más de lo que sugiere un timeout plano de 30s, y con varios workers
+# en paralelo eso se ve como la descarga entera "colgada" sin ningún error
+# ni output nuevo por varios minutos. Separarlo no elimina el caso extremo
+# del todo, pero sí acota el más común (conexión que nunca arranca).
+CONNECT_TIMEOUT_S = 10
+READ_TIMEOUT_S    = 20
+MAX_REINTENTOS    = 2     # intentos extra tras el primero, con backoff corto
 USER_AGENT  = "MTG-Scanner-Academic/1.0"
 
 
@@ -52,23 +62,36 @@ def descargar_carta(card: dict, session: requests.Session) -> tuple:
     if ruta.exists():
         return card["id"], True, "cached"
 
-    try:
-        resp = session.get(card["image_url"], timeout=TIMEOUT_S)
-        resp.raise_for_status()
+    for intento in range(MAX_REINTENTOS + 1):
+        try:
+            resp = session.get(card["image_url"], timeout=(CONNECT_TIMEOUT_S, READ_TIMEOUT_S))
+            resp.raise_for_status()
 
-        # Verificar que sea una imagen válida (Scryfall retorna JPEG)
-        content_type = resp.headers.get("Content-Type", "")
-        if "image" not in content_type:
-            return card["id"], False, f"Content-Type inesperado: {content_type}"
+            # Verificar que sea una imagen válida (Scryfall retorna JPEG)
+            content_type = resp.headers.get("Content-Type", "")
+            if "image" not in content_type:
+                return card["id"], False, f"Content-Type inesperado: {content_type}"
 
-        ruta.write_bytes(resp.content)
-        time.sleep(DELAY_S)
-        return card["id"], True, str(ruta)
+            ruta.write_bytes(resp.content)
+            time.sleep(DELAY_S)
+            return card["id"], True, str(ruta)
 
-    except requests.HTTPError as e:
-        return card["id"], False, f"HTTP {e.response.status_code}"
-    except Exception as e:
-        return card["id"], False, str(e)
+        except requests.HTTPError as e:
+            return card["id"], False, f"HTTP {e.response.status_code}"
+        except (requests.Timeout, requests.ConnectionError) as e:
+            if intento < MAX_REINTENTOS:
+                # A propósito por stderr (no stdout): así no interrumpe el
+                # redibujo de la barra de tqdm, pero SÍ deja algo visible en
+                # la consola en vivo del runner mientras dura una racha
+                # lenta — antes esto era completamente silencioso y parecía
+                # que el script entero se había colgado.
+                print(f"  reintentando {card['id']} ({intento + 1}/{MAX_REINTENTOS}) tras {type(e).__name__}...",
+                      file=sys.stderr, flush=True)
+                time.sleep(1.5 * (intento + 1))
+                continue
+            return card["id"], False, f"{type(e).__name__} tras {MAX_REINTENTOS + 1} intentos: {e}"
+        except Exception as e:
+            return card["id"], False, str(e)
 
 
 def main():

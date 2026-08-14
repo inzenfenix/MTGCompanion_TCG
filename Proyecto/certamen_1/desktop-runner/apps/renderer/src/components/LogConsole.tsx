@@ -11,13 +11,37 @@ interface Props {
   className?: string;
 }
 
+// Cuánto margen (px) desde el fondo todavía cuenta como "está abajo" —
+// alcanza para que reflow/redondeo de subpíxeles no lo saque del autoscroll
+// por accidente.
+const NEAR_BOTTOM_PX = 24;
+
 export function LogConsole({ lines, currentLine, status, lastActivityAt, className }: Props) {
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const wasNearBottomRef = useRef(true);
   const [idleSeconds, setIdleSeconds] = useState(0);
 
+  // Autoscroll al fondo SOLO si el usuario ya estaba ahí — si se corrió para
+  // arriba a leer algo, un script con mucho output (ej. 02_downloader.py con
+  // varios workers en paralelo) no debería arrancarlo de vuelta al fondo en
+  // cada línea nueva. Ojo: antes esto usaba scrollIntoView() sobre un div
+  // sentinel al final de la lista, que busca el ancestro scrolleable más
+  // cercano — con el contenedor scrolleado hasta el borde, terminaba
+  // arrastrando también el scroll de LA PÁGINA entera hacia la consola en
+  // cada línea nueva, dejando imposible bajar más allá de ella. Tocar
+  // scrollTop directo sobre el contenedor de logs evita que el scroll salga
+  // de ese elemento.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: 'end' });
+    const el = containerRef.current;
+    if (!el || !wasNearBottomRef.current) return;
+    el.scrollTop = el.scrollHeight;
   }, [lines.length, currentLine]);
+
+  const handleScroll = () => {
+    const el = containerRef.current;
+    if (!el) return;
+    wasNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_PX;
+  };
 
   // Aunque no llegue output nuevo, este contador confirma que el proceso sigue vivo
   // en vez de dejar la consola muda sin ninguna señal de actividad.
@@ -48,7 +72,11 @@ export function LogConsole({ lines, currentLine, status, lastActivityAt, classNa
           </span>
         </div>
       )}
-      <ScrollArea className="h-56 rounded-md bg-slate-950 p-3 font-mono text-xs text-slate-100">
+      <ScrollArea
+        ref={containerRef}
+        onScroll={handleScroll}
+        className="h-56 rounded-md bg-slate-950 p-3 font-mono text-xs text-slate-100"
+      >
         {empty ? (
           <p className="text-slate-500">Sin output todavía…</p>
         ) : (
@@ -66,7 +94,6 @@ export function LogConsole({ lines, currentLine, status, lastActivityAt, classNa
             )}
           </>
         )}
-        <div ref={bottomRef} />
       </ScrollArea>
     </div>
   );

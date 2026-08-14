@@ -3,8 +3,13 @@ MTG Card Scanner — Certamen 1
 07_binary_classifier.py: Clasificador binario "¿Es una carta MTG?"
 
 Pipeline:
-    1. Descarga metadatos e imágenes de cartas Pokémon desde pokemontcg.io (negativos).
-    2. Construye dataset balanceado: N cartas MTG + N cartas Pokémon (clases iguales).
+    1. Descarga metadatos e imágenes de varias fuentes como negativos: dos
+       TCGs — Pokémon (pokemontcg.io) + Yu-Gi-Oh! (YGOPRODeck) — y dos mazos
+       de naipes fuera del mundo TCG — inglés/francés y español (Wikimedia
+       Commons, dominio público). Más de una fuente, y de tipos distintos de
+       "no-MTG", evita que el clasificador aprenda un atajo específico de
+       una sola fuente en vez de "MTG vs cualquier otra cosa".
+    2. Construye dataset balanceado: N cartas MTG + N cartas no-MTG (clases iguales).
     3. Fine-tune EfficientNet_b0 con cabeza binaria (BCEWithLogitsLoss).
     4. Evalúa: confusion matrix, F1-score, ROC-AUC.
     5. Guarda modelo en models/mtg_detector.pth para usar en scanner.py.
@@ -20,6 +25,7 @@ import argparse
 import json
 import pathlib
 import random
+import re
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -66,9 +72,11 @@ VAL_SPLIT    = 0.20
 # build_binary_classifier() en src/binary_classifier.py (única fuente de verdad,
 # compartida con 08_optuna_binary_classifier.py).
 
-POKEMON_API   = "https://api.pokemontcg.io/v2/cards"
-POKEMON_HDR   = {"User-Agent": "MTG-Scanner-Academic/1.0 (UDD Frameworks de IA)"}
-POKEMON_DELAY = 0.06  # 60 ms entre descargas de imagen
+POKEMON_API = "https://api.pokemontcg.io/v2/cards"
+YUGIOH_API  = "https://db.ygoprodeck.com/api/v7/cardinfo.php"
+COMMONS_API = "https://commons.wikimedia.org/w/api.php"
+NEG_HDR     = {"User-Agent": "MTG-Scanner-Academic/1.0 (UDD Frameworks de IA)"}
+NEG_DELAY   = 0.06  # 60 ms entre descargas de imagen, para cualquier fuente
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD  = [0.229, 0.224, 0.225]
@@ -78,7 +86,13 @@ random.seed(SEED)
 np.random.seed(SEED)
 
 
-# ── SECCIÓN 1: Descarga de negativos (Pokémon TCG) ────────────────────────────
+# ── SECCIÓN 1: Descarga de negativos (varios juegos de cartas) ────────────────
+# Usar más de un juego como clase "no-MTG" evita que el clasificador aprenda
+# "Pokémon vs MTG" en vez de "MTG vs cualquier otra cosa" — con una sola
+# fuente de negativos, el modelo puede engancharse a rasgos específicos de
+# ESE juego (el borde amarillo de Pokémon, por ejemplo) en vez de generalizar
+# a lo que en producción va a ser una cámara apuntando a cualquier cosa que
+# no sea una carta de Magic (otro TCG, una mano, una mesa, etc.).
 
 def _get_con_reintentos(url: str, max_reintentos: int = 5, backoff: float = 2.0, **kwargs):
     """GET con reintentos y backoff exponencial ante fallos de red transitorios
@@ -115,7 +129,7 @@ def obtener_metadata_pokemon(n_target: int) -> list:
             resp = _get_con_reintentos(
                 POKEMON_API,
                 params={"pageSize": 250, "page": page},
-                headers=POKEMON_HDR,
+                headers=NEG_HDR,
                 timeout=60,
             )
         except requests.exceptions.RequestException as e:
@@ -145,58 +159,258 @@ def obtener_metadata_pokemon(n_target: int) -> list:
     return cartas[:n_target]
 
 
-def _descargar_una(card: dict, dest_dir: pathlib.Path) -> bool:
+def obtener_metadata_yugioh(n_target: int) -> list:
+    """
+    Descarga metadatos de cartas Yu-Gi-Oh! desde YGOPRODeck (db.ygoprodeck.com).
+    No requiere API key. A diferencia de Pokémon TCG, un solo request puede
+    pedir un bloque grande vía num/offset — igual se pagina para no depender
+    de una respuesta gigante de una vez.
+    Retorna lista de dicts {id, name, image_url}.
+    """
+    cartas    = []
+    offset    = 0
+    page_size = 500
+    print(f"  Descargando metadatos Yu-Gi-Oh! (objetivo: {n_target:,} cartas)...")
+
+    while len(cartas) < n_target:
+        try:
+            resp = _get_con_reintentos(
+                YUGIOH_API,
+                params={"num": page_size, "offset": offset},
+                headers=NEG_HDR,
+                timeout=60,
+            )
+        except requests.exceptions.RequestException as e:
+            print(f"    ✗ Offset {offset} falló tras reintentos ({e}); "
+                  f"continuando con {len(cartas)} cartas obtenidas.")
+            break
+
+        data  = resp.json()
+        batch = data.get("data", [])
+        if not batch:
+            break
+
+        for card in batch:
+            imgs = card.get("card_images") or []
+            url  = imgs[0]["image_url"] if imgs else None
+            if url:
+                cartas.append({"id": str(card["id"]), "name": card["name"], "image_url": url})
+
+        print(f"    Offset {offset}: +{len(batch)} cartas  ({len(cartas)}/{n_target} cargadas)")
+
+        if len(batch) < page_size:
+            break
+        offset += page_size
+        time.sleep(0.25)  # respetar rate-limit de la API
+
+    return cartas[:n_target]
+
+
+def _commons_category_files(category: str) -> list[str]:
+    """Lista todos los títulos de archivo de una categoría de Wikimedia Commons
+    (con paginación vía cmcontinue)."""
+    titles: list[str] = []
+    params = {
+        "action": "query", "list": "categorymembers", "cmtitle": f"Category:{category}",
+        "cmlimit": 100, "cmtype": "file", "format": "json",
+    }
+    while True:
+        resp = _get_con_reintentos(COMMONS_API, params=params, headers=NEG_HDR, timeout=30)
+        data = resp.json()
+        titles += [m["title"] for m in data.get("query", {}).get("categorymembers", [])]
+        cont = data.get("continue")
+        if not cont:
+            break
+        params = {**params, **cont}
+    return titles
+
+
+def _commons_resolve_urls(titles: list[str], width: int = 800) -> dict[str, str]:
+    """
+    Resuelve títulos de archivo de Commons a una URL de imagen directa.
+    Usa thumburl (Commons rasteriza SVG a PNG del lado servidor — no hace
+    falta ninguna librería de SVG acá) con fallback a la URL original.
+    La API acepta hasta 50 títulos por request.
+    """
+    urls: dict[str, str] = {}
+    for i in range(0, len(titles), 50):
+        batch = titles[i:i + 50]
+        resp = _get_con_reintentos(
+            COMMONS_API,
+            params={
+                "action": "query", "titles": "|".join(batch),
+                "prop": "imageinfo", "iiprop": "url", "iiurlwidth": width,
+                "format": "json",
+            },
+            headers=NEG_HDR, timeout=30,
+        )
+        data = resp.json()
+        for page in data.get("query", {}).get("pages", {}).values():
+            info = (page.get("imageinfo") or [{}])[0]
+            url = info.get("thumburl") or info.get("url")
+            if url and page.get("title"):
+                urls[page["title"]] = url
+        time.sleep(0.2)  # ser educados con la API de Commons
+    return urls
+
+
+def _commons_id(title: str, prefix: str) -> str:
+    """'File:English pattern ace of clubs.svg' → 'en_English_pattern_ace_of_clubs'."""
+    stem = title.split(":", 1)[-1].rsplit(".", 1)[0]
+    return f"{prefix}_{stem.replace(' ', '_')}"
+
+
+def obtener_metadata_playing_cards_en(n_target: int) -> list:
+    """
+    Mazo estándar inglés/francés (52 cartas, "English pattern", dominio
+    público) desde Wikimedia Commons. Es un mazo FIJO — no hay 52+1 cartas
+    que pedir — así que n_target solo importa si es menor a 52 (recorta).
+    Sirve de negativo cualitativamente distinto a un TCG: sin arte
+    ilustrado, sin caja de texto, formato totalmente distinto a una carta
+    de Magic — ver comentario al inicio de esta sección.
+    """
+    print("  Descargando metadatos: mazo inglés estándar (Wikimedia Commons)...")
+    titles = _commons_category_files("SVG English pattern playing cards")
+    titles = [t for t in titles if "deck" not in t.lower()]  # excluye imágenes de mazo completo (varias cartas juntas)
+    urls = _commons_resolve_urls(titles)
+    cartas = [{"id": _commons_id(t, "en"), "name": t, "image_url": u} for t, u in urls.items()]
+    print(f"    {len(cartas)} cartas encontradas")
+    return cartas[:n_target]
+
+
+def obtener_metadata_playing_cards_es(n_target: int) -> list:
+    """
+    Baraja española (40 cartas, patrón Fournier, dominio público) desde
+    Wikimedia Commons. Igual que el mazo inglés: fijo, no escalable. La
+    categoría de Commons trae de todo mezclado (ilustraciones de jugadas de
+    truco/mus, mazos completos, nombres de archivo inconsistentes) — se
+    filtra específicamente a la serie "Heraclio Fournier N Palo.jpg", que es
+    la única con una carta por archivo y las 40 cartas completas (1-7, 10-12
+    × 4 palos, sin 8 ni 9 — el mazo español estándar de 40).
+    """
+    print("  Descargando metadatos: baraja española (Wikimedia Commons)...")
+    titles = _commons_category_files("Castilian pattern")
+    patron = re.compile(r"^File:Heraclio Fournier \d+ (Bastos|Copas|Espadas|Oros)\.jpg$")
+    titles = [t for t in titles if patron.match(t)]
+    urls = _commons_resolve_urls(titles)
+    cartas = [{"id": _commons_id(t, "es"), "name": t, "image_url": u} for t, u in urls.items()]
+    print(f"    {len(cartas)} cartas encontradas")
+    return cartas[:n_target]
+
+
+# nombre de carpeta/caché → (función que trae metadata, si es "escalable").
+# Pokémon y Yu-Gi-Oh! tienen miles de cartas disponibles — el presupuesto se
+# reparte parejo entre ellas. Los mazos de naipes (inglés/español) son de
+# tamaño FIJO (52 y 40 cartas respectivamente) — se bajan enteros primero y
+# el resto del presupuesto se reparte entre las fuentes escalables. Ver
+# descargar_negativos().
+_COMMONS_DL = {"workers": 1, "delay": 1.5, "max_reintentos": 6, "backoff": 3.0}
+
+NEG_SOURCES = {
+    "pokemon":          {"fetch": obtener_metadata_pokemon,          "scalable": True},
+    "yugioh":           {"fetch": obtener_metadata_yugioh,           "scalable": True},
+    # Wikimedia Commons (upload.wikimedia.org) devuelve 429 "Too many requests"
+    # incluso en serie con el delay/backoff por defecto — ver _descargar_fuente.
+    "playing_cards_en": {"fetch": obtener_metadata_playing_cards_en, "scalable": False, **_COMMONS_DL},
+    "playing_cards_es": {"fetch": obtener_metadata_playing_cards_es, "scalable": False, **_COMMONS_DL},
+}
+
+
+def _descargar_una(card: dict, dest_dir: pathlib.Path, delay: float = NEG_DELAY,
+                    max_reintentos: int = 3, backoff: float = 2.0) -> bool:
     dest = dest_dir / f"{card['id']}.jpg"
     if dest.exists():
         return True
     try:
         resp = _get_con_reintentos(
-            card["image_url"], max_reintentos=3, headers=POKEMON_HDR, timeout=30,
+            card["image_url"], max_reintentos=max_reintentos, backoff=backoff, headers=NEG_HDR, timeout=30,
         )
         dest.write_bytes(resp.content)
-        time.sleep(POKEMON_DELAY)
+        time.sleep(delay)
         return True
     except Exception:
         return False
 
 
-def descargar_negativos(n_target: int, skip: bool = False) -> list:
-    """
-    Descarga imágenes de cartas Pokémon como ejemplos negativos.
-    Retorna lista de rutas a archivos descargados existentes.
-    """
-    poke_dir  = IMAGES_NEG / "pokemon"
-    poke_dir.mkdir(parents=True, exist_ok=True)
+def _descargar_fuente(nombre: str, fetch_meta, n_target: int, skip: bool, workers: int = 4,
+                       delay: float = NEG_DELAY, max_reintentos: int = 3, backoff: float = 2.0) -> list:
+    """Descarga (con caché) las imágenes de UNA fuente de negativos. Misma
+    lógica que antes tenía descargar_negativos(), ahora parametrizada por
+    fuente para no duplicarla por cada juego nuevo que se agregue.
 
-    meta_path = IMAGES_NEG / "pokemon_meta.json"
+    workers/delay/backoff: pokemontcg.io y YGOPRODeck toleran 4 hilos y el
+    delay/backoff por defecto sin problema, pero el CDN de Wikimedia Commons
+    (upload.wikimedia.org) devuelve 429 "Too many requests" incluso en serie
+    con el delay por defecto — para esas fuentes se pasa workers=1, un delay
+    más largo entre descargas y más reintentos con backoff más generoso. El
+    volumen ahí es chico (52+40 cartas), así que ir más lento no cuesta nada
+    en tiempo real.
+    """
+    dir_ = IMAGES_NEG / nombre
+    dir_.mkdir(parents=True, exist_ok=True)
+
+    meta_path = IMAGES_NEG / f"{nombre}_meta.json"
     if meta_path.exists():
         with open(meta_path) as f:
             cartas = json.load(f)
-        print(f"  Metadatos Pokémon en caché: {len(cartas):,} cartas")
+        print(f"  Metadatos en caché ({nombre}): {len(cartas):,} cartas")
         if len(cartas) < n_target:
-            # Descargar más páginas si el caché es insuficiente
             print(f"  Caché insuficiente ({len(cartas)} < {n_target}), expandiendo...")
-            cartas = obtener_metadata_pokemon(n_target)
+            cartas = fetch_meta(n_target)
             with open(meta_path, "w") as f:
                 json.dump(cartas, f)
     else:
-        cartas = obtener_metadata_pokemon(n_target)
+        cartas = fetch_meta(n_target)
         with open(meta_path, "w") as f:
             json.dump(cartas, f)
 
     if not skip:
-        pendientes = [c for c in cartas if not (poke_dir / f"{c['id']}.jpg").exists()]
+        pendientes = [c for c in cartas if not (dir_ / f"{c['id']}.jpg").exists()]
         ya_ok      = len(cartas) - len(pendientes)
         print(f"  Ya descargadas: {ya_ok:,}  |  Pendientes: {len(pendientes):,}")
         if pendientes:
-            print(f"  Descargando imágenes Pokémon (4 hilos, ~{len(pendientes)*100//1024} MB estimado)...")
-            with ThreadPoolExecutor(max_workers=4) as pool:
-                futures = {pool.submit(_descargar_una, c, poke_dir): c for c in pendientes}
-                ok = sum(1 for f in tqdm(as_completed(futures), total=len(pendientes), desc="    Pokémon") if f.result())
+            print(f"  Descargando imágenes {nombre} ({workers} hilo{'s' if workers != 1 else ''}, ~{len(pendientes)*100//1024} MB estimado)...")
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                futures = {
+                    pool.submit(_descargar_una, c, dir_, delay, max_reintentos, backoff): c
+                    for c in pendientes
+                }
+                ok = sum(1 for f in tqdm(as_completed(futures), total=len(pendientes), desc=f"    {nombre}") if f.result())
             print(f"  Descargadas: {ok:,} nuevas")
 
-    rutas = [str(poke_dir / f"{c['id']}.jpg") for c in cartas
-             if (poke_dir / f"{c['id']}.jpg").exists()]
+    return [str(dir_ / f"{c['id']}.jpg") for c in cartas if (dir_ / f"{c['id']}.jpg").exists()]
+
+
+def descargar_negativos(n_target: int, skip: bool = False) -> list:
+    """
+    Descarga imágenes de varias fuentes como ejemplos negativos — dos TCGs
+    (Pokémon, Yu-Gi-Oh!) y dos mazos de naipes fuera del mundo TCG (inglés,
+    español) — ver el comentario al inicio de esta sección sobre por qué
+    varias fuentes en vez de una sola.
+
+    Las fuentes fijas (naipes) se bajan primero, enteras — no tiene sentido
+    pedirles "n_target/4" cuando el mazo entero son 40-52 cartas. El resto
+    del presupuesto (n_target menos lo que ya aportaron los mazos fijos) se
+    reparte parejo entre las fuentes escalables (Pokémon, Yu-Gi-Oh!), que sí
+    tienen miles de cartas para dar.
+    """
+    fijas      = {k: v for k, v in NEG_SOURCES.items() if not v["scalable"]}
+    escalables = {k: v for k, v in NEG_SOURCES.items() if v["scalable"]}
+
+    def _dl_kwargs(cfg: dict) -> dict:
+        return {k: cfg[k] for k in ("workers", "delay", "max_reintentos", "backoff") if k in cfg}
+
+    rutas = []
+    for nombre, cfg in fijas.items():
+        print(f"  ── Fuente de negativos: {nombre} (mazo fijo, se usa completo) ──")
+        rutas += _descargar_fuente(nombre, cfg["fetch"], n_target, skip, **_dl_kwargs(cfg))
+
+    resto = max(n_target - len(rutas), 0)
+    base, sobra = divmod(resto, len(escalables))
+    for i, (nombre, cfg) in enumerate(escalables.items()):
+        n_fuente = base + (1 if i < sobra else 0)
+        print(f"  ── Fuente de negativos: {nombre} (objetivo: {n_fuente:,} cartas) ──")
+        rutas += _descargar_fuente(nombre, cfg["fetch"], n_fuente, skip, **_dl_kwargs(cfg))
     return rutas
 
 

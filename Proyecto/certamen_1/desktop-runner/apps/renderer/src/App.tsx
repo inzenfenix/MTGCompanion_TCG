@@ -26,7 +26,7 @@ const GROUPS: { value: TabValue; label: string }[] = [
   { value: 'pytorch', label: 'PyTorch' },
   { value: 'tensorflow', label: 'TensorFlow' },
   { value: 'testing', label: 'Testing' },
-  { value: 'export', label: 'Export ONNX' },
+  { value: 'export', label: 'Exportar' },
 ];
 
 export default function App() {
@@ -79,7 +79,7 @@ export default function App() {
         <div>
           <h1 className="text-xl font-semibold">MTG Card Scanner — Runner</h1>
           <p className="text-sm text-muted-foreground">
-            Corré los pipelines de certamen_1 (PyTorch / TensorFlow) sin usar la terminal.
+            Corre los pipelines de certamen_1 (PyTorch / TensorFlow) sin usar la terminal.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => setShowSetup(true)}>

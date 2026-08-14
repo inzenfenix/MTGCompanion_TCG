@@ -7,6 +7,14 @@ const SERVER_PORT = 4550;
 const SERVER_URL = `http://127.0.0.1:${SERVER_PORT}`;
 const RENDERER_DEV_URL = 'http://localhost:5173';
 
+// Set by `npm run electron:dev` — an already-running `nest start --watch`
+// (hot-reload) owns the port instead of us spawning the compiled
+// dist/main.js child process. Mirrors how createWindow() below already
+// falls back to the Vite dev URL when apps/renderer/dist doesn't exist —
+// same idea, just for the server half, so neither side needs a rebuild to
+// pick up a code change while iterating.
+const DEV_SERVER = process.env.MTG_RUNNER_DEV_SERVER === '1';
+
 let serverProcess: ChildProcess | null = null;
 let mainWindow: BrowserWindow | null = null;
 
@@ -84,7 +92,7 @@ ipcMain.handle('dialog:pickFiles', async () => {
 });
 
 app.whenReady().then(async () => {
-  serverProcess = startServer();
+  if (!DEV_SERVER) serverProcess = startServer();
   try {
     await waitForServer();
   } catch (err) {

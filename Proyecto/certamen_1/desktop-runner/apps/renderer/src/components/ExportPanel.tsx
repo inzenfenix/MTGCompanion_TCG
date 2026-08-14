@@ -41,7 +41,7 @@ function FrameworkColumn({
     return (
       <div className="space-y-2 rounded-lg border border-dashed border-border p-3">
         <p className="text-sm font-medium">{label}</p>
-        <p className="text-xs text-muted-foreground">No entrenado todavía en esta máquina — corré la búsqueda de Optuna (08 · / 11 ·) con entrenamiento final para generar final_metrics.json.</p>
+        <p className="text-xs text-muted-foreground">No entrenado todavía en esta máquina — corre la búsqueda de Optuna (08 · / 11 ·) con entrenamiento final para generar final_metrics.json.</p>
       </div>
     );
   }
@@ -81,7 +81,7 @@ function StageSection({ stage, scripts, onVenvChanged }: { stage: ExportComparis
         <CardTitle>{stage.label}</CardTitle>
         <CardDescription>
           {stage.recommendation === 'tie'
-            ? `Empate práctico en ${stage.metricLabel} (diferencia < 0.5 puntos) — cualquiera de los dos sirve, exportá el que prefieras.`
+            ? `Empate práctico en ${stage.metricLabel} (diferencia < 0.5 puntos) — cualquiera de los dos sirve, exporta el que prefieras.`
             : stage.recommendation
               ? `${stage.recommendation === 'pytorch' ? 'PyTorch' : 'TensorFlow'} gana en ${stage.metricLabel}.`
               : 'Todavía no hay ningún modelo entrenado en esta máquina para comparar.'}
