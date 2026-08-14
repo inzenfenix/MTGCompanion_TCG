@@ -73,10 +73,19 @@ Levanta el server NestJS (puerto `4550`) y el renderer con Vite (puerto
 - **Dataset compartido**: `01_scraper.py`, `02_downloader.py`,
   `04_evaluate.py` (orquestador de evaluación).
 - **PyTorch**: embeddings, visualización, fine-tuning (opcional), clasificador
-  binario, scanner.
+  binario, búsqueda de hiperparámetros con Optuna, export a ONNX (Stage 1 y
+  Stage 4 — condición), scanner.
 - **TensorFlow**: embeddings, visualización, clasificador binario, búsqueda de
-  hiperparámetros con Optuna, scanner.
+  hiperparámetros con Optuna, export a ONNX (Stage 1 y Stage 4 — condición),
+  scanner.
 - **Testing**: comparar ambos scanners, descargar carta aleatoria y comparar.
+
+Los scripts de entrenamiento de Stage 4 (`10_condition_grader.py` /
+`11_optuna_condition_grader.py` en pytorch/, `09_condition_grader.py` /
+`10_optuna_condition_grader.py` en tensorFlow/) todavía no están registrados
+acá — solo sus exports a ONNX. Se corren manualmente por ahora; sus
+resultados (`final_metrics.json`) sí se leen y comparan en la pestaña
+"Export ONNX".
 
 Cada script muestra sus parámetros reales (los mismos flags de
 `argparse` que ves en `Proyecto/certamen_1/README.md`), con sus valores por
@@ -123,6 +132,72 @@ usable, cae a CPU.
 
 El resultado de la detección se puede consultar en `GET /gpu` (el server
 NestJS embebido, puerto 4550) y se cachea una sola vez por corrida de la app.
+
+## Export ONNX: comparar frameworks y exportar
+
+Pestaña "Export ONNX", al lado de las demás. Por cada etapa del pipeline que
+entrena los dos frameworks (Stage 1 — detector MTG/no-MTG, Stage 4 —
+clasificador de condición NM/LP/MP/HP/DMG; Stage 2/3 no aparecen acá, no son
+dual-framework) muestra:
+
+- Las métricas reales del último `final_metrics.json` de PyTorch y
+  TensorFlow (`output/<framework>/optuna/latest/` para Stage 1,
+  `output/<framework>/optuna_condition/latest/` para Stage 4), leídas del
+  disco tal cual las dejó la corrida de Optuna — nada se recalcula en la UI.
+- Cuál framework "gana" según `accuracy` (Stage 1) o `f1_macro` (Stage 4) —
+  si la diferencia es menor a 0.5 puntos porcentuales se reporta empate en
+  vez de forzar un ganador (típico en Stage 1, donde ambos rondan el 100%).
+- "No entrenado todavía" en vez de romper, si algún modelo no se corrió
+  todavía en esta máquina (mismo criterio de degradación gradual que el
+  resto del runner).
+
+Debajo de la comparación de cada etapa aparecen los `ScriptCard` reales de
+sus dos scripts de export (`09_export_onnx.py` de cada framework para Stage
+1; `12_export_onnx_condition.py` / `11_export_onnx_condition.py` para Stage
+4) — son los mismos scripts ya registrados en las pestañas de PyTorch/
+TensorFlow (venv, logs en vivo, botón "Detener", todo se comparte), solo se
+muestran también acá en formato de comparación para poder elegir y exportar
+sin cambiar de pestaña. Ninguno de los cuatro reentrena nada: toman el
+modelo ya publicado (`.pth`/`.keras`) y lo convierten a `.onnx`, verificando
+paridad numérica contra el modelo original antes de publicarlo.
+
+Los datos de comparación salen de `GET /export/comparison` (server NestJS).
+
+## Scraper: porcentaje del catálogo en vez de un número
+
+El campo "Cap de cartas" de `01 · Scraper de catálogo` es un slider 1–100%
+en vez de un número suelto:
+
+- **100% = todo lo que permiten los filtros del scraper** (`--max-cards 0`),
+  no "cada impresión de cada carta que existe" — `01_scraper.py` sigue
+  deduplicando hasta `MAX_PRINTINGS_POR_CARTA` (3) impresiones por nombre de
+  carta y aplicando sus filtros de siempre (idioma inglés, `set_type`
+  permitido, sin tokens/emblemas/cartas de arte). El slider nunca "hornea"
+  un número fijo para el 100% — manda `0` tal cual, así el propio scraper
+  decide cuánto es "todo" el día que corre (el catálogo de Scryfall cambia).
+- **1%–99% se traduce a un entero real** (`--max-cards <n>`) usando el
+  tamaño real del catálogo, consultado una vez por sesión del server contra
+  `/cards/search` de Scryfall (`GET /scripts/shared-scraper/card-count`,
+  cacheado en el server — no vuelve a pegarle a Scryfall en cada render) en
+  vez de descargar el bulk dump completo (varios cientos de MB) solo para
+  mostrar un número en un slider.
+- Ese total es una **aproximación** (`min(impresiones_totales,
+  nombres_únicos × 3)`) — el número exacto solo se conoce corriendo el
+  scraper de verdad; alcanza para escalar el slider, no hace falta más
+  precisión.
+- El dropdown de calidad de imagen ahora marca **"small (Recomendado)"**:
+  todo el pipeline redimensiona las imágenes a 224×224 antes de entrenar
+  (`pytorch/03_pt_embedder.py`, `tensorFlow/src/config.py`), así que pedir
+  más resolución de origen no mejora el modelo, solo alarga la descarga.
+
+**Judgment calls que quedaron para decisión del usuario, no se tocaron solas:**
+
+- `ALLOWED_SET_TYPES` en `01_scraper.py` ya incluye `commander` (no excluye
+  cartas de mazos Commander). No incluye `duel_deck`, `premium_deck` ni
+  `starter` (Duel Decks, Premium Deck Series, Planeswalker/Intro/Clash
+  decks) — son reimpresiones reales con arte a veces exclusivo, similares en
+  espíritu a `masters`/`commander`, que hoy quedan afuera del 100%. No se
+  agregaron por las suyas: es una decisión de alcance del dataset, no un bug.
 
 ## Pendiente / fuera de alcance de esta primera versión
 

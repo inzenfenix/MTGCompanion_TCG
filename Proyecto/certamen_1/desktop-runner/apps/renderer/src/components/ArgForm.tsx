@@ -1,6 +1,7 @@
 import type { ArgDef } from '@/lib/types';
 import { Input, Label, Select, Checkbox } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { CardPercentageSlider } from './CardPercentageSlider';
 
 interface Props {
   args: ArgDef[];
@@ -29,6 +30,18 @@ export function ArgForm({ args, values, onChange, disabled }: Props) {
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {args.map((arg) => {
         const value = values[arg.name];
+
+        // El slider de porcentaje trae su propio Label + texto explicativo
+        // (necesita mostrar el % junto al total real de Scryfall) — se sale
+        // del layout genérico de Label + control de acá abajo.
+        if (arg.kind === 'card-percentage') {
+          return (
+            <div key={arg.name} className="sm:col-span-2">
+              <CardPercentageSlider arg={arg} value={value} onChange={onChange} disabled={disabled} />
+            </div>
+          );
+        }
+
         return (
           <div key={arg.name} className={arg.kind === 'files' ? 'sm:col-span-2' : undefined}>
             <Label htmlFor={arg.name}>
@@ -58,6 +71,7 @@ export function ArgForm({ args, values, onChange, disabled }: Props) {
                 {(arg.options ?? []).map((opt) => (
                   <option key={opt} value={opt}>
                     {opt}
+                    {arg.recommended === opt ? ' (Recomendado)' : ''}
                   </option>
                 ))}
               </Select>

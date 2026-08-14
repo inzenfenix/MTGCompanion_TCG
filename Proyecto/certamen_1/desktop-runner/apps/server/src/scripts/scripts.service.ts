@@ -3,9 +3,23 @@ import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
-import { ArgDef, ENVS, EnvDef, EnvId, LiveFileDef, ResultFileDef, RUN_ALL_SEQUENCES, ScriptDef, SCRIPTS, findScript } from './scripts.config';
+import {
+  ArgDef,
+  ComparableFramework,
+  ENVS,
+  EnvDef,
+  EnvId,
+  EXPORT_STAGES,
+  LiveFileDef,
+  ResultFileDef,
+  RUN_ALL_SEQUENCES,
+  ScriptDef,
+  SCRIPTS,
+  findScript,
+} from './scripts.config';
 import { LogsGateway } from './logs.gateway';
 import { detectGpu, GpuDetectionResult } from './gpu-detect';
+import { getScraperCardCount, ScraperCardCountResult } from './scryfall-card-count';
 
 export interface RunRecord {
   id: string;
@@ -66,6 +80,70 @@ export class ScriptsService {
 
   getGpuInfo(): Promise<GpuDetectionResult> {
     return detectGpu();
+  }
+
+  /** Total real (aproximado) del catálogo de Scryfall que sobrevive los filtros de 01_scraper.py — ver scryfall-card-count.ts. */
+  getScraperCardCount(): Promise<ScraperCardCountResult> {
+    return getScraperCardCount();
+  }
+
+  // ── Comparación PyTorch vs TensorFlow (pestaña "Export ONNX") ──────────
+
+  /**
+   * Por cada etapa dual-framework (Stage 1, Stage 4), lee final_metrics.json
+   * de ambos frameworks (si existen) y arma una recomendación. Nunca tira:
+   * un modelo sin entrenar en esta máquina se reporta como
+   * `available: false`, no como error — mismo criterio de degradación
+   * gradual que el resto del runner (ej. venv no preparado).
+   */
+  async getExportComparison() {
+    const frameworks: ComparableFramework[] = ['pytorch', 'tensorflow'];
+
+    return Promise.all(
+      EXPORT_STAGES.map(async (stageDef) => {
+        const byFramework: Record<ComparableFramework, { available: boolean; metrics?: Record<string, unknown>; exportScriptId: string }> =
+          {} as any;
+
+        for (const fw of frameworks) {
+          const exportScriptId = stageDef.exportScriptId(fw);
+          try {
+            const resolvedPath = await this.resolveLatestPath(stageDef.metricsPath(fw));
+            const raw = await fs.promises.readFile(resolvedPath, 'utf-8');
+            byFramework[fw] = { available: true, metrics: JSON.parse(raw), exportScriptId };
+          } catch {
+            // No existe todavía (no se corrió Optuna con entrenamiento final
+            // en esta máquina) — no es un error, solo "no entrenado todavía".
+            byFramework[fw] = { available: false, exportScriptId };
+          }
+        }
+
+        const a = byFramework.pytorch.available ? (byFramework.pytorch.metrics?.[stageDef.metricKey] as number | undefined) : undefined;
+        const b = byFramework.tensorflow.available ? (byFramework.tensorflow.metrics?.[stageDef.metricKey] as number | undefined) : undefined;
+
+        let recommendation: 'pytorch' | 'tensorflow' | 'tie' | null = null;
+        if (typeof a === 'number' && typeof b === 'number') {
+          // Diferencia menor a 0.5 puntos porcentuales: se reporta empate en
+          // vez de forzar un "ganador" que en la práctica es ruido de
+          // entrenamiento (ver Stage 1 en el README: ambos ~100%).
+          const diff = Math.abs(a - b);
+          recommendation = diff < 0.005 ? 'tie' : a > b ? 'pytorch' : 'tensorflow';
+        } else if (typeof a === 'number') {
+          recommendation = 'pytorch';
+        } else if (typeof b === 'number') {
+          recommendation = 'tensorflow';
+        }
+
+        return {
+          stage: stageDef.stage,
+          label: stageDef.label,
+          metricKey: stageDef.metricKey,
+          metricLabel: stageDef.metricLabel,
+          pytorch: byFramework.pytorch,
+          tensorflow: byFramework.tensorflow,
+          recommendation,
+        };
+      }),
+    );
   }
 
   // ── Resolución de intérpretes / venvs ──────────────────────────────────

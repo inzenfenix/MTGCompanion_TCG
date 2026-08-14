@@ -5,6 +5,7 @@ import { ScriptCard } from '@/components/ScriptCard';
 import { RunAllPanel } from '@/components/RunAllPanel';
 import { RunEverythingPanel } from '@/components/RunEverythingPanel';
 import { FirstRunSetup } from '@/components/FirstRunSetup';
+import { ExportPanel } from '@/components/ExportPanel';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type { ScriptGroup, ScriptInfo } from '@/lib/types';
@@ -14,16 +15,23 @@ import type { ScriptGroup, ScriptInfo } from '@/lib/types';
 // inicial acá no debería afectar a otro teammate corriendo el mismo runner.
 const ONBOARDING_DISMISSED_KEY = 'mtg-runner:onboarding-dismissed';
 
-const GROUPS: { value: ScriptGroup; label: string }[] = [
+// 'export' no es un ScriptGroup real (los export scripts siguen registrados
+// bajo group:'pytorch'/'tensorflow', así que también aparecen en esas tabs
+// "for free") — es una pestaña extra en el frontend que arma su propia vista
+// de comparación en vez de filtrar scripts.script por grupo.
+type TabValue = ScriptGroup | 'export';
+
+const GROUPS: { value: TabValue; label: string }[] = [
   { value: 'shared', label: 'Dataset compartido' },
   { value: 'pytorch', label: 'PyTorch' },
   { value: 'tensorflow', label: 'TensorFlow' },
   { value: 'testing', label: 'Testing' },
+  { value: 'export', label: 'Export ONNX' },
 ];
 
 export default function App() {
   const [scripts, setScripts] = useState<ScriptInfo[]>([]);
-  const [group, setGroup] = useState<ScriptGroup>('shared');
+  const [group, setGroup] = useState<TabValue>('shared');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showSetup, setShowSetup] = useState(false);
@@ -83,7 +91,7 @@ export default function App() {
         <RunEverythingPanel />
       </div>
 
-      <Tabs value={group} onValueChange={(v) => setGroup(v as ScriptGroup)} items={GROUPS} className="mb-6" />
+      <Tabs value={group} onValueChange={(v) => setGroup(v as TabValue)} items={GROUPS} className="mb-6" />
 
       {loading && <p className="text-sm text-muted-foreground">Cargando scripts…</p>}
       {loadError && (
@@ -102,11 +110,13 @@ export default function App() {
         <div key={value} className={cn('space-y-4', value !== group && 'hidden')}>
           {(value === 'pytorch' || value === 'tensorflow') && <RunAllPanel framework={value} />}
 
-          {scripts
-            .filter((s) => s.group === value)
-            .map((script) => (
-              <ScriptCard key={script.id} script={script} onVenvChanged={load} />
-            ))}
+          {value === 'export' ? (
+            <ExportPanel scripts={scripts} onVenvChanged={load} />
+          ) : (
+            scripts
+              .filter((s) => s.group === value)
+              .map((script) => <ScriptCard key={script.id} script={script} onVenvChanged={load} />)
+          )}
         </div>
       ))}
     </div>
