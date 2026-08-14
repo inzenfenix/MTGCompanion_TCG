@@ -2,11 +2,13 @@ import * as path from 'path';
 
 /**
  * Raíz de certamen_1/, calculada en runtime relativa a este archivo compilado.
- * Este archivo compila a apps/server/dist/scripts/scripts.config.js, así que
- * hacen falta 5 niveles para llegar a certamen_1/:
- *   dist/scripts -> dist -> server -> apps -> desktop-runner -> certamen_1
+ * Este archivo compila a apps/server/dist/scripts/scripts.config.js. Desde
+ * que desktop-runner se movió a Proyecto/examen/ (antes vivía adentro de
+ * Proyecto/certamen_1/), certamen_1/ ya no es un ancestro directo — hacen
+ * falta 6 niveles para llegar a Proyecto/, y de ahí bajar a certamen_1/:
+ *   dist/scripts -> dist -> server -> apps -> desktop-runner -> examen -> Proyecto -> certamen_1
  */
-export const CERTAMEN_DIR = path.resolve(__dirname, '..', '..', '..', '..', '..');
+export const CERTAMEN_DIR = path.resolve(__dirname, '..', '..', '..', '..', '..', '..', 'certamen_1');
 
 export type EnvId = 'pytorch' | 'tensorflow' | 'testing' | 'system';
 
