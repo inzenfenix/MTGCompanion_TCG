@@ -54,32 +54,48 @@ def _ordenar_esquinas(pts: np.ndarray) -> np.ndarray:
     return np.array([tl, tr, br, bl], dtype="float32")
 
 
-def localizar_carta(img_bgr: np.ndarray) -> np.ndarray | None:
+def _mascara_saturacion(img_bgr: np.ndarray) -> np.ndarray:
+    """Segmentación por saturación (HSV), invertida: la carta (impresión con
+    zonas grises/blancas/negras — bordes, cajas de texto) suele tener MENOS
+    saturación promedio que un mantel/mat de un solo color sólido y saturado.
+    Complementa (no reemplaza) la segmentación por brillo: donde el brillo
+    falla (carta oscura contra fondo oscuro pero saturado — funda negra
+    sobre una tela roja, por ejemplo) la saturación separa bien porque mide
+    algo distinto (cuán "puro"/monocromático es el color, no cuán claro).
     """
-    Busca el rectángulo más grande con aspect ratio de carta MTG en la foto.
-    Retorna las 4 esquinas ordenadas (float32) o None si no hay un candidato
-    confiable (foto ya recortada, fondo sin contraste, ángulo extremo, etc.).
+    hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+    sat = hsv[:, :, 1]
+    blur = cv2.GaussianBlur(sat, (9, 9), 0)
+    _, mascara = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    mascara = cv2.morphologyEx(mascara, cv2.MORPH_OPEN, np.ones((15, 15), np.uint8))
+    mascara = cv2.morphologyEx(mascara, cv2.MORPH_CLOSE, np.ones((25, 25), np.uint8))
+    return mascara
 
-    Segmentación por brillo (Otsu) + limpieza morfológica, no detección de
-    bordes (Canny). Se probó Canny primero y falló en fotos reales: el borde
-    de una funda oscura contra una mesa/tela oscura tiene muy poco contraste
-    de luminancia, así que el borde de la carta casi no aparece en el mapa de
-    edges, mientras que texturas brillantes del fondo generan ruido que
-    domina como "contorno más grande". Otsu sobre brillo (carta más clara que
-    el fondo) + apertura/cierre morfológico para limpiar ruido interno da un
-    blob mucho más confiable de "toda la carta", incluso con contorno
-    interno irregular — `minAreaRect` igual ajusta bien el rectángulo
-    envolvente aunque el contorno no sea perfectamente limpio.
+
+def _mascara_brillo(img_bgr: np.ndarray) -> np.ndarray:
+    """Segmentación por brillo (Otsu), la heurística original. Se probó Canny
+    primero y falló en fotos reales: el borde de una funda oscura contra una
+    mesa/tela oscura tiene muy poco contraste de luminancia, así que el borde
+    de la carta casi no aparece en el mapa de edges, mientras que texturas
+    brillantes del fondo generan ruido que domina como "contorno más
+    grande". Otsu sobre brillo (carta más clara que el fondo) + apertura/
+    cierre morfológico para limpiar ruido interno da un blob mucho más
+    confiable de "toda la carta" cuando SÍ hay contraste de luminancia.
     """
-    h_img, w_img = img_bgr.shape[:2]
-    area_img = h_img * w_img
-
     gris = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gris, (9, 9), 0)
     _, mascara = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     mascara = cv2.morphologyEx(mascara, cv2.MORPH_OPEN, np.ones((15, 15), np.uint8))
     mascara = cv2.morphologyEx(mascara, cv2.MORPH_CLOSE, np.ones((25, 25), np.uint8))
+    return mascara
 
+
+def _mejor_candidato(mascara: np.ndarray, area_img: int) -> tuple[np.ndarray, float] | None:
+    """Del contorno más grande de una máscara, retorna (rect, score) si pasa
+    los filtros de área/aspect-ratio, o None. `score` = qué tan cerca está el
+    aspect ratio del ideal de una carta MTG (0 = match perfecto) — permite
+    comparar candidatos de distintas estrategias de segmentación y quedarse
+    con el más confiable en vez de aceptar el primero que pase el filtro."""
     contornos, _ = cv2.findContours(mascara, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contornos:
         return None
@@ -88,15 +104,53 @@ def localizar_carta(img_bgr: np.ndarray) -> np.ndarray | None:
     if cv2.contourArea(candidato) < AREA_MINIMA_FRACCION * area_img:
         return None
 
-    (_, _), (ancho, alto), _ = rect = cv2.minAreaRect(candidato)
+    rect = cv2.minAreaRect(candidato)
+    (_, _), (ancho, alto), _ = rect
     if ancho == 0 or alto == 0:
         return None
 
     ratio = min(ancho, alto) / max(ancho, alto)
-    if abs(ratio - ASPECT_RATIO_CARTA) > TOLERANCIA_ASPECT_RATIO:
+    diff = abs(ratio - ASPECT_RATIO_CARTA)
+    if diff > TOLERANCIA_ASPECT_RATIO:
         return None
 
-    return _ordenar_esquinas(cv2.boxPoints(rect).astype("float32"))
+    return rect, diff
+
+
+def localizar_carta(img_bgr: np.ndarray) -> np.ndarray | None:
+    """
+    Busca el rectángulo más grande con aspect ratio de carta MTG en la foto.
+    Retorna las 4 esquinas ordenadas (float32) o None si no hay un candidato
+    confiable (foto ya recortada, fondo sin contraste, ángulo extremo, etc.).
+
+    Prueba dos estrategias de segmentación independientes — saturación
+    (`_mascara_saturacion`) y brillo (`_mascara_brillo`, la heurística
+    original) — y se queda con el candidato cuyo aspect ratio esté más cerca
+    del ideal, no con el primero que pase el filtro. Ninguna heurística
+    clásica sola es invariante a fondo: brillo falla cuando carta y fondo
+    tienen luminancia similar (funda oscura sobre tela oscura, aunque
+    saturada); saturación en teoría podría fallar sobre un fondo ya
+    acromático (mesa blanca/gris/negra lisa) donde carta y fondo comparten
+    baja saturación — de ahí probar ambas en vez de reemplazar una por otra.
+    Medido sobre el dataset real de 122 fotos (ROADMAP.md G4b): brillo solo
+    30.3%, saturación sola 100%, así que en la práctica saturación domina en
+    este dataset — pero mantener ambas como candidatos es más robusto a
+    futuro que apostar todo a una sola heurística.
+    """
+    h_img, w_img = img_bgr.shape[:2]
+    area_img = h_img * w_img
+
+    candidatos = []
+    for mascara in (_mascara_saturacion(img_bgr), _mascara_brillo(img_bgr)):
+        resultado = _mejor_candidato(mascara, area_img)
+        if resultado is not None:
+            candidatos.append(resultado)
+
+    if not candidatos:
+        return None
+
+    mejor_rect, _ = min(candidatos, key=lambda c: c[1])
+    return _ordenar_esquinas(cv2.boxPoints(mejor_rect).astype("float32"))
 
 
 def corregir_perspectiva(

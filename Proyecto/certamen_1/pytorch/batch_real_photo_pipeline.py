@@ -47,8 +47,9 @@ DEFAULT_OUTPUT = CERTAMEN1_DIR / "Testing" / "real_photo_eval_raw.json"
 sys.path.insert(0, str(CERTAMEN2_DIR))
 
 from card_preprocessing import mejorar_contraste, normalizar_carta  # noqa: E402
+from orientation_fix import corregir_orientacion  # noqa: E402
 from text_validator_baseline import (  # noqa: E402
-    asegurar_tessdata, normalizar, ocr_texto, recortar_texto, texto_referencia,
+    _recortar_caja_texto, asegurar_tessdata, normalizar, ocr_texto, recortar_texto, texto_referencia,
 )
 
 import scanner  # noqa: E402
@@ -128,6 +129,9 @@ def procesar_foto(foto: pathlib.Path, ctx: dict, guardar_crops_en: pathlib.Path 
     # Normalización compartida por Stage 2 (crop de texto) y Stage 4/3 (carta completa).
     carta_normalizada, _ = normalizar_carta(img, intentar_localizar=True)
     carta_normalizada = mejorar_contraste(carta_normalizada)
+    # Corrige 0/90/180/270° — normalizar_carta endereza el cuadrilátero pero
+    # no sabe cuál lado es "arriba" (ver ROADMAP.md G4b, orientation_fix.py).
+    carta_normalizada, _ = corregir_orientacion(carta_normalizada, _recortar_caja_texto(carta_normalizada))
 
     if guardar_crops_en is not None:
         # Para inspección visual manual — no lo consume ningún modelo. Deja

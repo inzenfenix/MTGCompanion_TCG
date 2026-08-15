@@ -27,6 +27,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
 
+import cv2
 import numpy as np
 import torch
 import torch.nn as nn
@@ -44,6 +45,14 @@ SHARED_DATA_DIR = SCRIPT_DIR.parent / "data"             # dataset compartido (c
 IMAGES_DIR      = SHARED_DATA_DIR / "images"
 MODELS_DIR      = SCRIPT_DIR / "models"
 RESULTS_DIR     = SCRIPT_DIR / "results"
+CERTAMEN2_DIR   = SCRIPT_DIR.parent.parent / "certamen_2"
+
+# card_preprocessing vive en certamen_2/ — mismo import cruzado que
+# batch_real_photo_pipeline.py (ver ROADMAP.md G4b). Necesario para que
+# extraer_embedding() pueda localizar/encuadrar la carta antes de embeber en
+# vez de embeber la foto cruda con fondo, como hacía antes.
+sys.path.insert(0, str(CERTAMEN2_DIR))
+from card_preprocessing import mejorar_contraste, normalizar_carta  # noqa: E402
 IMG_SIZE   = 224
 DEVICE     = "cuda" if torch.cuda.is_available() else "cpu"
 SIMILARITY_THRESHOLD = 0.75   # umbral de similitud óptimo (ver pytorch/results/metrics_pt.json → opt_threshold)
@@ -150,7 +159,7 @@ def cargar_modelo() -> nn.Module:
     return _model_cache
 
 
-def extraer_embedding(img_path: str, n_tta: int = 1) -> np.ndarray:
+def extraer_embedding(img_path: str, n_tta: int = 1, intentar_localizar: bool = True) -> np.ndarray:
     """
     Extrae embedding L2-normalizado de una imagen.
 
@@ -158,8 +167,28 @@ def extraer_embedding(img_path: str, n_tta: int = 1) -> np.ndarray:
     genera n_tta augmentaciones, extrae un embedding por cada una,
     promedia y re-normaliza. El embedding promediado es más estable
     que uno solo porque cancela variaciones aleatorias de la augmentación.
+
+    `intentar_localizar=True` (default): antes de embeber, localiza/encuadra
+    la carta dentro de la foto (card_preprocessing.normalizar_carta) — antes
+    de esto se embebía la foto cruda completa, fondo incluido, siempre (ver
+    ROADMAP.md G4b; explica buena parte del 0% de accuracy real medido antes
+    del fix). Pasar `False` para saltar la localización — pensado para
+    cuando quien llama ya sabe que la imagen es un recorte ajustado (un
+    render de Scryfall, por ejemplo): sobre esas imágenes la detección de
+    contornos a veces engancha una sub-región interna en vez de fallar
+    limpio (ver el docstring de `normalizar_carta`).
     """
-    img   = Image.open(img_path).convert("RGB")
+    if intentar_localizar:
+        img_bgr = cv2.imread(img_path)
+        if img_bgr is not None:
+            carta, _ = normalizar_carta(img_bgr, intentar_localizar=True)
+            carta = mejorar_contraste(carta)
+            img = Image.fromarray(cv2.cvtColor(carta, cv2.COLOR_BGR2RGB))
+        else:
+            img = Image.open(img_path).convert("RGB")  # cv2 no pudo leerla (formato raro) — cae al loader de PIL
+    else:
+        img = Image.open(img_path).convert("RGB")
+
     model = cargar_modelo()
 
     # Vista limpia siempre incluida
@@ -302,6 +331,9 @@ Ejemplos:
                         help="Usar embeddings del modelo fine-tuneado (requiere 06_finetune.py)")
     parser.add_argument("--skip-detect", action="store_true",
                         help="Saltar clasificador binario MTG/no-MTG (útil para depurar)")
+    parser.add_argument("--no-localizar", action="store_true",
+                        help="Saltar la localización/encuadre de la carta antes de embeber — usar si la imagen "
+                             "ya es un recorte ajustado (ej. un render de Scryfall), no una foto con fondo")
     args = parser.parse_args()
 
     img_path = pathlib.Path(args.imagen)
@@ -365,7 +397,7 @@ Ejemplos:
     # Extraer embedding del query
     print(f"Procesando imagen: {img_path.name}")
     t0 = time.perf_counter()
-    query_emb = extraer_embedding(str(img_path), n_tta=n_tta)
+    query_emb = extraer_embedding(str(img_path), n_tta=n_tta, intentar_localizar=not args.no_localizar)
     t1 = time.perf_counter()
     extraccion_ms = (t1 - t0) * 1000
 

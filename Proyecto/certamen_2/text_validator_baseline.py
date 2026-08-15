@@ -125,6 +125,16 @@ def descargar_imagen(card: dict, calidad: str, session: requests.Session) -> pat
         return None
 
 
+def _recortar_caja_texto(carta_bgr: np.ndarray) -> np.ndarray:
+    """Recorte de CROP_TEXTO sobre una carta ya encuadrada, 3x upscaled, BGR
+    (sin binarizar todavía — usado tanto para OCR final como para OSD)."""
+    h, w = carta_bgr.shape[:2]
+    x0, y0, x1, y1 = CROP_TEXTO
+    recorte = carta_bgr[int(y0 * h):int(y1 * h), int(x0 * w):int(x1 * w)]
+    # Upscale — el recorte es chico incluso en calidad "large"; tesseract rinde mejor con más DPI efectivo.
+    return cv2.resize(recorte, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
+
+
 def recortar_texto(imagen_path: pathlib.Path, es_render_pre_recortado: bool = True) -> np.ndarray | None:
     """
     Carga la foto, normaliza la carta (card_preprocessing) y recorta la caja
@@ -135,7 +145,12 @@ def recortar_texto(imagen_path: pathlib.Path, es_render_pre_recortado: bool = Tr
     docstring de `normalizar_carta` sobre por qué esa detección no es
     confiable sobre imágenes que ya vienen recortadas borde a borde.
     `full_pipeline_demo.py` pasa `False` porque ahí sí hay una foto real con
-    fondo alrededor de la carta.
+    fondo alrededor de la carta — en ese caso también se corrige la
+    orientación (orientation_fix.py, ver ROADMAP.md G4b): normalizar_carta
+    endereza el cuadrilátero pero no sabe cuál lado es "arriba", así que una
+    carta física fotografiada boca abajo sale geométricamente perfecta pero
+    con el contenido rotado 180° — confirmado en ~1 de cada 4 fotos reales
+    del dataset de prueba.
     """
     img = cv2.imread(str(imagen_path))
     if img is None:
@@ -143,14 +158,16 @@ def recortar_texto(imagen_path: pathlib.Path, es_render_pre_recortado: bool = Tr
 
     carta, _ = normalizar_carta(img, intentar_localizar=not es_render_pre_recortado)
     carta = mejorar_contraste(carta)
+    recorte = _recortar_caja_texto(carta)
 
-    h, w = carta.shape[:2]
-    x0, y0, x1, y1 = CROP_TEXTO
-    recorte = carta[int(y0 * h):int(y1 * h), int(x0 * w):int(x1 * w)]
+    if not es_render_pre_recortado:
+        from orientation_fix import corregir_orientacion
+
+        carta, rotado = corregir_orientacion(carta, recorte)
+        if rotado:
+            recorte = _recortar_caja_texto(carta)
 
     gris = cv2.cvtColor(recorte, cv2.COLOR_BGR2GRAY)
-    # Upscale — el recorte es chico incluso en calidad "large"; tesseract rinde mejor con más DPI efectivo.
-    gris = cv2.resize(gris, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
     _, binaria = cv2.threshold(gris, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     return binaria
 

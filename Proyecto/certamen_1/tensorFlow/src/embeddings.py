@@ -1,9 +1,17 @@
 import pickle
+import sys
 from pathlib import Path
 
 import numpy as np
 
 from src.config import IMG_SIZE
+
+# card_preprocessing vive en certamen_2/ — mismo import cruzado que el lado
+# PyTorch (pytorch/scanner.py, ver ROADMAP.md G4b). Necesario para que
+# extract_embedding() pueda localizar/encuadrar la carta antes de embeber en
+# vez de embeber la foto cruda con fondo, como hacía antes.
+_CERTAMEN2_DIR = Path(__file__).resolve().parents[3] / "certamen_2"
+sys.path.insert(0, str(_CERTAMEN2_DIR))
 
 # Tamaño de batch para build_index() — alinea con el BATCH_SIZE que usa el
 # DataLoader del lado PyTorch (03_pt_embedder.py) para el mismo paso.
@@ -51,8 +59,32 @@ def embed_pil_image(model, image) -> np.ndarray:
     return normalize_embedding(embedding)
 
 
-def extract_embedding(model, image_path: Path) -> np.ndarray:
+def extract_embedding(model, image_path: Path, intentar_localizar: bool = True) -> np.ndarray:
+    """
+    Extrae el embedding de una imagen de query (no de construcción del
+    índice — `build_index()` usa `_preprocesar()` directo sobre renders
+    limpios de Scryfall, sin pasar por acá).
+
+    `intentar_localizar=True` (default): antes de embeber, localiza/encuadra
+    la carta dentro de la foto (card_preprocessing.normalizar_carta) — antes
+    de esto se embebía la foto cruda completa, fondo incluido, siempre (ver
+    ROADMAP.md G4b; mismo fix que el lado PyTorch, `pytorch/scanner.py`).
+    Pasar `False` si la imagen ya es un recorte ajustado (un render de
+    Scryfall, por ejemplo) — ver el docstring de `normalizar_carta` sobre
+    por qué la detección de contornos no es confiable en ese caso.
+    """
+    import cv2
     from PIL import Image
+
+    from card_preprocessing import mejorar_contraste, normalizar_carta
+
+    if intentar_localizar:
+        img_bgr = cv2.imread(str(image_path))
+        if img_bgr is not None:
+            carta, _ = normalizar_carta(img_bgr, intentar_localizar=True)
+            carta = mejorar_contraste(carta)
+            image = Image.fromarray(cv2.cvtColor(carta, cv2.COLOR_BGR2RGB))
+            return embed_pil_image(model, image)
 
     with Image.open(image_path) as image:
         return embed_pil_image(model, image)

@@ -475,6 +475,70 @@ export const SCRIPTS: ScriptDef[] = [
     ],
   },
 
+  // ── PyTorch — Stage 3: Estimador de precio ──────────────────────────────
+  {
+    id: 'pt-price-estimator',
+    group: 'pytorch',
+    label: '15 · Entrenar estimador de precio',
+    description:
+      'Entrena el regresor de precio (tabular + embedding visual congelado de Stage 1) sobre log1p(price). Requiere certamen_2/prepare_price_dataset.py y pytorch/prepare_price_embeddings.py ya corridos.',
+    cwd: PT_DIR,
+    script: '15_price_estimator.py',
+    env: 'pytorch',
+    args: [
+      { flag: '--epochs', name: 'epochs', kind: 'number', label: 'Épocas', default: 40 },
+      { flag: '--hidden-units', name: 'hidden_units', kind: 'number', label: 'Unidades ocultas', default: 256 },
+      { flag: '--dropout', name: 'dropout', kind: 'float', label: 'Dropout', default: 0.3 },
+      { flag: '--lr', name: 'lr', kind: 'float', label: 'Learning rate', default: 0.001 },
+      { flag: '--weight-decay', name: 'weight_decay', kind: 'float', label: 'Weight decay', default: 0.0001 },
+      { flag: '--optimizer', name: 'optimizer', kind: 'select', label: 'Optimizador', options: ['adam', 'adamw', 'sgd'], default: 'adamw', recommended: 'adamw' },
+      // Regla dura #1 de CLAUDE.md: mismo criterio que pt-text-validator — opt-in, nunca default a CPU.
+      { flag: '--device', name: 'device', kind: 'select', label: 'Device', options: ['auto', 'cpu', 'cuda'], default: 'auto', recommended: 'auto', help: 'Cambiar a "cpu" solo si esta máquina sufre el segfault de ROCm/MIOpen descrito en CLAUDE.md.' },
+    ],
+    resultFiles: () => [
+      { kind: 'metrics', label: 'Métricas — PyTorch', path: path.join(CERTAMEN_DIR, 'output', 'pytorch', 'price_estimator', 'latest', 'metrics_price_estimator.json') },
+    ],
+  },
+  {
+    id: 'pt-optuna-price-estimator',
+    group: 'pytorch',
+    label: '17 · Búsqueda de hiperparámetros (Optuna)',
+    description: 'Optimiza el estimador de precio con Optuna. Puede tardar mucho según --trials.',
+    cwd: PT_DIR,
+    script: '17_optuna_price_estimator.py',
+    env: 'pytorch',
+    args: [
+      { flag: '--trials', name: 'trials', kind: 'number', label: 'Cantidad de trials', default: 20 },
+      { flag: '--trial-epochs', name: 'trial_epochs', kind: 'number', label: 'Épocas por trial', default: 10 },
+      { flag: '--final-epochs', name: 'final_epochs', kind: 'number', label: 'Épocas del entrenamiento final', default: 40 },
+      { flag: '--timeout-hours', name: 'timeout_hours', kind: 'float', label: 'Timeout (horas, opcional)' },
+      { flag: '--study-name', name: 'study_name', kind: 'string', label: 'Nombre del estudio Optuna', default: 'price_estimator_pytorch' },
+      { flag: '--resume-dir', name: 'resume_dir', kind: 'string', label: 'Retomar estudio desde (ruta, opcional)' },
+      { flag: '--seed', name: 'seed', kind: 'number', label: 'Seed', default: 42 },
+      { flag: '--device', name: 'device', kind: 'select', label: 'Device', options: ['auto', 'cpu', 'cuda'], default: 'auto', recommended: 'auto', help: 'Cambiar a "cpu" solo si esta máquina sufre el segfault de ROCm/MIOpen descrito en CLAUDE.md.' },
+      { flag: '--no-final-train', name: 'no_final_train', kind: 'boolean', label: 'No entrenar el modelo final', default: false },
+    ],
+    resultFiles: () => [
+      { kind: 'optuna', label: 'Optuna — PyTorch', path: path.join(CERTAMEN_DIR, 'output', 'pytorch', 'optuna_price_estimator', 'latest', 'best_params.json') },
+      { kind: 'metrics', label: 'Modelo final — PyTorch', path: path.join(CERTAMEN_DIR, 'output', 'pytorch', 'optuna_price_estimator', 'latest', 'final_metrics.json') },
+    ],
+  },
+  {
+    id: 'pt-export-onnx-price-estimator',
+    group: 'pytorch',
+    label: '18 · Exportar estimador de precio a ONNX (Stage 3)',
+    description:
+      'Exporta el estimador de precio ya entrenado (price_regressor.pth) a ONNX, verificando paridad numérica contra el modelo original (salida cruda log1p(price), sin sigmoid), y lo copia a trading-app-ionic/public/models/stage3-price-estimator.onnx. No reentrena nada.',
+    cwd: PT_DIR,
+    script: '18_export_onnx_price_estimator.py',
+    env: 'pytorch',
+    args: [
+      { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
+      { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0001 },
+      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a trading-app-ionic/public/models/', default: false },
+    ],
+  },
+
   // ── PyTorch — Stage 4: Clasificador de condición ────────────────────────
   {
     id: 'pt-condition-grader',
@@ -695,6 +759,68 @@ export const SCRIPTS: ScriptDef[] = [
     args: [
       { flag: '--ocr-text', name: 'ocr_text', kind: 'string', label: 'Texto OCR real de verificación (opcional, si no se usa un array aleatorio)' },
       { flag: '--ref-text', name: 'ref_text', kind: 'string', label: 'Texto de referencia de verificación (opcional)' },
+      { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
+      { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0001 },
+      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a trading-app-ionic/public/models/', default: false },
+    ],
+  },
+
+  // ── TensorFlow — Stage 3: Estimador de precio ───────────────────────────
+  {
+    id: 'tf-price-estimator',
+    group: 'tensorflow',
+    label: '13 · Entrenar estimador de precio',
+    description:
+      'Entrena el regresor de precio (tabular + embedding visual congelado de Stage 1) sobre log1p(price). Requiere certamen_2/prepare_price_dataset.py y tensorFlow/prepare_price_embeddings.py ya corridos.',
+    cwd: TF_DIR,
+    script: '13_price_estimator.py',
+    env: 'tensorflow',
+    args: [
+      { flag: '--epochs', name: 'epochs', kind: 'number', label: 'Épocas', default: 40 },
+      { flag: '--hidden-units', name: 'hidden_units', kind: 'number', label: 'Unidades ocultas', default: 256 },
+      { flag: '--dropout', name: 'dropout', kind: 'float', label: 'Dropout', default: 0.3 },
+      { flag: '--lr', name: 'lr', kind: 'float', label: 'Learning rate', default: 0.001 },
+      { flag: '--weight-decay', name: 'weight_decay', kind: 'float', label: 'Weight decay', default: 0.0001 },
+      { flag: '--optimizer', name: 'optimizer', kind: 'select', label: 'Optimizador', options: ['adam', 'adamw', 'sgd'], default: 'adamw', recommended: 'adamw' },
+      { flag: '--batch-size', name: 'batch_size', kind: 'number', label: 'Batch size', default: 64 },
+    ],
+    resultFiles: () => [
+      { kind: 'metrics', label: 'Métricas — TensorFlow', path: path.join(CERTAMEN_DIR, 'output', 'tensorflow', 'price_estimator', 'latest', 'metrics_price_estimator.json') },
+    ],
+  },
+  {
+    id: 'tf-optuna-price-estimator',
+    group: 'tensorflow',
+    label: '15 · Búsqueda de hiperparámetros (Optuna)',
+    description: 'Optimiza el estimador de precio con Optuna. Puede tardar mucho según --trials.',
+    cwd: TF_DIR,
+    script: '15_optuna_price_estimator.py',
+    env: 'tensorflow',
+    args: [
+      { flag: '--trials', name: 'trials', kind: 'number', label: 'Cantidad de trials', default: 20 },
+      { flag: '--trial-epochs', name: 'trial_epochs', kind: 'number', label: 'Épocas por trial', default: 10 },
+      { flag: '--final-epochs', name: 'final_epochs', kind: 'number', label: 'Épocas del entrenamiento final', default: 40 },
+      { flag: '--timeout-hours', name: 'timeout_hours', kind: 'float', label: 'Timeout (horas, opcional)' },
+      { flag: '--study-name', name: 'study_name', kind: 'string', label: 'Nombre del estudio Optuna', default: 'price_estimator_tensorflow' },
+      { flag: '--resume-dir', name: 'resume_dir', kind: 'string', label: 'Retomar estudio desde (ruta, opcional)' },
+      { flag: '--seed', name: 'seed', kind: 'number', label: 'Seed', default: 42 },
+      { flag: '--no-final-train', name: 'no_final_train', kind: 'boolean', label: 'No entrenar el modelo final', default: false },
+    ],
+    resultFiles: () => [
+      { kind: 'optuna', label: 'Optuna — TensorFlow', path: path.join(CERTAMEN_DIR, 'output', 'tensorflow', 'optuna_price_estimator', 'latest', 'best_params.json') },
+      { kind: 'metrics', label: 'Modelo final — TensorFlow', path: path.join(CERTAMEN_DIR, 'output', 'tensorflow', 'optuna_price_estimator', 'latest', 'final_metrics.json') },
+    ],
+  },
+  {
+    id: 'tf-export-onnx-price-estimator',
+    group: 'tensorflow',
+    label: '16 · Exportar estimador de precio a ONNX (Stage 3)',
+    description:
+      'Exporta el estimador de precio ya entrenado (price_regressor.keras) a ONNX vía tf2onnx, verificando paridad numérica (salida cruda log1p(price), sin sigmoid), y lo copia a trading-app-ionic/public/models/stage3-price-estimator.onnx. No reentrena nada.',
+    cwd: TF_DIR,
+    script: '16_export_onnx_price_estimator.py',
+    env: 'tensorflow',
+    args: [
       { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
       { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0001 },
       { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a trading-app-ionic/public/models/', default: false },
