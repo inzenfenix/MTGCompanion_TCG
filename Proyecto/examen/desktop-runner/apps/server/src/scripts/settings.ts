@@ -18,9 +18,17 @@ export interface RunnerSettings {
    * cae de vuelta a 'venv' igual, este valor es solo la preferencia.
    */
   tensorflowExecutionMode: 'venv' | 'docker';
+  /**
+   * API key personal de Roboflow (https://roboflow.com), usada solo por
+   * `shared-download-roboflow` para bajar los datasets reales de Stage 4
+   * (certamen_2/download_roboflow_condition_data.py). Se guarda acá (no en
+   * el repo, no hardcodeada en ningún script) para que cada quien use su
+   * propia key — null si todavía no se configuró.
+   */
+  roboflowApiKey: string | null;
 }
 
-const DEFAULTS: RunnerSettings = { tensorflowExecutionMode: 'venv' };
+const DEFAULTS: RunnerSettings = { tensorflowExecutionMode: 'venv', roboflowApiKey: null };
 
 const SETTINGS_DIR = path.join(os.homedir(), '.mtg-desktop-runner');
 const SETTINGS_PATH = path.join(SETTINGS_DIR, 'settings.json');

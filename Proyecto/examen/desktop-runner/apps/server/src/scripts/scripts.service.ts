@@ -143,6 +143,9 @@ export class ScriptsService {
     if (patch.tensorflowExecutionMode !== undefined && patch.tensorflowExecutionMode !== 'venv' && patch.tensorflowExecutionMode !== 'docker') {
       throw new BadRequestException(`tensorflowExecutionMode inválido: "${patch.tensorflowExecutionMode}"`);
     }
+    if (patch.roboflowApiKey !== undefined && patch.roboflowApiKey !== null && typeof patch.roboflowApiKey !== 'string') {
+      throw new BadRequestException('roboflowApiKey inválida: debe ser string o null.');
+    }
     return writeSettings(patch);
   }
 
@@ -593,6 +596,14 @@ export class ScriptsService {
     const gpu = await detectGpu();
     const gpuEnv = gpu.hsaOverrideGfxVersion ? { HSA_OVERRIDE_GFX_VERSION: gpu.hsaOverrideGfxVersion } : {};
 
+    // La API key de Roboflow vive en la config local del runner (settings.ts),
+    // nunca hardcodeada en un script — se inyecta como env var solo para el
+    // script que efectivamente la necesita.
+    const roboflowEnv =
+      script.id === 'shared-download-roboflow' && readSettings().roboflowApiKey
+        ? { ROBOFLOW_API_KEY: readSettings().roboflowApiKey as string }
+        : {};
+
     // TensorFlow en modo Docker (ver docker/tf-rocm/, ROADMAP.md workstream D)
     // corre en un contenedor en vez del venv — mismo script, misma cwd
     // conceptual (todo el repo montado en /workspace), distinto intérprete.
@@ -631,7 +642,7 @@ export class ScriptsService {
     // "docker" en sí (no es Python), pero no molesta dejarlo en el entorno.
     const child: ChildProcessWithoutNullStreams = spawn(cmd, args, {
       cwd,
-      env: { ...process.env, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8', ...(useDocker ? {} : gpuEnv) },
+      env: { ...process.env, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8', ...(useDocker ? {} : gpuEnv), ...roboflowEnv },
     });
 
     this.children.set(runId, child);

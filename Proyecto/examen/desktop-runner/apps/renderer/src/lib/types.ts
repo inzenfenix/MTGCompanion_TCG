@@ -51,6 +51,7 @@ export type TensorflowExecutionMode = 'venv' | 'docker';
 /** Mismo shape que RunnerSettings del server (settings.ts). */
 export interface RunnerSettings {
   tensorflowExecutionMode: TensorflowExecutionMode;
+  roboflowApiKey: string | null;
 }
 
 export type RunStatus = 'idle' | 'running' | 'success' | 'error' | 'stopped';

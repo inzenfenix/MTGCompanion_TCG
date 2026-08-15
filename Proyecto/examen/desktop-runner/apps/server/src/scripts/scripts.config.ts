@@ -10,6 +10,9 @@ import * as path from 'path';
  */
 export const CERTAMEN_DIR = path.resolve(__dirname, '..', '..', '..', '..', '..', '..', 'certamen_1');
 
+/** Igual que CERTAMEN_DIR pero apuntando a certamen_2/ (hermano de certamen_1/ bajo Proyecto/). */
+export const CERTAMEN2_DIR = path.resolve(__dirname, '..', '..', '..', '..', '..', '..', 'certamen_2');
+
 export type EnvId = 'pytorch' | 'tensorflow' | 'testing' | 'system';
 
 export interface EnvDef {
@@ -210,6 +213,36 @@ export const SCRIPTS: ScriptDef[] = [
         linkedFrom: { arg: 'workers', factor: 0.025 },
       },
     ],
+  },
+  {
+    id: 'shared-real-photos',
+    group: 'shared',
+    label: '03 · Fotos reales (Google Drive)',
+    description:
+      'Descarga el set de fotos reales de un mazo físico (Google Drive) usado para el chequeo end-to-end del scanner (no sintéticas, no renders). Idempotente: reutiliza lo que ya existe en disco. Usa el venv de pytorch/ (incluye gdown).',
+    cwd: CERTAMEN_DIR,
+    script: '03_real_photos_downloader.py',
+    env: 'pytorch',
+    args: [
+      {
+        flag: '--folder-id',
+        name: 'folder_id',
+        kind: 'string',
+        label: 'ID de carpeta de Google Drive',
+        default: '183WKHVHJ863hCJq3Kc9uHDJj3UFtC0pw',
+      },
+    ],
+  },
+  {
+    id: 'shared-download-roboflow',
+    group: 'shared',
+    label: 'Fotos reales de daño (Roboflow) — Stage 4',
+    description:
+      'Descarga los dos datasets públicos de Roboflow (daño/desgaste en cartas) usados para reentrenar el clasificador de condición con fotos reales. Necesita una API key de Roboflow — configurala arriba. Idempotente. Usa el venv de pytorch/.',
+    cwd: CERTAMEN2_DIR,
+    script: 'download_roboflow_condition_data.py',
+    env: 'pytorch',
+    args: [],
   },
   {
     id: 'shared-download-negatives',
@@ -764,9 +797,10 @@ export const RUN_ALL_SEQUENCES: Record<'pytorch' | 'tensorflow', string[]> = {
  * versión de 5,000. `shared-downloader` en cambio es puramente idempotente
  * (reusa lo que ya está en disco, ver 02_downloader.py) — siempre seguro de
  * re-correr. Re-scrapear sigue siendo un botón manual aparte en la pestaña
- * "Scraper" para cuando de verdad hace falta.
+ * "Scraper" para cuando de verdad hace falta. `shared-real-photos` es igual
+ * de seguro de incluir — también puramente idempotente (03_real_photos_downloader.py).
  */
-export const RUN_ALL_DOWNLOAD_SEQUENCE: string[] = ['shared-downloader'];
+export const RUN_ALL_DOWNLOAD_SEQUENCE: string[] = ['shared-downloader', 'shared-real-photos'];
 
 /**
  * Fase final de "Correr TODO" — exporta a ONNX todo lo que ya está entrenado

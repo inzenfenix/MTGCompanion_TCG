@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Tabs } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { ScriptCard } from '@/components/ScriptCard';
+import { RoboflowApiKeyBox } from '@/components/RoboflowApiKeyBox';
 import { FrameworkTab } from '@/components/FrameworkTab';
 import { RunEverythingPanel } from '@/components/RunEverythingPanel';
 import { FirstRunSetup } from '@/components/FirstRunSetup';
@@ -33,14 +34,20 @@ const TABS: { value: TabValue; label: string }[] = [
   { value: 'export', label: 'Exportar' },
 ];
 
-const SCRAPER_TAB_SCRIPTS = ['shared-scraper', 'shared-downloader', 'shared-download-negatives'];
+const SCRAPER_TAB_SCRIPTS = [
+  'shared-scraper',
+  'shared-downloader',
+  'shared-real-photos',
+  'shared-download-roboflow',
+  'shared-download-negatives',
+];
 
 // Buckets para el ícono de estado de cada pestaña (ver useRunAllStatus.ts) —
 // deliberadamente los mismos ids que RUN_ALL_DOWNLOAD_SEQUENCE /
 // RUN_ALL_SEQUENCES / RUN_ALL_EXPORT_SEQUENCE en scripts.config.ts (server):
 // eso es justo lo que corre "Correr Todo", en el mismo orden que las pestañas.
 const TAB_BUCKETS: Record<string, string[]> = {
-  scraper: ['shared-downloader'],
+  scraper: ['shared-downloader', 'shared-real-photos'],
   pytorch: ['pt-embedder', 'shared-evaluate', 'pt-visualize', 'pt-binary-classifier', 'pt-text-validator', 'pt-condition-grader'],
   tensorflow: ['tf-embeddings', 'shared-evaluate', 'tf-visualize', 'tf-binary-classifier', 'tf-text-validator', 'tf-condition-grader'],
   export: [
@@ -152,9 +159,12 @@ export default function App() {
           ) : value === 'testing' ? (
             scripts.filter((s) => s.group === 'testing').map((script) => <ScriptCard key={script.id} script={script} onVenvChanged={load} />)
           ) : (
-            SCRAPER_TAB_SCRIPTS.map((id) => scripts.find((s) => s.id === id))
-              .filter((s): s is ScriptInfo => Boolean(s))
-              .map((script) => <ScriptCard key={script.id} script={script} onVenvChanged={load} />)
+            <>
+              <RoboflowApiKeyBox />
+              {SCRAPER_TAB_SCRIPTS.map((id) => scripts.find((s) => s.id === id))
+                .filter((s): s is ScriptInfo => Boolean(s))
+                .map((script) => <ScriptCard key={script.id} script={script} onVenvChanged={load} />)}
+            </>
           )}
         </div>
       ))}

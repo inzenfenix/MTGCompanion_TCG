@@ -192,6 +192,98 @@ def stage4_predecir_condicion(imagen: pathlib.Path) -> dict:
     return resultado
 
 
+def stage2_validar_texto_real(imagen: pathlib.Path, carta: dict) -> dict:
+    """
+    Mismo OCR que stage2_validar_texto (OpenCV + pytesseract), pero el
+    puntaje de coincidencia lo da el modelo real entrenado
+    (pytorch/predict_text_validator.py, TextMatcher sobre HashingVectorizer)
+    en vez de difflib — ver --real-models en main().
+    """
+    asegurar_tessdata()
+    recorte = recortar_texto(imagen, es_render_pre_recortado=False)
+    if recorte is None:
+        return {"ocr_text": "", "score": 0.0, "confirma": False}
+
+    texto_ocr = ocr_texto(recorte)
+    ocr_normalizado = normalizar(texto_ocr)[:120]
+
+    python_bin = _venv_python(PYTORCH_DIR)
+    if not python_bin.exists():
+        return {"ocr_text": ocr_normalizado, "score": 0.0, "confirma": False}
+
+    cmd = [str(python_bin), "predict_text_validator.py",
+           "--ocr-text", texto_ocr, "--ref-text", texto_referencia(carta)]
+    proc = subprocess.run(cmd, cwd=PYTORCH_DIR, capture_output=True, text=True)
+    if proc.returncode != 0:
+        return {"ocr_text": ocr_normalizado, "score": 0.0, "confirma": False, "error": proc.stderr[-500:]}
+
+    resultado = {"ocr_text": ocr_normalizado}
+    for linea in proc.stdout.splitlines():
+        linea = linea.strip()
+        if linea.startswith("match="):
+            resultado["confirma"] = linea.split("=", 1)[1] == "True"
+        elif linea.startswith("score="):
+            resultado["score"] = float(linea.split("=", 1)[1])
+
+    if "confirma" not in resultado:
+        return {"ocr_text": ocr_normalizado, "score": 0.0, "confirma": False, "error": proc.stdout[-500:]}
+    return resultado
+
+
+def stage3_estimar_precio_real(imagen: pathlib.Path, carta: dict) -> dict:
+    """
+    Corre pytorch/predict_price.py (concat(x_tab, x_vis), modelo real
+    entrenado) en vez del baseline tabular-only — ver --real-models en
+    main(). A diferencia del baseline, este modelo no toma la condición como
+    input (ver certamen_2/README.md, sección B6/ROADMAP: el precio de
+    catálogo de Scryfall es condition-independent), así que no hay ajuste
+    por condición acá — Stage 4 se sigue mostrando por separado, solo no
+    alimenta a este cálculo.
+    """
+    img = cv2.imread(str(imagen))
+    if img is None:
+        return {"disponible": False}
+
+    carta_normalizada, _ = normalizar_carta(img, intentar_localizar=True)
+    carta_normalizada = mejorar_contraste(carta_normalizada)
+
+    python_bin = _venv_python(PYTORCH_DIR)
+    if not python_bin.exists():
+        return {"disponible": False}
+
+    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_img:
+        tmp_img_path = pathlib.Path(tmp_img.name)
+    with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False, encoding="utf-8") as tmp_card:
+        tmp_card_path = pathlib.Path(tmp_card.name)
+        json.dump(carta, tmp_card)
+
+    try:
+        cv2.imwrite(str(tmp_img_path), carta_normalizada)
+        cmd = [str(python_bin), "predict_price.py", str(tmp_img_path.resolve()),
+               "--card-json", str(tmp_card_path.resolve())]
+        proc = subprocess.run(cmd, cwd=PYTORCH_DIR, capture_output=True, text=True)
+    finally:
+        tmp_img_path.unlink(missing_ok=True)
+        tmp_card_path.unlink(missing_ok=True)
+
+    if proc.returncode != 0:
+        return {"disponible": False, "error": proc.stderr[-500:]}
+
+    resultado = {}
+    for linea in proc.stdout.splitlines():
+        linea = linea.strip()
+        if linea.startswith("precio_usd="):
+            resultado["precio_estimado_usd"] = float(linea.split("=", 1)[1])
+
+    if "precio_estimado_usd" not in resultado:
+        return {"disponible": False, "error": proc.stdout[-500:]}
+
+    precio_real = (carta.get("prices") or {}).get("usd")
+    resultado["disponible"] = True
+    resultado["precio_real_usd"] = float(precio_real) if precio_real else None
+    return resultado
+
+
 def stage3_estimar_precio(carta: dict, condicion: str = "NM") -> dict:
     """
     Predice prices.usd (near-mint) con el baseline tabular entrenado
@@ -224,6 +316,10 @@ def main() -> None:
     parser.add_argument("--top", type=int, default=5, help="Candidatos a mostrar en Stage 1 (default: 5)")
     parser.add_argument("--condition", default=None, choices=list(CONDITION_MULTIPLIERS),
                         help="Override manual de condición — si no se pasa, usa la predicción de Stage 4")
+    parser.add_argument("--real-models", action="store_true",
+                        help="Usa los modelos reales entrenados de Stage 2/3 (TextMatcher/PriceRegressor, "
+                             "pytorch/predict_text_validator.py y predict_price.py) en vez de los baselines "
+                             "(difflib / sklearn tabular-only). Stage 1/4 ya son modelos reales siempre.")
     args = parser.parse_args()
 
     if not args.imagen.exists():
@@ -262,11 +358,14 @@ def main() -> None:
               " puede haberse regenerado desde el scanner) — no se puede continuar a Stage 2/3.")
         sys.exit(0)
 
-    print("\n[Stage 2] Validando texto (OpenCV + OCR)...")
-    s2 = stage2_validar_texto(args.imagen, carta)
+    modelo_stage2 = "TextMatcher (modelo real)" if args.real_models else "OpenCV + OCR + difflib (baseline)"
+    print(f"\n[Stage 2] Validando texto ({modelo_stage2})...")
+    s2 = stage2_validar_texto_real(args.imagen, carta) if args.real_models else stage2_validar_texto(args.imagen, carta)
     print(f"  OCR leído (recortado) : \"{s2['ocr_text']}\"")
     print(f"  Score de confirmación : {s2['score']:.3f}")
     print(f"  ¿Confirma la carta?   : {'sí' if s2['confirma'] else 'no'}")
+    if s2.get("error"):
+        print(f"  Aviso: {s2['error']}")
 
     if args.condition is not None:
         condicion_final = args.condition
@@ -278,20 +377,36 @@ def main() -> None:
         condicion_final = "NM"
         origen_condicion = "default (Stage 4 no disponible)"
 
-    print("\n[Stage 3] Estimando precio (metadata + condición → USD)...")
-    print(f"  Condición usada  : {condicion_final}  ({origen_condicion})")
-    s3 = stage3_estimar_precio(carta, condicion=condicion_final)
-    if not s3["disponible"]:
-        print("  Aviso: no existe certamen_2/models/price_baseline_model.joblib —")
-        print("  corré price_estimator_baseline.py primero.")
-    else:
-        print(f"  Precio estimado (near-mint) : ${s3['precio_estimado_nm_usd']:.2f}")
-        print(f"  Precio estimado ({s3['condicion']})".ljust(30) + f": ${s3['precio_estimado_usd']:.2f}")
-        if s3["precio_real_usd"] is not None:
-            print(f"  Precio real (Scryfall, NM)  : ${s3['precio_real_usd']:.2f}"
-                  "  — referencia near-mint, no comparable 1:1 si la condición declarada no es NM")
+    modelo_stage3 = "PriceRegressor sobre concat(x_tab, x_vis), modelo real" if args.real_models else "metadata + condición → USD, baseline tabular-only"
+    print(f"\n[Stage 3] Estimando precio ({modelo_stage3})...")
+    if args.real_models:
+        print(f"  (Condición Stage 4: {condicion_final}, {origen_condicion} — no alimenta este modelo, ver docstring)")
+        s3 = stage3_estimar_precio_real(args.imagen, carta)
+        if not s3["disponible"]:
+            print("  Aviso: no existen models/mtg_detector.pth y/o models/price_regressor.pth —")
+            print("  corré 07_binary_classifier.py y 15_price_estimator.py primero.")
+            if s3.get("error"):
+                print(f"  {s3['error']}")
         else:
-            print("  Precio real     : no disponible en Scryfall para esta carta")
+            print(f"  Precio estimado             : ${s3['precio_estimado_usd']:.2f}")
+            if s3["precio_real_usd"] is not None:
+                print(f"  Precio real (Scryfall, NM)  : ${s3['precio_real_usd']:.2f}")
+            else:
+                print("  Precio real     : no disponible en Scryfall para esta carta")
+    else:
+        print(f"  Condición usada  : {condicion_final}  ({origen_condicion})")
+        s3 = stage3_estimar_precio(carta, condicion=condicion_final)
+        if not s3["disponible"]:
+            print("  Aviso: no existe certamen_2/models/price_baseline_model.joblib —")
+            print("  corré price_estimator_baseline.py primero.")
+        else:
+            print(f"  Precio estimado (near-mint) : ${s3['precio_estimado_nm_usd']:.2f}")
+            print(f"  Precio estimado ({s3['condicion']})".ljust(30) + f": ${s3['precio_estimado_usd']:.2f}")
+            if s3["precio_real_usd"] is not None:
+                print(f"  Precio real (Scryfall, NM)  : ${s3['precio_real_usd']:.2f}"
+                      "  — referencia near-mint, no comparable 1:1 si la condición declarada no es NM")
+            else:
+                print("  Precio real     : no disponible en Scryfall para esta carta")
 
     print("\n" + "═" * 78)
     print(f"  Resultado: {s1['card_name']}"
