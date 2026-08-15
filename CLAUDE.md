@@ -40,15 +40,19 @@ Proyecto/
 | Stage | What | PyTorch | TensorFlow | Real vs. baseline |
 |---|---|---|---|---|
 | 1 — Detector (MTG/no-MTG) | binary classifier, transfer learning | ✅ done, Optuna done | ✅ done, Optuna done | real |
-| 2 — Text validator (OCR match) | text-pair matching MLP over hashed n-grams | ✅ built, verified on synthetic data | ❌ not started | real (script exists), baseline already existed |
-| 3 — Price estimator | regression, tabular (+ visual embedding planned) | ❌ not started | ❌ not started | only a tabular-only sklearn baseline exists so far |
-| 4 — Condition grader (NM/LP/MP/HP/DMG) | 5-class classifier, transfer learning | ✅ done, Optuna done | ✅ done, Optuna done | real |
+| 2 — Text validator (OCR match) | text-pair matching MLP over hashed n-grams | ✅ done, Optuna done, real dataset | ✅ done, Optuna done, real dataset | real, both frameworks |
+| 3 — Price estimator | regression, tabular + frozen visual embedding (Stage 1 backbone) | ✅ done, Optuna done | ✅ done, Optuna done | real, both frameworks |
+| 4 — Condition grader (NM/LP/MP/HP/DMG) | 5-class classifier, transfer learning | ✅ done, Optuna done (+ combined real+synthetic checkpoint — see below) | ✅ done, Optuna done (synthetic-only) | real |
 
-ONNX-exported and actually present in `trading-app-ionic/public/models/`
-today: **only `stage1-detector.onnx` (PyTorch)**. The condition-grader export
-scripts (both frameworks) and the TensorFlow Stage 1 export script exist and
-compile, but have not actually been run for real yet — `stage4-condition-grader.onnx`
-does not exist on disk anywhere yet.
+ONNX-exported and present in `trading-app-ionic/public/models/`, all 4 stages
+(15 ago — the desktop-runner Exportar tab now has a "Correr todo" button that
+runs all of these in sequence, workstream C). Stage 4's PyTorch export loads
+`condition_grader_combined.pth`, **not** the plain `condition_grader.pth`
+from `10_condition_grader.py`/`11_optuna_condition_grader.py` — that plain
+checkpoint scores higher on its own split (95.25% vs 90.24%) but collapses to
+38.7% accuracy on real photos vs. 72.2% for the combined (real+synthetic)
+model; same reasoning `predict_condition.py` already documents. TensorFlow
+has no combined-checkpoint equivalent yet (see ROADMAP.md item C6).
 
 ## Workflow expectations for any non-trivial task
 

@@ -6,13 +6,17 @@ import { getSocket, api, RunAllReportEvent, RunAllStepStartedEvent } from '@/lib
 import type { RunAllStepResult } from '@/lib/types';
 
 /**
- * Botón "Correr todo" de un framework (o, con `framework: 'export'`, de la
- * pestaña Exportar — corre RUN_ALL_EXPORT_SEQUENCE en vez de un framework
- * completo, ver ExportPanel.tsx) — mismo criterio que RunEverythingPanel:
- * solo el botón, sin log en vivo acá (eso vive en la subpestaña de stage que
- * está corriendo — ver ScriptCard y useRunAllStatus.ts).
+ * Botón "Correr todo" genérico — un framework completo (`onStart` llama
+ * `api.runAll(framework)`), la pestaña Exportar (`api.runAll('export')`), o
+ * una subpestaña de stage puntual (`api.runSequence(label, scriptIds)`, ver
+ * FrameworkTab.tsx) — a este componente no le importa cuál, solo necesita
+ * `label` (el tag que el server manda de vuelta en los eventos, para saber
+ * si son de ESTE botón) y `onStart` (qué endpoint dispara). Mismo criterio
+ * que RunEverythingPanel: solo el botón, sin log en vivo acá (eso vive en
+ * la subpestaña de stage que está corriendo — ver ScriptCard y
+ * useRunAllStatus.ts).
  */
-export function RunAllPanel({ framework }: { framework: 'pytorch' | 'tensorflow' | 'export' }) {
+export function RunAllPanel({ label, onStart }: { label: string; onStart: () => Promise<unknown> }) {
   const [running, setRunning] = useState(false);
   const [steps, setSteps] = useState<RunAllStepResult[]>([]);
   const [ok, setOk] = useState<boolean | null>(null);
@@ -23,12 +27,12 @@ export function RunAllPanel({ framework }: { framework: 'pytorch' | 'tensorflow'
     const socket = getSocket();
 
     const onStepStarted = (evt: RunAllStepStartedEvent) => {
-      if (evt.framework !== framework) return;
+      if (evt.framework !== label) return;
       setCurrentRunId(evt.runId);
     };
 
     const onReport = (evt: RunAllReportEvent) => {
-      if (evt.framework !== framework) return;
+      if (evt.framework !== label) return;
       setSteps(evt.steps);
       setOk(evt.ok);
       setRunning(false);
@@ -41,14 +45,14 @@ export function RunAllPanel({ framework }: { framework: 'pytorch' | 'tensorflow'
       socket.off('run-all-step', onStepStarted);
       socket.off('run-all-report', onReport);
     };
-  }, [framework]);
+  }, [label]);
 
   const start = async () => {
     setRunning(true);
     setSteps([]);
     setOk(null);
     setCurrentRunId(null);
-    await api.runAll(framework);
+    await onStart();
   };
 
   const handleStop = async () => {

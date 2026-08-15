@@ -10,11 +10,16 @@ Acá se resuelve el lado PyTorch con `torch.onnx.export`, igual que
 09_export_onnx.py (Stage 1); el lado TensorFlow usa `tf2onnx` (ver
 tensorFlow/11_export_onnx_condition.py, el script espejo de este).
 
-Este script no vuelve a entrenar nada: toma el `condition_grader.pth` +
-`condition_grader_cfg.json` que ya estén publicados (por
-10_condition_grader.py o 11_optuna_condition_grader.py) y los convierte. Si
-el modelo cambia (reentrenamiento, nueva corrida de Optuna), basta con correr
-este script de nuevo — no hace falta tocarlo.
+Este script no vuelve a entrenar nada: toma el `condition_grader_combined.pth`
++ `condition_grader_combined_cfg.json` que ya estén publicados (por
+12_condition_grader_combined.py) y los convierte — el mismo checkpoint que
+predict_condition.py usa en el pipeline real, no el `condition_grader.pth`
+sintético-solo de 10_condition_grader.py/11_optuna_condition_grader.py: mide
+más alto en su propio split (95.25% vs 90.24%) pero colapsa a 38.7% de
+accuracy en fotos reales contra 72.2% del combinado (ver el docstring de
+predict_condition.py y certamen_2/README.md sección 9 para el detalle medido).
+Si el modelo cambia (reentrenamiento), basta con correr
+12_condition_grader_combined.py y luego este script de nuevo.
 
 Verificación incluida: corre la misma imagen (o un tensor aleatorio si no se
 pasa ninguna) por el modelo PyTorch y por el modelo ONNX exportado
@@ -69,7 +74,7 @@ def cargar_modelo(cfg: dict) -> ConditionGrader:
         dropout=cfg.get("dropout"),
     )
     modelo.load_state_dict(
-        torch.load(MODELS_DIR / "condition_grader.pth", map_location=DEVICE, weights_only=True)
+        torch.load(MODELS_DIR / "condition_grader_combined.pth", map_location=DEVICE, weights_only=True)
     )
     modelo.eval()
     return modelo
@@ -148,11 +153,11 @@ def main() -> None:
                         help="No copiar el .onnx a trading-app-ionic/public/models/ (solo dejarlo en models/).")
     args = parser.parse_args()
 
-    cfg_path = MODELS_DIR / "condition_grader_cfg.json"
-    model_path = MODELS_DIR / "condition_grader.pth"
+    cfg_path = MODELS_DIR / "condition_grader_combined_cfg.json"
+    model_path = MODELS_DIR / "condition_grader_combined.pth"
     if not model_path.exists() or not cfg_path.exists():
         print(f"Error: no existen {model_path} / {cfg_path}.")
-        print("Corré 10_condition_grader.py o 11_optuna_condition_grader.py primero.")
+        print("Corré 12_condition_grader_combined.py primero.")
         sys.exit(1)
 
     with open(cfg_path) as f:
@@ -168,7 +173,7 @@ def main() -> None:
     modelo = cargar_modelo(cfg)
     entrada = tensor_de_entrada(args.imagen)
 
-    destino = MODELS_DIR / "condition_grader.onnx"
+    destino = MODELS_DIR / "condition_grader_combined.onnx"
     print(f"\nExportando a {destino} (opset {args.opset})...")
     exportar(modelo, entrada, destino, args.opset)
 

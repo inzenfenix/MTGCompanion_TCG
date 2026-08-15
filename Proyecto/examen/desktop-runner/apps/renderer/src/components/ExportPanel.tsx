@@ -201,7 +201,7 @@ export function ExportPanel({ scripts, onVenvChanged }: { scripts: ScriptInfo[];
         en la pestaña de su framework (venv, logs en vivo y todo lo demás se comparten con el resto del runner).
       </p>
 
-      <RunAllPanel framework="export" />
+      <RunAllPanel label="export" onStart={() => api.runAll('export')} />
 
       {error && (
         <Alert variant="destructive">

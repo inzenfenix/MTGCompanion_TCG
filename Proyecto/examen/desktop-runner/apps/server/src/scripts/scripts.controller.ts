@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, HttpCode } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, HttpCode } from '@nestjs/common';
 import { ScriptsService } from './scripts.service';
 
 @Controller()
@@ -56,6 +56,17 @@ export class ScriptsController {
     return this.scriptsService.getExportComparison();
   }
 
+  // Expone RUN_ALL_SEQUENCES (scripts.config.ts) para que el renderer pueda
+  // armar botones "Correr todo" por subpestaña de stage (FrameworkTab.tsx)
+  // sin duplicar la curación de "qué scripts son seguros de auto-correr" —
+  // esa lista ya excluye Optuna/scanner/predict/etc. a propósito (CLAUDE.md
+  // regla 7), un segundo mantenimiento manual del lado renderer se
+  // desincroniza tarde o temprano.
+  @Get('run-all-sequences')
+  getRunAllSequences() {
+    return this.scriptsService.getRunAllSequences();
+  }
+
   @Get('runs/:runId')
   getRun(@Param('runId') runId: string) {
     return this.scriptsService.getRun(runId);
@@ -90,6 +101,23 @@ export class ScriptsController {
     // de la pestaña Exportar, ver ExportPanel.tsx) — mismo mecanismo, distinta secuencia.
     this.scriptsService.runAll(framework).catch(() => undefined);
     return { started: true, framework };
+  }
+
+  // Genérico: corre una lista arbitraria de scriptIds en orden (botón "Correr
+  // todo" de una subpestaña de stage, ver FrameworkTab.tsx) — mismo mecanismo
+  // de streaming que run-all/:framework, pero sin una secuencia con nombre
+  // fijo del lado server. `label` es solo el tag que se manda en los eventos
+  // 'run-all-step'/'run-all-report' para que el frontend sepa cuál botón
+  // actualizar (ver RunAllPanel.tsx) — no tiene que matchear ningún framework
+  // real, es libre (ej. "pytorch:stage2").
+  @Post('run-sequence')
+  @HttpCode(202)
+  async runSequence(@Body() body: { label: string; scriptIds: string[] }) {
+    if (!body?.label || !Array.isArray(body.scriptIds) || body.scriptIds.length === 0) {
+      throw new BadRequestException('Body inválido: se espera { label: string, scriptIds: string[] } no vacío.');
+    }
+    this.scriptsService.runCustomSequence(body.label, body.scriptIds).catch(() => undefined);
+    return { started: true, label: body.label };
   }
 
   // Ruta separada de 'run-all/:framework' (no 'run-all/everything') a propósito:

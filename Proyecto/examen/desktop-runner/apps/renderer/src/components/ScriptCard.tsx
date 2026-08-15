@@ -11,16 +11,34 @@ import { useRunLogs } from '@/lib/useRunLogs';
 import { api, getSocket, RunAllStepStartedEvent } from '@/lib/api';
 import type { ScriptInfo } from '@/lib/types';
 
-function defaultsFor(script: ScriptInfo) {
+function defaultsFor(script: ScriptInfo, initialValues?: Record<string, unknown>) {
   const values: Record<string, unknown> = {};
   for (const arg of script.args) {
     if (arg.default !== undefined) values[arg.name] = arg.default;
   }
-  return values;
+  return { ...values, ...initialValues };
 }
 
-export function ScriptCard({ script, onVenvChanged }: { script: ScriptInfo; onVenvChanged: () => void }) {
-  const [values, setValues] = useState<Record<string, unknown>>(() => defaultsFor(script));
+export function ScriptCard({
+  script,
+  onVenvChanged,
+  initialValues,
+}: {
+  script: ScriptInfo;
+  onVenvChanged: () => void;
+  /**
+   * Sobreescribe el `default` de args puntuales para ESTE render — pensado
+   * para scripts `group:'shared'` que aparecen en más de una pestaña con el
+   * mismo ScriptDef (ej. shared-evaluate en pytorch Y tensorflow, ver
+   * FrameworkTab.tsx): sin esto, el default fijo de `--model` ("both") corre
+   * ambos frameworks aunque el usuario le dio "Correr" desde la pestaña de
+   * uno solo — mismo criterio que ya usa runAll() del lado server para su
+   * propia secuencia automática (override de `model` según el framework),
+   * ahora también para el click manual de "Correr" de la tarjeta.
+   */
+  initialValues?: Record<string, unknown>;
+}) {
+  const [values, setValues] = useState<Record<string, unknown>>(() => defaultsFor(script, initialValues));
   const [runId, setRunId] = useState<string | null>(null);
   const [preparingVenv, setPreparingVenv] = useState(false);
   const [error, setError] = useState<string | null>(null);

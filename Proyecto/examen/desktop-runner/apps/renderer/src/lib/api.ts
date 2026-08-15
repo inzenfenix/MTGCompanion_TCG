@@ -71,6 +71,14 @@ export const api = {
     fetch(`${API_BASE}/run-all/${framework}`, { method: 'POST' }).then((r) => json<{ started: boolean }>(r)),
   runEverything: () =>
     fetch(`${API_BASE}/run-everything`, { method: 'POST' }).then((r) => json<{ started: boolean }>(r)),
+  runAllSequences: () =>
+    fetch(`${API_BASE}/run-all-sequences`).then((r) => json<Record<'pytorch' | 'tensorflow', string[]>>(r)),
+  runSequence: (label: string, scriptIds: string[]) =>
+    fetch(`${API_BASE}/run-sequence`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label, scriptIds }),
+    }).then((r) => json<{ started: boolean }>(r)),
   exportComparison: () => fetch(`${API_BASE}/export/comparison`).then((r) => json<ExportComparisonStage[]>(r)),
   scraperCardCount: () =>
     fetch(`${API_BASE}/scripts/shared-scraper/card-count`).then((r) => json<ScraperCardCountResult>(r)),
@@ -115,7 +123,7 @@ export interface LiveStatsEvent {
 
 export interface RunAllStepStartedEvent {
   overallRunId: string;
-  framework: 'pytorch' | 'tensorflow' | 'everything' | 'export';
+  framework: string;
   scriptId: string;
   label: string;
   runId: string;
@@ -123,7 +131,7 @@ export interface RunAllStepStartedEvent {
 
 export interface RunAllReportEvent {
   overallRunId: string;
-  framework: 'pytorch' | 'tensorflow' | 'everything' | 'export';
+  framework: string;
   steps: RunAllStepResult[];
   ok: boolean;
 }

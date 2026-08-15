@@ -382,7 +382,7 @@ export const SCRIPTS: ScriptDef[] = [
     group: 'pytorch',
     label: '12 · Exportar clasificador de condición a ONNX (Stage 4)',
     description:
-      'Exporta el clasificador de condición ya entrenado (condition_grader.pth) a ONNX, verificando que las salidas coincidan con el modelo original, y lo copia a trading-app-ionic/public/models/stage4-condition-grader.onnx. No reentrena nada.',
+      'Exporta el clasificador de condición ya entrenado (condition_grader_combined.pth — el modelo real+sintético que predict_condition.py usa, no el sintético-solo) a ONNX, verificando que las salidas coincidan con el modelo original, y lo copia a trading-app-ionic/public/models/stage4-condition-grader.onnx. Requiere haber corrido "12 · Entrenar combinado" primero. No reentrena nada.',
     cwd: PT_DIR,
     script: '12_export_onnx_condition.py',
     env: 'pytorch',

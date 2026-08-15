@@ -75,30 +75,50 @@ export class ScriptsService {
         description: s.description,
         env: s.env,
         args: s.args,
-        venvReady: await this.scriptEnvReady(s.env),
+        venvReady: await this.scriptEnvReady(s),
       })),
     );
   }
 
   /**
-   * "¿Está listo para correr AHORA MISMO?" para un env de script — a
-   * diferencia de venvReady() (que es puramente "¿existe el venv?"), acá
-   * "tensorflow" mira el modo elegido: en modo 'docker' lo que importa es
-   * si la imagen está armada, el venv es irrelevante (puede no existir y
-   * está bien). Usado por listScripts() (banner "faltan entornos" en
-   * App.tsx) y por runScript() para decidir por dónde efectivamente correr.
+   * "¿Está listo para correr AHORA MISMO?" para un script — a diferencia de
+   * venvReady() (que es puramente "¿existe el venv?"), acá "tensorflow" mira
+   * el modo elegido: en modo 'docker' lo que importa es si la imagen está
+   * armada, el venv es irrelevante (puede no existir y está bien) — salvo
+   * para scripts de export (ver usesDocker()), que siempre corren por venv.
+   * Usado por listScripts() (banner "faltan entornos" en App.tsx) y por
+   * runScript() para decidir por dónde efectivamente correr.
    */
-  private async scriptEnvReady(envId: EnvId): Promise<boolean> {
-    if (envId === 'system') return true;
-    if (envId === 'tensorflow' && (await this.tensorflowUsesDocker())) {
-      return isTfDockerImageReady();
-    }
-    return this.venvReady(envId);
+  private async scriptEnvReady(script: ScriptDef): Promise<boolean> {
+    if (script.env === 'system') return true;
+    if (await this.usesDocker(script)) return isTfDockerImageReady();
+    return this.venvReady(script.env);
   }
 
   private async tensorflowUsesDocker(): Promise<boolean> {
     if (readSettings().tensorflowExecutionMode !== 'docker') return false;
     return (await getTfDockerEligibility()).eligible;
+  }
+
+  /**
+   * Scripts `*_export_onnx*.py` (convención de CLAUDE.md regla 3) nunca
+   * corren en Docker, sin importar `tensorflowExecutionMode` — no ganan nada
+   * de la GPU (son un load de checkpoint + un par de forward passes de
+   * verificación, no un training loop; D3 en ROADMAP.md ya midió que CPU es
+   * más rápido que Docker/GPU incluso para el entrenamiento de modelos
+   * chicos) y sí pueden perder: la imagen Docker puede traer una versión de
+   * Keras más vieja que la del venv que guardó el checkpoint, y un Keras
+   * viejo no sabe leer configs de capas guardadas por uno más nuevo — falla
+   * con `Unrecognized keyword arguments passed to Dense: {'quantization_config': ...}`
+   * (ver ROADMAP.md workstream D, item D4, encontrado corriendo el export
+   * real de Stage 2 en modo Docker). Forzar venv acá evita esa clase de bug
+   * de raíz para exports, sin tocar el setting global (que sigue aplicando
+   * normalmente a entrenar/Optuna, donde si puede valer la pena la GPU).
+   */
+  private async usesDocker(script: ScriptDef): Promise<boolean> {
+    if (script.env !== 'tensorflow') return false;
+    if (script.script.includes('export_onnx')) return false;
+    return this.tensorflowUsesDocker();
   }
 
   async listEnvs(): Promise<{ id: string; label: string; needsVenv: boolean; ready: boolean }[]> {
@@ -619,7 +639,8 @@ export class ScriptsService {
     // TensorFlow en modo Docker (ver docker/tf-rocm/, ROADMAP.md workstream D)
     // corre en un contenedor en vez del venv — mismo script, misma cwd
     // conceptual (todo el repo montado en /workspace), distinto intérprete.
-    const useDocker = script.env === 'tensorflow' && (await this.tensorflowUsesDocker());
+    // Los scripts de export quedan afuera de esto siempre — ver usesDocker().
+    const useDocker = await this.usesDocker(script);
 
     let cmd: string;
     let args: string[];
@@ -655,6 +676,17 @@ export class ScriptsService {
     const child: ChildProcessWithoutNullStreams = spawn(cmd, args, {
       cwd,
       env: { ...process.env, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8', ...(useDocker ? {} : gpuEnv), ...roboflowEnv },
+      // detached: true en POSIX pone al proceso como líder de un nuevo
+      // grupo de procesos (setpgid), no lo desconecta del server — hace
+      // falta para poder matar el árbol entero en stopRun() (ver ahí):
+      // orquestadores como 04_evaluate.py (--model both) lanzan sus propios
+      // subprocesos por framework vía subprocess.run(), heredando el mismo
+      // stdout/stderr (no lo recapturan) — matar solo el proceso padre no
+      // los toca, quedan corriendo sueltos y su output sigue llegando por
+      // el mismo pipe (confirmado: "[detenido por el usuario]" seguido de
+      // más líneas de progreso reales). No-op en Windows (taskkill /t ya
+      // mata el árbol por su cuenta, no vía grupos de procesos POSIX).
+      detached: process.platform !== 'win32',
     });
 
     this.children.set(runId, child);
@@ -813,7 +845,17 @@ export class ScriptsService {
     if (process.platform === 'win32') {
       spawn('taskkill', ['/pid', String(child.pid), '/t', '/f']);
     } else {
-      child.kill('SIGTERM');
+      // PID negativo = matar el grupo de procesos entero, no solo el PID
+      // (funciona porque se spawneó con detached:true — ver runScript()).
+      // Sin esto, matar solo el proceso padre dejaba corriendo sueltos los
+      // subprocesos que orquestadores como 04_evaluate.py (--model both)
+      // lanzan por subprocess.run() — confirmado en vivo: el progreso real
+      // seguía llegando después de "[detenido por el usuario]".
+      try {
+        process.kill(-child.pid, 'SIGTERM');
+      } catch {
+        child.kill('SIGTERM'); // grupo ya no existe (ej. el proceso ya había terminado) — fallback al PID solo
+      }
     }
     return true;
   }
@@ -872,6 +914,36 @@ export class ScriptsService {
 
     const ok = finishedCleanly && steps.length === sequence.length;
     this.gateway.server?.emit('run-all-report', { overallRunId, framework, steps, ok });
+    return { overallRunId, steps, ok };
+  }
+
+  getRunAllSequences() {
+    return RUN_ALL_SEQUENCES;
+  }
+
+  /**
+   * "Correr todo" de una subpestaña de stage (FrameworkTab.tsx) — mismo
+   * `runSequence()` de siempre, pero con una lista de scriptIds arbitraria
+   * en vez de una `RUN_ALL_SEQUENCES[framework]` con nombre fijo. `label` es
+   * el tag libre que identifica este botón en los eventos (no un framework
+   * real) — quien llama es responsable de que los scriptIds sean seguros de
+   * auto-correr (el renderer los arma cruzando contra RUN_ALL_SEQUENCES, ver
+   * getRunAllSequences()), acá no se vuelve a filtrar por diseño: este
+   * endpoint es genérico, no sabe qué es "seguro" para cada caso de uso.
+   */
+  async runCustomSequence(label: string, scriptIds: string[]): Promise<{ overallRunId: string; steps: RunAllStepResult[]; ok: boolean }> {
+    const overallRunId = `run-all:${label}:${Date.now()}`;
+    const steps: RunAllStepResult[] = [];
+
+    const finishedCleanly = await this.runSequence(
+      overallRunId,
+      label,
+      scriptIds.map((scriptId) => ({ scriptId })),
+      steps,
+    );
+
+    const ok = finishedCleanly && steps.length === scriptIds.length;
+    this.gateway.server?.emit('run-all-report', { overallRunId, framework: label, steps, ok });
     return { overallRunId, steps, ok };
   }
 

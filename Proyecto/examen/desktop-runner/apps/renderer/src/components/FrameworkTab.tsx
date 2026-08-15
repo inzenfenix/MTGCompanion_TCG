@@ -3,6 +3,7 @@ import { Tabs } from '@/components/ui/tabs';
 import { ScriptCard } from './ScriptCard';
 import { RunAllPanel } from './RunAllPanel';
 import { useRunAllStatus } from '@/lib/useRunAllStatus';
+import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type { ScriptInfo } from '@/lib/types';
 
@@ -38,9 +39,24 @@ const STAGES: { value: StageValue; label: string }[] = [
   { value: 'stage4', label: 'Stage 4 — Condición' },
 ];
 
+// Scripts group:'shared' que aparecen en ambas pestañas con el mismo
+// ScriptDef (mismo id, mismos args) — su default no puede saber sola en
+// cuál pestaña la está renderizando quien llama, así que se sobreescribe
+// puntualmente por id. Hoy solo shared-evaluate ("--model both" por
+// default, corre pytorch Y tensorflow sin importar la pestaña donde se le
+// da "Correr" a mano — ver ROADMAP.md, reportado por el usuario).
+const SHARED_SCRIPT_OVERRIDES: Record<string, (framework: Framework) => Record<string, unknown>> = {
+  'shared-evaluate': (framework) => ({ model: framework }),
+};
+
 export function FrameworkTab({ framework, scripts, onVenvChanged }: { framework: Framework; scripts: ScriptInfo[]; onVenvChanged: () => void }) {
   const [stage, setStage] = useState<StageValue>('retrieval');
+  const [runAllSequences, setRunAllSequences] = useState<Record<Framework, string[]> | null>(null);
   const { statusByKey, activeScriptId } = useRunAllStatus(STAGE_SCRIPTS[framework]);
+
+  useEffect(() => {
+    api.runAllSequences().then(setRunAllSequences).catch(() => undefined);
+  }, []);
 
   // "Correr todo" (o "Correr TODO") empuja la vista a la subpestaña que
   // está corriendo ahora mismo — así seguir el progreso es solo mirar cuál
@@ -55,18 +71,38 @@ export function FrameworkTab({ framework, scripts, onVenvChanged }: { framework:
 
   return (
     <div className="space-y-4">
-      <RunAllPanel framework={framework} />
+      <RunAllPanel label={framework} onStart={() => api.runAll(framework)} />
 
       <Tabs value={stage} onValueChange={(v) => setStage(v as StageValue)} items={items} />
 
-      {STAGES.map(({ value }) => (
-        <div key={value} className={cn('space-y-4', value !== stage && 'hidden')}>
-          {STAGE_SCRIPTS[framework][value]
-            .map((id) => scripts.find((s) => s.id === id))
-            .filter((s): s is ScriptInfo => Boolean(s))
-            .map((script) => <ScriptCard key={script.id} script={script} onVenvChanged={onVenvChanged} />)}
-        </div>
-      ))}
+      {STAGES.map(({ value }) => {
+        // "Correr todo" de la subpestaña: mismos scripts que ya se listan
+        // abajo, pero solo los que RUN_ALL_SEQUENCES ya marcó como seguros
+        // de auto-correr (excluye Optuna/scanner/predict/finetune, ver el
+        // comentario de getRunAllSequences() en scripts.controller.ts) — no
+        // se muestra si la intersección queda vacía (ej. una subpestaña que
+        // solo tiene un script interactivo, como "Testear").
+        const runnableIds = STAGE_SCRIPTS[framework][value].filter((id) => runAllSequences?.[framework]?.includes(id));
+
+        return (
+          <div key={value} className={cn('space-y-4', value !== stage && 'hidden')}>
+            {runnableIds.length > 0 && (
+              <RunAllPanel label={`${framework}:${value}`} onStart={() => api.runSequence(`${framework}:${value}`, runnableIds)} />
+            )}
+            {STAGE_SCRIPTS[framework][value]
+              .map((id) => scripts.find((s) => s.id === id))
+              .filter((s): s is ScriptInfo => Boolean(s))
+              .map((script) => (
+                <ScriptCard
+                  key={script.id}
+                  script={script}
+                  onVenvChanged={onVenvChanged}
+                  initialValues={SHARED_SCRIPT_OVERRIDES[script.id]?.(framework)}
+                />
+              ))}
+          </div>
+        );
+      })}
     </div>
   );
 }
