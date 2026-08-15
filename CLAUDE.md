@@ -50,6 +50,20 @@ scripts (both frameworks) and the TensorFlow Stage 1 export script exist and
 compile, but have not actually been run for real yet — `stage4-condition-grader.onnx`
 does not exist on disk anywhere yet.
 
+## Workflow expectations for any non-trivial task
+
+For anything beyond a small edit (new script, multi-file change, a ROADMAP
+item, a refactor):
+
+1. **Plan first, show it before starting.** Lay out the concrete steps and
+   what will change, and get a go-ahead before writing code — don't just
+   dive into a big piece of work silently.
+2. **End with testing, not just "done."** Before reporting a task complete,
+   actually run/verify it (unit test, a real training run, a script
+   execution, checking output files) — don't rely on the code merely
+   compiling or "looking right." State plainly what was and wasn't verified
+   if something couldn't be tested (e.g. no GPU, missing dependency).
+
 ## Hard rules established this project — read before touching training scripts
 
 1. **Never hardcode a capability-disabling default to work around one

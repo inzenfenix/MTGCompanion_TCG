@@ -1,0 +1,16 @@
+{
+  "trial_number": 14,
+  "best_value": 0.32851910513463467,
+  "metric": "val_loss_log_mse",
+  "params": {
+    "learning_rate": 0.00020902884621139573,
+    "weight_decay": 5.211471577091003e-06,
+    "batch_size": 32,
+    "hidden_units": 256,
+    "dropout": 0.1,
+    "optimizer": "adam"
+  },
+  "study_name": "price_estimator_pytorch",
+  "completed_trials": 9,
+  "total_trials": 20
+}
