@@ -133,7 +133,10 @@ usable, cae a CPU.
   vía pip (el paquete `tensorflow-rocm` de PyPI quedó en 2.9.4; el camino
   actual de AMD es Docker — imágenes `rocm/tensorflow`, no un venv). El
   runner lo loguea claramente en la pantalla de configuración y sigue con
-  TensorFlow en modo CPU — PyTorch sí queda acelerado.
+  TensorFlow en modo CPU — PyTorch sí queda acelerado. Si necesitás TF
+  acelerado igual, `docker/tf-rocm/` tiene el escape hatch manual (probado
+  de verdad en esta laptop, RX 6800S) — no está enchufado a la UI a propósito,
+  ver `docker/tf-rocm/README.md`.
 - **Nada detectado / todo falló**: wheels CPU explícitos (`.../whl/cpu`,
   livianos), sin frenar el resto de la instalación.
 
