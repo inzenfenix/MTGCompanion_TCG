@@ -1,0 +1,16 @@
+{
+  "trial_number": 19,
+  "best_value": 0.9665757417678833,
+  "metric": "val_auc",
+  "params": {
+    "learning_rate": 0.004079637500164538,
+    "weight_decay": 2.683184973768513e-05,
+    "batch_size": 64,
+    "hidden_units": 64,
+    "dropout": 0.25,
+    "optimizer": "adam"
+  },
+  "study_name": "text_validator_tensorflow",
+  "completed_trials": 11,
+  "total_trials": 20
+}

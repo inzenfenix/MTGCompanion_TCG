@@ -1,0 +1,15 @@
+{
+  "roc_auc": 0.9634112574660814,
+  "umbral_optimo": 0.06248646229505539,
+  "accuracy_en_umbral_optimo": 0.9308176100628931,
+  "n_val": 318,
+  "split": "validation_used_for_model_selection",
+  "best_params": {
+    "learning_rate": 0.004079637500164538,
+    "weight_decay": 2.683184973768513e-05,
+    "batch_size": 64,
+    "hidden_units": 64,
+    "dropout": 0.25,
+    "optimizer": "adam"
+  }
+}

@@ -70,14 +70,16 @@ def build_text_matcher(
     if not 0.0 <= dropout <= 1.0:
         raise ValueError("dropout debe estar entre 0.0 y 1.0")
 
-    model = tf.keras.Sequential([
-        tf.keras.Input(shape=(input_dim,)),
-        tf.keras.layers.Dense(hidden_units, activation="relu"),
-        tf.keras.layers.Dropout(dropout),
-        tf.keras.layers.Dense(hidden_units // 2, activation="relu"),
-        tf.keras.layers.Dropout(dropout),
-        tf.keras.layers.Dense(1),
-    ], name="text_matcher")
+    # API funcional (no Sequential) — mismo criterio que
+    # src/condition_classifier.py: Sequential no expone `output_names`,
+    # lo que rompe tf2onnx al exportar (ver 14_export_onnx_text_validator.py).
+    inputs = tf.keras.Input(shape=(input_dim,))
+    x = tf.keras.layers.Dense(hidden_units, activation="relu")(inputs)
+    x = tf.keras.layers.Dropout(dropout)(x)
+    x = tf.keras.layers.Dense(hidden_units // 2, activation="relu")(x)
+    x = tf.keras.layers.Dropout(dropout)(x)
+    outputs = tf.keras.layers.Dense(1)(x)
+    model = tf.keras.Model(inputs, outputs, name="text_matcher")
 
     model.compile(
         optimizer=build_optimizer(optimizer_name, learning_rate, weight_decay),

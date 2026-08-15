@@ -125,8 +125,15 @@ def save_study_artifacts(
     study: optuna.Study,
     run_dir: pathlib.Path,
     run_config: dict[str, Any],
+    metric_name: str = "val_accuracy",
 ) -> dict[str, Any]:
-    """Guarda configuración, trials, resumen ganador y gráficos del estudio."""
+    """Guarda configuración, trials, resumen ganador y gráficos del estudio.
+
+    `metric_name` es solo la etiqueta que queda en best_params.json — el
+    default preserva el comportamiento previo (Stage 1/4, que optimizan
+    val_accuracy); Stage 2 (texto) pasa "val_auc" porque ahí el objective
+    real es ROC-AUC, no accuracy.
+    """
     if not _completed_trials(study):
         raise ValueError("El estudio no contiene trials completos")
 
@@ -141,7 +148,7 @@ def save_study_artifacts(
     best = {
         "trial_number": study.best_trial.number,
         "best_value": float(study.best_value),
-        "metric": "val_accuracy",
+        "metric": metric_name,
         "params": study.best_params,
         "study_name": study.study_name,
         "completed_trials": len(_completed_trials(study)),

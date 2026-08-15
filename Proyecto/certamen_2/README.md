@@ -422,16 +422,32 @@ reconstruir el índice de PyTorch contra el dataset completo
       completo — sigue en su subconjunto original de 5,000 cartas, causa
       identificaciones erróneas evitables (encontrado corriendo
       `full_pipeline_demo.py`, ver sección 5.3).
-- [ ] Script de entrenamiento Stage 2 (nombre tentativo: `08_text_validator.py`,
-      por framework) — versión "de verdad", no el baseline.
-- [ ] Stage 3 "de verdad" por framework (nombre tentativo: `09_price_estimator.py`),
-      sumando el embedding visual al baseline tabular de la sección 5.1.
-- [ ] Aplicar Optuna a Stage 2 y Stage 3 una vez tengan un baseline entrenando
-      (mismo patrón que la sección 0).
-- [ ] Exportar TensorFlow a ONNX (`tf2onnx`) y armar el registro
-      `best_model.json` por etapa (sección 2).
-- [ ] Métricas a reportar: ROC-AUC del validador de texto; MAE / RMSE / R² del
-      estimador de precio sobre un hold-out.
+- [x] Script de entrenamiento Stage 2, ambos frameworks — versión "de verdad",
+      no el baseline: `pytorch/14_text_validator.py` +
+      `tensorFlow/12_text_validator.py`, `src/text_matcher.py` en cada
+      framework (HashingVectorizer idéntico en ambos). Entrenado sobre datos
+      reales (791 cartas, `prepare_text_validator_dataset.py`): PyTorch
+      ROC-AUC 0.9608, TensorFlow 0.9565 (sin Optuna). Ver ROADMAP.md,
+      workstream A.
+- [ ] Stage 3 "de verdad" por framework (nombre tentativo: `15_price_estimator.py`
+      / `13_price_estimator.py`, ver numeración ya usada por Stage 2), sumando
+      el embedding visual al baseline tabular de la sección 5.1.
+- [x] Aplicar Optuna a Stage 2 (`pytorch/15_optuna_text_validator.py` +
+      `tensorFlow/13_optuna_text_validator.py`) — PyTorch 0.9646 ROC-AUC,
+      TensorFlow 0.9634 (empate por el criterio de `scripts.service.ts`,
+      diff < 0.005).
+- [ ] Aplicar Optuna a Stage 3 una vez tenga un baseline entrenando (mismo
+      patrón que la sección 0).
+- [x] Exportar Stage 2 a ONNX, ambos frameworks
+      (`pytorch/16_export_onnx_text_validator.py` +
+      `tensorFlow/14_export_onnx_text_validator.py`), publicado como
+      `stage2-text-validator.onnx` en `trading-app-ionic/public/models/`.
+- [ ] Exportar Stage 3 a ONNX y armar el registro `best_model.json` por etapa
+      (sección 2) — todavía no existe para ninguna etapa, la selección de
+      "ganador" hoy es manual/última corrida publicada.
+- [x] Métricas de Stage 2 reportadas arriba (ROC-AUC, umbral de Youden,
+      accuracy). Pendiente: MAE / RMSE / R² del estimador de precio (Stage 3)
+      sobre un hold-out, una vez exista el modelo real.
 - [x] `card_preprocessing.py`: localizar carta + corregir perspectiva +
       normalizar contraste, compartido entre Stage 2 y Stage 4 — ver sección 8.
 - [x] Condición de la carta: stopgap por regla (`--condition` + multiplicador)
