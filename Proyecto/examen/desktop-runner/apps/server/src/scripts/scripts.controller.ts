@@ -25,6 +25,25 @@ export class ScriptsController {
     return this.scriptsService.getGpuInfo();
   }
 
+  // Elegibilidad + estado de la imagen del escape hatch Docker de TensorFlow
+  // (ver docker/tf-rocm/, ROADMAP.md workstream D) — separado de /gpu porque
+  // GpuInfo describe el hardware; esto describe si además se puede usarlo
+  // vía Docker en esta máquina puntual (Linux + Docker instalado).
+  @Get('tf-docker/status')
+  getTfDockerStatus() {
+    return this.scriptsService.getTfDockerStatus();
+  }
+
+  @Get('settings')
+  getSettings() {
+    return this.scriptsService.getSettings();
+  }
+
+  @Post('settings')
+  updateSettings(@Body() body: Record<string, unknown>) {
+    return this.scriptsService.updateSettings(body as any);
+  }
+
   // Ruta estática, no ':id/card-count' — solo shared-scraper la necesita hoy
   // y así no hay que decidir qué pasa si se pide para un script sin sentido.
   @Get('scripts/shared-scraper/card-count')
@@ -44,7 +63,7 @@ export class ScriptsController {
 
   @Post('envs/:envId/ensure')
   @HttpCode(202)
-  async ensureVenv(@Param('envId') envId: 'pytorch' | 'tensorflow' | 'testing' | 'system') {
+  async ensureVenv(@Param('envId') envId: 'pytorch' | 'tensorflow' | 'testing' | 'system' | 'tensorflow-docker') {
     await this.scriptsService.ensureVenv(envId);
     return { ok: true };
   }

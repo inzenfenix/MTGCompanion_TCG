@@ -94,6 +94,13 @@ export interface ArgDef {
    * "colgada" (ver README, sección Downloader).
    */
   linkedFrom?: { arg: string; factor: number };
+  /**
+   * No se renderiza en el form — se manda igual con su `default` (ver
+   * ArgForm.tsx). Para flags que siempre deben ir con el mismo valor (ej.
+   * "--download-only" en shared-download-negatives) sin exponer un control
+   * que no tiene sentido que el usuario toque.
+   */
+  hidden?: boolean;
 }
 
 export interface ResultFileDef {
@@ -196,10 +203,26 @@ export const SCRIPTS: ScriptDef[] = [
         name: 'delay',
         kind: 'float',
         label: 'Delay entre requests (s)',
-        default: 0.06,
+        // 0.1s por cada 4 workers (factor 0.025) — mantiene la tasa agregada
+        // contra Scryfall constante al cambiar "Workers".
+        default: 0.1,
         help: 'Se ajusta solo al cambiar "Workers" (mantiene la tasa agregada contra Scryfall constante) — edítalo a mano si quieres desvincularlo.',
-        linkedFrom: { arg: 'workers', factor: 0.015 },
+        linkedFrom: { arg: 'workers', factor: 0.025 },
       },
+    ],
+  },
+  {
+    id: 'shared-download-negatives',
+    group: 'shared',
+    label: 'Descargar cartas negativas (Pokémon + otras fuentes)',
+    description:
+      'Descarga (o completa) las imágenes no-MTG usadas como negativos por el detector Stage 1 — Pokémon TCG, Yu-Gi-Oh! y dos mazos de naipes. Idempotente: reutiliza lo que ya existe en disco y solo descarga lo que falta. Usa el venv de pytorch/ (compartida con TensorFlow: misma carpeta en disco).',
+    cwd: PT_DIR,
+    script: '07_binary_classifier.py',
+    env: 'pytorch',
+    args: [
+      { flag: '--download-only', name: 'download_only', kind: 'boolean', label: 'download-only', default: true, hidden: true },
+      { flag: '--n', name: 'n', kind: 'number', label: 'Cartas por clase', default: 3000 },
     ],
   },
   {
@@ -270,7 +293,6 @@ export const SCRIPTS: ScriptDef[] = [
     script: '07_binary_classifier.py',
     env: 'pytorch',
     args: [
-      { flag: '--skip-download', name: 'skip_download', kind: 'boolean', label: 'Reutilizar Pokémon ya descargados', default: false },
       { flag: '--n', name: 'n', kind: 'number', label: 'Cartas por clase', default: 3000 },
       { flag: '--epochs', name: 'epochs', kind: 'number', label: 'Épocas', default: 15 },
     ],
@@ -288,7 +310,6 @@ export const SCRIPTS: ScriptDef[] = [
     script: '08_optuna_binary_classifier.py',
     env: 'pytorch',
     args: [
-      { flag: '--skip-download', name: 'skip_download', kind: 'boolean', label: 'Reutilizar Pokémon ya descargados', default: false },
       { flag: '--n', name: 'n', kind: 'number', label: 'Cartas por clase', default: 3000 },
       { flag: '--trials', name: 'trials', kind: 'number', label: 'Cantidad de trials', default: 20 },
       { flag: '--trial-epochs', name: 'trial_epochs', kind: 'number', label: 'Épocas por trial', default: 6 },
@@ -358,6 +379,128 @@ export const SCRIPTS: ScriptDef[] = [
     resultFiles: () => [{ kind: 'scanner', label: 'Resultado del scanner', path: path.join(PT_DIR, 'results', 'last_scan.json') }],
   },
 
+  // ── PyTorch — Stage 2: Validador de texto (OCR match) ──────────────────
+  {
+    id: 'pt-text-validator',
+    group: 'pytorch',
+    label: '14 · Entrenar validador de texto',
+    description: 'Entrena el MLP que compara texto OCR contra el texto de referencia (hashed n-grams). Requiere el dataset preparado por certamen_2/prepare_text_validator_dataset.py.',
+    cwd: PT_DIR,
+    script: '14_text_validator.py',
+    env: 'pytorch',
+    args: [
+      { flag: '--epochs', name: 'epochs', kind: 'number', label: 'Épocas', default: 20 },
+      { flag: '--hidden-units', name: 'hidden_units', kind: 'number', label: 'Unidades ocultas', default: 256 },
+      { flag: '--dropout', name: 'dropout', kind: 'float', label: 'Dropout', default: 0.3 },
+      { flag: '--lr', name: 'lr', kind: 'float', label: 'Learning rate', default: 0.001 },
+      { flag: '--weight-decay', name: 'weight_decay', kind: 'float', label: 'Weight decay', default: 0.0001 },
+      { flag: '--optimizer', name: 'optimizer', kind: 'select', label: 'Optimizador', options: ['adam', 'adamw', 'sgd'], default: 'adamw', recommended: 'adamw' },
+      // Regla dura #1 de CLAUDE.md: TextMatcher (nn.Linear(2048,256)) puede
+      // segfaultear en ROCm/MIOpen en algunas GPU AMD — flag opt-in, nunca
+      // default a CPU para no desactivar la aceleración a todo el resto.
+      { flag: '--device', name: 'device', kind: 'select', label: 'Device', options: ['auto', 'cpu', 'cuda'], default: 'auto', recommended: 'auto', help: 'Cambiar a "cpu" solo si esta máquina sufre el segfault de ROCm/MIOpen descrito en CLAUDE.md.' },
+    ],
+  },
+  {
+    id: 'pt-optuna-text-validator',
+    group: 'pytorch',
+    label: '15 · Búsqueda de hiperparámetros (Optuna)',
+    description: 'Optimiza el validador de texto con Optuna. Puede tardar mucho según --trials.',
+    cwd: PT_DIR,
+    script: '15_optuna_text_validator.py',
+    env: 'pytorch',
+    args: [
+      { flag: '--trials', name: 'trials', kind: 'number', label: 'Cantidad de trials', default: 20 },
+      { flag: '--trial-epochs', name: 'trial_epochs', kind: 'number', label: 'Épocas por trial', default: 10 },
+      { flag: '--final-epochs', name: 'final_epochs', kind: 'number', label: 'Épocas del entrenamiento final', default: 20 },
+      { flag: '--timeout-hours', name: 'timeout_hours', kind: 'float', label: 'Timeout (horas, opcional)' },
+      { flag: '--study-name', name: 'study_name', kind: 'string', label: 'Nombre del estudio Optuna', default: 'text_validator_pytorch' },
+      { flag: '--resume-dir', name: 'resume_dir', kind: 'string', label: 'Retomar estudio desde (ruta, opcional)' },
+      { flag: '--seed', name: 'seed', kind: 'number', label: 'Seed', default: 42 },
+      { flag: '--device', name: 'device', kind: 'select', label: 'Device', options: ['auto', 'cpu', 'cuda'], default: 'auto', recommended: 'auto', help: 'Cambiar a "cpu" solo si esta máquina sufre el segfault de ROCm/MIOpen descrito en CLAUDE.md.' },
+      { flag: '--no-final-train', name: 'no_final_train', kind: 'boolean', label: 'No entrenar el modelo final', default: false },
+    ],
+    resultFiles: () => [
+      { kind: 'optuna', label: 'Optuna — PyTorch', path: path.join(CERTAMEN_DIR, 'output', 'pytorch', 'optuna_text_validator', 'latest', 'best_params.json') },
+    ],
+  },
+  {
+    id: 'pt-export-onnx-text-validator',
+    group: 'pytorch',
+    label: '16 · Exportar validador de texto a ONNX (Stage 2)',
+    description:
+      'Exporta el validador de texto ya entrenado (text_matcher.pth) a ONNX, verificando que las salidas coincidan con el modelo original, y lo copia a trading-app-ionic/public/models/stage2-text-validator.onnx. No reentrena nada.',
+    cwd: PT_DIR,
+    script: '16_export_onnx_text_validator.py',
+    env: 'pytorch',
+    args: [
+      { flag: '--ocr-text', name: 'ocr_text', kind: 'string', label: 'Texto OCR real de verificación (opcional, si no se usa un tensor aleatorio)' },
+      { flag: '--ref-text', name: 'ref_text', kind: 'string', label: 'Texto de referencia de verificación (opcional)' },
+      { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
+      { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0001 },
+      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a trading-app-ionic/public/models/', default: false },
+    ],
+  },
+
+  // ── PyTorch — Stage 4: Clasificador de condición ────────────────────────
+  {
+    id: 'pt-condition-grader',
+    group: 'pytorch',
+    label: '10 · Entrenar clasificador de condición',
+    description: 'Entrena el clasificador de condición (NM/LP/MP/HP/DMG) sobre desgaste sintético. Requiere el dataset preparado por certamen_2/prepare_condition_dataset.py.',
+    cwd: PT_DIR,
+    script: '10_condition_grader.py',
+    env: 'pytorch',
+    args: [
+      { flag: '--n', name: 'n', kind: 'number', label: 'Cartas base (0 = todas)', default: 0 },
+      { flag: '--epochs', name: 'epochs', kind: 'number', label: 'Épocas', default: 15 },
+    ],
+  },
+  {
+    id: 'pt-optuna-condition-grader',
+    group: 'pytorch',
+    label: '11 · Búsqueda de hiperparámetros (Optuna)',
+    description: 'Optimiza el clasificador de condición con Optuna. Puede tardar mucho según --trials.',
+    cwd: PT_DIR,
+    script: '11_optuna_condition_grader.py',
+    env: 'pytorch',
+    args: [
+      { flag: '--n', name: 'n', kind: 'number', label: 'Cartas base (0 = todas)', default: 0 },
+      { flag: '--trials', name: 'trials', kind: 'number', label: 'Cantidad de trials', default: 20 },
+      { flag: '--trial-epochs', name: 'trial_epochs', kind: 'number', label: 'Épocas por trial', default: 6 },
+      { flag: '--final-epochs', name: 'final_epochs', kind: 'number', label: 'Épocas del entrenamiento final', default: 15 },
+      { flag: '--timeout-hours', name: 'timeout_hours', kind: 'float', label: 'Timeout (horas, opcional)' },
+      { flag: '--study-name', name: 'study_name', kind: 'string', label: 'Nombre del estudio Optuna', default: 'condition_grader_pytorch' },
+      { flag: '--resume-dir', name: 'resume_dir', kind: 'string', label: 'Retomar estudio desde (ruta, opcional)' },
+      { flag: '--seed', name: 'seed', kind: 'number', label: 'Seed', default: 42 },
+      { flag: '--no-final-train', name: 'no_final_train', kind: 'boolean', label: 'No entrenar el modelo final', default: false },
+    ],
+    resultFiles: () => [
+      { kind: 'optuna', label: 'Optuna — PyTorch', path: path.join(CERTAMEN_DIR, 'output', 'pytorch', 'optuna_condition', 'latest', 'best_params.json') },
+    ],
+  },
+  {
+    id: 'pt-condition-grader-combined',
+    group: 'pytorch',
+    label: '12 · Entrenar combinado (sintético + fotos reales)',
+    description:
+      'Reentrena el clasificador de condición agregando 1,184 fotos reales de Roboflow (ver certamen_2/import_roboflow_condition_data.py) al desgaste sintético — genera condition_grader_combined.pth, el modelo que de verdad generaliza a fotos reales (72.2% vs 38.7% del sintético-solo, ver certamen_2/README.md sección 9) y el que usa "Testear" más abajo.',
+    cwd: PT_DIR,
+    script: '12_condition_grader_combined.py',
+    env: 'pytorch',
+    args: [{ flag: '--epochs', name: 'epochs', kind: 'number', label: 'Épocas', default: 15 }],
+  },
+  {
+    id: 'pt-predict-condition',
+    group: 'pytorch',
+    label: 'Testear · Clasificar condición de una carta',
+    description: 'Clasifica la condición (NM/LP/MP/HP/DMG) de una foto ya recortada/normalizada, usando condition_grader_combined.pth (ver "12 · Entrenar combinado" arriba).',
+    cwd: PT_DIR,
+    script: 'predict_condition.py',
+    env: 'pytorch',
+    args: [{ flag: null, name: 'imagen', kind: 'file', label: 'Imagen de la carta (recortada/normalizada)', required: true }],
+  },
+
   // ── TensorFlow ──────────────────────────────────────────────────────────
   {
     id: 'tf-embeddings',
@@ -388,7 +531,6 @@ export const SCRIPTS: ScriptDef[] = [
     script: '07_binary_classifier.py',
     env: 'tensorflow',
     args: [
-      { flag: '--skip-download', name: 'skip_download', kind: 'boolean', label: 'Reutilizar Pokémon ya descargados', default: true },
       { flag: '--n', name: 'n', kind: 'number', label: 'Cartas por clase', default: 3000 },
       { flag: '--epochs', name: 'epochs', kind: 'number', label: 'Épocas', default: 15 },
     ],
@@ -406,7 +548,6 @@ export const SCRIPTS: ScriptDef[] = [
     script: '08_optuna_binary_classifier.py',
     env: 'tensorflow',
     args: [
-      { flag: '--skip-download', name: 'skip_download', kind: 'boolean', label: 'Reutilizar Pokémon ya descargados', default: true },
       { flag: '--n', name: 'n', kind: 'number', label: 'Cartas por clase', default: 3000 },
       { flag: '--trials', name: 'trials', kind: 'number', label: 'Cantidad de trials', default: 20 },
       { flag: '--trial-epochs', name: 'trial_epochs', kind: 'number', label: 'Épocas por trial', default: 6 },
@@ -469,6 +610,102 @@ export const SCRIPTS: ScriptDef[] = [
     resultFiles: () => [{ kind: 'scanner', label: 'Resultado del scanner', path: path.join(TF_DIR, 'results', 'last_scan.json') }],
   },
 
+  // ── TensorFlow — Stage 2: Validador de texto (OCR match) ───────────────
+  {
+    id: 'tf-text-validator',
+    group: 'tensorflow',
+    label: '12 · Entrenar validador de texto',
+    description: 'Entrena el MLP que compara texto OCR contra el texto de referencia (hashed n-grams). Requiere el dataset preparado por certamen_2/prepare_text_validator_dataset.py.',
+    cwd: TF_DIR,
+    script: '12_text_validator.py',
+    env: 'tensorflow',
+    args: [
+      { flag: '--epochs', name: 'epochs', kind: 'number', label: 'Épocas', default: 20 },
+      { flag: '--hidden-units', name: 'hidden_units', kind: 'number', label: 'Unidades ocultas', default: 256 },
+      { flag: '--dropout', name: 'dropout', kind: 'float', label: 'Dropout', default: 0.3 },
+      { flag: '--lr', name: 'lr', kind: 'float', label: 'Learning rate', default: 0.001 },
+      { flag: '--weight-decay', name: 'weight_decay', kind: 'float', label: 'Weight decay', default: 0.0001 },
+      { flag: '--optimizer', name: 'optimizer', kind: 'select', label: 'Optimizador', options: ['adam', 'adamw', 'sgd'], default: 'adamw', recommended: 'adamw' },
+    ],
+  },
+  {
+    id: 'tf-optuna-text-validator',
+    group: 'tensorflow',
+    label: '13 · Búsqueda de hiperparámetros (Optuna)',
+    description: 'Optimiza el validador de texto con Optuna. Puede tardar mucho según --trials.',
+    cwd: TF_DIR,
+    script: '13_optuna_text_validator.py',
+    env: 'tensorflow',
+    args: [
+      { flag: '--trials', name: 'trials', kind: 'number', label: 'Cantidad de trials', default: 20 },
+      { flag: '--trial-epochs', name: 'trial_epochs', kind: 'number', label: 'Épocas por trial', default: 10 },
+      { flag: '--final-epochs', name: 'final_epochs', kind: 'number', label: 'Épocas del entrenamiento final', default: 20 },
+      { flag: '--timeout-hours', name: 'timeout_hours', kind: 'float', label: 'Timeout (horas, opcional)' },
+      { flag: '--study-name', name: 'study_name', kind: 'string', label: 'Nombre del estudio Optuna', default: 'text_validator_tensorflow' },
+      { flag: '--resume-dir', name: 'resume_dir', kind: 'string', label: 'Retomar estudio desde (ruta, opcional)' },
+      { flag: '--seed', name: 'seed', kind: 'number', label: 'Seed', default: 42 },
+      { flag: '--no-final-train', name: 'no_final_train', kind: 'boolean', label: 'No entrenar el modelo final', default: false },
+    ],
+    resultFiles: () => [
+      { kind: 'optuna', label: 'Optuna — TensorFlow', path: path.join(CERTAMEN_DIR, 'output', 'tensorflow', 'optuna_text_validator', 'latest', 'best_params.json') },
+    ],
+  },
+  {
+    id: 'tf-export-onnx-text-validator',
+    group: 'tensorflow',
+    label: '14 · Exportar validador de texto a ONNX (Stage 2)',
+    description:
+      'Exporta el validador de texto ya entrenado (text_matcher.keras) a ONNX vía tf2onnx, verificando paridad numérica, y lo copia a trading-app-ionic/public/models/stage2-text-validator.onnx. No reentrena nada.',
+    cwd: TF_DIR,
+    script: '14_export_onnx_text_validator.py',
+    env: 'tensorflow',
+    args: [
+      { flag: '--ocr-text', name: 'ocr_text', kind: 'string', label: 'Texto OCR real de verificación (opcional, si no se usa un array aleatorio)' },
+      { flag: '--ref-text', name: 'ref_text', kind: 'string', label: 'Texto de referencia de verificación (opcional)' },
+      { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
+      { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0001 },
+      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a trading-app-ionic/public/models/', default: false },
+    ],
+  },
+
+  // ── TensorFlow — Stage 4: Clasificador de condición ─────────────────────
+  {
+    id: 'tf-condition-grader',
+    group: 'tensorflow',
+    label: '09 · Entrenar clasificador de condición',
+    description: 'Entrena el clasificador de condición (NM/LP/MP/HP/DMG) sobre desgaste sintético. Requiere el dataset preparado por certamen_2/prepare_condition_dataset.py.',
+    cwd: TF_DIR,
+    script: '09_condition_grader.py',
+    env: 'tensorflow',
+    args: [
+      { flag: '--n', name: 'n', kind: 'number', label: 'Cartas base (0 = todas)', default: 0 },
+      { flag: '--epochs', name: 'epochs', kind: 'number', label: 'Épocas', default: 15 },
+    ],
+  },
+  {
+    id: 'tf-optuna-condition-grader',
+    group: 'tensorflow',
+    label: '10 · Búsqueda de hiperparámetros (Optuna)',
+    description: 'Optimiza el clasificador de condición con Optuna. Puede tardar mucho según --trials.',
+    cwd: TF_DIR,
+    script: '10_optuna_condition_grader.py',
+    env: 'tensorflow',
+    args: [
+      { flag: '--n', name: 'n', kind: 'number', label: 'Cartas base (0 = todas)', default: 0 },
+      { flag: '--trials', name: 'trials', kind: 'number', label: 'Cantidad de trials', default: 20 },
+      { flag: '--trial-epochs', name: 'trial_epochs', kind: 'number', label: 'Épocas por trial', default: 6 },
+      { flag: '--final-epochs', name: 'final_epochs', kind: 'number', label: 'Épocas del entrenamiento final', default: 15 },
+      { flag: '--timeout-hours', name: 'timeout_hours', kind: 'float', label: 'Timeout (horas, opcional)' },
+      { flag: '--study-name', name: 'study_name', kind: 'string', label: 'Nombre del estudio Optuna', default: 'condition_grader_tensorflow' },
+      { flag: '--resume-dir', name: 'resume_dir', kind: 'string', label: 'Retomar estudio desde (ruta, opcional)' },
+      { flag: '--seed', name: 'seed', kind: 'number', label: 'Seed', default: 42 },
+      { flag: '--no-final-train', name: 'no_final_train', kind: 'boolean', label: 'No entrenar el modelo final', default: false },
+    ],
+    resultFiles: () => [
+      { kind: 'optuna', label: 'Optuna — TensorFlow', path: path.join(CERTAMEN_DIR, 'output', 'tensorflow', 'optuna_condition', 'latest', 'best_params.json') },
+    ],
+  },
+
   // ── Testing (comparación entre frameworks) ────────────────────────────
   {
     id: 'test-compare',
@@ -507,11 +744,15 @@ export const SCRIPTS: ScriptDef[] = [
 /**
  * Secuencia recomendada para "Correr todo" por framework (ver README de certamen_1).
  * El dataset compartido (shared-scraper, shared-downloader) se corre una sola vez antes,
- * no por framework.
+ * no por framework. Entrena los 3 stages que ya tienen script registrado en esta
+ * máquina (1, 2, 4 — Stage 3 no existe todavía, ver EXPORT_STAGES) con sus
+ * hiperparámetros default; la búsqueda de Optuna de cada stage queda como
+ * acción manual aparte (son corridas largas, no tiene sentido meterlas en
+ * el camino automático de "correr todo").
  */
 export const RUN_ALL_SEQUENCES: Record<'pytorch' | 'tensorflow', string[]> = {
-  pytorch: ['pt-embedder', 'shared-evaluate', 'pt-visualize', 'pt-binary-classifier'],
-  tensorflow: ['tf-embeddings', 'shared-evaluate', 'tf-visualize', 'tf-binary-classifier'],
+  pytorch: ['pt-embedder', 'shared-evaluate', 'pt-visualize', 'pt-binary-classifier', 'pt-text-validator', 'pt-condition-grader'],
+  tensorflow: ['tf-embeddings', 'shared-evaluate', 'tf-visualize', 'tf-binary-classifier', 'tf-text-validator', 'tf-condition-grader'],
 };
 
 /**
@@ -522,20 +763,22 @@ export const RUN_ALL_SEQUENCES: Record<'pytorch' | 'tensorflow', string[]> = {
  * podría pisar silenciosamente el dataset completo (58k+ impresiones) con una
  * versión de 5,000. `shared-downloader` en cambio es puramente idempotente
  * (reusa lo que ya está en disco, ver 02_downloader.py) — siempre seguro de
- * re-correr. Re-scrapear sigue siendo un botón manual aparte en "Dataset
- * compartido" para cuando de verdad hace falta.
+ * re-correr. Re-scrapear sigue siendo un botón manual aparte en la pestaña
+ * "Scraper" para cuando de verdad hace falta.
  */
 export const RUN_ALL_DOWNLOAD_SEQUENCE: string[] = ['shared-downloader'];
 
 /**
  * Fase final de "Correr TODO" — exporta a ONNX todo lo que ya está entrenado
- * en ambos frameworks (todas las etapas registradas hoy: Stage 1 + Stage 4).
+ * en ambos frameworks (todas las etapas registradas hoy: Stage 1, 2 y 4).
  * Los scripts de export no reentrenan nada, solo leen el checkpoint que las
  * fases pytorch/tensorflow de arriba acaban de dejar guardado.
  */
 export const RUN_ALL_EXPORT_SEQUENCE: string[] = [
   'pt-export-onnx',
   'tf-export-onnx',
+  'pt-export-onnx-text-validator',
+  'tf-export-onnx-text-validator',
   'pt-export-onnx-condition',
   'tf-export-onnx-condition',
 ];
@@ -550,7 +793,7 @@ export type ComparableFramework = 'pytorch' | 'tensorflow';
 
 export interface StageComparisonDef {
   /** Identificador estable de la etapa (no es el nombre del script). */
-  stage: 'stage1' | 'stage4';
+  stage: 'stage1' | 'stage2' | 'stage4';
   label: string;
   /** Campo de final_metrics.json que decide qué framework "gana". */
   metricKey: string;
@@ -560,13 +803,15 @@ export interface StageComparisonDef {
 }
 
 /**
- * Solo Stage 1 (detector MTG/no-MTG) y Stage 4 (clasificador de condición)
- * entrenan un CNN en los dos frameworks — Stage 2/3 del pipeline completo
- * (ver certamen_2/README.md) no son dual-framework, así que no aparecen acá.
- * Los paths apuntan a output/<framework>/<optuna_dir>/latest/final_metrics.json,
- * que 08_optuna_binary_classifier.py / 11_optuna_condition_grader.py (pytorch)
- * y sus equivalentes de tensorFlow/ escriben al terminar una corrida con
- * entrenamiento final (--no-final-train los deja sin generar).
+ * Stage 1 (detector MTG/no-MTG), Stage 2 (validador de texto) y Stage 4
+ * (clasificador de condición) entrenan en los dos frameworks — Stage 3
+ * (estimador de precio) todavía no tiene script pytorch/tensorflow (solo un
+ * baseline sklearn en certamen_2/), así que no aparece acá. Los paths
+ * apuntan a output/<framework>/<optuna_dir>/latest/final_metrics.json, que
+ * 08_optuna_binary_classifier.py / 15_optuna_text_validator.py /
+ * 11_optuna_condition_grader.py (pytorch) y sus equivalentes de tensorFlow/
+ * escriben al terminar una corrida con entrenamiento final
+ * (--no-final-train los deja sin generar).
  */
 export const EXPORT_STAGES: StageComparisonDef[] = [
   {
@@ -576,6 +821,14 @@ export const EXPORT_STAGES: StageComparisonDef[] = [
     metricLabel: 'Accuracy',
     metricsPath: (fw) => path.join(CERTAMEN_DIR, 'output', fw, 'optuna', 'latest', 'final_metrics.json'),
     exportScriptId: (fw) => (fw === 'pytorch' ? 'pt-export-onnx' : 'tf-export-onnx'),
+  },
+  {
+    stage: 'stage2',
+    label: 'Stage 2 — Validador de texto (OCR match)',
+    metricKey: 'roc_auc',
+    metricLabel: 'ROC-AUC',
+    metricsPath: (fw) => path.join(CERTAMEN_DIR, 'output', fw, 'optuna_text_validator', 'latest', 'final_metrics.json'),
+    exportScriptId: (fw) => (fw === 'pytorch' ? 'pt-export-onnx-text-validator' : 'tf-export-onnx-text-validator'),
   },
   {
     stage: 'stage4',

@@ -14,6 +14,8 @@ export interface ArgDef {
   recommended?: string;
   /** Se recalcula como `factor * valor(arg)` al cambiar `arg`, hasta que el usuario lo edita a mano una vez (ver ScriptCard.tsx). */
   linkedFrom?: { arg: string; factor: number };
+  /** No se renderiza en el form — se manda igual con su `default` (ver ArgForm.tsx). */
+  hidden?: boolean;
 }
 
 export type ScriptGroup = 'shared' | 'pytorch' | 'tensorflow' | 'testing';
@@ -33,6 +35,22 @@ export interface EnvInfo {
   label: string;
   needsVenv: boolean;
   ready: boolean;
+}
+
+/** Mismo shape que TfDockerEligibility + extras del server (tf-docker.ts / GET /tf-docker/status). */
+export interface TfDockerStatus {
+  eligible: boolean;
+  dockerInstalled: boolean;
+  reason: string | null;
+  imageTag: string;
+  imageReady: boolean;
+}
+
+export type TensorflowExecutionMode = 'venv' | 'docker';
+
+/** Mismo shape que RunnerSettings del server (settings.ts). */
+export interface RunnerSettings {
+  tensorflowExecutionMode: TensorflowExecutionMode;
 }
 
 export type RunStatus = 'idle' | 'running' | 'success' | 'error' | 'stopped';

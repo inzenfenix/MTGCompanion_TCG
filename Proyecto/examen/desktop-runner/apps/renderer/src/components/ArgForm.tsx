@@ -11,7 +11,12 @@ interface Props {
 }
 
 export function ArgForm({ args, values, onChange, disabled }: Props) {
-  if (args.length === 0) {
+  // Los args `hidden` (ej. "--download-only" en shared-download-negatives)
+  // igual viajan en `values` con su default (ver defaultsFor en ScriptCard.tsx)
+  // — acá solo se filtran de la vista, no dejan de mandarse.
+  const visibleArgs = args.filter((a) => !a.hidden);
+
+  if (visibleArgs.length === 0) {
     return <p className="text-xs text-muted-foreground">Este script no tiene parámetros: corre con sus valores por defecto.</p>;
   }
 
@@ -28,7 +33,7 @@ export function ArgForm({ args, values, onChange, disabled }: Props) {
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      {args.map((arg) => {
+      {visibleArgs.map((arg) => {
         const value = values[arg.name];
 
         // El slider de porcentaje trae su propio Label + texto explicativo

@@ -2,40 +2,65 @@ import { useEffect, useState, useCallback } from 'react';
 import { Tabs } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { ScriptCard } from '@/components/ScriptCard';
-import { RunAllPanel } from '@/components/RunAllPanel';
+import { FrameworkTab } from '@/components/FrameworkTab';
 import { RunEverythingPanel } from '@/components/RunEverythingPanel';
 import { FirstRunSetup } from '@/components/FirstRunSetup';
 import { ExportPanel } from '@/components/ExportPanel';
 import { api } from '@/lib/api';
+import { useRunAllStatus } from '@/lib/useRunAllStatus';
 import { cn } from '@/lib/utils';
-import type { ScriptGroup, ScriptInfo } from '@/lib/types';
+import type { ScriptInfo } from '@/lib/types';
 
 // Se guarda en localStorage (no en el server) porque es una preferencia de
 // esta máquina/perfil de usuario, no del proyecto — cerrar la configuración
 // inicial acá no debería afectar a otro teammate corriendo el mismo runner.
 const ONBOARDING_DISMISSED_KEY = 'mtg-runner:onboarding-dismissed';
 
-// 'export' no es un ScriptGroup real (los export scripts siguen registrados
-// bajo group:'pytorch'/'tensorflow', así que también aparecen en esas tabs
-// "for free") — es una pestaña extra en el frontend que arma su propia vista
-// de comparación en vez de filtrar scripts.script por grupo.
-type TabValue = ScriptGroup | 'export';
+// Pestañas de nivel superior. No son un filtro plano por `script.group` —
+// cada una se cura por id (mismo patrón que ya usaba ExportPanel) para que
+// los exportadores (group:'pytorch'/'tensorflow' también) no aparezcan
+// duplicados fuera de "Exportar". "Scraper" es solo un rename de lo que
+// antes se llamaba "Dataset compartido" (mismo contenido: scraper del
+// catálogo + downloader de imágenes + descarga de negativos) — sigue
+// siendo UNA sola pestaña, no dos.
+type TabValue = 'scraper' | 'pytorch' | 'tensorflow' | 'testing' | 'export';
 
-const GROUPS: { value: TabValue; label: string }[] = [
-  { value: 'shared', label: 'Dataset compartido' },
+const TABS: { value: TabValue; label: string }[] = [
+  { value: 'scraper', label: 'Scraper' },
   { value: 'pytorch', label: 'PyTorch' },
   { value: 'tensorflow', label: 'TensorFlow' },
   { value: 'testing', label: 'Testing' },
   { value: 'export', label: 'Exportar' },
 ];
 
+const SCRAPER_TAB_SCRIPTS = ['shared-scraper', 'shared-downloader', 'shared-download-negatives'];
+
+// Buckets para el ícono de estado de cada pestaña (ver useRunAllStatus.ts) —
+// deliberadamente los mismos ids que RUN_ALL_DOWNLOAD_SEQUENCE /
+// RUN_ALL_SEQUENCES / RUN_ALL_EXPORT_SEQUENCE en scripts.config.ts (server):
+// eso es justo lo que corre "Correr Todo", en el mismo orden que las pestañas.
+const TAB_BUCKETS: Record<string, string[]> = {
+  scraper: ['shared-downloader'],
+  pytorch: ['pt-embedder', 'shared-evaluate', 'pt-visualize', 'pt-binary-classifier', 'pt-text-validator', 'pt-condition-grader'],
+  tensorflow: ['tf-embeddings', 'shared-evaluate', 'tf-visualize', 'tf-binary-classifier', 'tf-text-validator', 'tf-condition-grader'],
+  export: [
+    'pt-export-onnx',
+    'tf-export-onnx',
+    'pt-export-onnx-text-validator',
+    'tf-export-onnx-text-validator',
+    'pt-export-onnx-condition',
+    'tf-export-onnx-condition',
+  ],
+};
+
 export default function App() {
   const [scripts, setScripts] = useState<ScriptInfo[]>([]);
-  const [group, setGroup] = useState<TabValue>('shared');
+  const [tab, setTab] = useState<TabValue>('scraper');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showSetup, setShowSetup] = useState(false);
   const [checkedOnboarding, setCheckedOnboarding] = useState(false);
+  const { statusByKey, activeScriptId } = useRunAllStatus(TAB_BUCKETS);
 
   const load = useCallback(async () => {
     try {
@@ -63,6 +88,16 @@ export default function App() {
     load();
   }, [load]);
 
+  // "Correr Todo" empuja la vista a la pestaña que está corriendo ahora
+  // mismo — así seguir el progreso es solo mirar cuál pestaña se activa
+  // sola (y, adentro de PyTorch/TensorFlow, FrameworkTab hace lo mismo con
+  // sus subpestañas de stage).
+  useEffect(() => {
+    if (!activeScriptId) return;
+    const entry = Object.entries(TAB_BUCKETS).find(([, ids]) => ids.includes(activeScriptId));
+    if (entry) setTab(entry[0] as TabValue);
+  }, [activeScriptId]);
+
   const dismissSetup = () => {
     localStorage.setItem(ONBOARDING_DISMISSED_KEY, '1');
     setShowSetup(false);
@@ -72,6 +107,8 @@ export default function App() {
   if (showSetup) {
     return <FirstRunSetup onDismiss={dismissSetup} />;
   }
+
+  const items = TABS.map((t) => ({ ...t, status: statusByKey[t.value] }));
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
@@ -91,7 +128,7 @@ export default function App() {
         <RunEverythingPanel />
       </div>
 
-      <Tabs value={group} onValueChange={(v) => setGroup(v as TabValue)} items={GROUPS} className="mb-6" />
+      <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)} items={items} className="mb-6" />
 
       {loading && <p className="text-sm text-muted-foreground">Cargando scripts…</p>}
       {loadError && (
@@ -101,20 +138,22 @@ export default function App() {
       )}
 
       {/*
-        Cada grupo se mantiene siempre montado (solo se oculta con CSS) en vez de
+        Cada pestaña se mantiene siempre montada (solo se oculta con CSS) en vez de
         filtrarse fuera del árbol. Si se desmontara al cambiar de pestaña, cada
         ScriptCard perdería su estado (runId, logs, si ya corrió o no) y al volver
         parecería que nunca se corrió nada.
       */}
-      {GROUPS.map(({ value }) => (
-        <div key={value} className={cn('space-y-4', value !== group && 'hidden')}>
-          {(value === 'pytorch' || value === 'tensorflow') && <RunAllPanel framework={value} />}
-
-          {value === 'export' ? (
+      {TABS.map(({ value }) => (
+        <div key={value} className={cn('space-y-4', value !== tab && 'hidden')}>
+          {value === 'pytorch' || value === 'tensorflow' ? (
+            <FrameworkTab framework={value} scripts={scripts} onVenvChanged={load} />
+          ) : value === 'export' ? (
             <ExportPanel scripts={scripts} onVenvChanged={load} />
+          ) : value === 'testing' ? (
+            scripts.filter((s) => s.group === 'testing').map((script) => <ScriptCard key={script.id} script={script} onVenvChanged={load} />)
           ) : (
-            scripts
-              .filter((s) => s.group === value)
+            SCRAPER_TAB_SCRIPTS.map((id) => scripts.find((s) => s.id === id))
+              .filter((s): s is ScriptInfo => Boolean(s))
               .map((script) => <ScriptCard key={script.id} script={script} onVenvChanged={load} />)
           )}
         </div>

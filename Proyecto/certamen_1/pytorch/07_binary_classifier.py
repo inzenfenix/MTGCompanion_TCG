@@ -673,6 +673,11 @@ def main():
     )
     parser.add_argument("--skip-download", action="store_true",
                         help="Omitir descarga de imágenes Pokémon (usar caché)")
+    parser.add_argument("--download-only", action="store_true",
+                        help="Solo descargar/completar las imágenes negativas (Pokémon + otras "
+                             "fuentes) y salir, sin entrenar nada. Ya es idempotente por sí solo "
+                             "(descarga lo que falte, reutiliza lo que ya existe) — no necesita "
+                             "combinarse con --skip-download.")
     parser.add_argument("--n", type=int, default=N_PER_CLASS,
                         help=f"Cartas por clase (default: {N_PER_CLASS})")
     parser.add_argument("--epochs", type=int, default=EPOCHS,
@@ -684,6 +689,16 @@ def main():
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     IMAGES_NEG.mkdir(parents=True, exist_ok=True)
+
+    if args.download_only:
+        print("=" * 60)
+        print("  MTG Card Scanner — Descarga de imágenes negativas (PyTorch)")
+        print(f"  Por clase  : {n:,} cartas")
+        print("=" * 60)
+        print("\n[1/1] Preparando imágenes no-MTG (Pokémon TCG + otras fuentes)...")
+        rutas_neg = descargar_negativos(n, skip=False)
+        print(f"  Disponibles: {len(rutas_neg):,} imágenes no-MTG")
+        return
 
     print("=" * 60)
     print("  MTG Card Scanner — Clasificador Binario (PyTorch)")

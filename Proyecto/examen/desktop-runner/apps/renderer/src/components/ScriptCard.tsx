@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { LogConsole } from './LogConsole';
 import { ResultsView } from './ResultsView';
 import { LossCurveChart, type EpochPoint } from './charts/LossCurveChart';
 import { useRunLogs } from '@/lib/useRunLogs';
-import { api } from '@/lib/api';
+import { api, getSocket, RunAllStepStartedEvent } from '@/lib/api';
 import type { ScriptInfo } from '@/lib/types';
 
 function defaultsFor(script: ScriptInfo) {
@@ -33,6 +33,26 @@ export function ScriptCard({ script, onVenvChanged }: { script: ScriptInfo; onVe
   // falta re-render por esto (no afecta el JSX de por sí), así que es un
   // ref y no otro useState.
   const manuallyEditedRef = useRef<Set<string>>(new Set());
+
+  // "Correr Todo"/"Correr todo" corre este mismo script server-side (ver
+  // runSequence() en scripts.service.ts) sin pasar por handleRun() de acá
+  // abajo — sin esto la tarjeta se quedaba muda durante una corrida
+  // automática hasta que el usuario la abría y apretaba "Correr" de nuevo.
+  // Adoptando el runId que llega por WebSocket, la consola/gráfico/badge
+  // que ya existen se activan solos, en la pestaña donde el script vive de
+  // verdad — así "Correr Todo" no necesita su propio panel de log.
+  useEffect(() => {
+    const socket = getSocket();
+    const onStepStarted = (evt: RunAllStepStartedEvent) => {
+      if (evt.scriptId !== script.id) return;
+      setError(null);
+      setRunId(evt.runId);
+    };
+    socket.on('run-all-step', onStepStarted);
+    return () => {
+      socket.off('run-all-step', onStepStarted);
+    };
+  }, [script.id]);
 
   const requiredMissing = useMemo(
     () => script.args.some((a) => a.required && !values[a.name] && !(Array.isArray(values[a.name]) && (values[a.name] as unknown[]).length)),

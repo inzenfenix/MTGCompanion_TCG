@@ -6,7 +6,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { api } from '@/lib/api';
 import { useVenvProgress } from '@/lib/useVenvProgress';
-import type { EnvInfo, GpuInfo } from '@/lib/types';
+import type { EnvInfo, GpuInfo, RunnerSettings, TensorflowExecutionMode, TfDockerStatus } from '@/lib/types';
 
 function EnvSetupRow({ env, onChanged }: { env: EnvInfo; onChanged: () => void }) {
   // "attempted" (no "preparing") es lo que mantiene el hook de progreso
@@ -38,13 +38,16 @@ function EnvSetupRow({ env, onChanged }: { env: EnvInfo; onChanged: () => void }
   };
 
   const failed = status === 'error' || !!error;
+  const isDocker = env.id === 'tensorflow-docker';
 
   return (
     <div className="space-y-2 rounded-lg border border-border p-3">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-medium">{env.label}</p>
-          <p className="text-xs text-muted-foreground">venv en {env.id}/.venv</p>
+          <p className="text-xs text-muted-foreground">
+            {isDocker ? 'imagen Docker (~11GB la primera vez, después queda en caché local)' : `venv en ${env.id}/.venv`}
+          </p>
         </div>
         {env.ready ? (
           <Badge variant="success">listo</Badge>
@@ -75,10 +78,86 @@ function EnvSetupRow({ env, onChanged }: { env: EnvInfo; onChanged: () => void }
   );
 }
 
+/**
+ * Elegir cómo corren los scripts de TensorFlow: venv (CPU — siempre
+ * disponible, no hay wheel ROCm mantenido para AMD) o el escape hatch de
+ * Docker (`docker/tf-rocm/`, ROADMAP.md workstream D) con la GPU AMD pasada
+ * al contenedor. Solo se muestra si hay una GPU AMD detectada — para
+ * NVIDIA/CPU-only esta elección no tiene sentido (CUDA ya acelera directo
+ * en el venv, no existe un tercer modo).
+ */
+function TensorflowModeCard({
+  gpu,
+  tfStatus,
+  mode,
+  onModeChange,
+}: {
+  gpu: GpuInfo;
+  tfStatus: TfDockerStatus | null;
+  mode: TensorflowExecutionMode;
+  onModeChange: (m: TensorflowExecutionMode) => void;
+}) {
+  if (gpu.backend !== 'rocm') return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>TensorFlow en esta GPU AMD</CardTitle>
+        <CardDescription>
+          No hay wheel ROCm mantenido para instalar TensorFlow acelerado vía pip — el venv siempre corre en CPU. La
+          alternativa es un contenedor Docker con la imagen oficial de AMD, GPU incluida.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="inline-flex rounded-md border border-border p-1">
+          <button
+            onClick={() => onModeChange('venv')}
+            className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
+              mode === 'venv' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            CPU (venv)
+          </button>
+          <button
+            onClick={() => onModeChange('docker')}
+            disabled={!tfStatus?.eligible}
+            className={`rounded px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+              mode === 'docker' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            GPU vía Docker (ROCm)
+          </button>
+        </div>
+
+        {!tfStatus && <p className="text-xs text-muted-foreground">Chequeando si Docker está disponible…</p>}
+
+        {tfStatus && !tfStatus.eligible && (
+          <Alert variant="default">
+            <AlertDescription>{tfStatus.reason}</AlertDescription>
+          </Alert>
+        )}
+
+        {tfStatus?.eligible && mode === 'docker' && (
+          <Alert variant="info">
+            <AlertDescription>
+              Imagen <code className="font-mono">{tfStatus.imageTag}</code>. El override de{' '}
+              <code className="font-mono">HSA_OVERRIDE_GFX_VERSION</code> que esta GPU necesita (si le hace falta —
+              ver panel de arriba) se aplica solo en cada corrida, igual que con PyTorch — no hay nada que exportar a
+              mano.
+            </AlertDescription>
+          </Alert>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function FirstRunSetup({ onDismiss }: { onDismiss: () => void }) {
   const [gpu, setGpu] = useState<GpuInfo | null>(null);
   const [gpuError, setGpuError] = useState<string | null>(null);
   const [envs, setEnvs] = useState<EnvInfo[]>([]);
+  const [tfStatus, setTfStatus] = useState<TfDockerStatus | null>(null);
+  const [settings, setSettings] = useState<RunnerSettings | null>(null);
 
   const loadEnvs = () => {
     api.envs().then(setEnvs).catch(() => undefined); // App.tsx ya avisa si el server no responde
@@ -89,8 +168,24 @@ export function FirstRunSetup({ onDismiss }: { onDismiss: () => void }) {
       .gpu()
       .then(setGpu)
       .catch((e) => setGpuError(e instanceof Error ? e.message : String(e)));
+    api.tfDockerStatus().then(setTfStatus).catch(() => undefined);
+    api.getSettings().then(setSettings).catch(() => undefined);
     loadEnvs();
   }, []);
+
+  const handleModeChange = async (m: TensorflowExecutionMode) => {
+    // Optimista: la UI cambia ya, y si el POST falla se revierte — evita un
+    // parpadeo del toggle mientras espera la respuesta.
+    const previous = settings;
+    setSettings((s) => (s ? { ...s, tensorflowExecutionMode: m } : s));
+    try {
+      const next = await api.updateSettings({ tensorflowExecutionMode: m });
+      setSettings(next);
+      loadEnvs(); // el filtro de qué fila mostrar (venv vs. Docker) depende del modo
+    } catch {
+      setSettings(previous);
+    }
+  };
 
   const gpuBadge =
     gpu?.backend === 'rocm'
@@ -99,7 +194,18 @@ export function FirstRunSetup({ onDismiss }: { onDismiss: () => void }) {
         ? { label: 'NVIDIA · CUDA', variant: 'success' as const }
         : { label: 'CPU (sin GPU)', variant: 'default' as const };
 
-  const relevantEnvs = envs.filter((e) => e.needsVenv);
+  const tfMode: TensorflowExecutionMode = settings?.tensorflowExecutionMode ?? 'venv';
+  const dockerActive = tfMode === 'docker' && !!tfStatus?.eligible;
+
+  // La fila "tensorflow" (venv) y "tensorflow-docker" (imagen) son
+  // mutuamente excluyentes en la UI — cuál se prepara depende del modo
+  // elegido arriba. Las demás (pytorch, testing) no cambian.
+  const relevantEnvs = envs.filter((e) => {
+    if (!e.needsVenv) return false;
+    if (e.id === 'tensorflow' && dockerActive) return false;
+    if (e.id === 'tensorflow-docker' && !dockerActive) return false;
+    return true;
+  });
   const allReady = relevantEnvs.length > 0 && relevantEnvs.every((e) => e.ready);
 
   return (
@@ -139,10 +245,12 @@ export function FirstRunSetup({ onDismiss }: { onDismiss: () => void }) {
         )}
       </Card>
 
+      {gpu && <TensorflowModeCard gpu={gpu} tfStatus={tfStatus} mode={tfMode} onModeChange={handleModeChange} />}
+
       <Card>
         <CardHeader>
           <CardTitle>Entornos</CardTitle>
-          <CardDescription>Cada uno se prepara una sola vez — si el venv ya existe, no se toca.</CardDescription>
+          <CardDescription>Cada uno se prepara una sola vez — si el venv (o la imagen) ya existe, no se toca.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {relevantEnvs.map((env) => (

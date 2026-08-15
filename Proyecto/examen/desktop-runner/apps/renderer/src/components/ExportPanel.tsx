@@ -4,7 +4,10 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScriptCard } from './ScriptCard';
 import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import type { ExportComparisonStage, ScriptInfo, StageFrameworkMetrics } from '@/lib/types';
+
+type Framework = 'pytorch' | 'tensorflow';
 
 const pct = (x: number | undefined | null) => (typeof x === 'number' ? `${(x * 100).toFixed(2)}%` : '—');
 
@@ -17,6 +20,10 @@ const SECONDARY_METRICS: Record<string, { key: string; label: string }[]> = {
     { key: 'f1', label: 'F1' },
     { key: 'roc_auc', label: 'ROC-AUC' },
   ],
+  stage2: [
+    { key: 'accuracy_en_umbral_optimo', label: 'Accuracy (umbral óptimo)' },
+    { key: 'umbral_optimo', label: 'Umbral óptimo' },
+  ],
   stage4: [
     { key: 'precision_macro', label: 'Precision (macro)' },
     { key: 'recall_macro', label: 'Recall (macro)' },
@@ -24,33 +31,58 @@ const SECONDARY_METRICS: Record<string, { key: string; label: string }[]> = {
   ],
 };
 
+// La tarjeta de métricas de cada framework ES el selector — no hay un
+// botón aparte arriba. Se clickea la tarjeta entera; "seleccionada" (anillo
+// azul) y "recomendada" (badge verde) son estados independientes, porque el
+// usuario puede elegir exportar el que no ganó la comparación.
 function FrameworkColumn({
   label,
   data,
+  stage,
   metricKey,
   metricLabel,
   won,
+  selected,
+  onSelect,
 }: {
   label: string;
   data: StageFrameworkMetrics;
+  stage: string;
   metricKey: string;
   metricLabel: string;
   won: boolean;
+  selected: boolean;
+  onSelect: () => void;
 }) {
   if (!data.available) {
     return (
-      <div className="space-y-2 rounded-lg border border-dashed border-border p-3">
+      <button
+        type="button"
+        onClick={onSelect}
+        className={cn(
+          'w-full space-y-2 rounded-lg border border-dashed p-3 text-left transition-colors hover:border-primary/50',
+          selected ? 'border-primary ring-2 ring-primary ring-offset-2 ring-offset-background' : 'border-border',
+        )}
+      >
         <p className="text-sm font-medium">{label}</p>
-        <p className="text-xs text-muted-foreground">No entrenado todavía en esta máquina — corre la búsqueda de Optuna (08 · / 11 ·) con entrenamiento final para generar final_metrics.json.</p>
-      </div>
+        <p className="text-xs text-muted-foreground">No entrenado todavía en esta máquina — corre la búsqueda de Optuna de esta etapa con entrenamiento final para generar final_metrics.json.</p>
+      </button>
     );
   }
 
-  const secondary = SECONDARY_METRICS[metricKey === 'f1_macro' ? 'stage4' : 'stage1'];
+  const secondary = SECONDARY_METRICS[stage] ?? [];
   const m = data.metrics ?? {};
 
   return (
-    <div className={`space-y-2 rounded-lg border p-3 ${won ? 'border-primary bg-primary/5' : 'border-border'}`}>
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        'w-full space-y-2 rounded-lg border p-3 text-left transition-colors',
+        won ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50',
+        selected && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
+      )}
+    >
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium">{label}</p>
         {won && <Badge variant="success">Recomendado</Badge>}
@@ -67,13 +99,25 @@ function FrameworkColumn({
           </div>
         ))}
       </div>
-    </div>
+    </button>
   );
 }
 
+// Empate o sin datos todavía: no hay "el mejor" real que preseleccionar —
+// PyTorch gana el desempate solo como default estable (mismo orden en que
+// ya se listan las columnas), no como una recomendación real.
+function defaultFramework(stage: ExportComparisonStage): Framework {
+  return stage.recommendation === 'tensorflow' ? 'tensorflow' : 'pytorch';
+}
+
 function StageSection({ stage, scripts, onVenvChanged }: { stage: ExportComparisonStage; scripts: ScriptInfo[]; onVenvChanged: () => void }) {
-  const ptScript = scripts.find((s) => s.id === stage.pytorch.exportScriptId);
-  const tfScript = scripts.find((s) => s.id === stage.tensorflow.exportScriptId);
+  // Default = el framework que gana la comparación (o PyTorch en caso de
+  // empate/sin datos) — el usuario puede clickear la otra tarjeta para
+  // cambiarlo, pero arranca en "el mejor elegido": elegir framework primero
+  // (clickeando su tarjeta), y que solo entonces aparezcan sus opciones de
+  // exportar más abajo.
+  const [selected, setSelected] = useState<Framework>(() => defaultFramework(stage));
+  const script = scripts.find((s) => s.id === stage[selected].exportScriptId);
 
   return (
     <Card>
@@ -92,25 +136,28 @@ function StageSection({ stage, scripts, onVenvChanged }: { stage: ExportComparis
           <FrameworkColumn
             label="PyTorch"
             data={stage.pytorch}
+            stage={stage.stage}
             metricKey={stage.metricKey}
             metricLabel={stage.metricLabel}
             won={stage.recommendation === 'pytorch' || stage.recommendation === 'tie'}
+            selected={selected === 'pytorch'}
+            onSelect={() => setSelected('pytorch')}
           />
           <FrameworkColumn
             label="TensorFlow"
             data={stage.tensorflow}
+            stage={stage.stage}
             metricKey={stage.metricKey}
             metricLabel={stage.metricLabel}
             won={stage.recommendation === 'tensorflow' || stage.recommendation === 'tie'}
+            selected={selected === 'tensorflow'}
+            onSelect={() => setSelected('tensorflow')}
           />
         </div>
 
         <div>
           <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Exportar a ONNX</p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {ptScript && <ScriptCard script={ptScript} onVenvChanged={onVenvChanged} />}
-            {tfScript && <ScriptCard script={tfScript} onVenvChanged={onVenvChanged} />}
-          </div>
+          {script && <ScriptCard script={script} onVenvChanged={onVenvChanged} />}
         </div>
       </CardContent>
     </Card>

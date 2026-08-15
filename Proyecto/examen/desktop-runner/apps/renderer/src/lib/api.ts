@@ -1,5 +1,15 @@
 import { io, Socket } from 'socket.io-client';
-import type { EnvInfo, ExportComparisonStage, GpuInfo, RunAllStepResult, RunRecord, ScraperCardCountResult, ScriptInfo } from './types';
+import type {
+  EnvInfo,
+  ExportComparisonStage,
+  GpuInfo,
+  RunAllStepResult,
+  RunnerSettings,
+  RunRecord,
+  ScraperCardCountResult,
+  ScriptInfo,
+  TfDockerStatus,
+} from './types';
 
 export const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'http://127.0.0.1:4550';
 
@@ -39,6 +49,14 @@ export const api = {
   scripts: () => fetch(`${API_BASE}/scripts`).then((r) => json<ScriptInfo[]>(r)),
   envs: () => fetch(`${API_BASE}/envs`).then((r) => json<EnvInfo[]>(r)),
   gpu: () => fetch(`${API_BASE}/gpu`).then((r) => json<GpuInfo>(r)),
+  tfDockerStatus: () => fetch(`${API_BASE}/tf-docker/status`).then((r) => json<TfDockerStatus>(r)),
+  getSettings: () => fetch(`${API_BASE}/settings`).then((r) => json<RunnerSettings>(r)),
+  updateSettings: (patch: Partial<RunnerSettings>) =>
+    fetch(`${API_BASE}/settings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }).then((r) => json<RunnerSettings>(r)),
   ensureVenv: (envId: string) =>
     fetch(`${API_BASE}/envs/${envId}/ensure`, { method: 'POST' }).then((r) => json<{ ok: boolean }>(r)),
   run: (scriptId: string, values: Record<string, unknown>) =>

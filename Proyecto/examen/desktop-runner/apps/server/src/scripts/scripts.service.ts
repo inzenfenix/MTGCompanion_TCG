@@ -22,6 +22,19 @@ import {
 import { LogsGateway } from './logs.gateway';
 import { detectGpu, GpuDetectionResult } from './gpu-detect';
 import { getScraperCardCount, ScraperCardCountResult } from './scryfall-card-count';
+import { readSettings, writeSettings, RunnerSettings } from './settings';
+import {
+  buildSanitizedInstallCommand,
+  buildTfDockerRunArgs,
+  getTfDockerEligibility,
+  isTfDockerImageReady,
+  REPO_ROOT,
+  TF_DOCKER_BASE_IMAGE,
+  TF_DOCKER_READY_IMAGE,
+  TF_DOCKER_SETUP_CONTAINER,
+  TF_REQUIREMENTS_REL_PATH,
+  TfDockerEligibility,
+} from './tf-docker';
 
 export interface RunRecord {
   id: string;
@@ -53,25 +66,84 @@ export class ScriptsService {
 
   // ── Listado / estado ────────────────────────────────────────────────────
 
-  listScripts() {
-    return SCRIPTS.map((s) => ({
-      id: s.id,
-      group: s.group,
-      label: s.label,
-      description: s.description,
-      env: s.env,
-      args: s.args,
-      venvReady: this.venvReady(s.env),
-    }));
+  async listScripts() {
+    return Promise.all(
+      SCRIPTS.map(async (s) => ({
+        id: s.id,
+        group: s.group,
+        label: s.label,
+        description: s.description,
+        env: s.env,
+        args: s.args,
+        venvReady: await this.scriptEnvReady(s.env),
+      })),
+    );
   }
 
-  listEnvs() {
-    return Object.values(ENVS).map((e) => ({
-      id: e.id,
+  /**
+   * "¿Está listo para correr AHORA MISMO?" para un env de script — a
+   * diferencia de venvReady() (que es puramente "¿existe el venv?"), acá
+   * "tensorflow" mira el modo elegido: en modo 'docker' lo que importa es
+   * si la imagen está armada, el venv es irrelevante (puede no existir y
+   * está bien). Usado por listScripts() (banner "faltan entornos" en
+   * App.tsx) y por runScript() para decidir por dónde efectivamente correr.
+   */
+  private async scriptEnvReady(envId: EnvId): Promise<boolean> {
+    if (envId === 'system') return true;
+    if (envId === 'tensorflow' && (await this.tensorflowUsesDocker())) {
+      return isTfDockerImageReady();
+    }
+    return this.venvReady(envId);
+  }
+
+  private async tensorflowUsesDocker(): Promise<boolean> {
+    if (readSettings().tensorflowExecutionMode !== 'docker') return false;
+    return (await getTfDockerEligibility()).eligible;
+  }
+
+  async listEnvs(): Promise<{ id: string; label: string; needsVenv: boolean; ready: boolean }[]> {
+    const envs = Object.values(ENVS).map((e) => ({
+      id: e.id as string,
       label: e.label,
       needsVenv: e.dir !== null,
       ready: this.venvReady(e.id),
     }));
+
+    // Fila extra "TensorFlow — Docker (ROCm)", solo si esta máquina es
+    // elegible (Linux + AMD/ROCm + Docker instalado) — en cualquier otra
+    // máquina ni aparece, no hace falta que la UI la esconda a mano.
+    // Reutiliza exactamente el mismo flujo "Preparar" que un venv (mismo
+    // botón, mismo panel de progreso vía WebSocket) — ver ensureVenv().
+    const tfDockerEligibility = await getTfDockerEligibility();
+    if (tfDockerEligibility.eligible) {
+      envs.push({
+        id: 'tensorflow-docker',
+        label: 'TensorFlow — GPU vía Docker (ROCm)',
+        needsVenv: true,
+        ready: await isTfDockerImageReady(),
+      });
+    }
+
+    return envs;
+  }
+
+  getTfDockerStatus(): Promise<TfDockerEligibility & { imageTag: string; imageReady: boolean }> {
+    return Promise.all([getTfDockerEligibility(), isTfDockerImageReady()]).then(([eligibility, imageReady]) => ({
+      ...eligibility,
+      imageTag: TF_DOCKER_BASE_IMAGE,
+      imageReady,
+    }));
+  }
+
+  getSettings(): RunnerSettings {
+    return readSettings();
+  }
+
+  updateSettings(patch: Partial<RunnerSettings>): RunnerSettings {
+    if (patch.tensorflowExecutionMode !== undefined && patch.tensorflowExecutionMode !== 'venv' && patch.tensorflowExecutionMode !== 'docker') {
+      throw new BadRequestException(`tensorflowExecutionMode inválido: "${patch.tensorflowExecutionMode}"`);
+    }
+    return writeSettings(patch);
   }
 
   getRun(runId: string): RunRecord {
@@ -250,7 +322,9 @@ export class ScriptsService {
    * uno sobre otro sin que ningún comando fallara. Reinstalar de cero es
    * barato igual: pip ya tiene todo cacheado localmente.
    */
-  async ensureVenv(envId: EnvId): Promise<void> {
+  async ensureVenv(envId: EnvId | 'tensorflow-docker'): Promise<void> {
+    if (envId === 'tensorflow-docker') return this.ensureTfDockerImage();
+
     const env = ENVS[envId];
     // El :envId de la ruta es un string cualquiera en runtime — el tipo EnvId
     // no lo garantiza. Sin este chequeo, un id inválido revienta accediendo
@@ -376,6 +450,80 @@ export class ScriptsService {
     }
   }
 
+  /**
+   * Arma (una sola vez) la imagen Docker lista para correr scripts de
+   * TensorFlow con GPU AMD — versión "callable desde la UI" del escape
+   * hatch manual de `docker/tf-rocm/` (ROADMAP.md workstream D). Tres pasos,
+   * cada uno logueado por WebSocket igual que un venv:
+   *   1. `docker pull` de la imagen base (~11GB, la parte lenta).
+   *   2. Un contenedor de "setup" que instala los paquetes del proyecto
+   *      (requirements.txt saneado — ver buildSanitizedInstallCommand).
+   *   3. `docker commit` de ese contenedor a un tag propio
+   *      (TF_DOCKER_READY_IMAGE), para que correr un script después no
+   *      tenga que reinstalar nada — solo un `docker run` directo.
+   * Igual que ensureVenv(): si ya está lista, no hace nada.
+   */
+  private async ensureTfDockerImage(): Promise<void> {
+    const envId = 'tensorflow-docker';
+    const runId = `venv:${envId}`;
+
+    const eligibility = await getTfDockerEligibility();
+    if (!eligibility.eligible) {
+      throw new BadRequestException(`No se puede preparar TensorFlow por Docker en este equipo: ${eligibility.reason}`);
+    }
+
+    if (await isTfDockerImageReady()) {
+      this.gateway.emitVenvProgress(envId, 'La imagen ya está lista, nada que hacer.');
+      return;
+    }
+
+    this.gateway.emitStatus(runId, 'running');
+    try {
+      this.gateway.emitVenvProgress(envId, `Descargando ${TF_DOCKER_BASE_IMAGE} (~11GB — solo la primera vez, puede tardar varios minutos) ...`);
+      await this.execAndStream(runId, 'docker', ['pull', TF_DOCKER_BASE_IMAGE], REPO_ROOT);
+
+      // Por si quedó un contenedor de setup de un intento anterior fallido —
+      // "docker run --name" no pisa uno que ya existe, tira error.
+      await new Promise<void>((resolve) => {
+        const child = spawn('docker', ['rm', '-f', TF_DOCKER_SETUP_CONTAINER]);
+        child.on('close', () => resolve());
+        child.on('error', () => resolve());
+      });
+
+      this.gateway.emitVenvProgress(envId, 'Instalando las dependencias del proyecto dentro de la imagen (una sola vez) ...');
+      await this.execAndStream(
+        runId,
+        'docker',
+        [
+          'run',
+          '--name',
+          TF_DOCKER_SETUP_CONTAINER,
+          '-v',
+          `${REPO_ROOT}:/workspace`,
+          '-w',
+          '/workspace',
+          TF_DOCKER_BASE_IMAGE,
+          'bash',
+          '-c',
+          buildSanitizedInstallCommand(TF_REQUIREMENTS_REL_PATH),
+        ],
+        REPO_ROOT,
+      );
+
+      this.gateway.emitVenvProgress(envId, 'Guardando la imagen lista para reutilizar ...');
+      await this.execAndStream(runId, 'docker', ['commit', TF_DOCKER_SETUP_CONTAINER, TF_DOCKER_READY_IMAGE], REPO_ROOT);
+      await this.execAndStream(runId, 'docker', ['rm', TF_DOCKER_SETUP_CONTAINER], REPO_ROOT);
+
+      this.gateway.emitVenvProgress(envId, 'Listo.');
+      this.gateway.emitStatus(runId, 'success');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.gateway.emitVenvProgress(envId, `Falló: ${message}`);
+      this.gateway.emitStatus(runId, 'error');
+      throw new BadRequestException(`No se pudo preparar la imagen Docker de TensorFlow: ${message}`);
+    }
+  }
+
   /** Corre un comando y streamea su output por el gateway bajo un runId, esperando a que termine. */
   private execAndStream(runId: string, cmd: string, args: string[], cwd: string): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -434,14 +582,9 @@ export class ScriptsService {
     const script = findScript(scriptId);
     if (!script) throw new NotFoundException(`Script "${scriptId}" no existe`);
 
-    const python = await this.resolvePython(script.env);
     const argv = this.buildArgv(script, values ?? {});
     const runId = randomUUID();
     const startedAt = Date.now();
-
-    this.runs.set(runId, { id: runId, scriptId, status: 'running', startedAt });
-    this.gateway.emitStatus(runId, 'running');
-    this.gateway.emitLog(runId, 'stdout', `$ ${path.basename(python)} ${script.script} ${argv.join(' ')}\n`);
 
     // Si gpu-detect.ts marcó que esta GPU AMD necesita el alias de gfx target
     // (variantes móviles de RDNA2 sin kernels ROCm precompilados), hace falta
@@ -450,12 +593,45 @@ export class ScriptsService {
     const gpu = await detectGpu();
     const gpuEnv = gpu.hsaOverrideGfxVersion ? { HSA_OVERRIDE_GFX_VERSION: gpu.hsaOverrideGfxVersion } : {};
 
+    // TensorFlow en modo Docker (ver docker/tf-rocm/, ROADMAP.md workstream D)
+    // corre en un contenedor en vez del venv — mismo script, misma cwd
+    // conceptual (todo el repo montado en /workspace), distinto intérprete.
+    const useDocker = script.env === 'tensorflow' && (await this.tensorflowUsesDocker());
+
+    let cmd: string;
+    let args: string[];
+    let cwd: string;
+    let commandPreview: string;
+
+    if (useDocker) {
+      if (!(await isTfDockerImageReady())) {
+        throw new BadRequestException(
+          'La imagen Docker de TensorFlow (ROCm) todavía no está preparada — andá a "Configuración inicial" y preparala primero.',
+        );
+      }
+      const scriptRelPath = path.relative(REPO_ROOT, path.join(script.cwd, script.script));
+      cmd = 'docker';
+      args = buildTfDockerRunArgs(scriptRelPath, argv, gpu.hsaOverrideGfxVersion);
+      cwd = REPO_ROOT;
+      commandPreview = `docker ${args.join(' ')}`;
+    } else {
+      cmd = await this.resolvePython(script.env);
+      args = ['-u', script.script, ...argv];
+      cwd = script.cwd;
+      commandPreview = `${path.basename(cmd)} ${script.script} ${argv.join(' ')}`;
+    }
+
+    this.runs.set(runId, { id: runId, scriptId, status: 'running', startedAt });
+    this.gateway.emitStatus(runId, 'running');
+    this.gateway.emitLog(runId, 'stdout', `$ ${commandPreview}\n`);
+
     // "-u" + PYTHONUNBUFFERED: sin esto Python bufferea stdout por bloque (no por línea)
     // al detectar que no está conectado a una terminal real, y el output no llega al
-    // renderer hasta que el buffer se llena o el proceso termina.
-    const child: ChildProcessWithoutNullStreams = spawn(python, ['-u', script.script, ...argv], {
-      cwd: script.cwd,
-      env: { ...process.env, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8', ...gpuEnv },
+    // renderer hasta que el buffer se llena o el proceso termina. No aplica al proceso
+    // "docker" en sí (no es Python), pero no molesta dejarlo en el entorno.
+    const child: ChildProcessWithoutNullStreams = spawn(cmd, args, {
+      cwd,
+      env: { ...process.env, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8', ...(useDocker ? {} : gpuEnv) },
     });
 
     this.children.set(runId, child);
@@ -597,6 +773,12 @@ export class ScriptsService {
   /**
    * Mata el proceso (y su árbol de subprocesos, vía taskkill /t en Windows —
    * scripts como compare_scanners.py lanzan sus propios subprocesos por venv).
+   * Cuando el proceso es el `docker run` de TensorFlow-en-Docker, esto mata
+   * al CLI cliente, no al contenedor directamente — funciona porque Docker
+   * reenvía SIGTERM al contenedor cuando el cliente en foreground lo recibe
+   * (mismo comportamiento que Ctrl+C en una terminal), pero es best-effort:
+   * si el cliente muere sin alcanzar a reenviar la señal, el contenedor
+   * (`--rm`) puede quedar corriendo un ratito más hasta salir solo.
    */
   stopRun(runId: string): boolean {
     const child = this.children.get(runId);
@@ -665,8 +847,9 @@ export class ScriptsService {
 
   /**
    * Botón "Do all", en 4 fases (una por pestaña, en el orden en que aparecen
-   * en la UI): Dataset compartido (solo `shared-downloader`, idempotente —
-   * ver `RUN_ALL_DOWNLOAD_SEQUENCE`, NO incluye el scraper a propósito) →
+   * en la UI): Scraper (solo `shared-downloader`, idempotente — ver
+   * `RUN_ALL_DOWNLOAD_SEQUENCE`, NO incluye el scraper de catálogo en sí a
+   * propósito) →
    * PyTorch completo → TensorFlow completo → Exportar (ONNX, todas las
    * etapas ya entrenadas, ambos frameworks). Mismo criterio "para en el
    * primer error" que `runAll`, ahora entre fases también.
