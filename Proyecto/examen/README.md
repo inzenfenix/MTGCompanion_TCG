@@ -1,7 +1,7 @@
 # MTG Card Scanner — Examen final (plan)
 
 > 🚧 Planeación — el frontend ya tiene un scaffold real en
-> [`trading-app-ionic/`](../../trading-app-ionic/README.md) (Ionic React,
+> [`trading-app-ionic/`](trading-app-ionic/README.md) (Ionic React,
 > temas, i18n, tabs) **conectado al backend real** (registro de usuario,
 > CRUD de cartas con fotos, Bóveda leyendo datos reales) y con el scaffold
 > de captura de cámara + `onnxruntime-web` para Stage 1 ya escrito — pero
@@ -66,7 +66,7 @@ Este documento cubre solo la parte específica de la app final.
 backend no participa del escaneo/identificación, solo persiste lo que el
 usuario ya decidió guardar: su cuenta, las cartas de su colección (con foto)
 y las transacciones de compra/venta con otros usuarios. Detalle en
-[`backend/README.md`](../../backend/README.md).
+[`backend/README.md`](backend/README.md).
 
 ### Por qué ONNX (no TensorFlow.js) para lo que corre en el cliente
 

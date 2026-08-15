@@ -1,0 +1,148 @@
+# ROADMAP — what's left, by workstream
+
+Companion to [CLAUDE.md](CLAUDE.md) (read that first for conventions/rules).
+This file exists so several people can each own a workstream and work in
+parallel without stepping on each other. Workstreams are mostly independent;
+cross-workstream dependencies are called out explicitly.
+
+Priority: **P0** blocks the graded deliverable (professor asked for two more
+real, working models — Stage 2/3 — in a working pipeline, with Optuna) ·
+**P1** needed for the app to actually demo end-to-end · **P2** polish/scope
+beyond what's graded.
+
+Complexity: **S** <2h · **M** half a day · **L** a full day+ · **XL** multi-day.
+
+---
+
+## A. Stage 2 — Text validator (OCR match), finish it
+
+Text-pair matching MLP (`concat[v_ocr, v_ref, |diff|, product]` over
+`HashingVectorizer` features) that scores whether an OCR'd photo actually
+matches the card it's being compared against.
+
+| # | Task | Priority | Complexity | Notes |
+|---|---|---|---|---|
+| A1 | `tensorFlow/12_text_validator.py` — Keras port of `pytorch/14_text_validator.py` | P0 | M | Same architecture, same `HashingVectorizer` (put it in `tensorFlow/src/text_matcher.py`), same split-by-`card_id`, same metrics (ROC-AUC, Youden threshold, accuracy). No GPU/`--device` flag needed (see CLAUDE.md rule 6) — TF has no GPU here anyway. |
+| A2 | Run `prepare_text_validator_dataset.py` for real (≥800 cards) | P0 | S* | *Blocked on `tesseract` being installed on whichever machine runs it — see CLAUDE.md "Environment notes". Only ever dry-run-tested with monkeypatched OCR so far. |
+| A3 | Train both frameworks on the real dataset from A2, sanity-check metrics aren't just synthetic-data 1.0s | P0 | S | Depends on A1 + A2. |
+| A4 | Optuna sweep, both frameworks (`hidden_units`, `dropout`, `lr`, `weight_decay`, optimizer — same search-space shape as `08_optuna_binary_classifier.py`) | P0 | M | Mirrors `11_optuna_condition_grader.py`'s structure. |
+| A5 | `pytorch/15_export_onnx_text_validator.py` + TF counterpart | P1 | M | Follow the `publicar_en_ionic()` convention exactly (CLAUDE.md rule 3). Publish as `stage2-text-validator.onnx`. |
+
+## B. Stage 3 — Price estimator, real model (not just the tabular baseline)
+
+`price_estimator_baseline.py` (sklearn, tabular-only, log1p(price) target)
+already exists and works. The graded ask is the *real* per-framework model:
+same tabular features **plus** a visual embedding from the card image
+(reuse Stage 1's backbone — EfficientNet_b0/MobileNetV3Small — as a frozen
+feature extractor, same trick as Stage 4).
+
+| # | Task | Priority | Complexity | Notes |
+|---|---|---|---|---|
+| B1 | Design the combined feature vector: tabular (rarity/set/type/colors/CMC one-hot, from `price_estimator_baseline.py`'s `ColumnTransformer`) concatenated with a frozen visual embedding | P0 | M | Decide once, write down in `certamen_2/README.md` — both frameworks must build the *same* feature shape, same reasoning as HashingVectorizer for Stage 2. |
+| B2 | `pytorch/15_price_estimator.py` | P0 | L | Regression head on top of B1's features. **Apply the DEVICE auto-detect + opt-in `--device` pattern from the start** (CLAUDE.md rule 1) — don't wait for a crash to discover it. |
+| B3 | `tensorFlow/13_price_estimator.py` | P0 | L | Same target/features as B2. |
+| B4 | Optuna sweep, both frameworks | P0 | M | |
+| B5 | ONNX export, both frameworks, `stage3-price-estimator.onnx` | P1 | M | Same convention as A5. |
+
+**Dependency:** B blocks on nothing from A, can run fully in parallel. B1
+should be settled before B2/B3 start (both frameworks need the same feature
+contract).
+
+## C. Desktop-runner integration (Stage 2 + Stage 3)
+
+| # | Task | Priority | Complexity | Notes |
+|---|---|---|---|---|
+| C1 | Register a `certamen_2` venv/environment in `desktop-runner` (currently only certamen_1's `pytorch`/`tensorFlow` venvs are managed by the app; the `certamen_2/.venv` used during dev was ad hoc) | P1 | M | Needed before C2 can expose "Crear venv" for these scripts in the UI. |
+| C2 | Register `prepare_text_validator_dataset.py`, `14_text_validator.py`/`12_text_validator.py`, their Optuna scripts, and their export scripts in `scripts.config.ts` | P1 | M | Same shape as the existing `pt-*`/`tf-*` entries. New tab or folded into existing PyTorch/TensorFlow tabs — decide when doing C1. |
+| C3 | Same as C2 for Stage 3 scripts | P1 | M | |
+| C4 | Extend `RUN_ALL_SEQUENCES` / `RUN_ALL_DOWNLOAD_SEQUENCE` / `RUN_ALL_EXPORT_SEQUENCE` to include Stage 2/3 | P1 | S | `runEverything()` in `scripts.service.ts`, `RunEverythingPanel.tsx`'s `TOTAL_STEPS`. |
+| C5 | Extend `ExportPanel.tsx` for non-classification metric shapes | P1 | M | Today `SECONDARY_METRICS` only has `stage1`/`stage4` (precision/recall/F1/ROC-AUC/accuracy — all classification). Stage 2 fits that shape fine. Stage 3 is regression (MAE/RMSE/R²) — needs its own metric block and probably its own "lower is better" comparison logic instead of "higher is better" (`recommendation` picking logic in the backend route currently assumes bigger `metricKey` wins). |
+| C6 | Confirm whether `10_condition_grader.py`/`11_optuna_condition_grader.py` (+ TF) being unregistered in `scripts.config.ts` is intentional; register if not | P2 | S | Pre-existing gap noticed while reading the code, not introduced by this plan. |
+
+**Dependency:** C2/C3 need A1/B2/B3 (the scripts to register) to exist;
+C1 has no dependency and can start immediately.
+
+## D. AMD/ROCm Docker image for TensorFlow GPU
+
+There's no maintained ROCm pip wheel for modern TensorFlow — the only path
+to GPU-accelerated TF training on AMD is Docker (`rocm/tensorflow` image).
+Currently `desktop-runner` detects this and cleanly falls back TF to CPU;
+this workstream is about actually giving TF a GPU path, not fixing a bug.
+
+| # | Task | Priority | Complexity | Notes |
+|---|---|---|---|---|
+| D1 | Spike: pull `rocm/tensorflow` (pick a tag matching this GPU's ROCm version), confirm `tf.config.list_physical_devices('GPU')` sees the card inside the container | P2 | M | Needs `--device=/dev/kfd --device=/dev/dri --group-add video` etc. — standard ROCm container flags. |
+| D2 | Wire it into `desktop-runner`: either (a) a "Run TensorFlow scripts in Docker" toggle that shells out to `docker run` instead of the local venv, or (b) document it as a manual escape hatch in the README and leave venv/CPU as the default UI path | P2 | L | (b) is much cheaper and matches how the AMD PyTorch story is already handled (auto-detected, not forced) — recommend (b) unless someone specifically needs TF training to be fast on AMD hardware. |
+| D3 | Document GPU/CPU training time difference for TF once D1 exists, so the tradeoff is a data point, not a guess | P2 | S | |
+
+**Dependency:** none — fully independent of A/B/C, can be picked up any time.
+Low urgency: every TF script already works on CPU today, this is a speed
+optimization, not a correctness blocker.
+
+## E. Ionic integration
+
+| # | Task | Priority | Complexity | Notes |
+|---|---|---|---|---|
+| E1 | `src/lib/ml/stage2TextValidator.ts`, mirroring `stage1Detector.ts` (same `onnxruntime-web` loading pattern, `VITE_STAGE2_MODEL_URL` env var w/ `/models/stage2-text-validator.onnx` default) | P1 | M | Needs A5's exported `.onnx` to exist to test against. |
+| E2 | `src/lib/ml/stage3PriceEstimator.ts`, same pattern | P1 | M | Needs B5. |
+| E3 | OCR in the browser (`tesseract.js`) to feed Stage 2 at scan time | P1 | L | Ionic README already flags this as unbuilt ("OCR es trabajo futuro con tesseract.js"). Needs to crop the text region client-side the same way `card_preprocessing.py`/`text_validator_baseline.py` does server-side, or accept lower accuracy without the crop step. |
+| E4 | Wire Stage 4 (condition grader) ONNX into Ionic once it's actually exported (see CLAUDE.md — not done yet) | P1 | S | Export script + `publicar_en_ionic()` already exist; just needs an actual run (like Stage 1's was) plus a `stage4ConditionGrader.ts` wrapper. |
+| E5 | Wire `POST /transactions` into the Trade Nexus UI flow (API client already exposes it, just not called from a component) | P2 | S | |
+| E6 | Bazaar tab: replace sample data with a real backend-backed listing endpoint | P2 | M | Needs a backend endpoint first — coordinate with workstream F. |
+| E7 | Treasury balance (Tab 1) — currently a hardcoded mock (`$1,250.00`) | P2 | M | Blocked on backend `balance`/wallet design (see F5) — deliberately deferred on both sides, don't build one without the other. |
+
+**Dependency:** E1/E2/E4 need exported `.onnx` files from A/B and the
+already-pending Stage 4 export run. E3/E5/E6/E7 are backend/UX work,
+independent of the ML workstreams.
+
+## F. Backend
+
+| # | Task | Priority | Complexity | Notes |
+|---|---|---|---|---|
+| F1 | Fix stale doc: `trading-app-ionic/README.md` "Qué falta" still claims `/login` doesn't exist — it does (`auth.controller.ts`), and `AuthContext.tsx` already calls it for real | P2 | S | Pure doc fix, see CLAUDE.md "Notable existing gaps". |
+| F2 | `MercadoPagoProvider` implementing the existing `PaymentProvider` interface, swap `useClass` in `payments.module.ts` | P2 | L | `TransactionsService` doesn't need to change — interface is already designed for this. |
+| F3 | Refresh tokens (`POST /auth/refresh`) | P2 | M | `JWT_REFRESH_TTL` already reserved in `.env.example`. |
+| F4 | TOTP-based 2FA | P2 | L | Schema already has `twoFactorEnabled`/`twoFactorSecret` on `UserSettings`, no logic yet. |
+| F5 | User balance/wallet — derive from real `Transaction` rows once payments (F2) exist | P2 | M | Deliberately not modeled yet; do this together with E7. |
+| F6 | Card catalog seeding: bulk-import Scryfall metadata (`certamen_1/data/cards.json`) into a queryable catalog table/endpoint for Bazaar search (today `Card.scryfallId/setName/rarity/oracleText` are only filled in per-owned-card, there's no browsable catalog) | P1 | L | Needed for E6 (Bazaar) to be real. Existing `prisma/seed.ts` only seeds a couple of demo users/cards for local dev login testing — this is a different, bigger job (tens of thousands of catalog rows, probably its own table, not reusing `Card` which represents an *owned* physical card). |
+
+**Dependency:** F6 blocks E6. F2 blocks F5/E7. Otherwise independent of the ML workstreams — a backend person can start immediately.
+
+## G. Testing
+
+| # | Task | Priority | Complexity | Notes |
+|---|---|---|---|---|
+| G1 | Unit tests for the new Stage 2/3 modules (`text_matcher.py`, the price-estimator feature builder) — architecture shape, forward-pass shape, loss decreasing on a tiny synthetic batch | P1 | M | Same spirit as the synthetic-data smoke tests already done manually for Stage 2 during dev — formalize into `pytest`. Neither `certamen_1` nor `certamen_2` currently has a test suite; `tensorFlow/tests/` exists but is thin — check what's there before assuming a from-scratch setup. |
+| G2 | Backend e2e tests for any new endpoints (F2/F3/F6) | P1 | M | Only 2 `*.e2e-spec.ts` files exist today — establish the pattern for new modules as they land, not as an afterthought. |
+| G3 | Ionic component/integration tests for `stage2TextValidator.ts`/`stage3PriceEstimator.ts` loading + inference | P2 | M | Mock ONNX Runtime the same way `stage1Detector.ts`'s existing tests (if any — verify) do it. |
+| G4 | End-to-end scanner accuracy check on real (non-synthetic, non-render) phone photos, all 4 stages chained | P0 | M | This is the check that actually matters for the "flujo de trabajo que funcione" ask — synthetic-data 1.0 metrics (already seen with Stage 2 in dev) are not evidence of anything by themselves. Reuse `test_photos/`/`compare_scanners.py` pattern from certamen_1. |
+
+**Dependency:** G4 needs A/B finished enough to chain all 4 stages; G1 can start as soon as A/B's modules exist, even before training finishes for real.
+
+## H. Statistics & reporting
+
+One consolidated results document/notebook that every other workstream's
+numbers feed into — useful both for the report deliverable and as the
+"which framework wins per stage" source of truth that `ExportPanel.tsx`
+already partially automates.
+
+| # | Task | Priority | Complexity | Notes |
+|---|---|---|---|---|
+| H1 | Stage 1 & 4 (classification): consolidate precision/recall/F1/ROC-AUC/accuracy already produced by existing `final_metrics.json` outputs, both frameworks, into one comparison table | P1 | S | Data already exists (Optuna runs done) — this is aggregation, not new measurement. |
+| H2 | Stage 2 (classification): same metric set (ROC-AUC, Youden-threshold accuracy, F1) once A3/A4 produce real numbers | P0 | S | Depends on A. |
+| H3 | Stage 3 (regression): MAE, RMSE, R², median absolute error — `price_estimator_baseline.py` already computes these for the baseline; extend to the real model once B2/B3 land | P0 | S | Depends on B. Report on the untransformed price scale (undo the log1p), not just log-space error, since that's what's actually meaningful to a user. |
+| H4 | Stage 1 retrieval/embedding quality: Top-1 (and maybe Top-5) card-identification accuracy from `04_evaluate.py`'s embedding index, both frameworks | P1 | S | This metric already exists from certamen_1 — pull it in rather than re-deriving it. |
+| H5 | Cross-framework winner table (mirrors what `ExportPanel.tsx` computes live, but as a static document for the report) | P1 | S | Depends on H1–H4 all being filled in. |
+| H6 | "Curated data vs. real photo" gap write-up | P1 | S | Already partially observed anecdotally (Stage 1 Optuna confidence: 100% on validation → ~91% on one real out-of-distribution phone photo). Formalize using G4's real-photo test results once available. |
+
+**Dependency:** H2/H3 block on A/B; H1/H4 can be written today with existing data; H6 blocks on G4.
+
+---
+
+## Suggested parallel assignment (4 people)
+
+- **Person 1 — ML/Stage 2:** workstream A end-to-end.
+- **Person 2 — ML/Stage 3:** workstream B end-to-end.
+- **Person 3 — App integration:** workstream C, then E1/E2/E4 as A/B's exports land.
+- **Person 4 — Backend/testing/reporting:** workstream F (F6 first, it unblocks E6), G, H (H1/H4 immediately, H2/H3/H5/H6 as A/B land).
+- **Workstream D** (AMD Docker) is low-urgency and self-contained — good filler task for whoever finishes early.

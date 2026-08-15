@@ -29,6 +29,7 @@ Uso:
 import argparse
 import json
 import pathlib
+import shutil
 import sys
 
 import numpy as np
@@ -42,6 +43,11 @@ from src.binary_classifier import MTGDetector
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 MODELS_DIR = SCRIPT_DIR / "models"
+# Carpeta pública de la app Ionic (ver Proyecto/examen/README.md) — el nombre
+# fijo stage1-detector.onnx es el que stage1Detector.ts busca por default
+# (VITE_STAGE1_MODEL_URL). Publicar acá directamente evita el paso manual de
+# copiar el .onnx a mano después de cada export.
+IONIC_MODELS_DIR = SCRIPT_DIR.parent.parent / "examen" / "trading-app-ionic" / "public" / "models"
 IMG_SIZE = 224
 DEVICE = "cpu"  # el export y la verificación corren en CPU: liviano, y no compite por la GPU con un entrenamiento en curso
 
@@ -114,6 +120,22 @@ def verificar(modelo: MTGDetector, entrada: torch.Tensor, onnx_path: pathlib.Pat
     return diff
 
 
+def publicar_en_ionic(destino: pathlib.Path, nombre_publico: str) -> pathlib.Path | None:
+    """
+    Copia el .onnx recién exportado a trading-app-ionic/public/models/, con el
+    nombre fijo que espera el cliente ONNX del lado del frontend. Si la
+    carpeta del frontend no existe en esta máquina (ej. corriendo solo el
+    pipeline de Python, sin el monorepo completo), no falla: solo avisa.
+    """
+    if not IONIC_MODELS_DIR.parent.exists():  # public/ — indicio de que trading-app-ionic sí está presente
+        print(f"  aviso: no se encontró {IONIC_MODELS_DIR.parent} — no se copia a la app Ionic.")
+        return None
+    IONIC_MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    publico = IONIC_MODELS_DIR / nombre_publico
+    shutil.copy2(destino, publico)
+    return publico
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Exporta el detector MTG/no-MTG a ONNX y verifica paridad numérica.")
     parser.add_argument("--imagen", type=pathlib.Path, default=None,
@@ -121,6 +143,8 @@ def main() -> None:
     parser.add_argument("--opset", type=int, default=18, help="Versión de opset ONNX (default: 18)")
     parser.add_argument("--tolerancia", type=float, default=1e-4,
                         help="Diferencia máxima aceptable entre salidas PyTorch/ONNX (default: 1e-4)")
+    parser.add_argument("--no-ionic-copy", action="store_true",
+                        help="No copiar el .onnx a trading-app-ionic/public/models/ (solo dejarlo en models/).")
     args = parser.parse_args()
 
     cfg_path = MODELS_DIR / "mtg_detector_cfg.json"
@@ -152,6 +176,11 @@ def main() -> None:
 
     tam_mb = destino.stat().st_size / 1e6
     print(f"\nModelo ONNX publicado: {destino}  ({tam_mb:.1f} MB)")
+
+    if not args.no_ionic_copy:
+        publico = publicar_en_ionic(destino, "stage1-detector.onnx")
+        if publico:
+            print(f"Copiado a la app Ionic       : {publico}")
     print("Próximo paso: cargar este .onnx en la app Ionic con onnxruntime-web")
     print("(ver Proyecto/examen/README.md).")
 

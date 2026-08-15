@@ -11,6 +11,11 @@
 # production
 /dist
 
+# modelos ONNX generados por Proyecto/certamen_1/{pytorch,tensorFlow}/*export_onnx*.py
+# (binarios, se regeneran corriendo el export — no se versionan, mismo criterio
+# que pytorch/models/ y tensorFlow/models/ en certamen_1)
+/public/models/*.onnx
+
 # misc
 .DS_Store
 .env.local

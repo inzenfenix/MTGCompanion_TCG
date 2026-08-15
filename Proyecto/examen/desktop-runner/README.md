@@ -40,6 +40,14 @@ OneDrive/Dropbox/similar, `node_modules` tiene miles de archivos chicos y
 puede ponerse lento — marcá `desktop-runner/node_modules` para que no se
 sincronice ("Liberar espacio" / excluir la carpeta), no afecta al proyecto.
 
+**Requisito de sistema para los scripts de Stage 2:** los scripts de
+`certamen_2` que preparan el dataset del validador de texto
+(`prepare_text_validator_dataset.py`) necesitan el binario **`tesseract`**
+(OCR) instalado a nivel de sistema — `sudo dnf install tesseract` (Fedora) /
+`sudo apt install tesseract-ocr` (Debian/Ubuntu). Esta app no lo instala por
+vos; si falta, esos scripts van a fallar al arrancar aunque el venv esté
+bien preparado.
+
 ## Correr en desarrollo
 
 ```bash

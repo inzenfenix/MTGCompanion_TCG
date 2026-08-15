@@ -2,7 +2,7 @@
 
 Esta carpeta (`backend/`) contiene la API que le da persistencia real a
 **MTG Companion**, la app comercial planteada para el Examen (ver
-[Proyecto/examen/README.md](../Proyecto/examen/README.md)): cuentas de
+[Proyecto/examen/README.md](../README.md)): cuentas de
 usuario, cartas de la colección con sus fotos, transacciones de
 compra/venta entre usuarios, y el settings de cada cuenta (idioma, tema,
 2FA a futuro). El escaneo/identificación de la carta en sí sigue corriendo
@@ -165,7 +165,7 @@ dispara y el correo se genera con el contenido correcto).
   diseño que todavía no está definido.
 - **Export ONNX de Stage 4 (grader de condición) y Stage 1** — vive en
   `Proyecto/certamen_2/`, no en este backend; ver
-  [Proyecto/examen/README.md](../Proyecto/examen/README.md).
+  [Proyecto/examen/README.md](../README.md).
 
 ## Despliegue en producción (EC2, referencia)
 

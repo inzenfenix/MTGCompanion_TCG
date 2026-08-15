@@ -312,7 +312,7 @@ export const SCRIPTS: ScriptDef[] = [
     group: 'pytorch',
     label: '09 · Exportar a ONNX',
     description:
-      'Exporta el detector MTG/no-MTG ya entrenado (mtg_detector.pth) a ONNX, verificando que las salidas coincidan con el modelo original. No reentrena nada.',
+      'Exporta el detector MTG/no-MTG ya entrenado (mtg_detector.pth) a ONNX, verificando que las salidas coincidan con el modelo original, y lo copia a trading-app-ionic/public/models/stage1-detector.onnx. No reentrena nada.',
     cwd: PT_DIR,
     script: '09_export_onnx.py',
     env: 'pytorch',
@@ -320,6 +320,7 @@ export const SCRIPTS: ScriptDef[] = [
       { flag: '--imagen', name: 'imagen', kind: 'file', label: 'Imagen de verificación (opcional, si no se usa un tensor aleatorio)' },
       { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
       { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0001 },
+      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a trading-app-ionic/public/models/', default: false },
     ],
   },
   {
@@ -327,7 +328,7 @@ export const SCRIPTS: ScriptDef[] = [
     group: 'pytorch',
     label: '12 · Exportar clasificador de condición a ONNX (Stage 4)',
     description:
-      'Exporta el clasificador de condición ya entrenado (condition_grader.pth) a ONNX, verificando que las salidas coincidan con el modelo original. No reentrena nada.',
+      'Exporta el clasificador de condición ya entrenado (condition_grader.pth) a ONNX, verificando que las salidas coincidan con el modelo original, y lo copia a trading-app-ionic/public/models/stage4-condition-grader.onnx. No reentrena nada.',
     cwd: PT_DIR,
     script: '12_export_onnx_condition.py',
     env: 'pytorch',
@@ -335,6 +336,7 @@ export const SCRIPTS: ScriptDef[] = [
       { flag: '--imagen', name: 'imagen', kind: 'file', label: 'Imagen de verificación (opcional, si no se usa un tensor aleatorio)' },
       { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
       { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0001 },
+      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a trading-app-ionic/public/models/', default: false },
     ],
   },
   {
@@ -424,7 +426,7 @@ export const SCRIPTS: ScriptDef[] = [
     group: 'tensorflow',
     label: '09 · Exportar a ONNX',
     description:
-      'Exporta el detector MTG/no-MTG ya entrenado (mtg_detector.keras) a ONNX vía tf2onnx, verificando que las salidas coincidan con el modelo original. No reentrena nada.',
+      'Exporta el detector MTG/no-MTG ya entrenado (mtg_detector.keras) a ONNX vía tf2onnx, verificando que las salidas coincidan con el modelo original, y lo copia a trading-app-ionic/public/models/stage1-detector.onnx. No reentrena nada.',
     cwd: TF_DIR,
     script: '09_export_onnx.py',
     env: 'tensorflow',
@@ -432,6 +434,7 @@ export const SCRIPTS: ScriptDef[] = [
       { flag: '--imagen', name: 'imagen', kind: 'file', label: 'Imagen de verificación (opcional, si no se usa un array aleatorio)' },
       { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
       { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0001 },
+      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a trading-app-ionic/public/models/', default: false },
     ],
   },
   {
@@ -439,7 +442,7 @@ export const SCRIPTS: ScriptDef[] = [
     group: 'tensorflow',
     label: '11 · Exportar clasificador de condición a ONNX (Stage 4)',
     description:
-      'Exporta el clasificador de condición ya entrenado (condition_grader.keras) a ONNX vía tf2onnx, verificando paridad numérica. No reentrena nada.',
+      'Exporta el clasificador de condición ya entrenado (condition_grader.keras) a ONNX vía tf2onnx, verificando paridad numérica, y lo copia a trading-app-ionic/public/models/stage4-condition-grader.onnx. No reentrena nada.',
     cwd: TF_DIR,
     script: '11_export_onnx_condition.py',
     env: 'tensorflow',
@@ -447,6 +450,7 @@ export const SCRIPTS: ScriptDef[] = [
       { flag: '--imagen', name: 'imagen', kind: 'file', label: 'Imagen de verificación (opcional, si no se usa un array aleatorio)' },
       { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
       { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0001 },
+      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a trading-app-ionic/public/models/', default: false },
     ],
   },
   {
@@ -509,6 +513,32 @@ export const RUN_ALL_SEQUENCES: Record<'pytorch' | 'tensorflow', string[]> = {
   pytorch: ['pt-embedder', 'shared-evaluate', 'pt-visualize', 'pt-binary-classifier'],
   tensorflow: ['tf-embeddings', 'shared-evaluate', 'tf-visualize', 'tf-binary-classifier'],
 };
+
+/**
+ * Fase de descarga de "Correr TODO" — deliberadamente solo `shared-downloader`,
+ * NUNCA `shared-scraper`. `01_scraper.py` sobreescribe data/cards.json entero en
+ * cada corrida, truncado a `--max-cards` (default 5,000 en esta UI) — si
+ * "Correr TODO" incluyera el scraper con sus defaults, cada corrida automática
+ * podría pisar silenciosamente el dataset completo (58k+ impresiones) con una
+ * versión de 5,000. `shared-downloader` en cambio es puramente idempotente
+ * (reusa lo que ya está en disco, ver 02_downloader.py) — siempre seguro de
+ * re-correr. Re-scrapear sigue siendo un botón manual aparte en "Dataset
+ * compartido" para cuando de verdad hace falta.
+ */
+export const RUN_ALL_DOWNLOAD_SEQUENCE: string[] = ['shared-downloader'];
+
+/**
+ * Fase final de "Correr TODO" — exporta a ONNX todo lo que ya está entrenado
+ * en ambos frameworks (todas las etapas registradas hoy: Stage 1 + Stage 4).
+ * Los scripts de export no reentrenan nada, solo leen el checkpoint que las
+ * fases pytorch/tensorflow de arriba acaban de dejar guardado.
+ */
+export const RUN_ALL_EXPORT_SEQUENCE: string[] = [
+  'pt-export-onnx',
+  'tf-export-onnx',
+  'pt-export-onnx-condition',
+  'tf-export-onnx-condition',
+];
 
 export function findScript(id: string): ScriptDef | undefined {
   return SCRIPTS.find((s) => s.id === id);

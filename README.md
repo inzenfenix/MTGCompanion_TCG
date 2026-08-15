@@ -12,10 +12,10 @@ framework-ia-UDD/
 └── Proyecto/      # proyecto del curso
     ├── certamen_1/  # entrega 1 — ver README propio
     ├── certamen_2/  # entrega 2 — pipeline de 3 etapas (WIP, ver README propio)
-    └── examen/      # entrega final — plan (WIP)
-
-trading-app-ionic/   # frontend Ionic React de la app final — conectado al backend real (cuentas/cartas/transacciones); scaffold de ONNX del lado del cliente listo, sin modelo entrenado todavía
-backend/             # API NestJS + Prisma + PostgreSQL — cuentas, cartas, transacciones (ver README propio)
+    └── examen/      # entrega final — app comercial completa, ver README propio
+        ├── trading-app-ionic/  # frontend Ionic React — conectado al backend real (cuentas/cartas/transacciones); scaffold de ONNX del lado del cliente listo, sin modelo entrenado todavía
+        ├── backend/             # API NestJS + Prisma + PostgreSQL — cuentas, cartas, transacciones (ver README propio)
+        └── desktop-runner/      # app Electron que envuelve los scripts Python del pipeline (ver README propio)
 ```
 
 ## El proyecto
@@ -44,9 +44,9 @@ entender en la práctica sus diferencias de diseño, rendimiento y ergonomía.
   hiperparámetros — la entrega de Optuna sobre el detector ya está hecha. Ver
   [Proyecto/certamen_2/README.md](Proyecto/certamen_2/README.md).
 - **Examen** — empaquetar todo como la app Ionic de uso comercial en
-  [`trading-app-ionic/`](trading-app-ionic/README.md). La persistencia
+  [`Proyecto/examen/trading-app-ionic/`](Proyecto/examen/trading-app-ionic/README.md). La persistencia
   (cuentas, cartas con fotos, transacciones) ya está conectada a un backend
-  NestJS real, ver [`backend/`](backend/README.md). El escaneo de cartas
+  NestJS real, ver [`Proyecto/examen/backend/`](Proyecto/examen/backend/README.md). El escaneo de cartas
   tiene su scaffold de cliente listo — cámara en vivo
   (`getUserMedia`+canvas) y `onnxruntime-web` corriendo Stage 1
   (detector MTG/no-MTG) — pero **sin ningún modelo `.onnx` entrenado
@@ -66,12 +66,27 @@ entender en la práctica sus diferencias de diseño, rendimiento y ergonomía.
 - **OpenCV** — recorte/perspectiva/normalización de la carta antes de cada modelo
 - **ONNX** / `onnxruntime-web` — formato de exportación común para correr el
   modelo ganador de cada etapa (PyTorch o TensorFlow) del lado del cliente
-- **Ionic React** — frontend de la app final (`trading-app-ionic/`)
-- **NestJS + Prisma + PostgreSQL** — backend de la app final (`backend/`):
+- **Ionic React** — frontend de la app final (`Proyecto/examen/trading-app-ionic/`)
+- **NestJS + Prisma + PostgreSQL** — backend de la app final (`Proyecto/examen/backend/`):
   cuentas, cartas, transacciones
 - **Scryfall API** — catálogo, imágenes, texto de reglas y precios de cartas MTG
 - **pokemontcg.io** — imágenes negativas para el clasificador binario
 - Python científico: `numpy`, `scikit-learn`, `matplotlib`, `Pillow`
+
+### Requisitos del sistema
+
+Además de las dependencias de Python (`requirements.txt` por entorno), el
+pipeline de Stage 2 (`certamen_2/prepare_text_validator_dataset.py`, vía
+`text_validator_baseline.py`) necesita el binario **`tesseract`** (OCR)
+instalado a nivel de sistema — no es un paquete de pip:
+
+```bash
+sudo dnf install tesseract        # Fedora (esta máquina de desarrollo)
+sudo apt install tesseract-ocr    # Debian/Ubuntu
+```
+
+Sin esto, `prepare_text_validator_dataset.py` falla al arrancar. El resto
+del pipeline (Stage 1/3/4) no lo necesita.
 
 ## Entregas
 
@@ -85,7 +100,7 @@ entender en la práctica sus diferencias de diseño, rendimiento y ergonomía.
 
 La interfaz comercial del escáner de cartas se está construyendo actualmente con Ionic React. 
 - Puedes encontrar su código, estado de avance, y las **instrucciones de despliegue** en su respectiva carpeta.
-- ➡️ **[Ir al README de la aplicación Ionic](trading-app-ionic/README.md)**
+- ➡️ **[Ir al README de la aplicación Ionic](Proyecto/examen/trading-app-ionic/README.md)**
 
 ## Backend (NestJS + Prisma + PostgreSQL)
 
@@ -93,7 +108,7 @@ La persistencia de la app final (cuentas de usuario, cartas de la colección
 con sus fotos, transacciones de compra/venta) vive en un backend NestJS
 separado, con Postgres y object storage S3-compatible levantados vía Docker
 solo para desarrollo local (el backend en sí no corre en Docker).
-- ➡️ **[Ir al README del backend](backend/README.md)** — instrucciones de
+- ➡️ **[Ir al README del backend](Proyecto/examen/backend/README.md)** — instrucciones de
   despliegue, arquitectura por capas (domain/application/infrastructure/
   presentation) y qué falta a propósito (login/JWT, 2FA, MercadoPago real).
   `trading-app-ionic/` ya habla con esta API (registro, cartas + fotos,

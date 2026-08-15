@@ -12,6 +12,8 @@ import {
   EXPORT_STAGES,
   LiveFileDef,
   ResultFileDef,
+  RUN_ALL_DOWNLOAD_SEQUENCE,
+  RUN_ALL_EXPORT_SEQUENCE,
   RUN_ALL_SEQUENCES,
   ScriptDef,
   SCRIPTS,
@@ -659,38 +661,54 @@ export class ScriptsService {
     return { overallRunId, steps, ok };
   }
 
-  // ── "Correr TODO" (ambos frameworks + comparación final) ────────────────
+  // ── "Correr TODO" (dataset → ambos frameworks → export) ─────────────────
 
   /**
-   * Botón "Do all": PyTorch completo → TensorFlow completo → comparación de
-   * ambos scanners sobre testing_photos/. Deliberadamente NO incluye
-   * shared-scraper/shared-downloader (dataset compartido) — esos son un paso
-   * de preparación que se corre una vez, no en cada corrida de entrenamiento
-   * (re-descargar ~3.6 GB de imágenes cada vez que se aprieta "correr todo"
-   * sería un desperdicio; quedan como botones propios en la pestaña "Dataset
-   * compartido"). Mismo criterio "para en el primer error" que `runAll`.
+   * Botón "Do all", en 4 fases (una por pestaña, en el orden en que aparecen
+   * en la UI): Dataset compartido (solo `shared-downloader`, idempotente —
+   * ver `RUN_ALL_DOWNLOAD_SEQUENCE`, NO incluye el scraper a propósito) →
+   * PyTorch completo → TensorFlow completo → Exportar (ONNX, todas las
+   * etapas ya entrenadas, ambos frameworks). Mismo criterio "para en el
+   * primer error" que `runAll`, ahora entre fases también.
    */
   async runEverything(): Promise<{ overallRunId: string; steps: RunAllStepResult[]; ok: boolean }> {
     const overallRunId = `run-all:everything:${Date.now()}`;
     const steps: RunAllStepResult[] = [];
-    const totalScripts = RUN_ALL_SEQUENCES.pytorch.length + RUN_ALL_SEQUENCES.tensorflow.length + 1; // +1 = test-compare
+    const totalScripts =
+      RUN_ALL_DOWNLOAD_SEQUENCE.length +
+      RUN_ALL_SEQUENCES.pytorch.length +
+      RUN_ALL_SEQUENCES.tensorflow.length +
+      RUN_ALL_EXPORT_SEQUENCE.length;
 
-    let ok = true;
-    for (const framework of ['pytorch', 'tensorflow'] as const) {
-      ok = await this.runSequence(
-        overallRunId,
-        'everything',
-        RUN_ALL_SEQUENCES[framework].map((scriptId) => ({
-          scriptId,
-          overrides: scriptId === 'shared-evaluate' ? { model: framework } : {},
-        })),
-        steps,
-      );
-      if (!ok) break;
+    let ok = await this.runSequence(
+      overallRunId,
+      'everything',
+      RUN_ALL_DOWNLOAD_SEQUENCE.map((scriptId) => ({ scriptId })),
+      steps,
+    );
+
+    if (ok) {
+      for (const framework of ['pytorch', 'tensorflow'] as const) {
+        ok = await this.runSequence(
+          overallRunId,
+          'everything',
+          RUN_ALL_SEQUENCES[framework].map((scriptId) => ({
+            scriptId,
+            overrides: scriptId === 'shared-evaluate' ? { model: framework } : {},
+          })),
+          steps,
+        );
+        if (!ok) break;
+      }
     }
 
     if (ok) {
-      ok = await this.runSequence(overallRunId, 'everything', [{ scriptId: 'test-compare' }], steps);
+      ok = await this.runSequence(
+        overallRunId,
+        'everything',
+        RUN_ALL_EXPORT_SEQUENCE.map((scriptId) => ({ scriptId })),
+        steps,
+      );
     }
 
     ok = ok && steps.length === totalScripts;

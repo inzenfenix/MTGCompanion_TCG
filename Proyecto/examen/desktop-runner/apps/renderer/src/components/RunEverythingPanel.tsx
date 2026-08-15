@@ -9,17 +9,19 @@ import { useRunLogs } from '@/lib/useRunLogs';
 import { getSocket, api, RunAllReportEvent, RunAllStepStartedEvent } from '@/lib/api';
 import type { RunAllStepResult } from '@/lib/types';
 
-// Mismo total que arma scripts.service.ts#runEverything: 4 pasos de PyTorch +
-// 4 de TensorFlow + 1 comparación final. Si esa secuencia cambia, esto queda
-// desactualizado como cosmético nomás (la barra de progreso), no rompe nada.
-const TOTAL_STEPS = 9;
+// Mismo total que arma scripts.service.ts#runEverything: 1 paso de descarga
+// (shared-downloader) + 4 de PyTorch + 4 de TensorFlow + 4 de export ONNX.
+// Si esa secuencia cambia, esto queda desactualizado como cosmético nomás
+// (la barra de progreso), no rompe nada.
+const TOTAL_STEPS = 13;
 
 /**
- * Botón "Do all" — corre TODO el proyecto sin tocar ninguna pestaña:
- * PyTorch completo → TensorFlow completo → comparación de ambos scanners.
- * Vive en App.tsx por fuera de las tabs (a diferencia de RunAllPanel, que es
- * por framework y vive dentro de la pestaña de cada uno) porque conceptualmente
- * no pertenece a ninguna pestaña en particular.
+ * Botón "Do all" — corre las 4 fases del pipeline en el mismo orden en que
+ * aparecen las pestañas: Dataset compartido (solo la descarga, idempotente)
+ * → PyTorch completo → TensorFlow completo → Exportar (ONNX, ambos
+ * frameworks). Vive en App.tsx por fuera de las tabs (a diferencia de
+ * RunAllPanel, que es por framework y vive dentro de la pestaña de cada uno)
+ * porque conceptualmente no pertenece a ninguna pestaña en particular.
  */
 export function RunEverythingPanel() {
   const [running, setRunning] = useState(false);
@@ -78,8 +80,9 @@ export function RunEverythingPanel() {
           <div>
             <CardTitle>Correr TODO</CardTitle>
             <CardDescription>
-              PyTorch completo → TensorFlow completo → comparación de ambos scanners sobre testing_photos/.
-              No incluye la descarga del dataset compartido (eso corre una sola vez, aparte). Se detiene en el primer error.
+              Corre las 4 pestañas en orden: Dataset compartido (descarga de imágenes, idempotente — no
+              vuelve a scrapear el catálogo) → PyTorch completo → TensorFlow completo → Exportar (ONNX,
+              ambos frameworks). Se detiene en el primer error.
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">

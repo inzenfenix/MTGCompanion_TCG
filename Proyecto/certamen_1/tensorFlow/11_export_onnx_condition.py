@@ -31,6 +31,7 @@ Uso:
 import argparse
 import json
 import pathlib
+import shutil
 import sys
 
 import numpy as np
@@ -43,6 +44,10 @@ from src.condition_classifier import GRADOS
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 MODELS_DIR = SCRIPT_DIR / "models"
+# Carpeta pública de la app Ionic (ver Proyecto/examen/README.md) — mismo
+# criterio que tensorFlow/09_export_onnx.py: publicar acá evita copiar el
+# .onnx a mano después de cada export.
+IONIC_MODELS_DIR = SCRIPT_DIR.parent.parent / "examen" / "trading-app-ionic" / "public" / "models"
 IMG_SIZE = 224
 
 
@@ -90,6 +95,17 @@ def verificar(modelo: tf.keras.Model, entrada: np.ndarray, onnx_path: pathlib.Pa
     return diff
 
 
+def publicar_en_ionic(destino: pathlib.Path, nombre_publico: str) -> pathlib.Path | None:
+    """Copia el .onnx a trading-app-ionic/public/models/ — ver pytorch/09_export_onnx.py."""
+    if not IONIC_MODELS_DIR.parent.exists():
+        print(f"  aviso: no se encontró {IONIC_MODELS_DIR.parent} — no se copia a la app Ionic.")
+        return None
+    IONIC_MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    publico = IONIC_MODELS_DIR / nombre_publico
+    shutil.copy2(destino, publico)
+    return publico
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Exporta el clasificador de condición (Stage 4) a ONNX y verifica paridad numérica."
@@ -99,6 +115,8 @@ def main() -> None:
     parser.add_argument("--opset", type=int, default=18, help="Versión de opset ONNX (default: 18)")
     parser.add_argument("--tolerancia", type=float, default=1e-4,
                         help="Diferencia máxima aceptable entre salidas TensorFlow/ONNX (default: 1e-4)")
+    parser.add_argument("--no-ionic-copy", action="store_true",
+                        help="No copiar el .onnx a trading-app-ionic/public/models/ (solo dejarlo en models/).")
     args = parser.parse_args()
 
     cfg_path = MODELS_DIR / "condition_grader_cfg.json"
@@ -129,6 +147,11 @@ def main() -> None:
 
     tam_mb = destino.stat().st_size / 1e6
     print(f"\nModelo ONNX publicado: {destino}  ({tam_mb:.1f} MB)")
+
+    if not args.no_ionic_copy:
+        publico = publicar_en_ionic(destino, "stage4-condition-grader.onnx")
+        if publico:
+            print(f"Copiado a la app Ionic       : {publico}")
     print("Próximo paso: cargar este .onnx en la app Ionic con onnxruntime-web")
     print("(ver Proyecto/examen/README.md).")
 
