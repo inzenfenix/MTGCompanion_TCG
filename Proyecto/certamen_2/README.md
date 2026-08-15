@@ -197,7 +197,8 @@ Salida: precio estimado en USD (regresión).
 Dataset: `prices` (`usd`, `usd_foil`, `eur`, `tix`) recién se agregó a
 `CAMPOS` en `01_scraper.py` (mismo bulk data que ya usa `01_scraper.py`, solo
 faltaba pedirlo). Un snapshot actual alcanza para un regresor de referencia —
-no hace falta series históricas de precio.
+no hace falta series históricas de precio. Diseño detallado del feature
+vector combinado (tabular + embedding visual): sección 5.1.1.
 
 ## 2. Selección del mejor framework por etapa
 
@@ -340,6 +341,154 @@ versionado, igual que Certamen 1) y `models/price_baseline_model.joblib`
 (binario del pipeline entrenado, ~90 MB — **gitignored**, no versionado,
 mismo criterio que `pytorch/models/` y `tensorFlow/models/` en Certamen 1).
 
+### 5.1.1 Diseño del feature vector combinado — Stage 3 "de verdad" (15 ago)
+
+Antes de escribir `pytorch/15_price_estimator.py` / `tensorFlow/13_price_estimator.py`
+(ver checklist, sección 6), queda fijado acá el contrato del feature vector
+que van a compartir ambos frameworks — mismo espíritu que `HashingVectorizer`
+para Stage 2 (regla 4 de CLAUDE.md): la mitad tabular tiene que ser **byte-
+idéntica** entre PyTorch y TensorFlow para que la comparación cross-framework
+(sección 2) aísle la diferencia real (backbone/cabeza), no un artefacto de
+cómo cada framework codificó la metadata.
+
+```
+x = concat(x_tab, x_vis)
+```
+
+**`x_tab` — mitad tabular (idéntica en ambos frameworks, 48 dims)**
+
+Nuevo módulo `price_features.py`, Python puro (sin `torch`/`tf`/`sklearn`),
+duplicado byte-idéntico en `pytorch/src/` y `tensorFlow/src/` — mismo
+criterio que ya usa `src/text_matcher.py` en las dos carpetas, no
+centralizado en `certamen_2/`. Reutiliza el feature set ya probado de
+`price_estimator_baseline.py::fila_features()` (rareza, `cmc`, colores, tipo
+primario, legendaria, antigüedad, `set_type`, `frame`, `border_color`, foil/
+etched, `frame_effects`) pero reemplaza el `OneHotEncoder` de `sklearn`
+(fit-time, estado que habría que persistir y sincronizar entre frameworks)
+por **vocabularios fijos hardcodeados + bucket "other"** — mismo principio
+que ya usan los one-hot manuales de color/tipo en el baseline, extendido a
+las 4 columnas categóricas restantes:
+
+| Categoría | Vocabulario fijo (orden fijo) | # dims (vocab + "other") |
+|---|---|---|
+| `rarity` | common, uncommon, rare, mythic, special, bonus | 7 |
+| `set_type` | expansion, masters, commander, draft_innovation, core | 6 |
+| `frame` | 2015, 2003, 1997, 1993, future | 6 |
+| `border_color` | black, borderless, white, yellow | 5 |
+
+(vocabularios sacados de un `Counter` real sobre los 58,679 registros de
+`cards.json`, 15 ago — hoy son exhaustivos, el bucket "other" es solo
+defensivo para cuando Scryfall agregue un `set_type`/`frame` nuevo).
+
+Más 9 campos numéricos/binarios sin encoding (`cmc`, `n_colores`,
+`es_incoloro`, `es_legendaria`, `n_frame_effects`, `tiene_foil`,
+`tiene_etched`, `anio`, `antiguedad_anios`) + 15 one-hot ya hardcodeados
+(5 colores + 10 tipos primarios, igual que el baseline) = **48 dims totales**
+(9 + 15 + 24).
+
+Normalización: los 5 campos numéricos sin acotar (`cmc`, `n_colores`,
+`n_frame_effects`, `anio`, `antiguedad_anios`) se estandarizan con media/
+desvío calculados **una vez** sobre el split de train y persistidos en
+`certamen_2/data/price_dataset/tabular_scaler.json` — no un objeto
+`StandardScaler` pickleado (no portable entre `sklearn` de dos venvs
+distintos, tampoco exportable a ONNX), solo los números, aplicados igual en
+los dos frameworks. Las columnas binarias/one-hot quedan en 0/1 crudo.
+
+**`x_vis` — embedding visual (nativo por framework, no se fuerza a que
+tengan la misma dimensión)**
+
+Reusa el backbone **ya fine-tuneado de Stage 1** (`mtg_detector.pth` /
+`mtg_detector.keras`, ambos ya en disco), completamente congelado — no
+`freeze_ratio` parcial como Stage 4, acá es un extractor de features puro:
+
+- **PyTorch**: `MTGDetector.features` + `.avgpool` + `.flatten` (se descarta
+  `.head`), `requires_grad=False` en todo el backbone, `.eval()` siempre →
+  vector de **1280 dims**.
+- **TensorFlow**: el submodelo `MobileNetV3Small` de `mtg_detector.keras`
+  con `pooling='avg'` (se descarta la cabeza de clasificación),
+  `trainable=False` → vector de **576 dims** (verificado corriendo el
+  modelo real, 15 ago — no 1024, que era una suposición incorrecta de un
+  borrador anterior de este plan).
+
+Dimensión final combinada: **1328** (PyTorch, 48+1280) vs. **624**
+(TensorFlow, 48+576) — distinta por framework, y está bien: es la misma
+situación que ya existe hoy en Stage 1/4 (`EfficientNet_b0` vs.
+`MobileNetV3Small`, cada uno con su propia dimensión de salida). Lo único
+que tiene que ser idéntico es `x_tab`.
+
+Como el backbone está congelado, su salida es una función determinística de
+la imagen — no hace falta recalcularla en cada epoch. Se precalcula **una
+sola vez** por framework y se cachea en disco (mismo criterio que evitar
+re-correr OCR en cada epoch de Stage 2):
+`certamen_2/data/price_dataset/{framework}_visual_embeddings.npy` +
+`card_ids.json`. Esto requiere un script de preparación nuevo,
+`certamen_2/prepare_price_dataset.py` (corre una vez por framework, dentro
+del venv correspondiente porque importa `torch` o `tf`) — todavía no
+escrito, queda como prerrequisito de B2/B3 (ROADMAP.md, workstream B) y es
+exactamente el "futuro prep script de Stage 3" que ya anticipaba la nota de
+C1 en ROADMAP.md.
+
+**Split**: partición fija train/val/test por `card_id`, guardada en
+`certamen_2/data/price_dataset/split.json` (seed fija) — para que ambos
+frameworks entrenen/evalúen sobre exactamente las mismas cartas, no solo
+sobre la misma proporción (más fuerte que el `train_test_split(random_state=42)`
+independiente que usa hoy el baseline). Hace falta un val set separado del
+test para Optuna (B4) — el baseline de hoy solo tiene train/test.
+
+**Target y métricas**: igual que el baseline (`log1p(prices.usd)`, filtrado a
+`usd > 0`; reportado en escala log y en USD — MAE, Median AE, RMSE, R²) para
+que los números del modelo real sean directamente comparables contra el piso
+ya medido en 5.1 (MAE $2.59, R²(USD) 0.191, R²(log-USD) 0.521).
+
+**Pendiente para B2/B3 (no es parte de este diseño, queda anotado)**:
+aplicar el patrón `--device {auto,cpu,cuda}` de CLAUDE.md regla 1 desde el
+arranque en `pytorch/15_price_estimator.py` y en `prepare_price_dataset.py`
+— no esperar a pegarse con el bug de ROCm como pasó con Stage 2.
+
+### 5.1.2 Stage 3 "de verdad" — primera corrida real (15 ago)
+
+Escritos y corridos de punta a punta los scripts que implementan el diseño
+de 5.1.1: `certamen_2/prepare_price_dataset.py` (tabular + split + scaler) →
+`pytorch/prepare_price_embeddings.py` / `tensorFlow/prepare_price_embeddings.py`
+(embedding visual congelado, uno por framework) →
+`pytorch/15_price_estimator.py` / `tensorFlow/13_price_estimator.py`
+(entrenamiento). Nuevos módulos compartidos: `src/price_features.py`
+(vectorizador tabular, duplicado byte-idéntico en ambos frameworks — mismo
+criterio que `text_matcher.py`) y `src/price_regressor.py` (MLP de
+regresión, API funcional en TensorFlow por el mismo motivo que
+`text_matcher.py`).
+
+Corrida de verificación con `--n 1500` (sub-muestra, no el dataset completo
+— ver nota abajo), split 70/15/15 por `card_id` (1,050/225/225):
+
+| Métrica (test set) | PyTorch | TensorFlow | Baseline tabular (5.1, dataset completo) |
+|---|---|---|---|
+| MAE (USD) | $3.53 | $3.17 | $2.59 |
+| Median AE (USD) | $0.26 | $0.33 | $0.20 |
+| RMSE (USD) | $12.76 | $12.88 | $45.23 |
+| R² (USD) | 0.025 | 0.006 | 0.191 |
+| R² (log-USD) | 0.107 | 0.197 | 0.521 |
+
+`input_dim` confirmado exactamente como predijo el diseño: PyTorch 1328
+(48 tabular + 1280 visual), TensorFlow 624 (48 + 576). Ambos scripts
+completan las 40 épocas, guardan el mejor checkpoint (`models/price_regressor.pth`
+/ `.keras` + `_cfg.json`), versionan resultados bajo `output/{framework}/price_estimator/`
+y grafican `pred_vs_actual.png`/`training_curve.png` — el pipeline end-to-end
+funciona.
+
+**Por qué el R² sale peor que el baseline acá** (esperado, no un bug): esta
+corrida es a propósito una sub-muestra de 1,500 cartas (1,050 de train) para
+verificar que el pipeline completo funciona, no para medir el modelo real —
+el baseline tabular de 5.1 entrenó sobre 41,298 cartas. Con ~27x menos datos
+de train y una red con ~0.37M parámetros, el modelo real memoriza el
+train set (`train_mse` cae a ~0.05-0.07 en log-space mientras `val_mse` se
+estanca en ~0.47) en vez de generalizar — overfitting típico de "poca data,
+red con capacidad de sobra", no una falla del diseño del feature vector.
+Corrida a full dataset (~51,600 cartas con precio) queda pendiente, junto
+con Optuna (B4) — normal a esta escala, según la regla operativa de la
+sección 2: la primera palanca ante una métrica floja es sumar más datos
+antes de tocar arquitectura/hiperparámetros.
+
 ### 5.2 Baseline de Stage 2 — `text_validator_baseline.py`
 
 Mismo espíritu que 5.1 pero para el validador de texto: un baseline sin
@@ -429,9 +578,14 @@ reconstruir el índice de PyTorch contra el dataset completo
       reales (791 cartas, `prepare_text_validator_dataset.py`): PyTorch
       ROC-AUC 0.9608, TensorFlow 0.9565 (sin Optuna). Ver ROADMAP.md,
       workstream A.
-- [ ] Stage 3 "de verdad" por framework (nombre tentativo: `15_price_estimator.py`
-      / `13_price_estimator.py`, ver numeración ya usada por Stage 2), sumando
-      el embedding visual al baseline tabular de la sección 5.1.
+- [x] Stage 3 "de verdad" por framework (`pytorch/15_price_estimator.py` +
+      `tensorFlow/13_price_estimator.py`), sumando el embedding visual al
+      baseline tabular de la sección 5.1 — ver sección 5.1.2. Corrida de
+      verificación (`--n 1500`) confirma que el pipeline completo funciona
+      de punta a punta (R²(log-USD) 0.107 PyTorch / 0.197 TensorFlow, por
+      debajo del baseline por ser una sub-muestra chica, no un problema de
+      diseño). Falta: correr sobre el dataset completo y aplicar Optuna
+      (B4, ver ROADMAP.md).
 - [x] Aplicar Optuna a Stage 2 (`pytorch/15_optuna_text_validator.py` +
       `tensorFlow/13_optuna_text_validator.py`) — PyTorch 0.9646 ROC-AUC,
       TensorFlow 0.9634 (empate por el criterio de `scripts.service.ts`,
