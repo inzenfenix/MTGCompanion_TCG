@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Tabs } from '@/components/ui/tabs';
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScriptCard } from './ScriptCard';
 import { RunAllPanel } from './RunAllPanel';
 import { useRunAllStatus } from '@/lib/useRunAllStatus';
@@ -19,14 +18,14 @@ const STAGE_SCRIPTS: Record<Framework, Record<StageValue, string[]>> = {
     retrieval: ['pt-embedder', 'shared-evaluate', 'pt-visualize', 'pt-finetune', 'pt-scanner'],
     stage1: ['pt-binary-classifier', 'pt-optuna-binary-classifier'],
     stage2: ['pt-text-validator', 'pt-optuna-text-validator'],
-    stage3: [],
+    stage3: ['pt-price-estimator', 'pt-optuna-price-estimator'],
     stage4: ['pt-condition-grader', 'pt-optuna-condition-grader', 'pt-condition-grader-combined', 'pt-predict-condition'],
   },
   tensorflow: {
     retrieval: ['tf-embeddings', 'shared-evaluate', 'tf-visualize', 'tf-scanner'],
     stage1: ['tf-binary-classifier', 'tf-optuna-binary-classifier'],
     stage2: ['tf-text-validator', 'tf-optuna-text-validator'],
-    stage3: [],
+    stage3: ['tf-price-estimator', 'tf-optuna-price-estimator'],
     stage4: ['tf-condition-grader', 'tf-optuna-condition-grader'],
   },
 };
@@ -62,23 +61,10 @@ export function FrameworkTab({ framework, scripts, onVenvChanged }: { framework:
 
       {STAGES.map(({ value }) => (
         <div key={value} className={cn('space-y-4', value !== stage && 'hidden')}>
-          {value === 'stage3' ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Stage 3 — Estimador de precio</CardTitle>
-                <CardDescription>
-                  Todavía no implementado en PyTorch/TensorFlow — solo existe un baseline sklearn
-                  (framework-agnostic) en certamen_2/price_estimator_baseline.py. Cuando exista un
-                  script de entrenamiento por framework para esta etapa, se registra acá.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          ) : (
-            STAGE_SCRIPTS[framework][value]
-              .map((id) => scripts.find((s) => s.id === id))
-              .filter((s): s is ScriptInfo => Boolean(s))
-              .map((script) => <ScriptCard key={script.id} script={script} onVenvChanged={onVenvChanged} />)
-          )}
+          {STAGE_SCRIPTS[framework][value]
+            .map((id) => scripts.find((s) => s.id === id))
+            .filter((s): s is ScriptInfo => Boolean(s))
+            .map((script) => <ScriptCard key={script.id} script={script} onVenvChanged={onVenvChanged} />)}
         </div>
       ))}
     </div>

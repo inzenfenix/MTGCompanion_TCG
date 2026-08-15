@@ -83,9 +83,11 @@ export class ScriptsController {
 
   @Post('run-all/:framework')
   @HttpCode(202)
-  async runAll(@Param('framework') framework: 'pytorch' | 'tensorflow') {
+  async runAll(@Param('framework') framework: 'pytorch' | 'tensorflow' | 'export') {
     // Se resuelve en background; el cliente escucha el evento 'run-all-report' por WebSocket
     // y puede seguir el progreso de cada paso por su runId individual (evento 'status'/'log').
+    // 'export' no es un framework real — corre RUN_ALL_EXPORT_SEQUENCE (botón "Correr todo"
+    // de la pestaña Exportar, ver ExportPanel.tsx) — mismo mecanismo, distinta secuencia.
     this.scriptsService.runAll(framework).catch(() => undefined);
     return { started: true, framework };
   }

@@ -6,11 +6,13 @@ import { getSocket, api, RunAllReportEvent, RunAllStepStartedEvent } from '@/lib
 import type { RunAllStepResult } from '@/lib/types';
 
 /**
- * Botón "Correr todo" de un framework — mismo criterio que
- * RunEverythingPanel: solo el botón, sin log en vivo acá (eso vive en la
- * subpestaña de stage que está corriendo — ver ScriptCard y useRunAllStatus.ts).
+ * Botón "Correr todo" de un framework (o, con `framework: 'export'`, de la
+ * pestaña Exportar — corre RUN_ALL_EXPORT_SEQUENCE en vez de un framework
+ * completo, ver ExportPanel.tsx) — mismo criterio que RunEverythingPanel:
+ * solo el botón, sin log en vivo acá (eso vive en la subpestaña de stage que
+ * está corriendo — ver ScriptCard y useRunAllStatus.ts).
  */
-export function RunAllPanel({ framework }: { framework: 'pytorch' | 'tensorflow' }) {
+export function RunAllPanel({ framework }: { framework: 'pytorch' | 'tensorflow' | 'export' }) {
   const [running, setRunning] = useState(false);
   const [steps, setSteps] = useState<RunAllStepResult[]>([]);
   const [ok, setOk] = useState<boolean | null>(null);

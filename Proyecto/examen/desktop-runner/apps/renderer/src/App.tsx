@@ -48,13 +48,15 @@ const SCRAPER_TAB_SCRIPTS = [
 // eso es justo lo que corre "Correr Todo", en el mismo orden que las pestañas.
 const TAB_BUCKETS: Record<string, string[]> = {
   scraper: ['shared-downloader', 'shared-real-photos'],
-  pytorch: ['pt-embedder', 'shared-evaluate', 'pt-visualize', 'pt-binary-classifier', 'pt-text-validator', 'pt-condition-grader'],
-  tensorflow: ['tf-embeddings', 'shared-evaluate', 'tf-visualize', 'tf-binary-classifier', 'tf-text-validator', 'tf-condition-grader'],
+  pytorch: ['pt-embedder', 'shared-evaluate', 'pt-visualize', 'pt-binary-classifier', 'pt-text-validator', 'pt-price-estimator', 'pt-condition-grader'],
+  tensorflow: ['tf-embeddings', 'shared-evaluate', 'tf-visualize', 'tf-binary-classifier', 'tf-text-validator', 'tf-price-estimator', 'tf-condition-grader'],
   export: [
     'pt-export-onnx',
     'tf-export-onnx',
     'pt-export-onnx-text-validator',
     'tf-export-onnx-text-validator',
+    'pt-export-onnx-price-estimator',
+    'tf-export-onnx-price-estimator',
     'pt-export-onnx-condition',
     'tf-export-onnx-condition',
   ],

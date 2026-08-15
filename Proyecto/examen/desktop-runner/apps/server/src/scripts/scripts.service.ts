@@ -194,8 +194,8 @@ export class ScriptsService {
           }
         }
 
-        const a = byFramework.pytorch.available ? (byFramework.pytorch.metrics?.[stageDef.metricKey] as number | undefined) : undefined;
-        const b = byFramework.tensorflow.available ? (byFramework.tensorflow.metrics?.[stageDef.metricKey] as number | undefined) : undefined;
+        const a = byFramework.pytorch.available ? this.readMetric(byFramework.pytorch.metrics, stageDef.metricKey) : undefined;
+        const b = byFramework.tensorflow.available ? this.readMetric(byFramework.tensorflow.metrics, stageDef.metricKey) : undefined;
 
         let recommendation: 'pytorch' | 'tensorflow' | 'tie' | null = null;
         if (typeof a === 'number' && typeof b === 'number') {
@@ -215,12 +215,24 @@ export class ScriptsService {
           label: stageDef.label,
           metricKey: stageDef.metricKey,
           metricLabel: stageDef.metricLabel,
+          format: stageDef.format ?? 'percent',
           pytorch: byFramework.pytorch,
           tensorflow: byFramework.tensorflow,
           recommendation,
         };
       }),
     );
+  }
+
+  /**
+   * Lee `metricKey` de `metrics`, con soporte para paths con puntos
+   * (ej. "log_space.r2") — Stage 3 anida sus métricas por espacio
+   * (log_space/usd_space, ver 15_price_estimator.py), a diferencia de las
+   * keys planas (accuracy/roc_auc/f1_macro) que usan Stage 1/2/4.
+   */
+  private readMetric(metrics: Record<string, unknown> | undefined, metricKey: string): number | undefined {
+    const value = metricKey.split('.').reduce<unknown>((acc, key) => (acc && typeof acc === 'object' ? (acc as Record<string, unknown>)[key] : undefined), metrics);
+    return typeof value === 'number' ? value : undefined;
   }
 
   // ── Resolución de intérpretes / venvs ──────────────────────────────────
@@ -835,8 +847,17 @@ export class ScriptsService {
     return true;
   }
 
-  async runAll(framework: 'pytorch' | 'tensorflow'): Promise<{ overallRunId: string; steps: RunAllStepResult[]; ok: boolean }> {
-    const sequence = RUN_ALL_SEQUENCES[framework];
+  /**
+   * `framework: 'export'` no es un framework real — es el botón "Correr
+   * todo" de la pestaña Exportar (ver ExportPanel.tsx), que corre
+   * `RUN_ALL_EXPORT_SEQUENCE` (todas las etapas ya entrenadas, ambos
+   * frameworks) en vez de `RUN_ALL_SEQUENCES[framework]`. Mismo mecanismo
+   * de streaming/eventos que pytorch/tensorflow — `runSequence()` y el
+   * frontend (`useRunAllStatus`) ya agrupan por `scriptId`, no por este tag,
+   * así que no hace falta un método aparte.
+   */
+  async runAll(framework: 'pytorch' | 'tensorflow' | 'export'): Promise<{ overallRunId: string; steps: RunAllStepResult[]; ok: boolean }> {
+    const sequence = framework === 'export' ? RUN_ALL_EXPORT_SEQUENCE : RUN_ALL_SEQUENCES[framework];
     if (!sequence) throw new BadRequestException(`Framework desconocido: ${framework}`);
 
     const overallRunId = `run-all:${framework}:${Date.now()}`;

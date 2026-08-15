@@ -99,6 +99,8 @@ export interface ExportComparisonStage {
   label: string;
   metricKey: string;
   metricLabel: string;
+  /** 'percent' (default) o 'decimal' — ver StageComparisonDef en scripts.config.ts (server). */
+  format?: 'percent' | 'decimal';
   pytorch: StageFrameworkMetrics;
   tensorflow: StageFrameworkMetrics;
   recommendation: 'pytorch' | 'tensorflow' | 'tie' | null;

@@ -903,15 +903,18 @@ export const SCRIPTS: ScriptDef[] = [
 /**
  * Secuencia recomendada para "Correr todo" por framework (ver README de certamen_1).
  * El dataset compartido (shared-scraper, shared-downloader) se corre una sola vez antes,
- * no por framework. Entrena los 3 stages que ya tienen script registrado en esta
- * máquina (1, 2, 4 — Stage 3 no existe todavía, ver EXPORT_STAGES) con sus
- * hiperparámetros default; la búsqueda de Optuna de cada stage queda como
- * acción manual aparte (son corridas largas, no tiene sentido meterlas en
- * el camino automático de "correr todo").
+ * no por framework. Entrena las 4 stages con sus hiperparámetros default; la
+ * búsqueda de Optuna de cada stage queda como acción manual aparte (son
+ * corridas largas, no tiene sentido meterlas en el camino automático de
+ * "correr todo"). Stage 3 (`pt-price-estimator`/`tf-price-estimator`)
+ * requiere que `certamen_2/prepare_price_dataset.py` y
+ * `{pytorch,tensorFlow}/prepare_price_embeddings.py` ya hayan corrido — no
+ * son parte de esta secuencia todavía (siguen sin venv registrado, ver
+ * ROADMAP.md workstream C, item C1).
  */
 export const RUN_ALL_SEQUENCES: Record<'pytorch' | 'tensorflow', string[]> = {
-  pytorch: ['pt-embedder', 'shared-evaluate', 'pt-visualize', 'pt-binary-classifier', 'pt-text-validator', 'pt-condition-grader'],
-  tensorflow: ['tf-embeddings', 'shared-evaluate', 'tf-visualize', 'tf-binary-classifier', 'tf-text-validator', 'tf-condition-grader'],
+  pytorch: ['pt-embedder', 'shared-evaluate', 'pt-visualize', 'pt-binary-classifier', 'pt-text-validator', 'pt-price-estimator', 'pt-condition-grader'],
+  tensorflow: ['tf-embeddings', 'shared-evaluate', 'tf-visualize', 'tf-binary-classifier', 'tf-text-validator', 'tf-price-estimator', 'tf-condition-grader'],
 };
 
 /**
@@ -930,7 +933,7 @@ export const RUN_ALL_DOWNLOAD_SEQUENCE: string[] = ['shared-downloader', 'shared
 
 /**
  * Fase final de "Correr TODO" — exporta a ONNX todo lo que ya está entrenado
- * en ambos frameworks (todas las etapas registradas hoy: Stage 1, 2 y 4).
+ * en ambos frameworks (todas las etapas registradas hoy: Stage 1, 2, 3 y 4).
  * Los scripts de export no reentrenan nada, solo leen el checkpoint que las
  * fases pytorch/tensorflow de arriba acaban de dejar guardado.
  */
@@ -939,6 +942,8 @@ export const RUN_ALL_EXPORT_SEQUENCE: string[] = [
   'tf-export-onnx',
   'pt-export-onnx-text-validator',
   'tf-export-onnx-text-validator',
+  'pt-export-onnx-price-estimator',
+  'tf-export-onnx-price-estimator',
   'pt-export-onnx-condition',
   'tf-export-onnx-condition',
 ];
@@ -953,25 +958,36 @@ export type ComparableFramework = 'pytorch' | 'tensorflow';
 
 export interface StageComparisonDef {
   /** Identificador estable de la etapa (no es el nombre del script). */
-  stage: 'stage1' | 'stage2' | 'stage4';
+  stage: 'stage1' | 'stage2' | 'stage3' | 'stage4';
   label: string;
-  /** Campo de final_metrics.json que decide qué framework "gana". */
+  /**
+   * Campo de final_metrics.json que decide qué framework "gana" — admite un
+   * path con puntos (ej. "log_space.r2") para métricas anidadas como las de
+   * Stage 3 (ver getExportComparison() en scripts.service.ts, que resuelve
+   * el path en vez de una key plana).
+   */
   metricKey: string;
   metricLabel: string;
+  /**
+   * Cómo mostrar metricKey (y las métricas secundarias de esa misma etapa)
+   * en la pestaña "Exportar" — 'percent' (default, ej. 92.30%) tiene sentido
+   * para accuracy/ROC-AUC/F1 (0..1 = fracción), pero no para R² de Stage 3:
+   * aunque también cae en 0..1 para un modelo decente, mostrarlo como
+   * "44.10%" en vez de "0.441" es una lectura rara para un R² — 'decimal'
+   * lo muestra tal cual. Ver ExportPanel.tsx (renderer) donde se consume.
+   */
+  format?: 'percent' | 'decimal';
   metricsPath: (fw: ComparableFramework) => string;
   exportScriptId: (fw: ComparableFramework) => string;
 }
 
 /**
- * Stage 1 (detector MTG/no-MTG), Stage 2 (validador de texto) y Stage 4
- * (clasificador de condición) entrenan en los dos frameworks — Stage 3
- * (estimador de precio) todavía no tiene script pytorch/tensorflow (solo un
- * baseline sklearn en certamen_2/), así que no aparece acá. Los paths
- * apuntan a output/<framework>/<optuna_dir>/latest/final_metrics.json, que
+ * Las 4 stages entrenan en los dos frameworks. Los paths apuntan a
+ * output/<framework>/<optuna_dir>/latest/final_metrics.json, que
  * 08_optuna_binary_classifier.py / 15_optuna_text_validator.py /
- * 11_optuna_condition_grader.py (pytorch) y sus equivalentes de tensorFlow/
- * escriben al terminar una corrida con entrenamiento final
- * (--no-final-train los deja sin generar).
+ * 17_optuna_price_estimator.py / 11_optuna_condition_grader.py (pytorch) y
+ * sus equivalentes de tensorFlow/ escriben al terminar una corrida con
+ * entrenamiento final (--no-final-train los deja sin generar).
  */
 export const EXPORT_STAGES: StageComparisonDef[] = [
   {
@@ -989,6 +1005,23 @@ export const EXPORT_STAGES: StageComparisonDef[] = [
     metricLabel: 'ROC-AUC',
     metricsPath: (fw) => path.join(CERTAMEN_DIR, 'output', fw, 'optuna_text_validator', 'latest', 'final_metrics.json'),
     exportScriptId: (fw) => (fw === 'pytorch' ? 'pt-export-onnx-text-validator' : 'tf-export-onnx-text-validator'),
+  },
+  {
+    stage: 'stage3',
+    label: 'Stage 3 — Estimador de precio',
+    // R² en log-espacio (log1p(price)), no MAE/RMSE ni el R² en USD-espacio:
+    // (a) mantiene "el número más grande gana" sin agregarle a
+    // getExportComparison() una noción de "más chico es mejor" que hoy no
+    // existe (MAE/RMSE la necesitarían, R² no); (b) el R² en USD-espacio es
+    // el que de verdad importa para el usuario final pero sale casi-cero
+    // (0.02–0.12, ver ROADMAP.md H3) por el sesgo/outliers de precio — un
+    // artefacto esperado, no comparable de forma justa entre frameworks:
+    // ver certamen_2/README.md y el propio ROADMAP.md, workstream B.
+    metricKey: 'log_space.r2',
+    metricLabel: 'R² (log-USD)',
+    format: 'decimal',
+    metricsPath: (fw) => path.join(CERTAMEN_DIR, 'output', fw, 'optuna_price_estimator', 'latest', 'final_metrics.json'),
+    exportScriptId: (fw) => (fw === 'pytorch' ? 'pt-export-onnx-price-estimator' : 'tf-export-onnx-price-estimator'),
   },
   {
     stage: 'stage4',

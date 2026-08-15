@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScriptCard } from './ScriptCard';
+import { RunAllPanel } from './RunAllPanel';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type { ExportComparisonStage, ScriptInfo, StageFrameworkMetrics } from '@/lib/types';
@@ -10,6 +11,14 @@ import type { ExportComparisonStage, ScriptInfo, StageFrameworkMetrics } from '@
 type Framework = 'pytorch' | 'tensorflow';
 
 const pct = (x: number | undefined | null) => (typeof x === 'number' ? `${(x * 100).toFixed(2)}%` : '—');
+const decimal = (x: number | undefined | null) => (typeof x === 'number' ? x.toFixed(3) : '—');
+const formatMetric = (x: number | undefined | null, format: 'percent' | 'decimal' | undefined) => (format === 'decimal' ? decimal(x) : pct(x));
+
+/** Lee `key` de `m`, con soporte para paths con puntos (ej. "log_space.r2") — mismo criterio que readMetric() en scripts.service.ts (server). */
+function getMetric(m: Record<string, any>, key: string): number | undefined {
+  const value = key.split('.').reduce<any>((acc, k) => (acc && typeof acc === 'object' ? acc[k] : undefined), m);
+  return typeof value === 'number' ? value : undefined;
+}
 
 // Métricas secundarias por etapa, en el orden en que se muestran debajo del
 // valor principal de la comparación (metricKey ya se ve arriba, no se repite acá).
@@ -23,6 +32,11 @@ const SECONDARY_METRICS: Record<string, { key: string; label: string }[]> = {
   stage2: [
     { key: 'accuracy_en_umbral_optimo', label: 'Accuracy (umbral óptimo)' },
     { key: 'umbral_optimo', label: 'Umbral óptimo' },
+  ],
+  stage3: [
+    { key: 'log_space.mae', label: 'MAE (log-USD)' },
+    { key: 'usd_space.mae', label: 'MAE (USD)' },
+    { key: 'usd_space.median_ae', label: 'Mediana AE (USD)' },
   ],
   stage4: [
     { key: 'precision_macro', label: 'Precision (macro)' },
@@ -41,6 +55,7 @@ function FrameworkColumn({
   stage,
   metricKey,
   metricLabel,
+  format,
   won,
   selected,
   onSelect,
@@ -50,6 +65,7 @@ function FrameworkColumn({
   stage: string;
   metricKey: string;
   metricLabel: string;
+  format: 'percent' | 'decimal' | undefined;
   won: boolean;
   selected: boolean;
   onSelect: () => void;
@@ -89,13 +105,13 @@ function FrameworkColumn({
       </div>
       <div>
         <p className="text-[11px] text-muted-foreground">{metricLabel}</p>
-        <p className="text-2xl font-bold text-primary">{pct(m[metricKey] as number | undefined)}</p>
+        <p className="text-2xl font-bold text-primary">{formatMetric(getMetric(m, metricKey), format)}</p>
       </div>
       <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
         {secondary.map((s) => (
           <div key={s.key} className="flex items-center justify-between border-b border-border/50 py-0.5">
             <span className="text-muted-foreground">{s.label}</span>
-            <span className="font-mono">{pct(m[s.key] as number | undefined)}</span>
+            <span className="font-mono">{formatMetric(getMetric(m, s.key), format)}</span>
           </div>
         ))}
       </div>
@@ -139,6 +155,7 @@ function StageSection({ stage, scripts, onVenvChanged }: { stage: ExportComparis
             stage={stage.stage}
             metricKey={stage.metricKey}
             metricLabel={stage.metricLabel}
+            format={stage.format}
             won={stage.recommendation === 'pytorch' || stage.recommendation === 'tie'}
             selected={selected === 'pytorch'}
             onSelect={() => setSelected('pytorch')}
@@ -149,6 +166,7 @@ function StageSection({ stage, scripts, onVenvChanged }: { stage: ExportComparis
             stage={stage.stage}
             metricKey={stage.metricKey}
             metricLabel={stage.metricLabel}
+            format={stage.format}
             won={stage.recommendation === 'tensorflow' || stage.recommendation === 'tie'}
             selected={selected === 'tensorflow'}
             onSelect={() => setSelected('tensorflow')}
@@ -182,6 +200,8 @@ export function ExportPanel({ scripts, onVenvChanged }: { scripts: ScriptInfo[];
         exporta a ONNX el modelo que elijas — cada botón "Correr" de abajo dispara el mismo export script registrado
         en la pestaña de su framework (venv, logs en vivo y todo lo demás se comparten con el resto del runner).
       </p>
+
+      <RunAllPanel framework="export" />
 
       {error && (
         <Alert variant="destructive">
