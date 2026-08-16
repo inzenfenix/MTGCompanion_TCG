@@ -151,6 +151,17 @@ enum TransactionStatus {
   @@map("transaction_status")
 }
 
+// MERCADOPAGO = real Checkout Pro redirect, settles async via webhook.
+// CASH = in-person "Efectivo" — settles synchronously at creation time
+// (see CashPaymentProvider), also the fast no-credentials path for
+// testing/demos.
+enum PaymentMethod {
+  MERCADOPAGO
+  CASH
+
+  @@map("payment_method")
+}
+
 model Transaction {
   id String @id @default(uuid())
 
@@ -163,13 +174,16 @@ model Transaction {
   sellerId String
   seller   User   @relation("SellerTransactions", fields: [sellerId], references: [id])
 
-  amount Decimal           @db.Decimal(10, 2)
-  status TransactionStatus @default(PENDING)
+  amount        Decimal           @db.Decimal(10, 2)
+  status        TransactionStatus @default(PENDING)
+  paymentMethod PaymentMethod     @default(MERCADOPAGO)
 
-  // Left empty on purpose — see payments module. Populated once a real
-  // provider (MercadoPago) is wired in.
+  // Populated once a payment provider actually runs (see payments module).
+  // paymentRef is unique — the MercadoPago webhook looks a transaction up
+  // by it, so two transactions colliding on the same ref would misroute a
+  // payment confirmation.
   paymentProvider String?
-  paymentRef      String?
+  paymentRef      String? @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

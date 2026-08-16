@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   Post,
   Query,
@@ -32,5 +33,31 @@ export class TransactionsController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.transactions.findOne(id);
+  }
+
+  @Get(':id/receipt')
+  getReceipt(@Param('id') id: string) {
+    return this.transactions.getReceipt(id);
+  }
+}
+
+// Separate controller so the /payments/webhook path (called by MercadoPago,
+// not the app's own client) doesn't sit next to /transactions/:id routes.
+// Declared here rather than in PaymentsModule to avoid a circular module
+// import — TransactionsModule already imports PaymentsModule for
+// PAYMENT_PROVIDERS, and this needs TransactionsService — the route path
+// isn't tied to which module declares the controller. See
+// payments.module.ts's header comment.
+@Controller('payments')
+export class PaymentsWebhookController {
+  constructor(private readonly transactions: TransactionsService) {}
+
+  @Post('webhook')
+  handleWebhook(
+    @Body() payload: unknown,
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Query() query: Record<string, string | string[] | undefined>,
+  ) {
+    return this.transactions.handlePaymentWebhook(payload, { headers, query });
   }
 }

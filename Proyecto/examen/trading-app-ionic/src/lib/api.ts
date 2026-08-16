@@ -256,6 +256,12 @@ export async function uploadCardPhoto(
 // 'PAID', not 'COMPLETED' (verified against generated/prisma/index.d.ts).
 export type TransactionStatus = 'PENDING' | 'PAID' | 'FAILED' | 'CANCELLED';
 
+// MERCADOPAGO = real Checkout Pro redirect, settles async via webhook once
+// configured (falls back to staying PENDING when the backend has no
+// MERCADOPAGO_ACCESS_TOKEN — see ROADMAP.md F2). CASH ("Efectivo") settles
+// PAID immediately, no external rail — also the fast no-credentials path.
+export type PaymentMethod = 'MERCADOPAGO' | 'CASH';
+
 export type Transaction = {
   id: string;
   cardId: string;
@@ -263,6 +269,7 @@ export type Transaction = {
   sellerId: string;
   amount: number;
   status: TransactionStatus;
+  paymentMethod: PaymentMethod;
   paymentProvider: string | null;
   paymentRef: string | null;
   createdAt: string;
@@ -270,13 +277,23 @@ export type Transaction = {
 };
 
 // No buyerId here — same reasoning as CreateCardInput.ownerId: derived from
-// the JWT, sending one would 400.
+// the JWT, sending one would 400. paymentMethod defaults to MERCADOPAGO on
+// the backend when omitted.
 export type CreateTransactionInput = {
   cardId: string;
+  paymentMethod?: PaymentMethod;
 };
 
-export function createTransaction(input: CreateTransactionInput): Promise<Transaction> {
-  return request<Transaction>('/transactions', { method: 'POST', body: JSON.stringify(input) });
+// checkoutUrl is surfaced once, at creation time only (not persisted, not
+// present on GET /transactions/:id) — where to send the buyer for a
+// redirect-based checkout (MercadoPago Checkout Pro).
+export type CreateTransactionResult = Transaction & { checkoutUrl?: string };
+
+export function createTransaction(input: CreateTransactionInput): Promise<CreateTransactionResult> {
+  return request<CreateTransactionResult>('/transactions', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
 }
 
 export function listTransactions(userId: string): Promise<Transaction[]> {
@@ -285,4 +302,24 @@ export function listTransactions(userId: string): Promise<Transaction[]> {
 
 export function getTransaction(id: string): Promise<Transaction> {
   return request<Transaction>(`/transactions/${id}`);
+}
+
+// Internal itemized receipt (19% Chilean IVA breakdown) — only issuable
+// once a transaction is PAID (backend 400s otherwise). NOT a real
+// SII-authorized "boleta electrónica" — see the disclaimer field, always
+// rendered alongside the numbers rather than dropped on the floor.
+export type ReceiptBreakdown = {
+  transactionId: string;
+  issuedAt: string;
+  item: string;
+  paymentMethod: PaymentMethod;
+  ivaRate: number;
+  net: number;
+  iva: number;
+  total: number;
+  disclaimer: string;
+};
+
+export function getTransactionReceipt(id: string): Promise<ReceiptBreakdown> {
+  return request<ReceiptBreakdown>(`/transactions/${id}/receipt`);
 }

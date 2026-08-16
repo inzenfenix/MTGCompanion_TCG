@@ -36,6 +36,11 @@ export interface AppConfig {
     mercadopago: {
       accessToken?: string;
       webhookSecret?: string;
+      // Base URL MercadoPago's servers can reach to deliver the
+      // notification_url webhook (e.g. https://<ngrok-id>.ngrok.io in local
+      // dev — plain localhost is not reachable from MercadoPago's side).
+      // Preference is created without notification_url when unset.
+      notificationUrl?: string;
     };
   };
 }
@@ -74,6 +79,7 @@ export default (): AppConfig => ({
     mercadopago: {
       accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || undefined,
       webhookSecret: process.env.MERCADOPAGO_WEBHOOK_SECRET || undefined,
+      notificationUrl: process.env.PUBLIC_API_URL || undefined,
     },
   },
 });

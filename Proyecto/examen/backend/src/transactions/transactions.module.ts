@@ -4,11 +4,14 @@ import { PaymentsModule } from '../payments/payments.module';
 import { TRANSACTION_REPOSITORY } from './domain/transaction.repository';
 import { PrismaTransactionRepository } from './infrastructure/prisma-transaction.repository';
 import { TransactionsService } from './application/transactions.service';
-import { TransactionsController } from './presentation/transactions.controller';
+import {
+  TransactionsController,
+  PaymentsWebhookController,
+} from './presentation/transactions.controller';
 
 @Module({
   imports: [CardsModule, PaymentsModule],
-  controllers: [TransactionsController],
+  controllers: [TransactionsController, PaymentsWebhookController],
   providers: [
     { provide: TRANSACTION_REPOSITORY, useClass: PrismaTransactionRepository },
     TransactionsService,

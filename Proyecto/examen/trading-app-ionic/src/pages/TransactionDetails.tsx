@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonButtons, IonBackButton, IonIcon, IonSpinner, IonButton } from '@ionic/react';
 import { useParams } from 'react-router';
-import { checkmarkCircleOutline, timeOutline, personOutline, cashOutline, closeCircleOutline } from 'ionicons/icons';
+import { checkmarkCircleOutline, timeOutline, personOutline, cashOutline, closeCircleOutline, refreshOutline, receiptOutline } from 'ionicons/icons';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../lib/auth/AuthContext';
@@ -17,6 +17,7 @@ const TransactionDetails: React.FC = () => {
   const [otherPartyName, setOtherPartyName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [receipt, setReceipt] = useState<api.ReceiptBreakdown | null>(null);
 
   const fetchAll = useCallback(() => {
     setIsLoading(true);
@@ -24,6 +25,7 @@ const TransactionDetails: React.FC = () => {
     setTransaction(null);
     setCard(null);
     setOtherPartyName(null);
+    setReceipt(null);
     api
       .getTransaction(id)
       .then(async (tx) => {
@@ -35,6 +37,9 @@ const TransactionDetails: React.FC = () => {
         ]);
         setCard(fetchedCard);
         setOtherPartyName(otherUser?.displayName ?? null);
+        if (tx.status === 'PAID') {
+          api.getTransactionReceipt(tx.id).then(setReceipt).catch(() => { /* non-critical — page still works without it */ });
+        }
       })
       .catch(() => setError(true))
       .finally(() => setIsLoading(false));
@@ -46,9 +51,11 @@ const TransactionDetails: React.FC = () => {
 
   const isBuy = transaction?.buyerId === user?.id;
 
-  // NoopPaymentProvider (ROADMAP.md F2 — real payment provider not wired in
-  // yet) means every transaction stays PENDING today; this renders honestly
-  // by real status rather than always claiming success.
+  // A MercadoPago transaction can flip PENDING → PAID asynchronously (its
+  // webhook, after the buyer completes checkout in the tab that opened) —
+  // this renders honestly by real status rather than always claiming
+  // success, and the refresh button below lets the buyer re-check after
+  // returning from that external tab.
   const statusIcon =
     transaction?.status === 'PAID' ? checkmarkCircleOutline :
     transaction?.status === 'PENDING' ? timeOutline :
@@ -62,6 +69,7 @@ const TransactionDetails: React.FC = () => {
     transaction?.status === 'PENDING' ? t('transaction_status_pending') :
     transaction?.status === 'FAILED' ? t('transaction_status_failed') :
     t('transaction_status_cancelled');
+  const sealedLabel = transaction?.paymentMethod === 'CASH' ? t('sealed_cash') : t('sealed_mercadopago');
 
   return (
     <IonPage>
@@ -99,7 +107,13 @@ const TransactionDetails: React.FC = () => {
               <div style={{ textAlign: 'center', marginBottom: '30px' }}>
                 <IonIcon icon={statusIcon} style={{ fontSize: '80px', color: statusColor }} />
                 <h2>{statusLabel}</h2>
-                <p style={{fontStyle: 'italic'}}>{t('sealed_webpay')}</p>
+                <p style={{fontStyle: 'italic'}}>{sealedLabel}</p>
+                {transaction.status === 'PENDING' && (
+                  <IonButton fill="clear" size="small" onClick={fetchAll}>
+                    <IonIcon icon={refreshOutline} slot="start" />
+                    {t('refresh_status')}
+                  </IonButton>
+                )}
               </div>
 
               <div style={{ background: 'rgba(20, 10, 15, 0.4)', padding: '20px', borderRadius: '8px', border: '1px solid rgba(139, 0, 0, 0.2)' }}>
@@ -127,6 +141,34 @@ const TransactionDetails: React.FC = () => {
                   </strong>
                 </div>
               </div>
+
+              {transaction.status === 'PAID' && (
+                <div style={{ background: 'rgba(20, 10, 15, 0.4)', padding: '20px', borderRadius: '8px', border: '1px solid rgba(139, 0, 0, 0.2)', marginTop: '20px' }}>
+                  <h3 style={{ margin: '0 0 15px 0', borderBottom: '1px solid rgba(139, 0, 0, 0.3)', paddingBottom: '10px' }}>
+                    <IonIcon icon={receiptOutline} style={{verticalAlign: 'middle', marginRight: '6px'}}/> {t('receipt_title')}
+                  </h3>
+
+                  {!receipt && <p style={{color: '#c2b5b5', fontSize: '0.9rem'}}>{t('receipt_loading')}</p>}
+
+                  {receipt && (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <span style={{color: '#c2b5b5'}}>{t('receipt_net')}</span>
+                        <span style={{color: '#f2e3cd'}}>${receipt.net.toFixed(2)}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <span style={{color: '#c2b5b5'}}>{t('receipt_iva')}</span>
+                        <span style={{color: '#f2e3cd'}}>${receipt.iva.toFixed(2)}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', paddingTop: '10px', borderTop: '1px dashed rgba(139, 0, 0, 0.3)' }}>
+                        <strong style={{color: '#f2e3cd'}}>{t('receipt_total')}</strong>
+                        <strong style={{color: '#f2e3cd'}}>${receipt.total.toFixed(2)}</strong>
+                      </div>
+                      <p style={{fontSize: '0.75rem', fontStyle: 'italic', opacity: 0.7, margin: 0}}>{t('receipt_disclaimer')}</p>
+                    </>
+                  )}
+                </div>
+              )}
             </>
           )}
         </motion.div>

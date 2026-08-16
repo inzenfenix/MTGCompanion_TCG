@@ -15,6 +15,7 @@ export class PrismaTransactionRepository implements TransactionRepository {
     const tx = await this.prisma.transaction.create({
       data: {
         amount: data.amount,
+        paymentMethod: data.paymentMethod,
         card: { connect: { id: data.cardId } },
         buyer: { connect: { id: data.buyerId } },
         seller: { connect: { id: data.sellerId } },

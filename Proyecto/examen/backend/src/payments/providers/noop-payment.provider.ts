@@ -24,9 +24,9 @@ export class NoopPaymentProvider implements PaymentProvider {
     return Promise.resolve({ paymentRef: `noop_${randomUUID()}` });
   }
 
-  handleWebhook(): Promise<{ paymentRef: string; paid: boolean }> {
+  handleWebhook(): Promise<{ transactionId: string; paid: boolean }> {
     throw new NotImplementedException(
-      'No payment provider configured — MercadoPago integration is pending',
+      'NoopPaymentProvider has no webhook — MercadoPago is not configured (MERCADOPAGO_ACCESS_TOKEN unset)',
     );
   }
 }

@@ -49,7 +49,11 @@ const Tab2: React.FC = () => {
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [isPaying, setIsPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
-  const [createdTransaction, setCreatedTransaction] = useState<api.Transaction | null>(null);
+  const [createdTransaction, setCreatedTransaction] = useState<api.CreateTransactionResult | null>(null);
+  // Defaults to MERCADOPAGO — preserves the existing default checkout path;
+  // Efectivo (cash) is an opt-in alternative that settles PAID immediately,
+  // no external rail — also the fast no-credentials path for testing.
+  const [paymentMethod, setPaymentMethod] = useState<api.PaymentMethod>('MERCADOPAGO');
 
   // Stage 1 (MTG / no-MTG detector) scaffold — live camera via
   // getUserMedia+canvas (see useLiveCamera's header comment for why not
@@ -169,8 +173,15 @@ const Tab2: React.FC = () => {
     setIsPaying(true);
     setPayError(null);
     try {
-      const tx = await api.createTransaction({ cardId: lookedUpCard.id });
+      const tx = await api.createTransaction({ cardId: lookedUpCard.id, paymentMethod });
       setCreatedTransaction(tx);
+      // MercadoPago Checkout Pro is a redirect-based flow — send the buyer
+      // there in a new tab (checkoutUrl is only present when the backend
+      // actually has a MercadoPago provider configured; unconfigured falls
+      // back to the existing "recorded, pending" path, no redirect).
+      if (tx.checkoutUrl) {
+        window.open(tx.checkoutUrl, '_blank', 'noopener');
+      }
       setBuyerStep(3);
     } catch (err) {
       setPayError(err instanceof api.ApiError ? err.message : t('trade_payment_error'));
@@ -187,6 +198,7 @@ const Tab2: React.FC = () => {
     setCreatedTransaction(null);
     setLookupError(null);
     setPayError(null);
+    setPaymentMethod('MERCADOPAGO');
   };
 
   const handleDetect = async () => {
@@ -473,13 +485,30 @@ const Tab2: React.FC = () => {
                         ${lookedUpCard.guessedPrice.toFixed(2)}
                       </div>
 
-                      {payError && <p style={{color: '#ff8080', fontSize: '0.85rem', margin: 0}}>{payError}</p>}
+                      <IonSegment
+                        value={paymentMethod}
+                        onIonChange={e => setPaymentMethod(e.detail.value as api.PaymentMethod)}
+                        style={{marginTop: '20px'}}
+                      >
+                        <IonSegmentButton value="MERCADOPAGO">
+                          <IonLabel>{t('payment_method_mercadopago')}</IonLabel>
+                        </IonSegmentButton>
+                        <IonSegmentButton value="CASH">
+                          <IonLabel>{t('payment_method_cash')}</IonLabel>
+                        </IonSegmentButton>
+                      </IonSegment>
+
+                      {payError && <p style={{color: '#ff8080', fontSize: '0.85rem', margin: '15px 0 0'}}>{payError}</p>}
                     </div>
 
                     <IonButton expand="block" onClick={handlePay} disabled={isPaying} style={{'--background': '#00733e', '--color': '#fff', marginTop: '20px'}}>
                       <div className="mtg-btn-content">
                         <IonIcon icon={checkmarkCircleOutline} />
-                        <span>{isPaying ? t('processing_payment') : t('pay_webpay')}</span>
+                        <span>
+                          {isPaying
+                            ? t('processing_payment')
+                            : paymentMethod === 'CASH' ? t('pay_cash') : t('pay_mercadopago')}
+                        </span>
                       </div>
                     </IonButton>
 
@@ -493,11 +522,21 @@ const Tab2: React.FC = () => {
                   <div style={{ textAlign: 'center', marginTop: '40px' }}>
                     <IonIcon icon={checkmarkCircleOutline} style={{ fontSize: '120px', color: '#00733e' }} />
                     <h2 style={{marginTop: '20px'}}>{t('transaction_successful')}</h2>
-                    {/* No payment provider is wired in yet (NoopPaymentProvider — see
-                        ROADMAP.md F2), so the transaction is genuinely recorded but stays
-                        PENDING and card ownership does not transfer. Saying otherwise would
-                        be false. */}
-                    <p>{t('trade_pending_notice')}</p>
+                    {/* Reflects how the payment actually settled — real status, not a
+                        blanket claim. CASH is PAID immediately (CashPaymentProvider).
+                        MERCADOPAGO with a checkoutUrl opened a real Checkout Pro tab —
+                        status flips once its webhook confirms. Without a checkoutUrl the
+                        backend has no MercadoPago provider configured (falls back to
+                        NoopPaymentProvider — ROADMAP.md F2), so it's genuinely recorded
+                        but stays PENDING and card ownership does not transfer yet either
+                        way (ROADMAP.md E5). */}
+                    <p>
+                      {createdTransaction?.status === 'PAID'
+                        ? t('trade_cash_success_notice')
+                        : createdTransaction?.checkoutUrl
+                          ? t('trade_mp_redirect_notice')
+                          : t('trade_pending_notice')}
+                    </p>
 
                     {createdTransaction && (
                       <IonButton

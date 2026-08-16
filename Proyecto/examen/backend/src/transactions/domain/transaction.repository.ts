@@ -1,4 +1,7 @@
-import type { TransactionStatus } from '../../../generated/prisma';
+import type {
+  PaymentMethod,
+  TransactionStatus,
+} from '../../../generated/prisma';
 import type { TransactionEntity } from './transaction.entity';
 
 export interface CreateTransactionData {
@@ -6,6 +9,7 @@ export interface CreateTransactionData {
   buyerId: string;
   sellerId: string;
   amount: number;
+  paymentMethod: PaymentMethod;
 }
 
 export interface TransactionRepository {

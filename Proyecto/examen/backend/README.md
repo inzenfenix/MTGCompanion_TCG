@@ -16,9 +16,18 @@ transacciona.
   como seam para prod — ver "Sobre el email" más abajo).
 - ✅ CRUD de cartas + subida de fotos a object storage (S3-compatible) vía
   URLs prefirmadas.
-- ✅ Transacciones entre comprador y vendedor, con un slot de
-  `PaymentProvider` listo para MercadoPago (hoy solo hay un
-  `NoopPaymentProvider` que deja todo en `PENDING`).
+- ✅ Transacciones entre comprador y vendedor, con dos métodos de pago
+  seleccionables por transacción (`Transaction.paymentMethod`): **MercadoPago**
+  (Checkout Pro real vía el SDK oficial — `MercadoPagoProvider`, preference +
+  webhook con verificación de firma, `POST /payments/webhook`) o **Efectivo**
+  (`CashPaymentProvider` — sin rail externo, marca `PAID` de inmediato, la vía
+  rápida sin credenciales para pruebas/demos). `MERCADOPAGO_ACCESS_TOKEN` sin
+  configurar (el caso por defecto en este repo) sigue cayendo a
+  `NoopPaymentProvider` como antes — cero cambio de comportamiento sin
+  credenciales reales. `PAYMENT_PROVIDERS` (`payments.module.ts`) reemplazó al
+  antiguo slot único `PAYMENT_PROVIDER`. `GET /transactions/:id/receipt`
+  (solo si `status === 'PAID'`) devuelve el desglose de IVA 19% (neto/IVA/total)
+  — un comprobante interno, no una boleta electrónica autorizada por el SII.
 - ✅ Login con JWT (`POST /auth/login`) — `POST/PATCH/DELETE /cards`, los
   endpoints de fotos y `POST /transactions` requieren
   `Authorization: Bearer <token>` y el dueño/comprador se toma del token,
@@ -71,7 +80,11 @@ módulos) desde que dejó de ser un simple wrapper de `@nestjs/jwt`:
 patrón más simple: una interfaz (`EmailProvider`, `PaymentProvider`) y sus
 implementaciones intercambiables por variable de entorno o DI token —
 `storage/` solo tiene una implementación porque MinIO habla el mismo API
-que S3, así que no hace falta una clase por entorno.
+que S3, así que no hace falta una clase por entorno. `payments/` va un paso
+más allá: en vez de un único slot intercambiable, `PAYMENT_PROVIDERS`
+inyecta un `Record<PaymentMethod, PaymentProvider>` completo, porque acá
+"cuál implementación" no es una decisión de entorno sino algo que el
+comprador elige por transacción (MercadoPago vs. Efectivo).
 
 ## 🛠️ Instrucciones de despliegue (entorno de desarrollo)
 
@@ -166,16 +179,20 @@ dispara y el correo se genera con el contenido correcto).
 - **2FA real.** El schema ya tiene `twoFactorEnabled`/`twoFactorSecret` en
   `UserSettings`, pero sin lógica detrás. El método elegido para cuando se
   implemente es **TOTP** (app autenticadora), no OTP por correo.
-- **MercadoPago real.** `PaymentsModule` solo tiene `NoopPaymentProvider`.
-  Implementar `MercadoPagoProvider` (misma interfaz `PaymentProvider`) y
-  cambiar el `useClass` en `payments.module.ts` es todo lo que hace falta
-  para que `TransactionsModule` empiece a usarlo — no requiere tocar
-  `TransactionsService`.
+- **Probar un pago MercadoPago real de punta a punta.** El código es real
+  (SDK oficial, `WebhookSignatureValidator` para la firma, `Payment.get()`
+  re-consultado en vez de confiar en el body del webhook), pero este repo no
+  tiene un `MERCADOPAGO_ACCESS_TOKEN`/`MERCADOPAGO_WEBHOOK_SECRET` de sandbox
+  — solo se pudo verificar en vivo la caída a `NoopPaymentProvider` cuando no
+  hay token configurado (el caso de hoy). `PUBLIC_API_URL` (nuevo, ver
+  `.env.example`) tampoco es útil en `localhost` sin un túnel (ngrok o
+  similar) — MercadoPago no puede llamar de vuelta a `notification_url` si
+  no es una URL pública.
 - **Balance/wallet del usuario.** El mock de `trading-app-ionic/` (Tab 1)
   muestra un balance de tesorería fijo; deliberadamente no se modeló un
-  campo `balance` en `User` — eso se deriva de las transacciones reales o
-  se agrega junto con la integración de pagos real, para no anticipar un
-  diseño que todavía no está definido.
+  campo `balance` en `User` — ahora que el pago real existe (ver "Estado
+  actual"), se puede derivar de las transacciones `PAID`, pero sigue sin
+  construirse (ROADMAP.md F5/E7).
 - **Export ONNX de Stage 4 (grader de condición) y Stage 1** — vive en
   `Proyecto/certamen_2/`, no en este backend; ver
   [Proyecto/examen/README.md](../README.md).
