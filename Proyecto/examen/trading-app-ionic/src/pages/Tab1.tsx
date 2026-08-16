@@ -8,7 +8,7 @@ import {
   useIonRouter,
   IonButton
 } from '@ionic/react';
-import { trendingUp, trendingDown, timeOutline, scanOutline, libraryOutline } from 'ionicons/icons';
+import { timeOutline, scanOutline, libraryOutline } from 'ionicons/icons';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 
@@ -16,13 +16,12 @@ const Tab1: React.FC = () => {
   const router = useIonRouter();
   const { t } = useTranslation();
 
-  // Both the balance below and this transaction list are still mock data —
-  // the backend deliberately doesn't model a `balance` field on User yet
-  // (it'll be derived from real transactions once payments are wired up,
-  // see backend/README.md "Qué falta"), and GET /transactions?userId=...
-  // doesn't include card titles, so rendering the real ledger here would
-  // need an extra fetch per row. Tab3 (Vault) is the tab actually wired to
-  // the backend's card data — see src/lib/api.ts.
+  // This transaction list is still mock data — GET /transactions?userId=...
+  // doesn't include card titles/images, so rendering the real ledger here
+  // would need an extra fetch per row. Tab3 (Vault) is the tab actually
+  // wired to the backend's card data — see src/lib/api.ts. (There is no
+  // in-app balance/wallet concept — payment settlement happens through
+  // MercadoPago or cash, per F2 in ROADMAP.md, not a stored balance.)
   const transactions = [
     { id: 1, type: 'buy', amount: 45.00, card: 'Chalice of the Void', date: '2026-07-28' },
     { id: 2, type: 'sell', amount: 12.50, card: 'Lightning Bolt', date: '2026-07-27' },
@@ -57,20 +56,7 @@ const Tab1: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }} 
-            animate={{ opacity: 1, y: 0 }} 
-            transition={{ duration: 0.6, type: 'spring' }}
-            style={{ textAlign: 'center', marginBottom: '25px', marginTop: '10px' }}
-          >
-            <h2 style={{ fontSize: '1.2rem', margin: '0 0 5px 0', letterSpacing: '2px', color: '#f2e3cd' }}>{t('treasury_balance')}</h2>
-            <h1 style={{ fontSize: '3.5rem', margin: '0', color: '#f2e3cd', fontFamily: 'Cinzel', fontWeight: 'bold' }}>
-              $1,250.00
-            </h1>
-            <p style={{ margin: '5px 0', fontStyle: 'italic', color: '#c2b5b5' }}>{t('available_trade')}</p>
-          </motion.div>
-
-          <motion.div 
+          <motion.div
             style={{ display: 'flex', gap: '15px', marginBottom: '25px' }}
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -104,12 +90,13 @@ const Tab1: React.FC = () => {
                   onClick={() => router.push(`/transaction/${tx.id}`, 'forward')}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(128, 128, 128, 0.1)' }}>
-                      <IonIcon
-                        icon={tx.type === 'buy' ? trendingDown : trendingUp}
-                        style={{ color: tx.type === 'buy' ? 'var(--ion-color-secondary-tint)' : 'var(--ion-color-tertiary-tint)', fontSize: '20px' }}
-                      />
-                    </div>
+                    {/* Mock ledger rows have no real photo (unlike Tab3's VaultCardThumbnail,
+                        which resolves a presigned URL per card) — this placeholder just adopts
+                        the same card-thumbnail look instead of the old buy/sell trend icon. */}
+                    <div
+                      className="mtg-card-image-placeholder"
+                      style={{ width: '40px', height: '56px', borderRadius: '4px', border: 'none', flexShrink: 0 }}
+                    />
                     <div>
                       <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: '0 0 4px 0' }}>{tx.card}</h3>
                       <p style={{ fontSize: '0.85rem', margin: '0', display: 'flex', alignItems: 'center', gap: '4px', opacity: 0.7 }}>
