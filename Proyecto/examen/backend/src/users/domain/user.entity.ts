@@ -16,6 +16,9 @@ export interface UserEntity {
     language: string;
     theme: string;
     twoFactorEnabled: boolean;
+    // TOTP secret (base32). Internal only — never leaves this entity via
+    // UserResponseDto/toResponseDto(), same boundary rule as passwordHash.
+    twoFactorSecret: string | null;
     notifyByEmail: boolean;
   } | null;
 }

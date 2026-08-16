@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import type { CreateUserData, UserRepository } from '../domain/user.repository';
+import type {
+  CreateUserData,
+  TwoFactorUpdate,
+  UserRepository,
+} from '../domain/user.repository';
 import type { UserEntity } from '../domain/user.entity';
 
 const INCLUDE_SETTINGS = { settings: true } as const;
@@ -32,6 +36,13 @@ export class PrismaUserRepository implements UserRepository {
         settings: { create: { language: data.language } },
       },
       include: INCLUDE_SETTINGS,
+    });
+  }
+
+  async updateTwoFactor(userId: string, data: TwoFactorUpdate): Promise<void> {
+    await this.prisma.userSettings.update({
+      where: { userId },
+      data: { twoFactorSecret: data.secret, twoFactorEnabled: data.enabled },
     });
   }
 }

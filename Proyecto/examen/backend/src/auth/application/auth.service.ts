@@ -17,10 +17,28 @@ export interface JwtPayload {
   email: string;
 }
 
+// Signed with the same secret as a real access token but deliberately
+// shaped differently (no `email`, carries `typ`) — JwtStrategy rejects any
+// payload with `typ === '2fa'` so this can never double as a bearer token
+// on a protected route, only as the argument to POST /auth/2fa/verify.
+export interface TwoFactorPendingPayload {
+  sub: string; // userId
+  typ: '2fa';
+}
+
+const TWO_FACTOR_TOKEN_TTL = '5m';
+
 export interface LoginResult {
   accessToken: string;
   refreshToken: string;
   user: UserResponseDto;
+}
+
+// Returned instead of LoginResult when the account has 2FA enabled —
+// caller must follow up with POST /auth/2fa/verify to get real tokens.
+export interface TwoFactorChallengeResult {
+  twoFactorRequired: true;
+  twoFactorToken: string;
 }
 
 export interface RefreshResult {
@@ -38,7 +56,7 @@ export class AuthService {
     private readonly refreshTokens: RefreshTokenRepository,
   ) {}
 
-  async login(dto: LoginDto): Promise<LoginResult> {
+  async login(dto: LoginDto): Promise<LoginResult | TwoFactorChallengeResult> {
     const user = await this.users.validateCredentials(dto.email, dto.password);
     if (!user) {
       // Same message for "no such email" and "wrong password" — see the
@@ -46,6 +64,54 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
+    if (user.settings.twoFactorEnabled) {
+      const twoFactorToken = this.jwt.sign(
+        { sub: user.id, typ: '2fa' } satisfies TwoFactorPendingPayload,
+        { expiresIn: TWO_FACTOR_TOKEN_TTL },
+      );
+      return { twoFactorRequired: true, twoFactorToken };
+    }
+
+    return this.issueLoginResult(user);
+  }
+
+  // Second step of a 2FA login: exchanges the short-lived challenge token +
+  // a current TOTP code for the real access/refresh pair. Verifies the
+  // token manually (not via JwtAuthGuard) since a `typ:'2fa'` payload is
+  // exactly what that guard is built to reject.
+  async verifyTwoFactor(
+    twoFactorToken: string,
+    code: string,
+  ): Promise<LoginResult> {
+    let payload: TwoFactorPendingPayload;
+    try {
+      payload = this.jwt.verify<TwoFactorPendingPayload>(twoFactorToken);
+    } catch {
+      throw new UnauthorizedException(
+        'Invalid or expired two-factor challenge',
+      );
+    }
+    if (payload.typ !== '2fa') {
+      throw new UnauthorizedException(
+        'Invalid or expired two-factor challenge',
+      );
+    }
+
+    const valid = await this.users.verifyTwoFactorCode(payload.sub, code);
+    if (!valid) {
+      throw new UnauthorizedException('Invalid two-factor code');
+    }
+
+    const user = await this.users.findById(payload.sub);
+    if (!user) {
+      throw new UnauthorizedException(
+        'Invalid or expired two-factor challenge',
+      );
+    }
+    return this.issueLoginResult(user);
+  }
+
+  private async issueLoginResult(user: UserResponseDto): Promise<LoginResult> {
     const accessToken = this.signAccessToken(user.id, user.email);
     const refreshToken = await this.issueRefreshToken(user.id);
     return { accessToken, refreshToken, user };

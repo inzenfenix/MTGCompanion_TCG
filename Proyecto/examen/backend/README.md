@@ -5,7 +5,7 @@ Esta carpeta (`backend/`) contiene la API que le da persistencia real a
 [Proyecto/examen/README.md](../README.md)): cuentas de
 usuario, cartas de la colección con sus fotos, transacciones de
 compra/venta entre usuarios, y el settings de cada cuenta (idioma, tema,
-2FA a futuro). El escaneo/identificación de la carta en sí sigue corriendo
+2FA). El escaneo/identificación de la carta en sí sigue corriendo
 del lado del cliente en `trading-app-ionic/` vía `onnxruntime-web` — este
 backend no hace inferencia, solo guarda lo que el usuario colecciona y
 transacciona.
@@ -48,8 +48,23 @@ transacciona.
   todavía (`AuthContext.tsx` sigue
   cerrando sesión en cualquier 401 del access token, sin intentar
   refrescar primero — ver `trading-app-ionic/README.md`).
-- 🚧 Sin 2FA todavía — deliberadamente fuera de este pase (ver "Qué
-  falta").
+- ✅ 2FA real vía TOTP (`otplib`, app autenticadora). Enrollment en dos
+  pasos: `POST /auth/2fa/setup` (autenticado) genera un secreto y lo guarda
+  *pendiente* (`twoFactorEnabled` sigue en `false`), devuelve `otpauthUrl` +
+  un QR (`qrcode`, PNG en base64) para escanear; `POST /auth/2fa/enable` con
+  un código real de la app confirma y recién ahí activa el flag — así un QR
+  nunca guardado no deja la cuenta en un estado raro. Una vez activo,
+  `POST /auth/login` deja de devolver tokens directo: responde
+  `{ twoFactorRequired: true, twoFactorToken }` (token de 5 min, firmado con
+  el mismo secreto pero con `typ:'2fa'`), y `POST /auth/2fa/verify` con ese
+  token + un código vigente entrega el access/refresh real. `JwtStrategy`
+  rechaza explícitamente cualquier payload `typ:'2fa'` — sin ese chequeo,
+  ese token de 5 minutos habría funcionado igual como bearer token en
+  cualquier ruta protegida, al estar firmado con el mismo secreto que un
+  access token real. `POST /auth/2fa/disable` exige un código vigente (no
+  solo estar logueado) para desactivar. El frontend (`SecuritySettings.tsx`)
+  sigue siendo un mock estático sin llamadas reales — deliberadamente fuera
+  de este pase, ver ROADMAP.md F4.
 
 ## 🏗️ Arquitectura
 
@@ -176,9 +191,12 @@ dispara y el correo se genera con el contenido correcto).
 
 ## Qué falta (a propósito, fuera de alcance de este pase)
 
-- **2FA real.** El schema ya tiene `twoFactorEnabled`/`twoFactorSecret` en
-  `UserSettings`, pero sin lógica detrás. El método elegido para cuando se
-  implemente es **TOTP** (app autenticadora), no OTP por correo.
+- **Frontend de 2FA.** El backend ya implementa TOTP de punta a punta (ver
+  "Estado actual" más arriba) pero `trading-app-ionic/src/pages/
+  SecuritySettings.tsx` sigue siendo un mock estático (`useState` local,
+  sin llamadas a la API) — no muestra el QR real, no pide el código de
+  confirmación, y `AuthContext`/`api.ts` no saben manejar la respuesta
+  `{ twoFactorRequired: true }` de `POST /auth/login`. Ver ROADMAP.md F4.
 - **Probar un pago MercadoPago real de punta a punta.** El código es real
   (SDK oficial, `WebhookSignatureValidator` para la firma, `Payment.get()`
   re-consultado en vez de confiar en el body del webhook), pero este repo no

@@ -46,9 +46,11 @@
     "mercadopago": "^3.4.0",
     "ms": "^2.1.3",
     "nodemailer": "^9.0.5",
+    "otplib": "^13.4.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.23.0",
+    "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
@@ -66,6 +68,7 @@
     "@types/nodemailer": "^8.0.1",
     "@types/passport-jwt": "^4.0.1",
     "@types/pg": "^8.21.0",
+    "@types/qrcode": "^1.5.6",
     "@types/supertest": "^7.0.0",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
@@ -94,6 +97,9 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "transformIgnorePatterns": [
+      "node_modules/(?!(?:otplib|@otplib|@scure|@noble)/)"
+    ],
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],
