@@ -72,10 +72,28 @@ Corrida: `04_evaluate.py`, 11,735 queries contra la galería completa de
 (no hay una versión "Optuna" separada de este número — el backbone/head no
 cambian entre retrieval y clasificación binaria, es el mismo checkpoint).
 
-| Modelo | n (query) | n (galería) | **Top-1** | Top-5 | MRR | Extracción (ms/query) | Búsqueda (ms/query) |
-|---|---|---|---|---|---|---|---|
-| PyTorch (EfficientNet_b0) | 11,735 | 58,679 | **25.3%** | 37.2% | 0.300 | 53.2 | 13.1 |
-| TensorFlow (MobileNetV3Small) | 11,735 | 58,679 | **24.4%** | 38.8% | 0.300 | 137.4 | 4.3 |
+| Modelo | n (query) | n (galería) | **Top-1** | Top-5 | Top-10 | MRR | Extracción (ms/query) | Búsqueda (ms/query) |
+|---|---|---|---|---|---|---|---|---|
+| PyTorch (EfficientNet_b0) | 11,735 | 58,679 | **25.1%** | 37.3% | 41.7% | 0.304 | 22.4 | 1.8 |
+| TensorFlow (MobileNetV3Small) | 11,735 | 58,679 | **24.4%** | 38.8% | — | 0.300 | 137.4 | 4.3 |
+
+**Top-10 (ROADMAP.md G4d, 16 ago)**: `TOP_K` bumped 5→10 in `04_evaluate.py` (both
+frameworks) so retrieval depth beyond Top-5 could be measured cheaply —
+same motivation as the real-photo Top-5/Top-10 numbers in
+[`curated_vs_real_gap.md`](Testing/curated_vs_real_gap.md). PyTorch rerun
+for real: Top-1 25.1%/Top-5 37.3%/**Top-10 41.7%** (`pytorch/results/metrics_pt.json`,
+near-identical Top-1/Top-5 to the numbers above from the same fixed seed —
+small movement is normal re-run noise, not a regression; extraction/search
+times also dropped since this rerun happened to land on GPU/warm-cache
+conditions this session, not a code change). **TensorFlow's Top-10 rerun
+was started but killed before finishing** (CPU-only on this AMD box, no TF
+GPU path per CLAUDE.md rule 6 — 11,735 queries × 58,679-card gallery was
+taking 25+ minutes and counting, not worth blocking on) — TensorFlow's
+Top-1/Top-5/MRR/timing above are still the pre-G4d numbers, unchanged.
+**Follow-up, not done here**: rerun `tensorFlow/04_evaluate.py` (already
+updated for `TOP_K=10`/`top10_accuracy`, just needs the actual run) to fill
+in TensorFlow's Top-10 cell — ideally via the Docker/ROCm GPU path
+(ROADMAP.md workstream D) rather than CPU, or just accept a long CPU run.
 
 **Ganador (Top-1): PyTorch, 25.3% vs. TensorFlow 24.4%** — diferencia 0.009,
 mayor al umbral de empate (0.005), PyTorch gana por poco. TensorFlow es
