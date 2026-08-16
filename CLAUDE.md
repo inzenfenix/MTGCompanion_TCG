@@ -46,7 +46,16 @@ Proyecto/
 
 ONNX-exported and present in `trading-app-ionic/public/models/`, all 4 stages
 (15 ago — the desktop-runner Exportar tab now has a "Correr todo" button that
-runs all of these in sequence, workstream C). Stage 4's PyTorch export loads
+runs all of these in sequence, workstream C). All 4 PyTorch export scripts
+(`09_export_onnx.py`, `12_export_onnx_condition.py`,
+`16_export_onnx_text_validator.py`, `18_export_onnx_price_estimator.py`) now
+pass `external_data=False` to `torch.onnx.export()` — torch's dynamo-based
+exporter defaults to `True` and was silently splitting weights into a
+`.onnx.data` sidecar that `publicar_en_ionic()` never copied, so every
+PyTorch-sourced file published to Ionic was actually unloadable by
+onnxruntime until this was found and fixed (15 ago, ROADMAP.md workstream
+C). TensorFlow's `tf2onnx.convert.from_keras()` was never affected (single
+file by default). Stage 4's PyTorch export loads
 `condition_grader_combined.pth`, **not** the plain `condition_grader.pth`
 from `10_condition_grader.py`/`11_optuna_condition_grader.py` — that plain
 checkpoint scores higher on its own split (95.25% vs 90.24%) but collapses to
@@ -117,19 +126,6 @@ item, a refactor):
    (`RUN_ALL_EXPORT_SEQUENCE`), implemented by `runEverything()` in
    `scripts.service.ts`. When Stage 2/3 scripts get registered, extend these
    arrays — don't add a parallel "run everything" path.
-
-## Notable existing gaps found while reading the code (not yet fixed)
-
-- `trading-app-ionic/README.md` says login/JWT isn't implemented on the
-  backend yet ("el backend no tiene `/login` todavía"). This is stale:
-  `backend/src/auth/presentation/auth.controller.ts` has a working
-  `POST /auth/login`, and `AuthContext.tsx` already calls it for real. See
-  ROADMAP.md, Documentation workstream.
-- `10_condition_grader.py` / `11_optuna_condition_grader.py` (and their
-  TensorFlow counterparts) are not registered as runnable scripts in
-  `scripts.config.ts` — only their ONNX export scripts are. Worth confirming
-  intentional before Stage 2/3 registration is designed around the same
-  pattern.
 
 ## Environment notes (this dev machine specifically — not universal)
 

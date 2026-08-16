@@ -77,6 +77,12 @@ def exportar(modelo: TextMatcher, entrada: torch.Tensor, destino: pathlib.Path, 
         output_names=["logit"],
         dynamic_shapes={"x": {0: batch}},
         opset_version=opset,
+        # external_data=True es el default del exporter dynamo-based (torch>=2.x) —
+        # separa los pesos en un archivo .onnx.data sidecar incluso para modelos
+        # chicos como este. publicar_en_ionic() solo copia el .onnx, no ese sidecar,
+        # así que el modelo publicado quedaba roto (onnxruntime no podía cargarlo
+        # sin el .data al lado). False = todo inline en un solo archivo .onnx.
+        external_data=False,
     )
 
 
@@ -107,6 +113,15 @@ def publicar_en_ionic(destino: pathlib.Path, nombre_publico: str) -> pathlib.Pat
     IONIC_MODELS_DIR.mkdir(parents=True, exist_ok=True)
     publico = IONIC_MODELS_DIR / nombre_publico
     shutil.copy2(destino, publico)
+    # Defensa en profundidad: exportar() pasa external_data=False a propósito
+    # (ver ahí el porqué), así que hoy `destino` siempre es autocontenido — pero
+    # si algún día un modelo crece lo suficiente como para justificar volver a
+    # external_data=True, un .onnx.data sidecar junto a `destino` quedaría sin
+    # copiar silenciosamente (el bug real que este mismo commit corrigió) si no
+    # lo contemplamos acá también.
+    sidecar = destino.with_name(destino.name + ".data")
+    if sidecar.exists():
+        shutil.copy2(sidecar, publico.with_name(publico.name + ".data"))
     return publico
 
 

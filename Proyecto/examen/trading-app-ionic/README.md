@@ -13,7 +13,7 @@ El frontend ya cuenta con una interfaz sólida, tematizada e interactiva, **cone
 - **Cliente de API real:** `src/lib/api.ts` — cliente `fetch` tipado para todo el surface del backend (usuarios, cartas + fotos, transacciones), leyendo la URL base desde `VITE_API_BASE_URL`.
 - **Navegación Interactiva (Tabs):**
   - **The Keep (Tab 1):** Resumen financiero (balance de tesorería — todavía mock, ver "Qué falta" abajo) y un registro de operaciones pasadas.
-  - **Trade Nexus (Tab 2):** Flujo de compra/venta entre comerciantes y compradores, con generación y escaneo de códigos QR, y ahora con **cámara en vivo + Stage 1 (detector MTG/no-MTG) vía `onnxruntime-web`** en el paso de "Identify Artifact" (ver sección de ML abajo).
+  - **Trade Nexus (Tab 2):** Flujo de compra/venta entre comerciantes y compradores, **cableado a `POST /transactions` real** (el comerciante elige una carta real de su inventario y puede editar su precio de verdad vía `PATCH /cards`; el comprador ingresa el código de comercio mostrado por el QR — no hay escaneo por cámara todavía, solo generación de QR/código pegable — y la compra crea una transacción real, ver "Qué falta" abajo sobre lo que eso sí y no hace todavía). También tiene **cámara en vivo + Stage 1 (detector MTG/no-MTG) vía `onnxruntime-web`** en el paso de "Identify Artifact" (ver sección de ML abajo).
   - **The Vault (Tab 3):** Galería/inventario de las cartas del usuario, **leídas del backend real** (`GET /cards?ownerId=...`), con miniaturas resueltas vía URLs prefirmadas de sus fotos. Incluye un botón flotante para listar una carta nueva.
   - **Grimoire (Tab 4):** Menú de ajustes del sistema (idiomas, temas, etc.), con el nombre/correo del usuario actual y un logout real (limpia la sesión local).
   - **List a Card:** Formulario nuevo (`src/pages/ListCard.tsx`) para crear una carta (`POST /cards`) y opcionalmente subirle una foto con `@capacitor/camera` (captura de una sola foto), siguiendo el flujo de subida en dos pasos del backend (URL prefirmada → PUT directo a storage → confirmar).
@@ -65,22 +65,28 @@ cliente; sigue siendo un script de Python local). Donde la UI necesita un
 
 ## 🚧 ¿Qué falta por implementar?
 
-- **Login/JWT real:** el backend no tiene `/login` todavía (a propósito,
-  ver `backend/README.md`) — lo que hay es el placeholder descrito arriba
-  (`AuthContext`). Cuando el backend agregue JWT, solo hay que reescribir
-  `src/lib/auth/AuthContext.tsx`.
 - **Modelo ONNX real para Stage 1:** el scaffold de inferencia (cámara +
   `onnxruntime-web`) está construido y funciona, pero no hay ningún
   archivo `.onnx` entrenado en el repo — ver sección de ML arriba.
 - **Stage 2 (OCR) y Stage 3 (precio):** no conectados, a propósito — no hay
   endpoint de precio en ningún lado, y OCR es trabajo futuro con
   `tesseract.js`.
-- **Flujo de Pagos Real:** Conectar el simulacro de QR con el webhook
-  oficial de transacciones de **WebPay / Mercado Pago**. El backend ya deja
-  un slot (`PaymentProvider`) listo para esto — hoy solo tiene un stub
-  (`NoopPaymentProvider`) que no cobra nada de verdad, y esta app tampoco
-  llama a `POST /transactions` desde el flujo de Trade Nexus todavía (el
-  cliente de API ya lo expone en `src/lib/api.ts`, falta cablearlo a la UI).
+- **Escaneo de QR por cámara:** Trade Nexus genera un QR real (con el id de
+  la carta) del lado del comerciante, pero el comprador todavía lo ingresa
+  a mano (pegando el código) — no hay librería de decodificación de QR por
+  cámara en el proyecto todavía.
+- **Flujo de Pagos Real:** `POST /transactions` ya está cableado desde
+  Trade Nexus (ver arriba) y crea un registro real, pero el backend solo
+  tiene un stub (`NoopPaymentProvider`) que no cobra nada de verdad — toda
+  transacción queda en estado `PENDING` para siempre. Falta conectar el
+  webhook oficial de **WebPay / Mercado Pago** (el backend ya deja un slot,
+  `PaymentProvider`, listo para esto).
+- **Transferencia de propiedad de la carta:** al crear una transacción,
+  `card.ownerId` no cambia — una "compra" hoy registra un pago pero la
+  carta no se mueve al Vault del comprador. Es una decisión de backend
+  pendiente (¿al crear la transacción, o solo cuando un proveedor de pago
+  real confirme `COMPLETED`? — ligado al punto anterior), no algo que este
+  frontend pueda decidir por su cuenta.
 - **Balance de tesorería (Tab 1):** sigue siendo un mock (`$1,250.00`) — el
   backend deliberadamente no modela un campo `balance` en `User` todavía
   (ver "Qué falta" en `backend/README.md`); se deriva de transacciones
@@ -130,10 +136,10 @@ ionic serve
 globalmente: `npm install -g @ionic/cli`. También podés usar `npm run dev`
 directamente con Vite.)*
 
-La aplicación se abre en el navegador. La primera pantalla es
-"Onboarding" (no hay login real todavía — ver arriba): registra una cuenta
-nueva ahí, o pegá el id de un usuario que ya exista en tu base de datos si
-querés reusar uno.
+La aplicación se abre en el navegador. La primera pantalla es "Onboarding":
+registrate ahí con una cuenta nueva, o iniciá sesión con la cuenta de
+prueba del seed del backend (`test@example.com` / `password123` — ver
+`backend/README.md`).
 
 3. También podés ver la app con proporciones de teléfono presionando F12 y
    activando el "Device Toolbar" (Modo Móvil) de tu navegador.
