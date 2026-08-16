@@ -160,6 +160,13 @@ export class ScriptsController {
     return { runId };
   }
 
+  @Post('ssm/seed-database')
+  @HttpCode(202)
+  async seedDatabase() {
+    const { runId } = await this.scriptsService.seedDatabase();
+    return { runId };
+  }
+
   @Get('runs/:runId')
   getRun(@Param('runId') runId: string) {
     return this.scriptsService.getRun(runId);

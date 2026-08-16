@@ -109,6 +109,7 @@ export const api = {
     fetch(`${API_BASE}/android/apply-backend-url`, { method: 'POST' }).then((r) => json<ApplyBackendUrlResult>(r)),
   rebuildApk: () => fetch(`${API_BASE}/android/rebuild-apk`, { method: 'POST' }).then((r) => json<{ runId: string }>(r)),
   importCatalog: () => fetch(`${API_BASE}/ssm/import-catalog`, { method: 'POST' }).then((r) => json<{ runId: string }>(r)),
+  seedDatabase: () => fetch(`${API_BASE}/ssm/seed-database`, { method: 'POST' }).then((r) => json<{ runId: string }>(r)),
 };
 
 let socket: Socket | null = null;

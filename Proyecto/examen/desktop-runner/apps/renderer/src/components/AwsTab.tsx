@@ -74,6 +74,10 @@ function OutputsCard({
   const [startingCatalog, setStartingCatalog] = useState(false);
   const catalogLogs = useRunLogs(catalogRunId);
 
+  const [seedRunId, setSeedRunId] = useState<string | null>(null);
+  const [startingSeed, setStartingSeed] = useState(false);
+  const seedLogs = useRunLogs(seedRunId);
+
   const copy = async (key: string, value: unknown) => {
     await navigator.clipboard.writeText(copyValue(value));
     setCopiedKey(key);
@@ -123,6 +127,19 @@ function OutputsCard({
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setStartingCatalog(false);
+    }
+  };
+
+  const seedDatabase = async () => {
+    setError(null);
+    setStartingSeed(true);
+    try {
+      const { runId } = await api.seedDatabase();
+      setSeedRunId(runId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setStartingSeed(false);
     }
   };
 
@@ -194,6 +211,9 @@ function OutputsCard({
             lastActivityAt={catalogLogs.lastActivityAt}
           />
         )}
+        {seedRunId && (
+          <LogConsole lines={seedLogs.lines} currentLine={seedLogs.currentLine} status={seedLogs.status} lastActivityAt={seedLogs.lastActivityAt} />
+        )}
       </CardContent>
       {outputs && (
         <CardFooter className="flex flex-wrap gap-2">
@@ -205,6 +225,9 @@ function OutputsCard({
           </Button>
           <Button size="sm" variant="outline" disabled={startingCatalog || catalogLogs.status === 'running'} onClick={importCatalog}>
             {catalogLogs.status === 'running' ? 'Importando…' : '3. Importar catálogo (58,679 cartas)'}
+          </Button>
+          <Button size="sm" variant="outline" disabled={startingSeed || seedLogs.status === 'running'} onClick={seedDatabase}>
+            {seedLogs.status === 'running' ? 'Sembrando…' : '4. Cuentas de prueba (test@example.com / password123)'}
           </Button>
         </CardFooter>
       )}

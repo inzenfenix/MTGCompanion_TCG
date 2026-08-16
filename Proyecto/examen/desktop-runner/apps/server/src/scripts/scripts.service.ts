@@ -926,6 +926,34 @@ export class ScriptsService {
     return { ...pathEnvWithToolBin(), ...buildAwsCliEnv(settings.awsCredentials) };
   }
 
+  /**
+   * `aws s3api head-object` — null si el objeto no existe todavía (primera
+   * subida) o si el comando falla por cualquier otro motivo (nunca tira,
+   * el llamador lo trata igual que "no existe" y sube igual). Usado por
+   * importCatalog() para no volver a subir `cards.json` (59MB) si ya está
+   * arriba y no cambió — a pedido del usuario, viéndolo re-subir de cero
+   * en cada corrida.
+   */
+  private s3ObjectSize(bucket: string, key: string, region: string, env: NodeJS.ProcessEnv): Promise<number | null> {
+    return new Promise((resolve) => {
+      let child;
+      try {
+        child = spawn('aws', ['s3api', 'head-object', '--bucket', bucket, '--key', key, '--region', region, '--query', 'ContentLength', '--output', 'text'], { env });
+      } catch {
+        resolve(null);
+        return;
+      }
+      let out = '';
+      child.stdout.on('data', (d) => (out += d.toString()));
+      child.on('error', () => resolve(null));
+      child.on('close', (code) => {
+        if (code !== 0) return resolve(null);
+        const n = parseInt(out.trim(), 10);
+        resolve(Number.isFinite(n) ? n : null);
+      });
+    });
+  }
+
   private async resolveSsmInstanceId(
     key: SsmInstanceKey,
   ): Promise<{ def: (typeof SSM_INSTANCES)[number]; instanceId: string; region: string }> {
@@ -1108,8 +1136,18 @@ export class ScriptsService {
     (async () => {
       try {
         const s3Key = 'import/cards.json';
-        log(`Subiendo ${cardsJsonPath} (59MB) a s3://${artifactsBucket}/${s3Key} ...`);
-        await this.execAndStream(runId, 'aws', ['s3', 'cp', cardsJsonPath, `s3://${artifactsBucket}/${s3Key}`, '--region', region], REPO_ROOT, env as Record<string, string>);
+        const localSize = fs.statSync(cardsJsonPath).size;
+        const remoteSize = await this.s3ObjectSize(artifactsBucket, s3Key, region, env);
+        if (remoteSize === localSize) {
+          log(`s3://${artifactsBucket}/${s3Key} ya existe y pesa lo mismo que el local (${localSize} bytes) — no se vuelve a subir.`);
+        } else {
+          log(
+            remoteSize === null
+              ? `Subiendo ${cardsJsonPath} (${localSize} bytes) a s3://${artifactsBucket}/${s3Key} ...`
+              : `s3://${artifactsBucket}/${s3Key} existe pero con otro tamaño (remoto ${remoteSize} vs. local ${localSize} bytes) — se re-sube.`,
+          );
+          await this.execAndStream(runId, 'aws', ['s3', 'cp', cardsJsonPath, `s3://${artifactsBucket}/${s3Key}`, '--region', region], REPO_ROOT, env as Record<string, string>);
+        }
 
         await runSsmCommand(
           backendInstanceId,
@@ -1122,6 +1160,60 @@ export class ScriptsService {
           region,
           env,
           log,
+        );
+        const record = this.runs.get(runId);
+        if (record) {
+          record.status = 'success';
+          record.endedAt = Date.now();
+        }
+        this.gateway.emitStatus(runId, 'success');
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.gateway.emitLog(runId, 'stderr', `\nFalló: ${message}\n`);
+        const record = this.runs.get(runId);
+        if (record) {
+          record.status = 'error';
+          record.endedAt = Date.now();
+        }
+        this.gateway.emitStatus(runId, 'error');
+      }
+    })();
+
+    return { runId };
+  }
+
+  /**
+   * `prisma/seed.ts` — las 2 cuentas de prueba para loguearse en el APK
+   * (`test@example.com`/`buyer@example.com`, password "password123") + 6
+   * cartas + una transacción de ejemplo. Mismo fix de
+   * `TS_NODE_COMPILER_OPTIONS` que importCatalog() (mismo bug de
+   * ts-node/nodenext, confirmado en vivo — no se invoca vía `npm run
+   * db:seed`/`prisma db seed` a propósito, esos no dejan pasar el env var
+   * al ts-node interno). No idempotente (seed.ts mismo lo dice: reinserta
+   * cartas/transacción en cada corrida) — no se agrega a ningún "correr
+   * todo", es un botón manual.
+   */
+  async seedDatabase(): Promise<{ runId: string }> {
+    const outputs = await this.getTerraformOutputs();
+    const backendInstanceId = outputs?.backend_instance_id;
+    const region = outputs?.aws_region;
+    if (!backendInstanceId || typeof backendInstanceId !== 'string' || !region || typeof region !== 'string') {
+      throw new BadRequestException('No hay backend_instance_id/aws_region todavía — ¿corriste "terraform apply"?');
+    }
+    const env = this.awsCliEnv();
+
+    const runId = randomUUID();
+    this.runs.set(runId, { id: runId, scriptId: 'ssm-run-command:seed-database', status: 'running', startedAt: Date.now() });
+    this.gateway.emitStatus(runId, 'running');
+
+    (async () => {
+      try {
+        await runSsmCommand(
+          backendInstanceId,
+          [`docker exec -e TS_NODE_COMPILER_OPTIONS='{"module":"commonjs"}' mtg-backend-app node_modules/.bin/ts-node -r dotenv/config prisma/seed.ts`],
+          region,
+          env,
+          (msg) => this.gateway.emitLog(runId, 'stdout', `${msg}\n`),
         );
         const record = this.runs.get(runId);
         if (record) {
