@@ -211,6 +211,73 @@ describe('localizarCarta — G4e containment fix', () => {
   });
 });
 
+describe('localizarCarta — G4e skin-tone rejection (direction (a))', () => {
+  it('rejects a uniform skin-tone rect (e.g. a face) that would otherwise match a card aspect ratio', async () => {
+    const cv: OpenCvModule = await getOpenCv();
+    const width = 400;
+    const height = 400;
+    // Same shape/aspect-ratio profile as the very first localizarCarta test
+    // ("finds a light, low-saturation card rect..."), but filled with a
+    // typical light/medium skin-tone RGB instead of a card-gray — this is
+    // the exact class of false positive G4c's own writeup found empirically
+    // (a synthetic skin-tone rectangle scoring as "FOUND").
+    const data = makeImage(width, height, [20, 20, 220], {
+      x: 100, y: 60, w: 200, h: 280, color: [200, 150, 120], // uniform skin tone, no internal structure
+    });
+    const mat = matFromRgba(cv, data, width, height);
+    let result;
+    try {
+      result = localizarCarta(cv, mat);
+    } finally {
+      mat.delete();
+    }
+    expect(result).toBeNull();
+  });
+
+  it('does NOT reject a warm/skin-toned CARD that has real internal structure (regression guard)', { timeout: 20000 }, async () => {
+    const cv: OpenCvModule = await getOpenCv();
+    const width = 400;
+    const height = 400;
+    // Reproduces the real false-positive this filter almost shipped with:
+    // a real photo of "Sol Ring" (warm/gray card body) measured 66-72%
+    // inside the YCrCb skin band by color alone — the fix requires ALSO
+    // checking edge density, which a real card (frame/text box/art) has
+    // plenty of and a real skin surface doesn't. This fixture is the same
+    // uniform skin-tone fill as the test above, but with a dark "frame"
+    // block and a light "text box" drawn inside it, like a real card layout.
+    const outer = { x: 100, y: 60, w: 200, h: 280 };
+    const data = makeImage(width, height, [20, 20, 220], { ...outer, color: [200, 150, 120] });
+    // Dark frame block near the top (simulates a title bar / border).
+    for (let y = outer.y + 10; y < outer.y + 60; y++) {
+      for (let x = outer.x + 10; x < outer.x + outer.w - 10; x++) {
+        const i = (y * width + x) * 4;
+        data[i] = 20; data[i + 1] = 20; data[i + 2] = 20;
+      }
+    }
+    // Light text-box block with a few dark lines (simulates printed rules text).
+    for (let y = outer.y + 180; y < outer.y + 260; y++) {
+      for (let x = outer.x + 10; x < outer.x + outer.w - 10; x++) {
+        const i = (y * width + x) * 4;
+        data[i] = 235; data[i + 1] = 230; data[i + 2] = 220;
+      }
+    }
+    for (let y = outer.y + 190; y < outer.y + 250; y += 8) {
+      for (let x = outer.x + 20; x < outer.x + outer.w - 20; x++) {
+        const i = (y * width + x) * 4;
+        data[i] = 30; data[i + 1] = 30; data[i + 2] = 30;
+      }
+    }
+    const mat = matFromRgba(cv, data, width, height);
+    let result;
+    try {
+      result = localizarCarta(cv, mat);
+    } finally {
+      mat.delete();
+    }
+    expect(result).not.toBeNull();
+  });
+});
+
 describe('detectarBrilloEspecular', () => {
   it('flags a large near-white, low-saturation blob (simulated sleeve glare)', async () => {
     const cv: OpenCvModule = await getOpenCv();

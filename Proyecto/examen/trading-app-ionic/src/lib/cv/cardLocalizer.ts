@@ -68,6 +68,27 @@ export const BRILLO_ESPECULAR_FRACCION_AVISO = 0.03; // >= 3% of the card area -
 export const FUNDA_OPACA_EDGE_FRACCION_MAX = 0.02;
 export const FUNDA_OPACA_STD_MAX = 15;
 
+// ROADMAP.md G4e, direction (a) — skin-tone rejection in the localizer
+// itself (not just the downstream Stage 1 gate). Classic YCrCb skin range
+// (Cr in [133,173], Cb in [77,127]) — chosen over an HSV range specifically
+// because it separates chrominance from luminance, so it's reasonably
+// lighting-robust. On its own this is NOT enough: measured directly against
+// this project's real 122-photo set, a real "Sol Ring" photo's card
+// candidate landed 66-72% inside this exact color band (a warm/gray card
+// surface, not skin) — so a color-only filter would have wrongly rejected
+// real cards (confirmed: 120/122 with color alone vs. 122/122 with the
+// edge-density gate below). The second, REQUIRED signal is edge density
+// (reusing the same Canny approach as `detectarFundaOpaca`): real card
+// content (frame/text box/art/symbols) has real structural edges, a real
+// skin/face surface doesn't — a candidate is only rejected as skin when
+// BOTH the skin-color fraction is high AND the edge density is low.
+export const YCRCB_PIEL_CR_MIN = 133;
+export const YCRCB_PIEL_CR_MAX = 173;
+export const YCRCB_PIEL_CB_MIN = 77;
+export const YCRCB_PIEL_CB_MAX = 127;
+export const UMBRAL_PIEL_FRACCION = 0.5;
+export const PIEL_EDGE_FRACCION_MAX = 0.02;
+
 // Lazy dynamic import + module-level cache, same reasoning as every other
 // heavy client-side runtime in this app (onnxruntime-web, tesseract.js).
 // Follows the exact loading pattern @techstark/opencv-js's own README
@@ -152,15 +173,91 @@ export function mascaraBrillo(cv: OpenCvModule, rgba: InstanceType<OpenCvModule[
 
 type Candidate = { rect: InstanceType<OpenCvModule['RotatedRect']>; score: number; area: number };
 
+/** `_mascara_piel()` — YCrCb skin-tone mask. Caller owns/deletes the returned Mat. */
+function mascaraPiel(cv: OpenCvModule, rgba: InstanceType<OpenCvModule['Mat']>) {
+  const rgb = new cv.Mat();
+  const ycrcb = new cv.Mat();
+  const mask = new cv.Mat();
+  let lower: InstanceType<OpenCvModule['Mat']> | null = null;
+  let upper: InstanceType<OpenCvModule['Mat']> | null = null;
+  try {
+    cv.cvtColor(rgba, rgb, cv.COLOR_RGBA2RGB);
+    cv.cvtColor(rgb, ycrcb, cv.COLOR_RGB2YCrCb);
+    lower = new cv.Mat(ycrcb.rows, ycrcb.cols, ycrcb.type(), new cv.Scalar(0, YCRCB_PIEL_CR_MIN, YCRCB_PIEL_CB_MIN, 0));
+    upper = new cv.Mat(ycrcb.rows, ycrcb.cols, ycrcb.type(), new cv.Scalar(255, YCRCB_PIEL_CR_MAX, YCRCB_PIEL_CB_MAX, 255));
+    cv.inRange(ycrcb, lower, upper, mask);
+    const result = new cv.Mat();
+    mask.copyTo(result);
+    return result;
+  } finally {
+    rgb.delete(); ycrcb.delete(); mask.delete();
+    lower?.delete(); upper?.delete();
+  }
+}
+
+/** `_mapa_bordes()` — same Canny edge map `detectarFundaOpaca` uses. Caller owns/deletes the returned Mat. */
+function mapaBordes(cv: OpenCvModule, rgba: InstanceType<OpenCvModule['Mat']>) {
+  const gray = new cv.Mat();
+  const edges = new cv.Mat();
+  try {
+    cv.cvtColor(rgba, gray, cv.COLOR_RGBA2GRAY);
+    cv.Canny(gray, edges, 50, 150);
+    const result = new cv.Mat();
+    edges.copyTo(result);
+    return result;
+  } finally {
+    gray.delete(); edges.delete();
+  }
+}
+
+/**
+ * `_fraccion_en_rect()` — fraction of `rect`'s area that falls inside a
+ * binary `mask` (255 = positive). Generic: used for both skin-color and
+ * edge-density checks below. Rasterizes the rotated rect with `fillPoly`
+ * rather than an axis-aligned bounding box, to not over/under-count on
+ * rotated rects.
+ */
+function fraccionEnRect(cv: OpenCvModule, mask: InstanceType<OpenCvModule['Mat']>, rect: InstanceType<OpenCvModule['RotatedRect']>): number {
+  const box = cv.boxPoints(rect);
+  const boxMask = cv.Mat.zeros(mask.rows, mask.cols, cv.CV_8UC1);
+  const intersection = new cv.Mat();
+  const contour = cv.matFromArray(box.length, 1, cv.CV_32SC2, box.flatMap((p) => [Math.round(p.x), Math.round(p.y)]));
+  const contours = new cv.MatVector();
+  contours.push_back(contour);
+  try {
+    cv.fillPoly(boxMask, contours, new cv.Scalar(255));
+    const rectArea = cv.countNonZero(boxMask);
+    if (rectArea === 0) return 0;
+    cv.bitwise_and(mask, boxMask, intersection);
+    return cv.countNonZero(intersection) / rectArea;
+  } finally {
+    boxMask.delete(); intersection.delete(); contour.delete(); contours.delete();
+  }
+}
+
 /**
  * `_candidatos_validos()` — every contour in `mask` (not just the largest)
  * that passes the area/aspect-ratio filters. Evaluating all of them, not
  * only the biggest, is what lets `discardContained()` below catch "the
  * mask's largest contour is actually a sub-region inside the real card" —
  * with a single candidate per mask there's nothing to compare it against.
- * Does NOT delete `mask` (caller's responsibility).
+ *
+ * `skinMask`/`edgeMap` (ROADMAP.md G4e, direction (a)) are optional — when
+ * both are given, a candidate is discarded here only when it's MOSTLY
+ * skin-toned (`UMBRAL_PIEL_FRACCION`) AND has low edge density
+ * (`PIEL_EDGE_FRACCION_MAX`) — see those constants' own comments for why
+ * BOTH are required (color alone false-positives on real, warm-toned
+ * cards).
+ *
+ * Does NOT delete `mask`/`skinMask`/`edgeMap` (caller's responsibility).
  */
-function candidatosValidos(cv: OpenCvModule, mask: InstanceType<OpenCvModule['Mat']>, areaImg: number): Candidate[] {
+function candidatosValidos(
+  cv: OpenCvModule,
+  mask: InstanceType<OpenCvModule['Mat']>,
+  areaImg: number,
+  skinMask?: InstanceType<OpenCvModule['Mat']>,
+  edgeMap?: InstanceType<OpenCvModule['Mat']>,
+): Candidate[] {
   const contours = new cv.MatVector();
   const hierarchy = new cv.Mat();
   try {
@@ -178,6 +275,14 @@ function candidatosValidos(cv: OpenCvModule, mask: InstanceType<OpenCvModule['Ma
       const ratio = Math.min(width, height) / Math.max(width, height);
       const diff = Math.abs(ratio - ASPECT_RATIO_CARTA);
       if (diff > TOLERANCIA_ASPECT_RATIO) continue;
+
+      if (skinMask && edgeMap) {
+        const skinFraction = fraccionEnRect(cv, skinMask, rect);
+        if (skinFraction >= UMBRAL_PIEL_FRACCION) {
+          const edgeFraction = fraccionEnRect(cv, edgeMap, rect);
+          if (edgeFraction < PIEL_EDGE_FRACCION_MAX) continue;
+        }
+      }
 
       candidates.push({ rect, score: diff, area });
     }
@@ -234,20 +339,22 @@ export function ordenarEsquinas(points: Point[]): Corners {
 
 /**
  * `localizar_carta()` — tries both segmentation strategies, collects every
- * contour from each that passes the area/aspect-ratio filter
- * (`candidatosValidos`), discards any contained inside a larger candidate
- * (`discardContained`, G4e), then keeps whichever survivor's aspect ratio is
- * closest to a real MTG card. Returns null if nothing survives. Caller does
- * NOT need to delete anything — this function owns and cleans up all its
- * own Mats.
+ * contour from each that passes the area/aspect-ratio/skin filter
+ * (`candidatosValidos`, G4e direction (a)), discards any contained inside a
+ * larger candidate (`discardContained`, G4e direction (b)), then keeps
+ * whichever survivor's aspect ratio is closest to a real MTG card. Returns
+ * null if nothing survives. Caller does NOT need to delete anything — this
+ * function owns and cleans up all its own Mats.
  */
 export function localizarCarta(cv: OpenCvModule, rgba: InstanceType<OpenCvModule['Mat']>): LocalizationResult | null {
   const areaImg = rgba.rows * rgba.cols;
   const masks = [mascaraSaturacion(cv, rgba), mascaraBrillo(cv, rgba)];
+  const skinMask = mascaraPiel(cv, rgba);
+  const edgeMap = mapaBordes(cv, rgba);
   try {
     const candidates = discardContained(
       cv,
-      masks.flatMap((mask) => candidatosValidos(cv, mask, areaImg)),
+      masks.flatMap((mask) => candidatosValidos(cv, mask, areaImg, skinMask, edgeMap)),
     );
     if (candidates.length === 0) return null;
 
@@ -256,6 +363,8 @@ export function localizarCarta(cv: OpenCvModule, rgba: InstanceType<OpenCvModule
     return { corners: ordenarEsquinas(boxPoints), score: best.score };
   } finally {
     masks.forEach((m) => m.delete());
+    skinMask.delete();
+    edgeMap.delete();
   }
 }
 

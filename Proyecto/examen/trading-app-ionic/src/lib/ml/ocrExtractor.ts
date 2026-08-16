@@ -140,17 +140,27 @@ export function preprocessForOcr(img: RgbaImage): GrayImage {
 // stage1Detector.ts/stage3PriceEstimator.ts's onnxruntime-web sessions —
 // tesseract.js's WASM runtime is only pulled in once OCR is actually used.
 //
-// **Known gap, stated plainly**: `createWorker('eng')`'s browser defaults
-// fetch the worker script AND the English language data from jsdelivr's CDN
-// at first use (checked directly — tesseract.js/src/worker/browser/
-// defaultOptions.js hardcodes `workerPath` to a jsdelivr URL; language data
-// is fetched from tessdata's own CDN the same way), not bundled into this
-// app. Same as `onnxruntime-web`'s wasm runtime being a separate fetch, but
-// unlike that one, this isn't overridable by hosting `.onnx` locally — it's
-// tesseract.js's own default network dependency. First OCR use needs a
-// network connection; not an offline-capable path yet. Self-hosting these
-// (`workerPath`/`corePath`/`langPath` options `createWorker` accepts) if
-// offline scanning is ever required is a real follow-up, not done here.
+// ROADMAP.md E3c — self-hosted, no CDN dependency at runtime anymore.
+// `createWorker('eng')`'s browser defaults used to fetch the worker script
+// AND the English language data from jsdelivr's CDN at first use (checked
+// directly — tesseract.js/src/worker/browser/defaultOptions.js hardcodes
+// `workerPath` to a jsdelivr URL; language data is fetched from tessdata's
+// own CDN the same way) — not bundled into this app. Fixed by passing
+// `workerPath`/`corePath`/`langPath` explicitly, pointing at
+// `public/tesseract/`/`public/tessdata/`, populated by `npm run
+// setup:tesseract` (`scripts/setup-tesseract-assets.mjs`) once — same
+// "configurable URL, sane local default" pattern every `VITE_STAGE*_URL`
+// already uses for its `.onnx` file. If that script was never run (assets
+// missing on disk), tesseract.js's `fetch()` of these local paths just 404s
+// instead of silently falling back to the CDN — the setup step is a real
+// prerequisite for OCR to work at all now, not an optional optimization;
+// documented in this project's README.
+export const TESSERACT_WORKER_PATH =
+  (import.meta.env.VITE_TESSERACT_WORKER_URL as string | undefined) ?? '/tesseract/worker.min.js';
+export const TESSERACT_CORE_PATH =
+  (import.meta.env.VITE_TESSERACT_CORE_PATH as string | undefined) ?? '/tesseract/core';
+export const TESSERACT_LANG_PATH =
+  (import.meta.env.VITE_TESSERACT_LANG_PATH as string | undefined) ?? '/tessdata';
 
 type TesseractWorker = Awaited<ReturnType<typeof import('tesseract.js').createWorker>>;
 let workerPromise: Promise<TesseractWorker> | null = null;
@@ -159,7 +169,11 @@ async function getWorker(): Promise<TesseractWorker> {
   if (!workerPromise) {
     workerPromise = (async () => {
       const { createWorker } = await import('tesseract.js');
-      return createWorker('eng');
+      return createWorker('eng', undefined, {
+        workerPath: TESSERACT_WORKER_PATH,
+        corePath: TESSERACT_CORE_PATH,
+        langPath: TESSERACT_LANG_PATH,
+      });
     })();
   }
   return workerPromise;

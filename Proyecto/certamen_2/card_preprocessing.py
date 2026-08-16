@@ -68,6 +68,44 @@ BRILLO_ESPECULAR_FRACCION_AVISO = 0.03  # >= 3% del área de la carta -> avisar
 FUNDA_OPACA_EDGE_FRACCION_MAX = 0.02  # fracción de píxeles de borde (Canny) por debajo de la cual se considera "sin estructura"
 FUNDA_OPACA_STD_MAX = 15.0  # desviación estándar de grises por debajo de la cual se considera "color casi uniforme"
 
+# ROADMAP.md G4e, dirección (a) — rechazo de candidatos "color piel" en el
+# localizador geométrico mismo (en vez de depender solo del gate de Stage 1
+# en GuidedCapture.tsx, que ya cubre este caso en la práctica — ver el
+# hallazgo original de G4c: un rectángulo sintético con tono de piel matcheó
+# como "encontrado" con buen score, a veces superando detecciones reales de
+# carta). Rango YCrCb clásico de segmentación de piel (Cr en [133,173], Cb en
+# [77,127], cualquier Y) — heurística estándar y ampliamente usada
+# precisamente porque separa crominancia de luminancia, por lo que es
+# razonablemente robusta a variaciones de iluminación (a diferencia de un
+# rango directo en RGB/HSV). No es perfecta para todos los tonos de piel ni
+# entrenada específicamente para este proyecto — es un filtro adicional, no
+# un reemplazo del gate de Stage 1.
+YCRCB_PIEL_CR_MIN = 133
+YCRCB_PIEL_CR_MAX = 173
+YCRCB_PIEL_CB_MIN = 77
+YCRCB_PIEL_CB_MAX = 127
+# Fracción del área del candidato que, si es color-piel, lo marca como
+# SOSPECHOSO de piel (todavía no descartado — ver PIEL_EDGE_FRACCION_MAX
+# abajo). 0.5 = mayoría del rectángulo, no cualquier solapamiento parcial.
+UMBRAL_PIEL_FRACCION = 0.5
+# Segunda señal, obligatoria además de UMBRAL_PIEL_FRACCION: un candidato
+# solo se descarta como piel si ADEMÁS tiene poca densidad de bordes
+# (Canny) — es decir, sin estructura de carta real (marco, caja de texto,
+# arte, símbolos). Sin este segundo filtro, `_mascara_piel` sola produce
+# falsos positivos reales sobre cartas MTG: se midió en la práctica (16
+# ago) que "Sol Ring" (arte azul/violeta sobre marco gris cálido) promedia
+# 66-72% del rectángulo dentro del rango YCrCb de piel — un tono de carta
+# cálido/grisáceo, no piel — mientras que una piel real (uniforme, sin
+# texto/bordes internos) tiene mucha menos densidad de bordes. Mismo umbral
+# que `FUNDA_OPACA_EDGE_FRACCION_MAX` (0.02) — incluso las cartas con
+# candidato "color-piel" alto miden 0.034-0.038 de densidad de bordes en
+# este dataset, muy por encima; una piel/rostro sintético uniforme mide
+# ~0.008, muy por debajo. Validado (16 ago) contra las 122 fotos reales del
+# dataset G4b/G4c: localizar_carta() se mantiene en 122/122 (100%) con este
+# filtro combinado — sin la señal de bordes, bajaba a 120/122 (2 fotos de
+# "Sol Ring" perdidas por el falso positivo de color).
+PIEL_EDGE_FRACCION_MAX = 0.02
+
 
 def _ordenar_esquinas(pts: np.ndarray) -> np.ndarray:
     """Ordena 4 puntos como (top-left, top-right, bottom-right, bottom-left)."""
@@ -116,14 +154,72 @@ def _mascara_brillo(img_bgr: np.ndarray) -> np.ndarray:
     return mascara
 
 
-def _candidatos_validos(mascara: np.ndarray, area_img: int) -> list[tuple[np.ndarray, float, float]]:
+def _mascara_piel(img_bgr: np.ndarray) -> np.ndarray:
+    """Máscara binaria (255 = piel) usando el rango YCrCb clásico de
+    detección de piel — ver el comentario de `YCRCB_PIEL_*` arriba para la
+    justificación. Se calcula una sola vez por imagen (como las máscaras de
+    saturación/brillo) y se reutiliza para evaluar todos los candidatos."""
+    ycrcb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2YCrCb)
+    cr = ycrcb[:, :, 1]
+    cb = ycrcb[:, :, 2]
+    piel = (
+        (cr >= YCRCB_PIEL_CR_MIN) & (cr <= YCRCB_PIEL_CR_MAX)
+        & (cb >= YCRCB_PIEL_CB_MIN) & (cb <= YCRCB_PIEL_CB_MAX)
+    )
+    return (piel.astype(np.uint8)) * 255
+
+
+def _mapa_bordes(img_bgr: np.ndarray) -> np.ndarray:
+    """Mapa de bordes Canny — mismo mapa/umbrales que usa
+    `detectar_funda_opaca()`, reutilizado aquí para decidir si un candidato
+    "color-piel" en realidad tiene estructura de carta (marco, caja de
+    texto, arte, símbolos) y por lo tanto NO es piel real. Se calcula una
+    sola vez por imagen, igual que `_mascara_piel`."""
+    gris = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    return cv2.Canny(gris, 50, 150)
+
+
+def _fraccion_en_rect(mascara: np.ndarray, rect) -> float:
+    """Fracción del área de `rect` (formato `cv2.minAreaRect`) que cae dentro
+    de `mascara` (binaria, 255 = positivo) — genérica, usada tanto para
+    color-piel como para densidad de bordes dentro de un candidato.
+    Rasteriza el rectángulo rotado con `cv2.fillPoly` en vez de usar el
+    bounding box axis-aligned, para no sobre-contar en rectángulos
+    rotados."""
+    box = cv2.boxPoints(rect).astype(np.int32)
+    mascara_rect = np.zeros(mascara.shape, dtype=np.uint8)
+    cv2.fillPoly(mascara_rect, [box], 255)
+    area_rect = cv2.countNonZero(mascara_rect)
+    if area_rect == 0:
+        return 0.0
+    interseccion = cv2.countNonZero(cv2.bitwise_and(mascara, mascara_rect))
+    return interseccion / area_rect
+
+
+def _candidatos_validos(
+    mascara: np.ndarray,
+    area_img: int,
+    mascara_piel: np.ndarray | None = None,
+    mapa_bordes: np.ndarray | None = None,
+) -> list[tuple[np.ndarray, float, float]]:
     """Todos los contornos de una máscara (no solo el más grande) que pasan
-    los filtros de área/aspect-ratio, como (rect, score, area). `score` = qué
-    tan cerca está el aspect ratio del ideal de una carta MTG (0 = match
-    perfecto). Evaluar todos y no solo el más grande es lo que permite
+    los filtros de área/aspect-ratio/piel, como (rect, score, area). `score`
+    = qué tan cerca está el aspect ratio del ideal de una carta MTG (0 =
+    match perfecto). Evaluar todos y no solo el más grande es lo que permite
     `_descartar_contenidos` detectar el caso "el contorno más grande de la
     máscara es en realidad una sub-región interior de la carta" — con un solo
-    candidato por máscara no hay nada contra qué compararlo."""
+    candidato por máscara no hay nada contra qué compararlo.
+
+    `mascara_piel`/`mapa_bordes` (ROADMAP.md G4e, dirección (a)) son
+    opcionales — si ambos se pasan, un candidato se descarta aquí mismo
+    (antes de `_descartar_contenidos`) solo cuando es MAYORMENTE color-piel
+    (`UMBRAL_PIEL_FRACCION`) Y ADEMÁS tiene poca densidad de bordes
+    (`PIEL_EDGE_FRACCION_MAX`) — la segunda condición es la que distingue
+    piel real (uniforme, sin estructura) de una carta con tonos cálidos/
+    grisáceos que por casualidad cae en el mismo rango de color (medido en
+    la práctica, ver el comentario de `PIEL_EDGE_FRACCION_MAX`). Es un
+    filtro por candidato (como área/aspect ratio), no una relación entre
+    candidatos, así que vive en esta función."""
     contornos, _ = cv2.findContours(mascara, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     candidatos = []
     for contorno in contornos:
@@ -140,6 +236,13 @@ def _candidatos_validos(mascara: np.ndarray, area_img: int) -> list[tuple[np.nda
         diff = abs(ratio - ASPECT_RATIO_CARTA)
         if diff > TOLERANCIA_ASPECT_RATIO:
             continue
+
+        if mascara_piel is not None and mapa_bordes is not None:
+            fraccion_piel = _fraccion_en_rect(mascara_piel, rect)
+            if fraccion_piel >= UMBRAL_PIEL_FRACCION:
+                fraccion_bordes = _fraccion_en_rect(mapa_bordes, rect)
+                if fraccion_bordes < PIEL_EDGE_FRACCION_MAX:
+                    continue
 
         candidatos.append((rect, diff, area))
     return candidatos
@@ -189,25 +292,37 @@ def localizar_carta(img_bgr: np.ndarray) -> np.ndarray | None:
     Prueba dos estrategias de segmentación independientes — saturación
     (`_mascara_saturacion`) y brillo (`_mascara_brillo`, la heurística
     original) — recolecta TODOS los contornos de cada una que pasen el filtro
-    de área/aspect-ratio (`_candidatos_validos`), descarta cualquiera que esté
-    contenido dentro de otro candidato más grande (`_descartar_contenidos`,
-    G4e) y se queda con el sobreviviente cuyo aspect ratio esté más cerca del
-    ideal. Ninguna heurística clásica sola es invariante a fondo: brillo
-    falla cuando carta y fondo tienen luminancia similar (funda oscura sobre
-    tela oscura, aunque saturada); saturación en teoría podría fallar sobre
-    un fondo ya acromático (mesa blanca/gris/negra lisa) donde carta y fondo
-    comparten baja saturación — de ahí probar ambas en vez de reemplazar una
-    por otra. Medido sobre el dataset real de 122 fotos (ROADMAP.md G4b):
-    brillo solo 30.3%, saturación sola 100%, así que en la práctica
-    saturación domina en este dataset — pero mantener ambas como candidatos
-    es más robusto a futuro que apostar todo a una sola heurística.
+    de área/aspect-ratio/piel (`_candidatos_validos`), descarta cualquiera
+    que esté contenido dentro de otro candidato más grande
+    (`_descartar_contenidos`, G4e) y se queda con el sobreviviente cuyo
+    aspect ratio esté más cerca del ideal. Ninguna heurística clásica sola es
+    invariante a fondo: brillo falla cuando carta y fondo tienen luminancia
+    similar (funda oscura sobre tela oscura, aunque saturada); saturación en
+    teoría podría fallar sobre un fondo ya acromático (mesa blanca/gris/negra
+    lisa) donde carta y fondo comparten baja saturación — de ahí probar ambas
+    en vez de reemplazar una por otra. Medido sobre el dataset real de 122
+    fotos (ROADMAP.md G4b): brillo solo 30.3%, saturación sola 100%, así que
+    en la práctica saturación domina en este dataset — pero mantener ambas
+    como candidatos es más robusto a futuro que apostar todo a una sola
+    heurística.
+
+    También filtra candidatos mayormente color-piel Y sin estructura de
+    carta (`_mascara_piel` + `_mapa_bordes`, ROADMAP.md G4e dirección (a)) —
+    un rostro u otra piel expuesta a veces comparte el aspect ratio de una
+    carta MTG por casualidad (hallazgo original de G4c). Esto es un filtro
+    adicional, no un reemplazo del gate real de Stage 1 en
+    `GuidedCapture.tsx`/`ListCard.tsx`, que sigue siendo la defensa
+    principal (esta heurística geométrica no tiene ninguna noción de "esto
+    es realmente una carta MTG", solo de "esto no parece piel real").
     """
     h_img, w_img = img_bgr.shape[:2]
     area_img = h_img * w_img
+    mascara_piel = _mascara_piel(img_bgr)
+    mapa_bordes = _mapa_bordes(img_bgr)
 
     candidatos = []
     for mascara in (_mascara_saturacion(img_bgr), _mascara_brillo(img_bgr)):
-        candidatos.extend(_candidatos_validos(mascara, area_img))
+        candidatos.extend(_candidatos_validos(mascara, area_img, mascara_piel, mapa_bordes))
 
     candidatos = _descartar_contenidos(candidatos)
     if not candidatos:

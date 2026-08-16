@@ -16,6 +16,9 @@ import {
   CROP_NOMBRE,
   CROP_TEXTO,
   OCR_UPSCALE,
+  TESSERACT_CORE_PATH,
+  TESSERACT_LANG_PATH,
+  TESSERACT_WORKER_PATH,
   binarize,
   computeCropRect,
   extractCardName,
@@ -167,6 +170,32 @@ function stubCanvasContext() {
   });
   return { drawImageCalls, dims };
 }
+
+describe('getWorker (via extractCardText) — ROADMAP.md E3c self-hosted assets', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('passes the local self-hosted workerPath/corePath/langPath to createWorker, not tesseract.js CDN defaults', async () => {
+    stubCanvasContext();
+    await extractCardText(fakeSource());
+
+    const tesseract = await import('tesseract.js');
+    const createWorkerMock = tesseract.createWorker as unknown as ReturnType<typeof vi.fn>;
+    expect(createWorkerMock).toHaveBeenCalledWith('eng', undefined, {
+      workerPath: TESSERACT_WORKER_PATH,
+      corePath: TESSERACT_CORE_PATH,
+      langPath: TESSERACT_LANG_PATH,
+    });
+    // Sanity: these are local paths, not jsdelivr — the whole point of E3c.
+    expect(TESSERACT_WORKER_PATH).not.toContain('cdn.jsdelivr.net');
+    expect(TESSERACT_CORE_PATH).not.toContain('cdn.jsdelivr.net');
+    expect(TESSERACT_LANG_PATH).not.toContain('cdn.jsdelivr.net');
+  });
+});
 
 describe('extractCardText', () => {
   beforeEach(() => {

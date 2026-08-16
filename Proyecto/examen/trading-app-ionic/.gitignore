@@ -25,6 +25,15 @@
 # certamen_2/.tessdata (gitignored ahí también).
 /eng.traineddata
 
+# ROADMAP.md E3c — assets copiados/descargados por
+# `npm run setup:tesseract` (scripts/setup-tesseract-assets.mjs) para que
+# tesseract.js no dependa de su CDN por defecto: worker.min.js + el motor
+# WASM vienen de node_modules (regenerable con un `npm install`), el
+# .traineddata en inglés se descarga una vez de jsdelivr. Mismo criterio que
+# /public/models/*.onnx arriba — generado, no fuente, no se versiona.
+/public/tesseract/
+/public/tessdata/
+
 # misc
 .DS_Store
 .env.local
