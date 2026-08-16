@@ -153,6 +153,7 @@
   "detect_card_button": "Detectar Carta",
   "detecting_in_progress": "Detectando...",
   "guided_capture_initializing": "Cargando visión...",
+  "guided_capture_vision_error": "No se pudo cargar el escáner — revisá tu conexión y volvé a abrir esta pantalla, o usá la carga manual.",
   "guided_capture_searching": "Buscando una carta...",
   "guided_capture_aligning": "Carta encontrada — mantén firme ({{percent}}%)",
   "guided_capture_capturing": "¡Capturada! Leyendo carta...",

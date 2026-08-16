@@ -153,6 +153,7 @@
   "detect_card_button": "Detect Card",
   "detecting_in_progress": "Detecting...",
   "guided_capture_initializing": "Loading vision...",
+  "guided_capture_vision_error": "Couldn't load the scanner — check your connection and reopen this screen, or use Manual entry instead.",
   "guided_capture_searching": "Searching for a card...",
   "guided_capture_aligning": "Card found — hold steady ({{percent}}%)",
   "guided_capture_capturing": "Captured! Reading card...",

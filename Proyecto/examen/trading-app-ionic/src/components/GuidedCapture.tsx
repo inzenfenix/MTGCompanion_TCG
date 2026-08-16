@@ -49,7 +49,8 @@ const SEARCH_TIMEOUT_MS = 7000;
 // false-positive) re-triangulates, and the user would never actually see it.
 const REJECTED_COOLDOWN_MS = 2000;
 
-type LoopState = 'initializing' | 'searching' | 'aligning' | 'capturing' | 'timeout' | 'rejected' | 'glare' | 'captured';
+type LoopState = 'initializing' | 'searching' | 'aligning' | 'capturing' | 'timeout' | 'rejected' | 'glare' | 'captured' | 'vision-error';
+const VISION_LOAD_TIMEOUT_MS = 20000; // OpenCV.js is ~15MB of WASM — genuinely slow to compile on some real devices, but this needs a ceiling: getOpenCv().then(...) below had no .catch() at all, so any real failure (not just slowness) hung 'initializing' forever with zero feedback (found live — a real user got stuck on "Loading vision..." with no way out short of leaving the screen).
 // 'no-candidate': localizarCarta/perspective-warp found nothing at full res
 // (same honest "couldn't find it" case as before). 'rejected': a candidate
 // WAS found and warped, but Stage 1 (the real trained MTG/no-MTG
@@ -209,14 +210,34 @@ export function GuidedCapture({ camera, onCaptured }: GuidedCaptureProps) {
 
   useEffect(() => {
     let cancelled = false;
-    getOpenCv().then((cv) => {
-      if (cancelled) return;
-      cvRef.current = cv;
-      searchStartRef.current = Date.now();
-      setLoopState('searching');
-      setCvReady(true);
-    });
-    return () => { cancelled = true; };
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      if (!cancelled) setLoopState('vision-error');
+    }, VISION_LOAD_TIMEOUT_MS);
+
+    getOpenCv()
+      .then((cv) => {
+        if (cancelled || timedOut) return; // ya se mostró el error por timeout — no lo pises si igual termina resolviendo tarde
+        clearTimeout(timer);
+        cvRef.current = cv;
+        searchStartRef.current = Date.now();
+        setLoopState('searching');
+        setCvReady(true);
+      })
+      .catch((err) => {
+        // Real bug, found live: sin este catch, cualquier falla acá (no
+        // solo lentitud) dejaba "Loading vision..." pegado para siempre,
+        // sin ningún error visible ni forma de salir del estado.
+        console.error('[GuidedCapture] getOpenCv() failed:', err);
+        clearTimeout(timer);
+        if (!cancelled) setLoopState('vision-error');
+      });
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -302,6 +323,7 @@ export function GuidedCapture({ camera, onCaptured }: GuidedCaptureProps) {
           {loopState === 'rejected' && t('guided_capture_rejected')}
           {loopState === 'glare' && t('guided_capture_glare')}
           {loopState === 'captured' && t('guided_capture_captured')}
+          {loopState === 'vision-error' && t('guided_capture_vision_error')}
         </p>
       </div>
 
@@ -310,7 +332,7 @@ export function GuidedCapture({ camera, onCaptured }: GuidedCaptureProps) {
           size="small"
           fill="outline"
           className="mtg-btn"
-          disabled={loopState === 'initializing' || loopState === 'capturing'}
+          disabled={loopState === 'initializing' || loopState === 'capturing' || loopState === 'vision-error'}
           onClick={manualCapture}
           style={{ position: 'absolute', bottom: 40, left: '50%', transform: 'translateX(-50%)', pointerEvents: 'auto' }}
         >

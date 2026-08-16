@@ -153,6 +153,7 @@
   "detect_card_button": "Détecter la Carte",
   "detecting_in_progress": "Détection...",
   "guided_capture_initializing": "Chargement de la vision...",
+  "guided_capture_vision_error": "Impossible de charger le scanner — vérifiez votre connexion et rouvrez cet écran, ou utilisez la saisie manuelle.",
   "guided_capture_searching": "Recherche d'une carte...",
   "guided_capture_aligning": "Carte trouvée — tenez stable ({{percent}}%)",
   "guided_capture_capturing": "Capturée ! Lecture de la carte...",
