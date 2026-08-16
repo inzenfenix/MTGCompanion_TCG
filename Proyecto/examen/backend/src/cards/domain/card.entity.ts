@@ -28,3 +28,16 @@ export interface CardEntity {
   updatedAt: Date;
   photos: CardPhotoEntity[];
 }
+
+/**
+ * A CardEntity plus enough about its owner to render a Bazaar search result
+ * (E6 in ROADMAP.md) — who has it, and roughly how far away (if they've
+ * ever shared a location, see UserSettings.shareLocation). Distance itself
+ * is computed in CardsService, not here — this only carries the raw
+ * lat/lng an owner last reported, kept nullable/honest rather than faked.
+ */
+export interface CardListingEntity extends CardEntity {
+  ownerDisplayName: string;
+  ownerLat: number | null;
+  ownerLng: number | null;
+}

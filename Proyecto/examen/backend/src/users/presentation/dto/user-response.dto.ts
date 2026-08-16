@@ -10,5 +10,6 @@ export interface UserResponseDto {
     theme: string;
     twoFactorEnabled: boolean;
     notifyByEmail: boolean;
+    shareLocation: boolean;
   };
 }

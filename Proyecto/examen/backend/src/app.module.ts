@@ -12,6 +12,7 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { CardsModule } from './cards/cards.module';
 import { TransactionsModule } from './transactions/transactions.module';
+import { CatalogModule } from './catalog/catalog.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { TransactionsModule } from './transactions/transactions.module';
     AuthModule,
     CardsModule,
     TransactionsModule,
+    CatalogModule,
   ],
   controllers: [AppController],
   providers: [AppService],

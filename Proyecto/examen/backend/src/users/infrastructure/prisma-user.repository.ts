@@ -45,4 +45,20 @@ export class PrismaUserRepository implements UserRepository {
       data: { twoFactorSecret: data.secret, twoFactorEnabled: data.enabled },
     });
   }
+
+  async updateLocation(
+    userId: string,
+    lat: number,
+    lng: number,
+  ): Promise<void> {
+    await this.prisma.userSettings.update({
+      where: { userId },
+      data: {
+        shareLocation: true,
+        lastLat: lat,
+        lastLng: lng,
+        locationUpdatedAt: new Date(),
+      },
+    });
+  }
 }

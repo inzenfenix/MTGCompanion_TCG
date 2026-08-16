@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -28,11 +29,36 @@ export class CardsController {
     return this.cards.create(user.id, dto);
   }
 
-  // ?ownerId=... — public browse (marketplace: viewing anyone's listed
-  // cards doesn't require being logged in as them).
+  // Two modes on one resource, picked by which query params are present:
+  //   ?ownerId=...                 -> unchanged owner-scoped browse (Vault)
+  //   ?q=...|scryfallId=...        -> global Bazaar search (E6), optionally
+  //                                    ?lat=&lng= (searcher's own position,
+  //                                    for distanceKm) and
+  //                                    ?excludeOwnerId= (hide your own cards)
+  // Both are public — browsing anyone's listed cards, or the marketplace at
+  // large, doesn't require being logged in as them.
   @Get()
-  findAll(@Query('ownerId') ownerId: string) {
-    return this.cards.findAllForOwner(ownerId);
+  findAll(
+    @Query('ownerId') ownerId?: string,
+    @Query('q') q?: string,
+    @Query('scryfallId') scryfallId?: string,
+    @Query('excludeOwnerId') excludeOwnerId?: string,
+    @Query('lat') lat?: string,
+    @Query('lng') lng?: string,
+    @Query('limit') limit?: string,
+  ) {
+    if (ownerId) return this.cards.findAllForOwner(ownerId);
+    if (!q && !scryfallId) {
+      throw new BadRequestException('ownerId, q, or scryfallId is required');
+    }
+    return this.cards.searchListings({
+      q,
+      scryfallId,
+      excludeOwnerId,
+      limit: limit ? Number(limit) : undefined,
+      lat: lat ? Number(lat) : undefined,
+      lng: lng ? Number(lng) : undefined,
+    });
   }
 
   @Get(':id')

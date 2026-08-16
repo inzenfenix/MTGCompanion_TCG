@@ -3,9 +3,14 @@ import { PrismaService } from '../../prisma/prisma.service';
 import type {
   CardRepository,
   CreateCardData,
+  SearchListingsParams,
   UpdateCardData,
 } from '../domain/card.repository';
-import type { CardEntity, CardPhotoEntity } from '../domain/card.entity';
+import type {
+  CardEntity,
+  CardListingEntity,
+  CardPhotoEntity,
+} from '../domain/card.entity';
 import type { Card, CardPhoto } from '../../../generated/prisma';
 
 type CardWithPhotos = Card & { photos: CardPhoto[] };
@@ -50,6 +55,46 @@ export class PrismaCardRepository implements CardRepository {
 
   async delete(id: string): Promise<void> {
     await this.prisma.card.delete({ where: { id } });
+  }
+
+  // Only shareLocation:true owners' lat/lng ever surface here — a user who
+  // has never opted in (or hasn't yet) shows up with ownerLat/ownerLng both
+  // null, same as "no location on file" rather than defaulting to 0,0.
+  async searchListings(
+    params: SearchListingsParams,
+  ): Promise<CardListingEntity[]> {
+    const { q, scryfallId, excludeOwnerId, limit } = params;
+    const cards = await this.prisma.card.findMany({
+      where: {
+        ...(scryfallId ? { scryfallId } : {}),
+        ...(q ? { title: { contains: q, mode: 'insensitive' } } : {}),
+        ...(excludeOwnerId ? { ownerId: { not: excludeOwnerId } } : {}),
+      },
+      include: {
+        owner: {
+          select: {
+            displayName: true,
+            settings: {
+              select: { lastLat: true, lastLng: true, shareLocation: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+
+    return cards.map(({ owner, ...card }) => {
+      const shares = owner.settings?.shareLocation ?? false;
+      return {
+        ...card,
+        guessedPrice: Number(card.guessedPrice),
+        photos: [],
+        ownerDisplayName: owner.displayName,
+        ownerLat: shares ? (owner.settings?.lastLat ?? null) : null,
+        ownerLng: shares ? (owner.settings?.lastLng ?? null) : null,
+      };
+    });
   }
 
   async addPhoto(

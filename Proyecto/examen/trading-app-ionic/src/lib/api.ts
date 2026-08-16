@@ -92,6 +92,7 @@ export type UserSettings = {
   theme: string;
   twoFactorEnabled: boolean;
   notifyByEmail: boolean;
+  shareLocation: boolean;
 };
 
 export type User = {
@@ -171,6 +172,70 @@ export function createCard(input: CreateCardInput): Promise<Card> {
 
 export function listCards(ownerId: string): Promise<Card[]> {
   return request<Card[]>(`/cards?ownerId=${encodeURIComponent(ownerId)}`);
+}
+
+// ── Bazaar search (E6/F6, ROADMAP.md) ─────────────────────────────────────
+// Two backend resources feed the Bazaar: the real ~58k-row Scryfall catalog
+// (searchCatalog, always available, works even for cards nobody owns yet)
+// and real live listings across every user's Vault (searchCardListings,
+// GET /cards' global-search mode — see cards.controller.ts).
+
+export type CardListing = Card & {
+  ownerDisplayName: string;
+  /** null when either side hasn't shared a location, or the searcher didn't pass lat/lng — never faked. */
+  distanceKm: number | null;
+};
+
+export type SearchListingsParams = {
+  q?: string;
+  scryfallId?: string;
+  excludeOwnerId?: string;
+  lat?: number;
+  lng?: number;
+  limit?: number;
+};
+
+export function searchCardListings(
+  params: SearchListingsParams,
+): Promise<CardListing[]> {
+  const qs = new URLSearchParams();
+  if (params.q) qs.set('q', params.q);
+  if (params.scryfallId) qs.set('scryfallId', params.scryfallId);
+  if (params.excludeOwnerId) qs.set('excludeOwnerId', params.excludeOwnerId);
+  if (params.lat !== undefined) qs.set('lat', String(params.lat));
+  if (params.lng !== undefined) qs.set('lng', String(params.lng));
+  if (params.limit !== undefined) qs.set('limit', String(params.limit));
+  return request<CardListing[]>(`/cards?${qs.toString()}`);
+}
+
+export type CatalogEntry = {
+  id: string;
+  name: string;
+  setCode: string;
+  setName: string;
+  rarity: string | null;
+  typeLine: string | null;
+  manaCost: string | null;
+  cmc: number | null;
+  colors: string[];
+  oracleText: string | null;
+  imageUrl: string | null;
+  edhrecRank: number | null;
+};
+
+export function searchCatalog(q: string, limit = 10): Promise<CatalogEntry[]> {
+  const qs = new URLSearchParams({ q, limit: String(limit) });
+  return request<CatalogEntry[]>(`/catalog/search?${qs.toString()}`);
+}
+
+// Sending this at all is the consent — see users.controller.ts's doc
+// comment. Only called after the browser's own geolocation permission
+// prompt has already succeeded.
+export function updateMyLocation(lat: number, lng: number): Promise<User> {
+  return request<User>('/users/me/location', {
+    method: 'PATCH',
+    body: JSON.stringify({ lat, lng }),
+  });
 }
 
 export function getCard(id: string): Promise<Card> {

@@ -20,5 +20,12 @@ export interface UserEntity {
     // UserResponseDto/toResponseDto(), same boundary rule as passwordHash.
     twoFactorSecret: string | null;
     notifyByEmail: boolean;
+    // Bazaar distance (E6/F6, ROADMAP.md) — see PATCH /users/me/location.
+    // shareLocation false means lastLat/lastLng are stale/unused even if
+    // still set from a previous opt-in; callers must check the flag, not
+    // just null-check the coordinates.
+    shareLocation: boolean;
+    lastLat: number | null;
+    lastLng: number | null;
   } | null;
 }

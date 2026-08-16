@@ -54,6 +54,16 @@ model UserSettings {
 
   notifyByEmail Boolean @default(true)
 
+  // Bazaar "how far are they" distance (see TabSearch.tsx / F6-E6 in
+  // ROADMAP.md). Calling PATCH /users/me/location *is* the consent — there's
+  // no separate on/off toggle in the UI, same as a dating-app-style
+  // location prompt. lastLat/lastLng are null (shareLocation false) until
+  // the user grants browser geolocation and it round-trips once.
+  shareLocation     Boolean   @default(false)
+  lastLat           Float?
+  lastLng           Float?
+  locationUpdatedAt DateTime?
+
   @@map("user_settings")
 }
 
@@ -136,6 +146,41 @@ model CardPhoto {
 
   @@index([cardId])
   @@map("card_photos")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Catalog (F6 — read-only Scryfall metadata, imported in bulk by
+// `prisma/import-catalog.ts` from certamen_1/data/cards.json, NOT the same
+// thing as Card above. Card is a physical card a user owns/lists; this is
+// the full ~58k-row reference catalog the Bazaar search (E6) matches
+// against so it can suggest real card names even for cards nobody has
+// listed yet. Never written to by the app itself, only by the import
+// script — no relation to Card on purpose, same "don't duplicate the
+// catalog into owned rows" reasoning already documented on Card above.
+// ─────────────────────────────────────────────────────────────────────────
+
+model CatalogCard {
+  // Scryfall's own per-printing UUID (`cards.json`'s "id") — one row per
+  // printing, not per card name, matching how the ML pipeline's own
+  // catalog/embedding-index is keyed.
+  id String @id
+
+  name       String
+  setCode    String
+  setName    String
+  rarity     String?
+  typeLine   String?
+  manaCost   String?
+  cmc        Float?
+  colors     String[]
+  oracleText String? @db.Text
+  imageUrl   String?
+  edhrecRank Int?
+
+  createdAt DateTime @default(now())
+
+  @@index([name])
+  @@map("catalog_cards")
 }
 
 // ─────────────────────────────────────────────────────────────────────────

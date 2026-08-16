@@ -1,5 +1,9 @@
 import type { CardCondition } from '../../../generated/prisma';
-import type { CardEntity, CardPhotoEntity } from './card.entity';
+import type {
+  CardEntity,
+  CardListingEntity,
+  CardPhotoEntity,
+} from './card.entity';
 
 export interface CreateCardData {
   ownerId: string;
@@ -15,6 +19,14 @@ export interface CreateCardData {
 
 export type UpdateCardData = Partial<Omit<CreateCardData, 'ownerId'>>;
 
+/** Bazaar search params (E6) — at least one of `q`/`scryfallId` is required, enforced in CardsService. */
+export interface SearchListingsParams {
+  q?: string;
+  scryfallId?: string;
+  excludeOwnerId?: string;
+  limit: number;
+}
+
 /**
  * Port for card persistence. CardsService (application layer) only knows
  * this interface — PrismaCardRepository is the sole implementation today,
@@ -26,6 +38,9 @@ export interface CardRepository {
   findById(id: string): Promise<CardEntity | null>;
   update(id: string, data: UpdateCardData): Promise<CardEntity>;
   delete(id: string): Promise<void>;
+
+  /** Global (not owner-scoped) search across every listed card, for the Bazaar. */
+  searchListings(params: SearchListingsParams): Promise<CardListingEntity[]>;
 
   addPhoto(
     cardId: string,

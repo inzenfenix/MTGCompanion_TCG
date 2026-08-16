@@ -186,6 +186,35 @@ export class UsersService {
     return checkTotpCode(secret, code);
   }
 
+  /**
+   * Bazaar distance (E6/F6, ROADMAP.md). Calling this endpoint at all is the
+   * consent — there's no separate "share my location" toggle, same pattern
+   * a dating-app-style location prompt uses. Raw lat/lng never leave this
+   * boundary via UserResponseDto (see toResponseDto below); only
+   * CardsService's searchListings() ever reads them back out, and only to
+   * compute a distance, never to return the coordinates themselves.
+   */
+  async updateLocation(
+    userId: string,
+    lat: number,
+    lng: number,
+  ): Promise<UserResponseDto> {
+    if (
+      Number.isNaN(lat) ||
+      Number.isNaN(lng) ||
+      lat < -90 ||
+      lat > 90 ||
+      lng < -180 ||
+      lng > 180
+    ) {
+      throw new BadRequestException('Invalid lat/lng');
+    }
+    await this.users.updateLocation(userId, lat, lng);
+    const user = await this.users.findById(userId);
+    if (!user) throw new BadRequestException('User not found');
+    return this.toResponseDto(user);
+  }
+
   private toResponseDto(user: UserEntity): UserResponseDto {
     return {
       id: user.id,
@@ -198,6 +227,7 @@ export class UsersService {
         theme: user.settings?.theme ?? 'dark',
         twoFactorEnabled: user.settings?.twoFactorEnabled ?? false,
         notifyByEmail: user.settings?.notifyByEmail ?? true,
+        shareLocation: user.settings?.shareLocation ?? false,
       },
     };
   }

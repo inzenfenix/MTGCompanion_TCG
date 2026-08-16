@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -11,6 +12,36 @@ import {
 } from '../domain/card.repository';
 import type { CreateCardDto } from '../presentation/dto/create-card.dto';
 import type { UpdateCardDto } from '../presentation/dto/update-card.dto';
+
+const SEARCH_DEFAULT_LIMIT = 30;
+const SEARCH_MAX_LIMIT = 50;
+const EARTH_RADIUS_KM = 6371;
+
+/** Great-circle distance between two lat/lng points, in km. Standard haversine — no external geo lib needed for this. */
+function haversineKm(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+export interface SearchListingsInput {
+  q?: string;
+  scryfallId?: string;
+  excludeOwnerId?: string;
+  limit?: number;
+  /** Searcher's own current position (browser geolocation) — omit to get listings with no distanceKm. */
+  lat?: number;
+  lng?: number;
+}
 
 @Injectable()
 export class CardsService {
@@ -25,6 +56,34 @@ export class CardsService {
 
   findAllForOwner(ownerId: string) {
     return this.cards.findAllByOwner(ownerId);
+  }
+
+  /** Bazaar search (E6, ROADMAP.md) — global, not owner-scoped. Requires q or scryfallId so it can't degrade into "list every card ever listed". */
+  async searchListings(input: SearchListingsInput) {
+    const { q, scryfallId, excludeOwnerId, limit, lat, lng } = input;
+    if (!q?.trim() && !scryfallId) {
+      throw new BadRequestException('q or scryfallId is required');
+    }
+    const clampedLimit = Math.min(
+      Math.max(limit ?? SEARCH_DEFAULT_LIMIT, 1),
+      SEARCH_MAX_LIMIT,
+    );
+    const listings = await this.cards.searchListings({
+      q: q?.trim(),
+      scryfallId,
+      excludeOwnerId,
+      limit: clampedLimit,
+    });
+
+    const hasSearcherPosition = lat !== undefined && lng !== undefined;
+    return listings.map((listing) => {
+      const { ownerLat, ownerLng, ...rest } = listing;
+      const distanceKm =
+        hasSearcherPosition && ownerLat !== null && ownerLng !== null
+          ? haversineKm(lat, lng, ownerLat, ownerLng)
+          : null;
+      return { ...rest, distanceKm };
+    });
   }
 
   async findOne(id: string) {

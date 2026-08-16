@@ -23,6 +23,8 @@ export interface UserRepository {
   findById(id: string): Promise<UserEntity | null>;
   create(data: CreateUserData): Promise<UserEntity>;
   updateTwoFactor(userId: string, data: TwoFactorUpdate): Promise<void>;
+  /** Calling this at all is the consent — see UserSettings.shareLocation's doc comment in schema.prisma. */
+  updateLocation(userId: string, lat: number, lng: number): Promise<void>;
 }
 
 export const USER_REPOSITORY = Symbol('USER_REPOSITORY');
