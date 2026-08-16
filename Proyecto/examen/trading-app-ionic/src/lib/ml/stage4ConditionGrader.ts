@@ -20,7 +20,16 @@
  * has no combined-checkpoint equivalent yet (ROADMAP.md item C6), so there's
  * no `stage4-condition-grader` TF export to point this at even if a
  * `VITE_STAGE4_TF_MODEL_URL` variant were added later.
+ *
+ * ROADMAP.md G4e (sleeve follow-up, layer 3): grading condition through an
+ * OPAQUE sleeve is physically impossible — the surface is occluded, no
+ * amount of training data fixes that. Run `detectarFundaOpaca()` on the
+ * capture BEFORE inference; on a suspicious result, return
+ * `'likely-no-card-content'` instead of a confident-looking wrong grade —
+ * see `cardLocalizer.ts` for the heuristic and its real-photo validation.
  */
+
+import { detectarFundaOpaca, getOpenCv, matFromRgba } from '../cv/cardLocalizer';
 
 type OrtModule = typeof import('onnxruntime-web');
 
@@ -49,6 +58,10 @@ export type Stage4Result = {
 export type Stage4Status =
   | { status: 'unavailable' } // no model file at STAGE4_MODEL_URL
   | { status: 'error'; message: string }
+  // `detectarFundaOpaca()` flagged the capture before inference even ran —
+  // no visible card structure (opaque sleeve, its colored back facing the
+  // camera, or a blank/miscropped photo — see cardLocalizer.ts).
+  | { status: 'likely-no-card-content' }
   | { status: 'ok'; result: Stage4Result };
 
 let sessionPromise: Promise<import('onnxruntime-web').InferenceSession | null> | null = null;
@@ -98,6 +111,21 @@ function softmax(logits: ArrayLike<number>): number[] {
 
 export async function runStage4ConditionGrading(canvas: HTMLCanvasElement): Promise<Stage4Status> {
   try {
+    // Guard runs before the (more expensive, and misleading if the surface
+    // is occluded) grading inference — see the module header. Fails open on
+    // any infra hiccup (no 2D context) rather than blocking a real capture.
+    const guardCtx = canvas.getContext('2d');
+    if (guardCtx) {
+      const cv = await getOpenCv();
+      const imageData = guardCtx.getImageData(0, 0, canvas.width, canvas.height);
+      const mat = matFromRgba(cv, imageData.data, imageData.width, imageData.height);
+      try {
+        if (detectarFundaOpaca(cv, mat).suspicious) return { status: 'likely-no-card-content' };
+      } finally {
+        mat.delete();
+      }
+    }
+
     const session = await getSession();
     if (!session) return { status: 'unavailable' };
 

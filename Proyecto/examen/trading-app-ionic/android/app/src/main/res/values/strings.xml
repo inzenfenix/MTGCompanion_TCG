@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MTG Companion</string>
+    <string name="title_activity_main">MTG Companion</string>
+    <string name="package_name">com.udd.mtgcompanion</string>
+    <string name="custom_url_scheme">com.udd.mtgcompanion</string>
+</resources>

@@ -12,9 +12,18 @@ No reemplaza fotos reales — es para tener algo entrenable hoy y medir si el
 enfoque (transfer learning sobre el mismo backbone que las otras etapas)
 funciona en absoluto, antes de invertir en conseguir/etiquetar fotos reales.
 
+`--con-fundas` (opt-in, default apagado para no romper la reproducibilidad
+de corridas existentes) agrega, por cada imagen grado×carta ya generada, dos
+variantes más pasadas por `synthetic_sleeve.py` (`clear` y `colored`) — ver
+ROADMAP.md G4e (follow-up de fundas). Casi ningún usuario real escanea una
+carta desnuda; sin esto el dataset de Stage 4 nunca vio un ejemplo enfundado.
+Triplica el volumen generado (mismo card_id, sigue agrupado correctamente
+por `split_por_carta()` en el training script — no es una fuga nueva).
+
 Uso:
     python prepare_condition_dataset.py                # 500 cartas de muestra
     python prepare_condition_dataset.py --n 100          # muestra chica, iterar rápido
+    python prepare_condition_dataset.py --con-fundas     # + variantes clear/colored por imagen
 """
 
 import argparse
@@ -30,6 +39,7 @@ import cv2
 import requests
 
 from card_preprocessing import normalizar_carta
+from synthetic_sleeve import TIPOS as TIPOS_FUNDA, aplicar_funda
 from synthetic_wear import aplicar_desgaste, GRADOS
 
 CERTAMEN2_DIR = pathlib.Path(__file__).resolve().parent
@@ -65,6 +75,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Genera el dataset sintético NM/LP/MP/HP/DMG para Stage 4.")
     parser.add_argument("--n", type=int, default=500, help="Cantidad de cartas base a muestrear (default: 500)")
     parser.add_argument("--seed", type=int, default=SEED)
+    parser.add_argument(
+        "--con-fundas", action="store_true",
+        help="Agrega variantes clear/colored (synthetic_sleeve.py) por cada imagen grado×carta (ROADMAP G4e).",
+    )
     args = parser.parse_args()
 
     if not CARDS_JSON.exists():
@@ -75,9 +89,14 @@ def main() -> None:
         cards = json.load(f)
     candidatas = [c for c in cards if c.get("image_url")]
 
+    variantes_funda = ["ninguna"] + TIPOS_FUNDA if args.con_fundas else ["ninguna"]
     rng = random.Random(args.seed)
     muestra = rng.sample(candidatas, min(args.n, len(candidatas)))
-    print(f"Cartas base: {len(muestra):,}  ×  {len(GRADOS)} grados = {len(muestra) * len(GRADOS):,} imágenes")
+    print(
+        f"Cartas base: {len(muestra):,}  ×  {len(GRADOS)} grados"
+        + (f"  ×  {len(variantes_funda)} variantes de funda" if args.con_fundas else "")
+        + f" = {len(muestra) * len(GRADOS) * len(variantes_funda):,} imágenes"
+    )
 
     session = requests.Session()
     for grado in GRADOS:
@@ -105,9 +124,20 @@ def main() -> None:
         for grado in GRADOS:
             seed_variante = hash((card["id"], grado)) % (2**31)
             desgastada = aplicar_desgaste(carta, grado, seed=seed_variante)
-            destino = DATASET_DIR / grado / f"{card['id']}.jpg"
-            cv2.imwrite(str(destino), desgastada)
-            filas_index.append({"card_id": card["id"], "name": card["name"], "grado": grado, "path": str(destino)})
+
+            for funda in variantes_funda:
+                if funda == "ninguna":
+                    final = desgastada
+                    sufijo = ""
+                else:
+                    seed_funda = hash((card["id"], grado, funda)) % (2**31)
+                    final = aplicar_funda(desgastada, tipo=funda, seed=seed_funda)
+                    sufijo = f"_{funda}"
+                destino = DATASET_DIR / grado / f"{card['id']}{sufijo}.jpg"
+                cv2.imwrite(str(destino), final)
+                filas_index.append({
+                    "card_id": card["id"], "name": card["name"], "grado": grado, "funda": funda, "path": str(destino),
+                })
 
         ok += 1
         if (i + 1) % 100 == 0:
@@ -115,12 +145,12 @@ def main() -> None:
 
     index_path = DATASET_DIR / "index.csv"
     with open(index_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["card_id", "name", "grado", "path"])
+        writer = csv.DictWriter(f, fieldnames=["card_id", "name", "grado", "funda", "path"])
         writer.writeheader()
         writer.writerows(filas_index)
 
     print(f"\nCartas procesadas: {ok:,}  |  saltadas: {saltadas:,}")
-    print(f"Total de imágenes generadas: {len(filas_index):,}  ({ok:,} × {len(GRADOS)} grados)")
+    print(f"Total de imágenes generadas: {len(filas_index):,}  ({ok:,} × {len(GRADOS)} grados × {len(variantes_funda)} variantes de funda)")
     print(f"Dataset: {DATASET_DIR}")
     print(f"Índice : {index_path}")
 

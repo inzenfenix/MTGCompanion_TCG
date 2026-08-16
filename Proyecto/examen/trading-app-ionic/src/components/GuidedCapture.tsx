@@ -34,8 +34,8 @@ import { scanOutline, refreshOutline } from 'ionicons/icons';
 import { useTranslation } from 'react-i18next';
 import type { useLiveCamera } from '../lib/camera/useLiveCamera';
 import {
-  CANONICAL_HEIGHT, CANONICAL_WIDTH, corregirPerspectiva, getOpenCv, localizarCarta, matFromRgba,
-  type Corners, type OpenCvModule,
+  CANONICAL_HEIGHT, CANONICAL_WIDTH, corregirPerspectiva, detectarBrilloEspecular, getOpenCv, localizarCarta,
+  matFromRgba, type Corners, type OpenCvModule,
 } from '../lib/cv/cardLocalizer';
 import { computeSampleSize, mapNativeToDisplay, scalePoint, type Size } from '../lib/cv/frameGeometry';
 
@@ -49,15 +49,20 @@ const SEARCH_TIMEOUT_MS = 7000;
 // false-positive) re-triangulates, and the user would never actually see it.
 const REJECTED_COOLDOWN_MS = 2000;
 
-type LoopState = 'initializing' | 'searching' | 'aligning' | 'capturing' | 'timeout' | 'rejected' | 'captured';
+type LoopState = 'initializing' | 'searching' | 'aligning' | 'capturing' | 'timeout' | 'rejected' | 'glare' | 'captured';
 // 'no-candidate': localizarCarta/perspective-warp found nothing at full res
 // (same honest "couldn't find it" case as before). 'rejected': a candidate
 // WAS found and warped, but Stage 1 (the real trained MTG/no-MTG
 // classifier, run by the caller) confidently says it isn't a card — see
 // ROADMAP.md G4c's face-false-positive writeup. The geometric/color-only
 // localizer alone can't tell a face from a card; this is the real content
-// check gating the capture, not just the heuristic.
-type CaptureOutcome = 'captured' | 'no-candidate' | 'rejected';
+// check gating the capture, not just the heuristic. 'glare': a candidate WAS
+// found and warped, but `detectarBrilloEspecular` flagged a large specular
+// highlight (sleeve-glare follow-up) — checked BEFORE Stage 1 so a glary
+// capture never wastes an inference call on data we already know is
+// compromised, and gets its own actionable message instead of a generic
+// "not a card" one.
+type CaptureOutcome = 'captured' | 'no-candidate' | 'rejected' | 'glare';
 
 export type GuidedCaptureProps = {
   camera: ReturnType<typeof useLiveCamera>;
@@ -143,6 +148,14 @@ export function GuidedCapture({ camera, onCaptured }: GuidedCaptureProps) {
       if (!result) return 'no-candidate';
       const warped = corregirPerspectiva(cv, mat, result.corners, CANONICAL_WIDTH, CANONICAL_HEIGHT);
       try {
+        // Checked before Stage 1: a glary capture is already known-bad data
+        // (OCR/embedding/condition-grading all degrade under a specular
+        // highlight), so there's no point spending a Stage 1 inference call
+        // on it — and "glare detected" is a more actionable message than
+        // whatever Stage 1 would say about a partially-washed-out card.
+        const glare = detectarBrilloEspecular(cv, warped);
+        if (glare.hasGlare) return 'glare';
+
         const outCanvas = document.createElement('canvas');
         outCanvas.width = CANONICAL_WIDTH;
         outCanvas.height = CANONICAL_HEIGHT;
@@ -172,8 +185,8 @@ export function GuidedCapture({ camera, onCaptured }: GuidedCaptureProps) {
     if (outcome === 'captured') {
       armedRef.current = false;
       setLoopState('captured');
-    } else if (outcome === 'rejected') {
-      setLoopState('rejected');
+    } else if (outcome === 'rejected' || outcome === 'glare') {
+      setLoopState(outcome);
       rejectedUntilRef.current = Date.now() + REJECTED_COOLDOWN_MS;
       searchStartRef.current = Date.now();
     } else {
@@ -248,8 +261,8 @@ export function GuidedCapture({ camera, onCaptured }: GuidedCaptureProps) {
           if (outcome === 'captured') {
             armedRef.current = false;
             setLoopState('captured');
-          } else if (outcome === 'rejected') {
-            setLoopState('rejected');
+          } else if (outcome === 'rejected' || outcome === 'glare') {
+            setLoopState(outcome);
             rejectedUntilRef.current = now + REJECTED_COOLDOWN_MS;
             searchStartRef.current = now;
           } else {
@@ -287,6 +300,7 @@ export function GuidedCapture({ camera, onCaptured }: GuidedCaptureProps) {
           {loopState === 'capturing' && t('guided_capture_capturing')}
           {loopState === 'timeout' && t('guided_capture_timeout')}
           {loopState === 'rejected' && t('guided_capture_rejected')}
+          {loopState === 'glare' && t('guided_capture_glare')}
           {loopState === 'captured' && t('guided_capture_captured')}
         </p>
       </div>

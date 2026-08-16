@@ -358,6 +358,10 @@ export const SCRIPTS: ScriptDef[] = [
     args: [
       { flag: '--n', name: 'n', kind: 'number', label: 'Cartas base a muestrear', default: 500 },
       { flag: '--seed', name: 'seed', kind: 'number', label: 'Seed', default: 42 },
+      // ROADMAP.md G4e (sleeve follow-up) — triplica el dataset con variantes
+      // clear/colored (synthetic_sleeve.py). Default false: no cambiar el
+      // comportamiento/reproducibilidad de corridas existentes ni de "Correr todo".
+      { flag: '--con-fundas', name: 'con_fundas', kind: 'boolean', label: 'Incluir variantes con funda (clear/colored)', default: false },
     ],
   },
 

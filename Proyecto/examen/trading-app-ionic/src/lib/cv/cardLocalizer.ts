@@ -1,12 +1,14 @@
 /**
- * ROADMAP.md G4c — OpenCV.js port of `certamen_2/card_preprocessing.py`'s
+ * ROADMAP.md G4c/G4e — OpenCV.js port of `certamen_2/card_preprocessing.py`'s
  * `localizar_carta()`/`corregir_perspectiva()`. Same algorithm, not an
- * approximation: saturation-Otsu + brightness-Otsu candidate masks, largest
+ * approximation: saturation-Otsu + brightness-Otsu candidate masks, every
  * contour per mask scored by how close its aspect ratio is to a real MTG
- * card (0.18 tolerance), best-scoring candidate wins — see that module's
- * own docstring for why two independent segmentation strategies instead of
- * one (measured on the real 122-photo set: brightness alone 30.3%,
- * saturation alone 100%).
+ * card (0.18 tolerance), any candidate contained inside a larger candidate
+ * discarded (G4e — prefer the outermost qualifying contour, rules out
+ * latching onto an interior text box/art panel), best-scoring survivor wins
+ * — see that module's own docstring for why two independent segmentation
+ * strategies instead of one (measured on the real 122-photo set: brightness
+ * alone 30.3%, saturation alone 100%).
  *
  * Runs on `@techstark/opencv-js` (WASM), which works in both the browser
  * and Node — this module's own `.test.ts` verifies it against real photos
@@ -40,6 +42,31 @@ export const TOLERANCIA_ASPECT_RATIO = 0.18;
 export const AREA_MINIMA_FRACCION = 0.15;
 export const CANONICAL_WIDTH = 750;
 export const CANONICAL_HEIGHT = 1050;
+
+// Sleeve follow-up (ROADMAP.md G4e) — "specular highlight" threshold: very
+// high value (near-white/blown-out) + very low saturation (near-colorless)
+// at once is the classic signature of a light reflection off a glossy
+// surface — exactly what a clear plastic sleeve adds that a bare (matte)
+// card doesn't produce. NOT measured against real sleeved photos (the
+// 122-photo G4b/G4c dataset has none) — reasonable starting thresholds, not
+// tuned; see `detectar_brillo_especular()`'s docstring in card_preprocessing.py.
+export const BRILLO_ESPECULAR_VALUE_MIN = 235; // 0-255, HSV V channel
+export const BRILLO_ESPECULAR_SAT_MAX = 25; // 0-255, HSV S channel
+export const BRILLO_ESPECULAR_FRACCION_AVISO = 0.03; // >= 3% of the card area -> flag it
+
+// Sleeve follow-up, layer 3 — "no recognizable card content" guard: a real
+// MTG card, even NM, always has strong structural edges (black frame, text
+// box, art panel, mana symbols) and real color variation. An opaque sleeve
+// back (or its colored back facing the camera) has neither — just a
+// near-uniform color blob. Not a sleeve DETECTOR (can't tell "opaque
+// sleeve" from "blurry/miscropped photo" with this alone) — the honest
+// framing is "no card content to grade," whatever the cause. Validated (16
+// ago) against the 122 real (unsleeved) photos from the G4b/G4c dataset via
+// card_preprocessing.py::detectar_funda_opaca() — 0 false positives, wide
+// margin (min edge fraction 0.034 vs. this 0.02 threshold, min std 41.3 vs.
+// this 15 threshold).
+export const FUNDA_OPACA_EDGE_FRACCION_MAX = 0.02;
+export const FUNDA_OPACA_STD_MAX = 15;
 
 // Lazy dynamic import + module-level cache, same reasoning as every other
 // heavy client-side runtime in this app (onnxruntime-web, tesseract.js).
@@ -123,37 +150,75 @@ export function mascaraBrillo(cv: OpenCvModule, rgba: InstanceType<OpenCvModule[
   }
 }
 
-type Candidate = { rect: InstanceType<OpenCvModule['RotatedRect']>; score: number };
+type Candidate = { rect: InstanceType<OpenCvModule['RotatedRect']>; score: number; area: number };
 
-/** `_mejor_candidato()` — largest contour in `mask` scored by aspect-ratio closeness, or null. Does NOT delete `mask` (caller's responsibility). */
-export function mejorCandidato(cv: OpenCvModule, mask: InstanceType<OpenCvModule['Mat']>, areaImg: number): Candidate | null {
+/**
+ * `_candidatos_validos()` — every contour in `mask` (not just the largest)
+ * that passes the area/aspect-ratio filters. Evaluating all of them, not
+ * only the biggest, is what lets `discardContained()` below catch "the
+ * mask's largest contour is actually a sub-region inside the real card" —
+ * with a single candidate per mask there's nothing to compare it against.
+ * Does NOT delete `mask` (caller's responsibility).
+ */
+function candidatosValidos(cv: OpenCvModule, mask: InstanceType<OpenCvModule['Mat']>, areaImg: number): Candidate[] {
   const contours = new cv.MatVector();
   const hierarchy = new cv.Mat();
   try {
     cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-    if (contours.size() === 0) return null;
-
-    let bestIdx = -1;
-    let bestArea = -1;
+    const candidates: Candidate[] = [];
     for (let i = 0; i < contours.size(); i++) {
-      const area = cv.contourArea(contours.get(i));
-      if (area > bestArea) { bestArea = area; bestIdx = i; }
+      const contour = contours.get(i);
+      const area = cv.contourArea(contour);
+      if (area < AREA_MINIMA_FRACCION * areaImg) continue;
+
+      const rect = cv.minAreaRect(contour);
+      const { width, height } = rect.size;
+      if (width === 0 || height === 0) continue;
+
+      const ratio = Math.min(width, height) / Math.max(width, height);
+      const diff = Math.abs(ratio - ASPECT_RATIO_CARTA);
+      if (diff > TOLERANCIA_ASPECT_RATIO) continue;
+
+      candidates.push({ rect, score: diff, area });
     }
-    if (bestIdx < 0 || bestArea < AREA_MINIMA_FRACCION * areaImg) return null;
-
-    const rect = cv.minAreaRect(contours.get(bestIdx));
-    const { width, height } = rect.size;
-    if (width === 0 || height === 0) return null;
-
-    const ratio = Math.min(width, height) / Math.max(width, height);
-    const diff = Math.abs(ratio - ASPECT_RATIO_CARTA);
-    if (diff > TOLERANCIA_ASPECT_RATIO) return null;
-
-    return { rect, score: diff };
+    return candidates;
   } finally {
     contours.delete();
     hierarchy.delete();
   }
+}
+
+/** True if every corner of `inner` (`cv.boxPoints` output) falls inside (or on the border of) `outer`. */
+function rectContained(cv: OpenCvModule, inner: Point[], outer: Point[]): boolean {
+  const outerContour = cv.matFromArray(outer.length, 1, cv.CV_32FC2, outer.flatMap((p) => [p.x, p.y]));
+  try {
+    return inner.every((p) => cv.pointPolygonTest(outerContour, new cv.Point(p.x, p.y), false) >= 0);
+  } finally {
+    outerContour.delete();
+  }
+}
+
+/**
+ * `_descartar_contenidos()` — drops any candidate whose rect is fully
+ * contained inside another, larger candidate (same mask or the other one) —
+ * prefers the OUTERMOST qualifying contour instead of accepting any contour
+ * that happens to pass the aspect-ratio filter. Targets the "an interior
+ * text box or art panel coincidentally shares an MTG card's aspect ratio"
+ * false positive (ROADMAP.md G4e) without reintroducing the area/solidity/
+ * extent filters `card_preprocessing.py` already documents as tried and
+ * rejected for the no-background-render case — this is a relationship
+ * BETWEEN two candidates (geometric containment), not an intrinsic property
+ * of a single contour, so it's a different mechanism.
+ */
+function discardContained(cv: OpenCvModule, candidates: Candidate[]): Candidate[] {
+  return candidates.filter((candidate, i) => {
+    const points = cv.boxPoints(candidate.rect);
+    const contained = candidates.some((other, j) => {
+      if (j === i || other.area <= candidate.area) return false;
+      return rectContained(cv, points, cv.boxPoints(other.rect));
+    });
+    return !contained;
+  });
 }
 
 /** `_ordenar_esquinas()` — orders 4 points as (top-left, top-right, bottom-right, bottom-left). */
@@ -168,20 +233,22 @@ export function ordenarEsquinas(points: Point[]): Corners {
 }
 
 /**
- * `localizar_carta()` — tries both segmentation strategies, keeps whichever
- * candidate's aspect ratio is closest to a real MTG card. Returns null if
- * neither strategy finds a confident rectangle. Caller does NOT need to
- * delete anything — this function owns and cleans up all its own Mats.
+ * `localizar_carta()` — tries both segmentation strategies, collects every
+ * contour from each that passes the area/aspect-ratio filter
+ * (`candidatosValidos`), discards any contained inside a larger candidate
+ * (`discardContained`, G4e), then keeps whichever survivor's aspect ratio is
+ * closest to a real MTG card. Returns null if nothing survives. Caller does
+ * NOT need to delete anything — this function owns and cleans up all its
+ * own Mats.
  */
 export function localizarCarta(cv: OpenCvModule, rgba: InstanceType<OpenCvModule['Mat']>): LocalizationResult | null {
   const areaImg = rgba.rows * rgba.cols;
   const masks = [mascaraSaturacion(cv, rgba), mascaraBrillo(cv, rgba)];
   try {
-    const candidates: Candidate[] = [];
-    for (const mask of masks) {
-      const candidate = mejorCandidato(cv, mask, areaImg);
-      if (candidate) candidates.push(candidate);
-    }
+    const candidates = discardContained(
+      cv,
+      masks.flatMap((mask) => candidatosValidos(cv, mask, areaImg)),
+    );
     if (candidates.length === 0) return null;
 
     const best = candidates.reduce((a, b) => (b.score < a.score ? b : a));
@@ -209,5 +276,70 @@ export function corregirPerspectiva(
     return warped;
   } finally {
     srcTri.delete(); dstTri.delete(); transform.delete();
+  }
+}
+
+export type GlareResult = { hasGlare: boolean; fraction: number };
+
+/**
+ * `detectar_brillo_especular()` — glare/specular-highlight detection. Meant
+ * to run on the already-warped canonical card (`corregirPerspectiva`'s
+ * output), not the raw background photo — see the Python docstring for the
+ * full rationale. Same not-tuned-against-real-sleeved-photos caveat applies
+ * here (see the constants above).
+ */
+export function detectarBrilloEspecular(
+  cv: OpenCvModule,
+  rgba: InstanceType<OpenCvModule['Mat']>,
+  valueMin = BRILLO_ESPECULAR_VALUE_MIN,
+  satMax = BRILLO_ESPECULAR_SAT_MAX,
+  fraccionAviso = BRILLO_ESPECULAR_FRACCION_AVISO,
+): GlareResult {
+  const rgb = new cv.Mat();
+  const hsv = new cv.Mat();
+  const mask = new cv.Mat();
+  let lower: InstanceType<OpenCvModule['Mat']> | null = null;
+  let upper: InstanceType<OpenCvModule['Mat']> | null = null;
+  try {
+    cv.cvtColor(rgba, rgb, cv.COLOR_RGBA2RGB);
+    cv.cvtColor(rgb, hsv, cv.COLOR_RGB2HSV);
+    lower = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(0, 0, valueMin, 0));
+    upper = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(179, satMax, 255, 255));
+    cv.inRange(hsv, lower, upper, mask);
+    const fraction = cv.countNonZero(mask) / (mask.rows * mask.cols);
+    return { hasGlare: fraction >= fraccionAviso, fraction };
+  } finally {
+    rgb.delete(); hsv.delete(); mask.delete();
+    lower?.delete(); upper?.delete();
+  }
+}
+
+export type OpaqueSleeveResult = { suspicious: boolean; edgeFraction: number; std: number };
+
+/**
+ * `detectar_funda_opaca()` — "no recognizable card content" guard, meant to
+ * run on the already-warped canonical card before Stage 4 grading. See the
+ * Python docstring for the full rationale and the real-photo validation
+ * (0 false positives on the 122-photo G4b/G4c set).
+ */
+export function detectarFundaOpaca(
+  cv: OpenCvModule,
+  rgba: InstanceType<OpenCvModule['Mat']>,
+  edgeFraccionMax = FUNDA_OPACA_EDGE_FRACCION_MAX,
+  stdMax = FUNDA_OPACA_STD_MAX,
+): OpaqueSleeveResult {
+  const gray = new cv.Mat();
+  const edges = new cv.Mat();
+  const mean = new cv.Mat();
+  const stddev = new cv.Mat();
+  try {
+    cv.cvtColor(rgba, gray, cv.COLOR_RGBA2GRAY);
+    cv.Canny(gray, edges, 50, 150);
+    const edgeFraction = cv.countNonZero(edges) / (edges.rows * edges.cols);
+    cv.meanStdDev(gray, mean, stddev);
+    const std = stddev.data64F[0];
+    return { suspicious: edgeFraction < edgeFraccionMax && std < stdMax, edgeFraction, std };
+  } finally {
+    gray.delete(); edges.delete(); mean.delete(); stddev.delete();
   }
 }

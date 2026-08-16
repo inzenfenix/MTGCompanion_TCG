@@ -88,6 +88,54 @@ sudo apt install tesseract-ocr    # Debian/Ubuntu
 Sin esto, `prepare_text_validator_dataset.py` falla al arrancar. El resto
 del pipeline (Stage 1/3/4) no lo necesita.
 
+Para compilar el **APK Android** de `trading-app-ionic/` (Capacitor) hace
+falta además, a nivel de sistema (nada de esto es un paquete npm):
+
+- **JDK 17–21** (el proyecto usa AGP 8.13.0 / Gradle 8.14.3, que no soportan
+  JDKs más nuevos como el 25). Dos formas de conseguirlo, cualquiera sirve:
+  - `sudo dnf install java-21-openjdk-devel` (Fedora/Nobara) /
+    `sudo apt install openjdk-21-jdk` (Debian/Ubuntu) — necesita sudo. En esta
+    máquina de desarrollo `dnf` reporta "Nothing to do" para este paquete
+    puntual sin instalarlo (bug de `dnf`/repos no resuelto, no algo del
+    proyecto) — si te pasa lo mismo, usa la alternativa siguiente.
+  - Sin sudo: descargar un JDK 21 portable (p.ej. [Eclipse Temurin](https://adoptium.net/temurin/releases/?version=21))
+    y apuntar `JAVA_HOME` a la carpeta descomprimida.
+- **Android SDK** (cmdline-tools + `platform-tools` + `platforms;android-36` +
+  `build-tools;36.0.0`, la versión de `compileSdkVersion`/`targetSdkVersion`
+  que trae el proyecto). No requiere instalar Android Studio completo ni
+  sudo — el [paquete de cmdline-tools de Google](https://developer.android.com/studio#command-tools)
+  se puede descomprimir en cualquier carpeta de usuario (p.ej. `~/Android/Sdk`)
+  y usar `sdkmanager` desde ahí:
+  ```bash
+  sdkmanager --sdk_root=~/Android/Sdk --licenses   # aceptar licencias
+  sdkmanager --sdk_root=~/Android/Sdk \
+    "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+  ```
+
+## Compilar el APK Android
+
+Con los requisitos de arriba instalados:
+
+```bash
+cd Proyecto/examen/trading-app-ionic
+npm install
+npm run build                 # genera dist/
+npx cap add android           # solo la primera vez — genera android/
+npx cap sync android          # copia dist/ al proyecto nativo tras cada build
+
+# apuntar el proyecto Gradle al SDK (una vez, o exportar ANDROID_HOME/JAVA_HOME cada sesión)
+echo "sdk.dir=$HOME/Android/Sdk" > android/local.properties
+
+cd android
+JAVA_HOME=<ruta al JDK 21> ./gradlew assembleDebug
+```
+
+El APK debug (sin firmar para release, instalable directo en un dispositivo/emulador
+con `adb install`) queda en
+`android/app/build/outputs/apk/debug/app-debug.apk`. Firma de release
+(keystore + `signingConfigs` para `assembleRelease`/Play Store) todavía **no**
+está configurada — ver el ítem E3d en [ROADMAP.md](ROADMAP.md).
+
 ## Entregas
 
 | Entrega | Estado | Enlace |

@@ -61,6 +61,12 @@ const ListCard: React.FC = () => {
   const [description, setDescription] = useState('');
   const [guessedPrice, setGuessedPrice] = useState<number | null>(null);
   const [condition, setCondition] = useState<api.CardCondition>('NM');
+  // ROADMAP.md G4e (sleeve follow-up, layer 3) — true when Stage 4 returned
+  // 'likely-no-card-content' (opaque sleeve, its colored back facing the
+  // camera, or a blank/miscropped photo): `condition` was NOT auto-set from
+  // this scan, still whatever it was before — surfaced explicitly rather
+  // than silently leaving the user to wonder why the field didn't fill in.
+  const [conditionWarning, setConditionWarning] = useState(false);
 
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
@@ -182,6 +188,7 @@ const ListCard: React.FC = () => {
       runStage4ConditionGrading(canvas),
     ]);
 
+    setConditionWarning(stage4.status === 'likely-no-card-content');
     if (stage4.status === 'ok') setCondition(stage4.result.condition);
 
     canvas.toBlob((blob) => {
@@ -427,6 +434,14 @@ const ListCard: React.FC = () => {
               ))}
             </IonSelect>
           </IonItem>
+
+          {conditionWarning && (
+            <IonText color="warning">
+              <p style={{ marginTop: '-12px', marginBottom: '16px', fontSize: '0.85rem' }}>
+                {t('condition_no_card_content_warning')}
+              </p>
+            </IonText>
+          )}
 
           <IonButton expand="block" className="mtg-btn" disabled={!isValid || isSubmitting} onClick={handleSubmit}>
             <div className="mtg-btn-content">
