@@ -9,9 +9,14 @@ Protocolo de evaluación:
     4. Registrar métricas de retrieval y de clasificación binaria.
 
 Métricas de retrieval:
-    Top-1 Accuracy : la carta correcta es el 1er resultado
-    Top-5 Accuracy : la carta correcta está entre los 5 primeros
-    MRR            : promedio de 1/rank (Mean Reciprocal Rank)
+    Top-1 Accuracy  : la carta correcta es el 1er resultado
+    Top-5 Accuracy  : la carta correcta está entre los 5 primeros
+    Top-10 Accuracy : la carta correcta está entre los 10 primeros (ROADMAP.md G4d —
+                       barato de medir ya que TOP_K=10 recupera esos candidatos igual;
+                       si sube mucho más que Top-1/Top-5 es señal de que la retrieval
+                       "casi" acierta y una UX de "elegí entre varios candidatos" ayudaría
+                       más que solo confiar en el top-1)
+    MRR             : promedio de 1/rank (Mean Reciprocal Rank), sobre TOP_K=10 candidatos
 
 Métricas de clasificación (top-1 correcto vs incorrecto):
     Accuracy       : fracción de queries con top-1 correcto
@@ -65,7 +70,7 @@ BATCH_SIZE = 32
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 SEED   = 42
 TEST_SPLIT = 0.20    # 20% consultas, 80% galería
-TOP_K  = 5
+TOP_K  = 10           # 10 (no 5) para poder reportar Top-10 además de Top-5 — ver ROADMAP.md G4d
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD  = [0.229, 0.224, 0.225]
@@ -196,7 +201,7 @@ def evaluar(cards_info: dict) -> dict:
 
     rng = random.Random(SEED)
 
-    top1_ok, top5_ok = 0, 0
+    top1_ok, top5_ok, top10_ok = 0, 0, 0
     mrr_vals = []
     tiempos_extraccion_ms = []
     tiempos_busqueda_ms   = []
@@ -240,10 +245,11 @@ def evaluar(cards_info: dict) -> dict:
         tiempos_busqueda_ms.append((t1 - t0) * 1000)
 
         # gallery_emb = emb_matrix completo → índices == posiciones en all_ids
-        retrieved_ids = [all_ids[i] for i in topk_idx]
+        retrieved_ids = [all_ids[i] for i in topk_idx]  # TOP_K=10 candidatos, no solo 5 (ver ROADMAP.md G4d)
         top1_sim      = topk_sims[0]
 
-        correcto    = card_id in retrieved_ids
+        correcto_top5  = card_id in retrieved_ids[:5]
+        correcto_top10 = card_id in retrieved_ids       # == retrieved_ids[:10], TOP_K ya es 10
         top1_correcto = int(retrieved_ids[0] == card_id)
 
         # Datos para métricas de clasificación
@@ -260,16 +266,18 @@ def evaluar(cards_info: dict) -> dict:
         if top1_correcto:
             top1_ok += 1
 
-        if correcto:
+        if correcto_top5:
             top5_ok += 1
-            rank = retrieved_ids.index(card_id) + 1
+        if correcto_top10:
+            top10_ok += 1
+            rank = retrieved_ids.index(card_id) + 1  # 1..10 — MRR ahora ve hasta rank 10, no solo 5 (ver TOP_K de arriba)
             mrr_vals.append(1.0 / rank)
         else:
             mrr_vals.append(0.0)
 
         # Guardar ejemplos para visualización
         top1_card = cards_info.get(retrieved_ids[0], {})
-        if correcto and len(ejemplos_ok) < 4:
+        if correcto_top10 and len(ejemplos_ok) < 4:
             ejemplos_ok.append({
                 "query_path"  : str(ruta),
                 "query_name"  : card["name"],
@@ -277,7 +285,7 @@ def evaluar(cards_info: dict) -> dict:
                 "match_name"  : top1_card.get("name", "?"),
                 "sim"         : float(top1_sim),
             })
-        elif not correcto and len(ejemplos_fail) < 4:
+        elif not correcto_top10 and len(ejemplos_fail) < 4:
             ejemplos_fail.append({
                 "query_path"  : str(ruta),
                 "query_name"  : card["name"],
@@ -289,7 +297,7 @@ def evaluar(cards_info: dict) -> dict:
         if (qi_pos + 1) % 100 == 0:
             n_done = qi_pos + 1
             print(f"  {n_done:>4}/{len(query_positions)}  Top-1: {top1_ok/n_done:.3f}  "
-                  f"Top-5: {top5_ok/n_done:.3f}  MRR: {np.mean(mrr_vals):.3f}")
+                  f"Top-5: {top5_ok/n_done:.3f}  Top-10: {top10_ok/n_done:.3f}  MRR: {np.mean(mrr_vals):.3f}")
 
     n = len(mrr_vals)
 
@@ -313,6 +321,7 @@ def evaluar(cards_info: dict) -> dict:
         # Retrieval
         "top1_accuracy"        : top1_ok / n,
         "top5_accuracy"        : top5_ok / n,
+        "top10_accuracy"       : top10_ok / n,  # ROADMAP.md G4d — barato de agregar, ya se recuperaban TOP_K candidatos
         "mrr"                  : float(np.mean(mrr_vals)),
         # Clasificación binaria (¿el top-1 es correcto?)
         "accuracy_bin"         : float(accuracy_score(y_true, y_pred_opt)),
@@ -389,9 +398,9 @@ def graficar_ejemplos(ejemplos_ok: list, ejemplos_fail: list):
 
 def graficar_metricas(metricas: dict):
     """Barras horizontales con las tres métricas principales."""
-    nombres = ["Top-1 Accuracy", "Top-5 Accuracy", "MRR"]
-    valores = [metricas["top1_accuracy"], metricas["top5_accuracy"], metricas["mrr"]]
-    colores = ["#3498DB", "#9B59B6", "#E67E22"]
+    nombres = ["Top-1 Accuracy", "Top-5 Accuracy", "Top-10 Accuracy", "MRR"]
+    valores = [metricas["top1_accuracy"], metricas["top5_accuracy"], metricas["top10_accuracy"], metricas["mrr"]]
+    colores = ["#3498DB", "#9B59B6", "#1ABC9C", "#E67E22"]
 
     fig, ax = plt.subplots(figsize=(8, 4))
     bars = ax.barh(nombres, valores, color=colores, edgecolor="black", linewidth=0.7)
@@ -555,6 +564,7 @@ def main():
     print(f"  ── Retrieval ─────────────────────────────────────")
     print(f"  Top-1 Accuracy   : {metricas['top1_accuracy']:.4f}")
     print(f"  Top-5 Accuracy   : {metricas['top5_accuracy']:.4f}")
+    print(f"  Top-10 Accuracy  : {metricas['top10_accuracy']:.4f}")
     print(f"  MRR              : {metricas['mrr']:.4f}")
     print(f"  ── Clasificación binaria (umbral óptimo) ─────────")
     print(f"  Accuracy         : {metricas['accuracy_bin']:.4f}")

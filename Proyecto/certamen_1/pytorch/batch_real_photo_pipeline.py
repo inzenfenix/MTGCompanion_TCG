@@ -113,13 +113,20 @@ def procesar_foto(foto: pathlib.Path, ctx: dict, guardar_crops_en: pathlib.Path 
         return resultado
 
     # ── Stage 1 — identificación ────────────────────────────────────────
+    # k=10 (no 1) para que real_photo_eval.py pueda reportar membership@1/5/10
+    # contra el decklist (ROADMAP.md G4d) — más barato que re-fine-tunear el
+    # embedding, y dice si el candidato correcto ya aparece más abajo en el
+    # ranking aunque no gane el top-1 (ver el caso "Insatiable Frugivore",
+    # rank #54, documentado en G4d).
     query_emb = scanner.extraer_embedding(str(foto))
-    candidatos = scanner.buscar(query_emb, ctx["gallery_emb"], ctx["gallery_ids"], k=1)
+    candidatos = scanner.buscar(query_emb, ctx["gallery_emb"], ctx["gallery_ids"], k=10)
     top1_id, top1_sim = candidatos[0]
     card_name = ctx["cards_info"].get(top1_id, {}).get("name", "?")
     resultado["card_name"] = card_name
     resultado["similarity"] = top1_sim
     resultado["verdict"] = "MAGIC" if top1_sim >= scanner.SIMILARITY_THRESHOLD else "NO_MAGIC"
+    resultado["top5_names"] = [ctx["cards_info"].get(cid, {}).get("name", "?") for cid, _ in candidatos[:5]]
+    resultado["top10_names"] = [ctx["cards_info"].get(cid, {}).get("name", "?") for cid, _ in candidatos[:10]]
 
     carta = ctx["cards_by_name"].get(card_name)
     if carta is None:

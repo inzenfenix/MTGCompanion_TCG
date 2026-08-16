@@ -10,3 +10,4 @@ optuna>=4.0,<6
 optuna-integration[tfkeras]>=4.0,<6
 tf2onnx>=1.16
 onnxruntime>=1.18
+pytest>=8.0

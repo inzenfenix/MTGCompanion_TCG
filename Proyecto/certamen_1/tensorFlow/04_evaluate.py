@@ -9,9 +9,14 @@ Protocolo de evaluación:
     4. Registrar métricas de retrieval y de clasificación binaria.
 
 Métricas de retrieval:
-    Top-1 Accuracy : la carta correcta es el 1er resultado
-    Top-5 Accuracy : la carta correcta está entre los 5 primeros
-    MRR            : promedio de 1/rank (Mean Reciprocal Rank)
+    Top-1 Accuracy  : la carta correcta es el 1er resultado
+    Top-5 Accuracy  : la carta correcta está entre los 5 primeros
+    Top-10 Accuracy : la carta correcta está entre los 10 primeros (ROADMAP.md G4d —
+                       barato de medir ya que TOP_K=10 recupera esos candidatos igual;
+                       si sube mucho más que Top-1/Top-5 es señal de que la retrieval
+                       "casi" acierta y una UX de "elegí entre varios candidatos" ayudaría
+                       más que solo confiar en el top-1)
+    MRR             : promedio de 1/rank (Mean Reciprocal Rank), sobre TOP_K=10 candidatos
 
 Métricas de clasificación (top-1 correcto vs incorrecto):
     Accuracy       : fracción de queries con top-1 correcto
@@ -65,7 +70,7 @@ from src.embeddings import build_feature_extractor, embed_pil_image, load_index
 RESULTS_DIR = pathlib.Path("results")
 SEED = 42
 TEST_SPLIT = 0.20    # 20% consultas, 80% galería
-TOP_K = 5
+TOP_K = 10  # 10 (no 5) para poder reportar Top-10 además de Top-5 — ver ROADMAP.md G4d
 RARITY_ORDER = ["common", "uncommon", "rare", "mythic"]
 
 random.seed(SEED)
@@ -180,7 +185,7 @@ def evaluar(cards_info: dict) -> tuple:
     model = build_feature_extractor()
     rng = random.Random(SEED)
 
-    top1_ok, top5_ok = 0, 0
+    top1_ok, top5_ok, top10_ok = 0, 0, 0
     mrr_vals: list = []
     tiempos_extraccion_ms: list = []
     tiempos_busqueda_ms: list = []
@@ -219,18 +224,21 @@ def evaluar(cards_info: dict) -> tuple:
         t1 = time.perf_counter()
         tiempos_busqueda_ms.append((t1 - t0) * 1000)
 
-        retrieved_ids = [all_ids[i] for i in topk_idx]
+        retrieved_ids = [all_ids[i] for i in topk_idx]  # TOP_K=10 candidatos, no solo 5 (ver ROADMAP.md G4d)
         top1_sim = topk_sims[0]
 
-        correcto = card_id in retrieved_ids
+        correcto_top5 = card_id in retrieved_ids[:5]
+        correcto_top10 = card_id in retrieved_ids       # == retrieved_ids[:10], TOP_K ya es 10
         top1_es_correcto = retrieved_ids[0] == card_id
 
         if top1_es_correcto:
             top1_ok += 1
 
-        if correcto:
+        if correcto_top5:
             top5_ok += 1
-            rank = retrieved_ids.index(card_id) + 1
+        if correcto_top10:
+            top10_ok += 1
+            rank = retrieved_ids.index(card_id) + 1  # 1..10 — MRR ahora ve hasta rank 10, no solo 5
             mrr_vals.append(1.0 / rank)
         else:
             mrr_vals.append(0.0)
@@ -249,15 +257,15 @@ def evaluar(cards_info: dict) -> tuple:
             "match_name": top1_card.get("name", "?"),
             "sim": float(top1_sim),
         }
-        if correcto and len(ejemplos_ok) < 4:
+        if correcto_top10 and len(ejemplos_ok) < 4:
             ejemplos_ok.append(entry)
-        elif not correcto and len(ejemplos_fail) < 4:
+        elif not correcto_top10 and len(ejemplos_fail) < 4:
             ejemplos_fail.append(entry)
 
         if (qi_pos + 1) % 100 == 0:
             n_done = qi_pos + 1
             print(f"  {n_done:>4}/{len(query_positions)}  Top-1: {top1_ok/n_done:.3f}  "
-                  f"Top-5: {top5_ok/n_done:.3f}  MRR: {np.mean(mrr_vals):.3f}")
+                  f"Top-5: {top5_ok/n_done:.3f}  Top-10: {top10_ok/n_done:.3f}  MRR: {np.mean(mrr_vals):.3f}")
 
     n = len(mrr_vals)
     metricas = {
@@ -267,6 +275,7 @@ def evaluar(cards_info: dict) -> tuple:
         "n_query": n,
         "top1_accuracy": top1_ok / n,
         "top5_accuracy": top5_ok / n,
+        "top10_accuracy": top10_ok / n,  # ROADMAP.md G4d — barato de agregar, ya se recuperaban TOP_K candidatos
         "mrr": float(np.mean(mrr_vals)),
         "mean_extraction_ms": float(np.mean(tiempos_extraccion_ms)),
         "std_extraction_ms": float(np.std(tiempos_extraccion_ms)),

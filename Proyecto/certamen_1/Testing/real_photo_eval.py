@@ -58,6 +58,11 @@ def nombre_en_decklist(card_name: str, decklist_lower: set) -> bool:
     return any(cara in decklist_lower for cara in caras)
 
 
+def alguno_en_decklist(card_names: list, decklist_lower: set) -> bool:
+    """Igual que nombre_en_decklist() pero para una lista de candidatos (top-5/top-10)."""
+    return any(nombre_en_decklist(nombre, decklist_lower) for nombre in card_names)
+
+
 def correr_batch(limit: int | None) -> list:
     """
     Corre batch_real_photo_pipeline.py UNA vez (proceso único, modelos
@@ -102,9 +107,13 @@ def main() -> None:
 
     for r in ok:
         r["en_decklist"] = nombre_en_decklist(r.get("card_name", ""), decklist_lower)
+        r["en_decklist_top5"] = alguno_en_decklist(r.get("top5_names", [r.get("card_name", "")]), decklist_lower)
+        r["en_decklist_top10"] = alguno_en_decklist(r.get("top10_names", [r.get("card_name", "")]), decklist_lower)
 
     n_ok = len(ok)
     n_en_decklist = sum(1 for r in ok if r["en_decklist"])
+    n_en_decklist_top5 = sum(1 for r in ok if r["en_decklist_top5"])
+    n_en_decklist_top10 = sum(1 for r in ok if r["en_decklist_top10"])
     n_confirma = sum(1 for r in ok if r.get("confirma") == "sí")
 
     dist_grados: dict = {}
@@ -126,12 +135,22 @@ def main() -> None:
     lineas.append("## Stage 1 — Identificación (¿el nombre predicho está en el decklist?)")
     lineas.append("")
     if n_ok:
-        lineas.append(f"- En decklist: {n_en_decklist}/{n_ok} ({n_en_decklist / n_ok * 100:.1f}%)")
+        lineas.append(f"- Top-1 en decklist:  {n_en_decklist}/{n_ok} ({n_en_decklist / n_ok * 100:.1f}%)")
+        lineas.append(f"- Top-5 en decklist:  {n_en_decklist_top5}/{n_ok} ({n_en_decklist_top5 / n_ok * 100:.1f}%)")
+        lineas.append(f"- Top-10 en decklist: {n_en_decklist_top10}/{n_ok} ({n_en_decklist_top10 / n_ok * 100:.1f}%)")
     lineas.append(
         "- **Caveat**: esto es membership contra el decklist de 100 cartas (+ tokens conocidos), no un "
         "ground truth foto-por-foto — una predicción puede estar en el decklist \"por casualidad\" si el "
         "modelo confunde una carta del mazo por otra del mismo mazo. No hay etiqueta exacta por foto (ver "
         "squirreled_away_decklist.json)."
+    )
+    lineas.append(
+        "- **Top-5/Top-10 (ROADMAP.md G4d)**: mide si el candidato correcto ya aparece más abajo en el "
+        "ranking de similitud coseno aunque no gane el top-1 — el caso \"Insatiable Frugivore\" documentado "
+        "en G4d (rank real #54/58,679, top-1 equivocado por un margen chico) es exactamente lo que esto "
+        "debería capturar. Si Top-5/Top-10 suben bastante más que Top-1, la retrieval no está \"rota\", solo "
+        "necesita más candidatos para confirmar (una UX de \"elegí entre estos 5\" en vez de confiar ciegamente "
+        "en el top-1) — si casi no suben, el problema es más profundo (embedding no discriminativo, G4d)."
     )
     lineas.append("")
     lineas.append("## Stage 2 — Validación de texto (modelo real, TextMatcher)")
