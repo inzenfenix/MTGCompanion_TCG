@@ -1,0 +1,48 @@
+{
+  "study_name": "price_estimator_tensorflow",
+  "run_dir": "/home/inzenfenix/Documents/Github/framework-ia-UDD/Proyecto/certamen_1/output/tensorflow/optuna_price_estimator/2026-08-15_220443",
+  "n_train": 36359,
+  "n_val": 7790,
+  "trials_target": 20,
+  "trial_epochs": 10,
+  "final_epochs": 40,
+  "timeout_hours": null,
+  "seed": 42,
+  "no_final_train": false,
+  "search_space": {
+    "learning_rate": {
+      "low": 1e-05,
+      "high": 0.01,
+      "log": true
+    },
+    "weight_decay": {
+      "low": 1e-06,
+      "high": 0.01,
+      "log": true
+    },
+    "batch_size": [
+      16,
+      32,
+      64,
+      128
+    ],
+    "hidden_units": {
+      "low": 64,
+      "high": 512,
+      "step": 64
+    },
+    "dropout": {
+      "low": 0.0,
+      "high": 0.5,
+      "step": 0.05
+    },
+    "optimizer": [
+      "adam",
+      "adamw",
+      "sgd"
+    ]
+  },
+  "python": "3.11.15",
+  "tensorflow": "2.21.0",
+  "optuna": "4.9.0"
+}

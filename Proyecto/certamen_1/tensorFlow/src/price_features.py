@@ -24,11 +24,23 @@ registros de cards.json (15 ago) y hoy son exhaustivos; el bucket "other" es
 solo defensivo para cuando Scryfall agregue una rareza/set_type/frame nuevo,
 y para que el vector no cambie de forma si algún día se filtra el dataset
 distinto.
+
+ROADMAP.md B6 (15 ago): agregadas `edhrec_rank_conocido`/`edhrec_rank_log` —
+ninguno de los campos originales captura demanda/popularidad (dos cartas con
+la misma rareza/set_type/frame pueden diferir en precio por órdenes de
+magnitud porque una se juega en Commander y la otra no), y el Optuna sweep
+de B4 plateaba en R²(log-USD) ~0.44 con train loss todavía bajando — señal
+de techo de información, no de falta de tuning. `edhrec_rank` (más bajo =
+más popular; viene de certamen_1/merge_edhrec_rank.py, que lo agrega a
+cards.json por separado) no está disponible para toda carta, de ahí el flag
+de "conocido" — mismo patrón de imputación-con-indicador que evita que un
+placeholder se confunda con una señal real.
 """
 
 from __future__ import annotations
 
 import datetime
+import math
 
 ANIO_ACTUAL = datetime.date.today().year
 
@@ -45,17 +57,22 @@ SET_TYPE_VOCAB = ("expansion", "masters", "commander", "draft_innovation", "core
 FRAME_VOCAB = ("2015", "2003", "1997", "1993", "future")
 BORDER_COLOR_VOCAB = ("black", "borderless", "white", "yellow")
 
-# Las 9 columnas numéricas/binarias sin encoding, en el orden en que se
+# Las 11 columnas numéricas/binarias sin encoding, en el orden en que se
 # emiten — NUMERIC_INDICES (más abajo) apunta posiciones acá.
 _CAMPOS_BASE = [
     "cmc", "n_colores", "es_incoloro", "es_legendaria", "n_frame_effects",
     "tiene_foil", "tiene_etched", "anio", "antiguedad_anios",
+    "edhrec_rank_conocido", "edhrec_rank_log",
 ]
-# Subconjunto sin acotar (los otros 4 de _CAMPOS_BASE ya son 0/1) — se
+# Subconjunto sin acotar (los otros 5 de _CAMPOS_BASE ya son 0/1) — se
 # estandarizan con media/desvío calculados una vez sobre el split de train
 # (ver certamen_2/prepare_price_dataset.py y
-# certamen_2/data/price_dataset/tabular_scaler.json).
-NUMERIC_FIELDS = ["cmc", "n_colores", "n_frame_effects", "anio", "antiguedad_anios"]
+# certamen_2/data/price_dataset/tabular_scaler.json). edhrec_rank_log entra acá
+# también (aunque su placeholder de "desconocido" ya es 0.0, ver
+# raw_card_fields()) para que quede en la misma escala que el resto — el flag
+# edhrec_rank_conocido es el que le dice al modelo si ese 0.0 es una carta
+# real de rank bajísimo o simplemente "no sabemos".
+NUMERIC_FIELDS = ["cmc", "n_colores", "n_frame_effects", "anio", "antiguedad_anios", "edhrec_rank_log"]
 NUMERIC_INDICES = [_CAMPOS_BASE.index(f) for f in NUMERIC_FIELDS]
 
 FEATURE_NAMES = (
@@ -67,7 +84,7 @@ FEATURE_NAMES = (
     + [f"frame_{v}" for v in FRAME_VOCAB] + ["frame_other"]
     + [f"border_color_{v}" for v in BORDER_COLOR_VOCAB] + ["border_color_other"]
 )
-N_TAB_FEATURES = len(FEATURE_NAMES)  # 48: 9 + 15 (5 colores + 10 tipos) + 24 (7+6+6+5 categóricas)
+N_TAB_FEATURES = len(FEATURE_NAMES)  # 50: 11 + 15 (5 colores + 10 tipos) + 24 (7+6+6+5 categóricas)
 
 
 def _onehot_fijo(valor: str, vocab: tuple[str, ...]) -> list[float]:
@@ -98,6 +115,14 @@ def raw_card_fields(card: dict) -> dict:
     anio_str = released_at[:4]
     anio = int(anio_str) if anio_str.isdigit() else None
 
+    # edhrec_rank: más bajo = más popular. No toda carta lo tiene (cards.json
+    # solo lo trae si certamen_1/merge_edhrec_rank.py ya corrió, y ni así
+    # cubre el 100% — ver ese script). Placeholder 0.0 cuando no se conoce +
+    # flag "conocido" en vez de imputar con la media, para no depender de
+    # tener que recalcular ese promedio acá (ya lo hace tabular_scaler.json
+    # de forma consistente sobre el resto de los campos numéricos).
+    edhrec_rank = card.get("edhrec_rank")
+
     fila = {
         "cmc": card.get("cmc") or 0,
         "rarity": card.get("rarity") or "unknown",
@@ -112,6 +137,8 @@ def raw_card_fields(card: dict) -> dict:
         "tiene_etched": int("etched" in finishes),
         "anio": anio if anio is not None else 2000,
         "antiguedad_anios": (ANIO_ACTUAL - anio) if anio is not None else 25,
+        "edhrec_rank_conocido": int(edhrec_rank is not None),
+        "edhrec_rank_log": math.log1p(edhrec_rank) if edhrec_rank is not None else 0.0,
     }
     for color in COLORES:
         fila[f"color_{color}"] = int(color in colors)
@@ -123,10 +150,10 @@ def raw_card_fields(card: dict) -> dict:
 def build_tabular_vector(raw: dict) -> list[float]:
     """
     `raw` (lo que devuelve raw_card_fields(), o una fila ya leída de
-    cards.csv con los mismos nombres de columna) -> vector de 48 dims, orden
-    fijo (ver FEATURE_NAMES). Sin escalar: los 5 campos numéricos sin acotar
-    se normalizan aparte con escalar_numericos() + tabular_scaler.json — ver
-    docstring del módulo.
+    cards.csv con los mismos nombres de columna) -> vector de N_TAB_FEATURES
+    dims (50, ver FEATURE_NAMES), orden fijo. Sin escalar: los 6 campos
+    numéricos sin acotar se normalizan aparte con escalar_numericos() +
+    tabular_scaler.json — ver docstring del módulo.
     """
     vector = [float(raw[campo]) for campo in _CAMPOS_BASE]
     vector += [float(raw[f"color_{c}"]) for c in COLORES]

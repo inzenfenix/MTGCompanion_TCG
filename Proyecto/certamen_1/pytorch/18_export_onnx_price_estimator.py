@@ -10,10 +10,11 @@ binaria (aplica sigmoid antes de comparar), Stage 3 es regresión — el modelo
 predice log1p(price) directo, sin activación de salida, así que la
 verificación compara las salidas crudas sin sigmoid.
 
-La entrada es el vector concat(x_tab, x_vis) de 1328 dims (48 tabular + 1280
-visual, ver src/price_features.py / prepare_price_embeddings.py) — igual que
-Stage 2, no hay imagen que envolver acá: la app Ionic tiene que construir ese
-vector del lado del cliente antes de llamar al modelo.
+La entrada es el vector concat(x_tab, x_vis), input_dim leído de
+price_regressor_cfg.json (1330 dims desde ROADMAP.md B6, 15 ago: 50 tabular +
+1280 visual — ver src/price_features.py / prepare_price_embeddings.py) —
+igual que Stage 2, no hay imagen que envolver acá: la app Ionic tiene que
+construir ese vector del lado del cliente antes de llamar al modelo.
 
 Este script no vuelve a entrenar nada: toma el `price_regressor.pth` +
 `price_regressor_cfg.json` que ya estén publicados (por 15_price_estimator.py

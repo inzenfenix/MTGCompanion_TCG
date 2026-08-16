@@ -489,6 +489,64 @@ con Optuna (B4) — normal a esta escala, según la regla operativa de la
 sección 2: la primera palanca ante una métrica floja es sumar más datos
 antes de tocar arquitectura/hiperparámetros.
 
+### 5.1.3 B6 — feature `edhrec_rank` (15 ago, ROADMAP.md workstream B)
+
+El sweep de Optuna de B4 (20 trials, ambos frameworks) plateaba en
+R²(log-USD) 0.430–0.441 sin importar los hiperparámetros, mientras el train
+loss seguía bajando — techo de información, no falta de tuning ni de datos
+(ya se entrena sobre ~90% del catálogo real). Diagnóstico: las 48 dims
+tabulares (`rarity`/`set_type`/`frame`/`border_color`, sin señal de
+identidad de carta) no distinguen una común de $0.10 de una rara "chase" de
+$40 con las mismas columnas categóricas — el precio lo mueve demanda/
+escasez, no capturado hasta ahora.
+
+Fix: `edhrec_rank` de Scryfall (más bajo = más jugada/popular en EDH/
+Commander) agregado a `cards.json` vía `certamen_1/merge_edhrec_rank.py` —
+**no** vía `01_scraper.py` (destructivo, trunca a `--max-cards`, CLAUDE.md
+regla 2) — reusando el cache local `data/raw_cards.json` del scrape original
+(ya trae `edhrec_rank` para 101,909/116,703 filas crudas, 87.3%, sin
+necesidad de volver a pegarle a la red). `price_features.py` (ambas copias)
+ganó 2 campos nuevos: `edhrec_rank_conocido` (binario) + `edhrec_rank_log`
+(`log1p(rank)`, estandarizado con el mismo mecanismo de
+`tabular_scaler.json` que el resto de los campos numéricos, placeholder 0.0
+cuando no se conoce el rank). `x_tab` pasa de **48 a 50 dims** — el flag de
+"conocido" es necesario porque no toda carta tiene `edhrec_rank` en
+Scryfall, y sin él un placeholder numérico se confundiría con una señal real
+de popularidad extrema.
+
+Cascada re-corrida completa (mismo orden que 5.1.2):
+`merge_edhrec_rank.py` → `prepare_price_dataset.py` (regenera `cards.csv`/
+`tabular_scaler.json` con las 2 columnas nuevas — split idéntico al de antes,
+determinístico, no depende de `edhrec_rank`) → `15_`/`13_price_estimator.py`
+→ `17_`/`15_optuna_price_estimator.py` → `18_`/`16_export_onnx_price_estimator.py`.
+Los embeddings visuales cacheados (`{framework}_visual_embeddings.npy`) no
+se tocan — son independientes de la mitad tabular.
+
+**Resultado (dataset completo, 51,939 cartas, mismo split que 5.1.2 — 36,359/
+7,790/7,790):**
+
+| Métrica (test set, log-space R²) | Antes de B6 (48 dims) | Después de B6 (50 dims) | Baseline tabular (5.1) |
+|---|---|---|---|
+| PyTorch — plano | 0.427 | 0.651 | — |
+| PyTorch — Optuna | 0.441 | **0.658** | — |
+| TensorFlow — plano | 0.427 | 0.648 | — |
+| TensorFlow — Optuna | 0.430 | **0.649** | — |
+| Referencia | | | 0.521 |
+
+`edhrec_rank` era efectivamente el techo de información que B4 no podía
+resolver con hiperparámetros: el Optuna post-B6 apenas mueve el número
+respecto al entrenamiento plano (0.651→0.658 PyTorch, 0.648→0.649
+TensorFlow) — el salto grande lo da agregar la feature, no tunearla. Ambos
+frameworks ahora superan claramente el piso del baseline tabular (0.521),
+algo que ninguno lograba antes de B6. R²(USD) se mantiene bajo (0.176
+PyTorch, 0.025 TensorFlow Optuna) — esperado, mismo artefacto de sesgo de
+precio que documenta H3, no empeoró ni mejoró de forma relevante respecto a
+antes de B6.
+
+`input_dim` confirmado tras el re-export: PyTorch 1330 (50+1280), TensorFlow
+626 (50+576) — paridad numérica ONNX limpia (2.98e-08/0.00e+00, ambas muy
+por debajo de la tolerancia 1e-4).
+
 ### 5.2 Baseline de Stage 2 — `text_validator_baseline.py`
 
 Mismo espíritu que 5.1 pero para el validador de texto: un baseline sin

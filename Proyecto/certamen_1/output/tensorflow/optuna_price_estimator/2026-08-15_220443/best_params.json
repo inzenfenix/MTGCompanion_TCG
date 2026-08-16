@@ -1,0 +1,16 @@
+{
+  "trial_number": 15,
+  "best_value": 0.23125635087490082,
+  "metric": "val_loss_log_mse",
+  "params": {
+    "learning_rate": 0.0002730210684302275,
+    "weight_decay": 7.151110427302186e-05,
+    "batch_size": 32,
+    "hidden_units": 384,
+    "dropout": 0.30000000000000004,
+    "optimizer": "adam"
+  },
+  "study_name": "price_estimator_tensorflow",
+  "completed_trials": 13,
+  "total_trials": 20
+}

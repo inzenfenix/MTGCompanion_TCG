@@ -68,7 +68,8 @@ BATCH_SIZE = 64
 
 _CAMPOS_NUMERICOS_CSV = (
     ["cmc", "n_colores", "es_incoloro", "es_legendaria", "n_frame_effects",
-     "tiene_foil", "tiene_etched", "anio", "antiguedad_anios"]
+     "tiene_foil", "tiene_etched", "anio", "antiguedad_anios",
+     "edhrec_rank_conocido", "edhrec_rank_log"]  # ROADMAP.md B6, 15 ago
     + [f"color_{c}" for c in COLORES]
     + [f"tipo_{t.lower()}" for t in TIPOS_PRIMARIOS]
 )
