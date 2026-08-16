@@ -221,6 +221,15 @@ export type CatalogEntry = {
   oracleText: string | null;
   imageUrl: string | null;
   edhrecRank: number | null;
+  // Added for ROADMAP.md E3b — Stage 3's client-side tabular feature
+  // builder (priceFeatures.ts) needs these; see backend's CatalogCardEntity.
+  setType: string | null;
+  frame: string | null;
+  borderColor: string | null;
+  colorIdentity: string[];
+  finishes: string[];
+  frameEffects: string[];
+  releasedAt: string | null;
 };
 
 export function searchCatalog(q: string, limit = 10): Promise<CatalogEntry[]> {

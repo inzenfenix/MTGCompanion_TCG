@@ -6,11 +6,17 @@
  *
  * Additive/idempotent by design, same rule CLAUDE.md applies to
  * `shared-downloader` vs. `shared-scraper`: this NEVER truncates or deletes
- * existing catalog_cards rows, only inserts ones that aren't there yet
- * (`skipDuplicates: true`). Safe to re-run after a fresh scrape — new
- * printings get added, nothing existing is touched or re-priced. If you
- * need to pick up field changes on already-imported rows (e.g. a corrected
- * oracle_text), that's a deliberate separate concern, not this script's job.
+ * existing catalog_cards rows. Safe to re-run after a fresh scrape.
+ *
+ * Upserts, not `createMany({skipDuplicates:true})` — changed for ROADMAP.md
+ * E3b, which added 7 new columns (setType/frame/borderColor/colorIdentity/
+ * finishes/frameEffects/releasedAt) that the original 58,679-row import
+ * predates. `skipDuplicates` would have silently left every existing row's
+ * new columns null forever; upserting backfills them on a re-run while
+ * still being purely additive (never deletes, and a matching id just gets
+ * its fields refreshed from the source file — same idempotency guarantee,
+ * stronger than before since it now also self-heals a corrected upstream
+ * field instead of ignoring it).
  *
  * Run: npm run db:import-catalog
  *      npm run db:import-catalog -- --file /path/to/other/cards.json
@@ -43,6 +49,13 @@ interface ScryfallCardRow {
   oracle_text: string | null;
   image_url: string | null;
   edhrec_rank: number | null;
+  set_type: string | null;
+  frame: string | number | null;
+  border_color: string | null;
+  color_identity: string[] | null;
+  finishes: string[] | null;
+  frame_effects: string[] | null;
+  released_at: string | null;
 }
 
 function parseArgs(argv: string[]): { file: string } {
@@ -103,34 +116,44 @@ async function main() {
 
   try {
     const before = await prisma.catalogCard.count();
-    let inserted = 0;
     let processed = 0;
 
     for (const batch of chunk(deduped, BATCH_SIZE)) {
-      const result = await prisma.catalogCard.createMany({
-        data: batch.map((row) => ({
-          id: row.id,
-          name: row.name,
-          setCode: row.set,
-          setName: row.set_name,
-          rarity: row.rarity ?? null,
-          typeLine: row.type_line ?? null,
-          manaCost: row.mana_cost ?? null,
-          cmc: row.cmc ?? null,
-          colors: row.colors ?? [],
-          oracleText: row.oracle_text ?? null,
-          imageUrl: row.image_url ?? null,
-          edhrecRank: row.edhrec_rank ?? null,
-        })),
-        skipDuplicates: true,
-      });
-      inserted += result.count;
-      processed += batch.length;
-      process.stdout.write(
-        `\r  processed ${processed}/${deduped.length} (${inserted} new, ${
-          processed - inserted
-        } already-present)`,
+      // Upsert, not createMany({skipDuplicates}) — see this file's header
+      // comment on why (backfilling E3b's new columns onto already-imported
+      // rows). $transaction pipelines the batch's statements together
+      // rather than one round-trip per row.
+      await prisma.$transaction(
+        batch.map((row) => {
+          const data = {
+            name: row.name,
+            setCode: row.set,
+            setName: row.set_name,
+            rarity: row.rarity ?? null,
+            typeLine: row.type_line ?? null,
+            manaCost: row.mana_cost ?? null,
+            cmc: row.cmc ?? null,
+            colors: row.colors ?? [],
+            oracleText: row.oracle_text ?? null,
+            imageUrl: row.image_url ?? null,
+            edhrecRank: row.edhrec_rank ?? null,
+            setType: row.set_type ?? null,
+            frame: row.frame !== null && row.frame !== undefined ? String(row.frame) : null,
+            borderColor: row.border_color ?? null,
+            colorIdentity: row.color_identity ?? [],
+            finishes: row.finishes ?? [],
+            frameEffects: row.frame_effects ?? [],
+            releasedAt: row.released_at ?? null,
+          };
+          return prisma.catalogCard.upsert({
+            where: { id: row.id },
+            create: { id: row.id, ...data },
+            update: data,
+          });
+        }),
       );
+      processed += batch.length;
+      process.stdout.write(`\r  processed ${processed}/${deduped.length}`);
     }
     console.log('');
 

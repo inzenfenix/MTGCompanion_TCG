@@ -6,7 +6,7 @@ import {
 } from '@ionic/react';
 import {
   qrCodeOutline, cameraOutline, checkmarkCircleOutline,
-  storefrontOutline, walletOutline, scanOutline
+  storefrontOutline, walletOutline
 } from 'ionicons/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import QRCode from 'react-qr-code';
@@ -15,6 +15,7 @@ import { useLiveCamera } from '../lib/camera/useLiveCamera';
 import { runStage1Detection, type Stage1Status } from '../lib/ml/stage1Detector';
 import { useAuth } from '../lib/auth/AuthContext';
 import * as api from '../lib/api';
+import { GuidedCapture } from '../components/GuidedCapture';
 
 const TRADE_CODE_PREFIX = 'TRADE:';
 
@@ -55,10 +56,13 @@ const Tab2: React.FC = () => {
   // no external rail — also the fast no-credentials path for testing.
   const [paymentMethod, setPaymentMethod] = useState<api.PaymentMethod>('MERCADOPAGO');
 
-  // Stage 1 (MTG / no-MTG detector) scaffold — live camera via
-  // getUserMedia+canvas (see useLiveCamera's header comment for why not
-  // @capacitor-community/camera-preview) feeding onnxruntime-web. Stage 2
-  // (OCR) and Stage 3 (price) are explicitly out of scope here — see
+  // Stage 1 (MTG / no-MTG detector) — live camera via getUserMedia+canvas
+  // (see useLiveCamera's header comment for why not
+  // @capacitor-community/camera-preview) feeding onnxruntime-web. The
+  // capture itself is now guided (ROADMAP.md G4c, `GuidedCapture.tsx`) —
+  // OpenCV.js localizes+perspective-corrects the card client-side before
+  // Stage 1 ever sees it, instead of a blind full-frame shot. Stage 2
+  // (OCR) and Stage 3 (price) are still explicitly out of scope here — see
   // src/lib/ml/stage1Detector.ts.
   const camera = useLiveCamera();
   const [stage1Status, setStage1Status] = useState<Stage1Status | null>(null);
@@ -201,13 +205,28 @@ const Tab2: React.FC = () => {
     setPaymentMethod('MERCADOPAGO');
   };
 
-  const handleDetect = async () => {
-    const frame = camera.captureFrame();
-    if (!frame) return;
+  // GuidedCapture (G4c) already localized+perspective-corrected the card
+  // client-side before calling this — `canvas` is the canonical 750x1050
+  // crop, not a raw frame, so Stage 1 sees a properly-framed card the same
+  // way `04_evaluate.py`'s curated eval set does, instead of a full photo
+  // with background (ROADMAP.md G4b's exact fix, now ported client-side).
+  //
+  // Also doubles as the real content gate on top of GuidedCapture's
+  // geometric/color-only localizer: live-tested, that localizer tracks
+  // faces almost as readily as cards (rectangular, roughly card-shaped,
+  // uniform-ish tone at some angles) since it has no notion of card
+  // content. Returning `false` here on a confident non-card rejects the
+  // capture and sends GuidedCapture back to searching instead of accepting
+  // it — see ROADMAP.md G4c. A missing/errored model does NOT block the
+  // flow (returns `true`) — only a confident "not a card" from a model that
+  // actually loaded and ran does.
+  const handleGuidedCapture = async (canvas: HTMLCanvasElement): Promise<boolean> => {
     setIsDetecting(true);
-    const result = await runStage1Detection(frame);
+    const result = await runStage1Detection(canvas);
     setStage1Status(result);
     setIsDetecting(false);
+    if (result.status === 'ok' && !result.result.isMtgCard) return false;
+    return true;
   };
 
   const slideVariants = {
@@ -257,16 +276,19 @@ const Tab2: React.FC = () => {
                     <p>{t('show_card_camera')}</p>
 
                     <div style={{ margin: '20px 0', border: '1px solid rgba(0,0,0,0.2)', borderRadius: '4px', background: 'rgba(255,255,255,0.4)', padding: '15px' }}>
-                      <div style={{ height: '200px', backgroundColor: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed rgba(255,255,255,0.5)', marginBottom: '15px', overflow: 'hidden', position: 'relative' }}>
-                        {/* Real getUserMedia feed — replaces the old static placeholder.
-                            OpenCV.js perspective-correction (see Proyecto/examen/README.md)
-                            is not implemented yet; this shows the raw camera frame. */}
+                      <div style={{ height: '280px', backgroundColor: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed rgba(255,255,255,0.5)', marginBottom: '15px', overflow: 'hidden', position: 'relative' }}>
+                        {/* object-fit: contain, not cover — GuidedCapture's overlay math
+                            (frameGeometry.ts) assumes the full native video frame is
+                            visible, uncropped, same frame OpenCV.js actually localizes on. */}
                         <video
                           ref={camera.videoRef}
                           playsInline
                           muted
-                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: camera.status === 'streaming' ? 'block' : 'none' }}
+                          style={{ width: '100%', height: '100%', objectFit: 'contain', display: camera.status === 'streaming' ? 'block' : 'none' }}
                         />
+                        {camera.status === 'streaming' && (
+                          <GuidedCapture camera={camera} onCaptured={handleGuidedCapture} />
+                        )}
                         {camera.status !== 'streaming' && (
                           <p style={{color: '#aaa', padding: '0 10px', textAlign: 'center'}}>
                             {camera.status === 'starting' && t('camera_starting')}
@@ -278,19 +300,9 @@ const Tab2: React.FC = () => {
                         )}
                       </div>
 
-                      <IonButton
-                        expand="block"
-                        fill="outline"
-                        className="mtg-btn"
-                        disabled={camera.status !== 'streaming' || isDetecting}
-                        onClick={handleDetect}
-                        style={{ marginBottom: '10px' }}
-                      >
-                        <div className="mtg-btn-content">
-                          <IonIcon icon={scanOutline} />
-                          <span>{isDetecting ? t('detecting_in_progress') : t('detect_card_button')}</span>
-                        </div>
-                      </IonButton>
+                      {isDetecting && (
+                        <h3 style={{fontSize: '0.9rem', marginBottom: '10px', fontStyle: 'italic', textAlign: 'center'}}>{t('detecting_in_progress')}</h3>
+                      )}
 
                       {stage1Status?.status === 'unavailable' && (
                         <h3 style={{fontSize: '0.9rem', marginBottom: '0', fontStyle: 'italic'}}>{t('model_not_available')}</h3>

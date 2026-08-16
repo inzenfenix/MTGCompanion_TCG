@@ -16,4 +16,14 @@ export interface CatalogCardEntity {
   oracleText: string | null;
   imageUrl: string | null;
   edhrecRank: number | null;
+
+  // Added for ROADMAP.md E3b — client-side Stage 3 (priceFeatures.ts) needs
+  // these to build its tabular vector for a catalog-identified card.
+  setType: string | null;
+  frame: string | null;
+  borderColor: string | null;
+  colorIdentity: string[];
+  finishes: string[];
+  frameEffects: string[];
+  releasedAt: string | null;
 }

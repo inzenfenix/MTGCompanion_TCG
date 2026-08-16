@@ -43,19 +43,35 @@ export const CANONICAL_WIDTH = 750;
 export const CANONICAL_HEIGHT = 1050;
 /** (x0, y0, x1, y1) as fractions of the canonical card size — identical to `CROP_TEXTO` in text_validator_baseline.py. */
 export const CROP_TEXTO = [0.07, 0.52, 0.93, 0.88] as const;
+/**
+ * (x0, y0, x1, y1) fractions of the title bar, i.e. the card's name — no
+ * Python precedent for this one (`card_preprocessing.py`/`text_validator_baseline.py`
+ * only ever crop the rules-text box above), added for ROADMAP.md E3b's
+ * scan-to-identify flow. Estimated from the standard modern (2015+) MTG
+ * frame's title-bar proportions, right edge stops short of the mana-cost
+ * symbols in the corner. Doesn't need to be pixel-exact — it only feeds a
+ * fuzzy `GET /catalog/search?q=` lookup, not an exact match; Stage 2 (real
+ * oracle-text comparison) is what actually confirms/ranks candidates
+ * afterward, see `identifyCard.ts`.
+ */
+export const CROP_NOMBRE = [0.07, 0.03, 0.8, 0.09] as const;
 export const OCR_UPSCALE = 3;
 
 export type RgbaImage = { data: Uint8ClampedArray; width: number; height: number };
 export type GrayImage = { data: Uint8ClampedArray; width: number; height: number };
 
 /**
- * Pixel rect (in source-image pixels) of the rules-text box, from
- * `CROP_TEXTO`'s fractions. Uses `Math.floor`, not `Math.round` — matches
- * Python's `int(x0 * w)` (truncation, not rounding) in
+ * Pixel rect (in source-image pixels) of a crop box's fractions — defaults
+ * to `CROP_TEXTO` (rules-text). Uses `Math.floor`, not `Math.round` —
+ * matches Python's `int(x0 * w)` (truncation, not rounding) in
  * `text_validator_baseline.py::_recortar_caja_texto()` exactly.
  */
-export function computeCropRect(width: number, height: number): { x: number; y: number; width: number; height: number } {
-  const [x0, y0, x1, y1] = CROP_TEXTO;
+export function computeCropRect(
+  width: number,
+  height: number,
+  box: readonly [number, number, number, number] = CROP_TEXTO,
+): { x: number; y: number; width: number; height: number } {
+  const [x0, y0, x1, y1] = box;
   const x = Math.floor(x0 * width);
   const y = Math.floor(y0 * height);
   return { x, y, width: Math.floor(x1 * width) - x, height: Math.floor(y1 * height) - y };
@@ -150,12 +166,14 @@ async function getWorker(): Promise<TesseractWorker> {
 }
 
 /**
- * Extracts rules-text from a canvas assumed to already contain a
- * tightly-framed card (see this module's header for what "tightly-framed"
- * means and what's NOT handled yet). Returns the raw OCR string — feed it
- * directly as `ocrText` to `runStage2Validation()`.
+ * Shared crop→upscale→binarize→OCR glue for one box. `extractCardText`/
+ * `extractCardName` below are thin wrappers over this with `CROP_TEXTO`/
+ * `CROP_NOMBRE` respectively.
  */
-export async function extractCardText(source: HTMLCanvasElement | HTMLImageElement): Promise<string> {
+async function extractRegionText(
+  source: HTMLCanvasElement | HTMLImageElement,
+  box: readonly [number, number, number, number],
+): Promise<string> {
   const resized = document.createElement('canvas');
   resized.width = CANONICAL_WIDTH;
   resized.height = CANONICAL_HEIGHT;
@@ -165,7 +183,7 @@ export async function extractCardText(source: HTMLCanvasElement | HTMLImageEleme
   resizedCtx.imageSmoothingQuality = 'high';
   resizedCtx.drawImage(source, 0, 0, CANONICAL_WIDTH, CANONICAL_HEIGHT);
 
-  const crop = computeCropRect(CANONICAL_WIDTH, CANONICAL_HEIGHT);
+  const crop = computeCropRect(CANONICAL_WIDTH, CANONICAL_HEIGHT, box);
   const upscaled = document.createElement('canvas');
   upscaled.width = crop.width * OCR_UPSCALE;
   upscaled.height = crop.height * OCR_UPSCALE;
@@ -195,4 +213,25 @@ export async function extractCardText(source: HTMLCanvasElement | HTMLImageEleme
   const worker = await getWorker();
   const { data } = await worker.recognize(upscaled);
   return data.text.trim();
+}
+
+/**
+ * Extracts rules-text from a canvas assumed to already contain a
+ * tightly-framed card (see this module's header for what "tightly-framed"
+ * means and what's NOT handled yet). Returns the raw OCR string — feed it
+ * directly as `ocrText` to `runStage2Validation()`.
+ */
+export function extractCardText(source: HTMLCanvasElement | HTMLImageElement): Promise<string> {
+  return extractRegionText(source, CROP_TEXTO);
+}
+
+/**
+ * Extracts the card's name from its title bar — see `CROP_NOMBRE`'s own
+ * comment for why this box is approximate. Feed the result to
+ * `GET /catalog/search?q=` as a fuzzy first pass; `identifyCard.ts` uses
+ * Stage 2 against the rules text to actually rank/confirm candidates, so an
+ * imperfect name read here doesn't need to be exact.
+ */
+export function extractCardName(source: HTMLCanvasElement | HTMLImageElement): Promise<string> {
+  return extractRegionText(source, CROP_NOMBRE);
 }

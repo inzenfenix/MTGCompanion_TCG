@@ -16,6 +16,12 @@ export type CameraStatus = 'idle' | 'starting' | 'streaming' | 'denied' | 'unsup
 export function useLiveCamera() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // Reused across calls, unlike captureFrame()'s new-canvas-per-call — this
+  // is meant for GuidedCapture.tsx's ~150ms continuous localization loop
+  // (ROADMAP.md G4c), where allocating a fresh canvas every tick would be
+  // wasteful GC churn for no benefit (the loop only ever needs one small
+  // scratch buffer, reused in place).
+  const sampleCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [status, setStatus] = useState<CameraStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -65,5 +71,26 @@ export function useLiveCamera() {
     return canvas;
   }, []);
 
-  return { videoRef, status, errorMessage, start, stop, captureFrame };
+  /**
+   * Draws the current video frame, downscaled to `width`x`height`, into a
+   * persistent reused canvas — the cheap side of G4c's "two-speed loop"
+   * (roadmap tip #1: a throttled continuous localization pass, distinct
+   * from the expensive one-shot Stage 1 ONNX call `captureFrame()` feeds).
+   * Returns `ImageData` directly rather than the canvas itself, since every
+   * caller (`cardLocalizer.ts::matFromRgba`) just wants the raw pixels.
+   */
+  const sampleFrame = useCallback((width: number, height: number): ImageData | null => {
+    const video = videoRef.current;
+    if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return null;
+    if (!sampleCanvasRef.current) sampleCanvasRef.current = document.createElement('canvas');
+    const canvas = sampleCanvasRef.current;
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(video, 0, 0, width, height);
+    return ctx.getImageData(0, 0, width, height);
+  }, []);
+
+  return { videoRef, status, errorMessage, start, stop, captureFrame, sampleFrame };
 }

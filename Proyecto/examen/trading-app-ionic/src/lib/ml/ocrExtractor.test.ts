@@ -13,10 +13,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CANONICAL_HEIGHT,
   CANONICAL_WIDTH,
+  CROP_NOMBRE,
   CROP_TEXTO,
   OCR_UPSCALE,
   binarize,
   computeCropRect,
+  extractCardName,
   extractCardText,
   otsuThreshold,
   preprocessForOcr,
@@ -39,6 +41,17 @@ describe('computeCropRect', () => {
     expect(rect.y).toBeGreaterThanOrEqual(0);
     expect(rect.x + rect.width).toBeLessThanOrEqual(CANONICAL_WIDTH);
     expect(rect.y + rect.height).toBeLessThanOrEqual(CANONICAL_HEIGHT);
+  });
+
+  it('accepts a custom box (CROP_NOMBRE, the title bar used for scan-to-identify, ROADMAP.md E3b)', () => {
+    const [x0, y0, x1, y1] = CROP_NOMBRE;
+    const rect = computeCropRect(CANONICAL_WIDTH, CANONICAL_HEIGHT, CROP_NOMBRE);
+    expect(rect.x).toBe(Math.floor(x0 * CANONICAL_WIDTH));
+    expect(rect.y).toBe(Math.floor(y0 * CANONICAL_HEIGHT));
+    expect(rect.width).toBe(Math.floor(x1 * CANONICAL_WIDTH) - Math.floor(x0 * CANONICAL_WIDTH));
+    expect(rect.height).toBe(Math.floor(y1 * CANONICAL_HEIGHT) - Math.floor(y0 * CANONICAL_HEIGHT));
+    // The title bar sits above the rules-text box and is much shorter.
+    expect(rect.y).toBeLessThan(computeCropRect(CANONICAL_WIDTH, CANONICAL_HEIGHT, CROP_TEXTO).y);
   });
 });
 
@@ -173,6 +186,26 @@ describe('extractCardText', () => {
     expect(dims[0]).toEqual({ width: CANONICAL_WIDTH, height: CANONICAL_HEIGHT });
     // Second offscreen canvas: crop rect upscaled 3x.
     const crop = computeCropRect(CANONICAL_WIDTH, CANONICAL_HEIGHT);
+    expect(dims[1]).toEqual({ width: crop.width * OCR_UPSCALE, height: crop.height * OCR_UPSCALE });
+  });
+});
+
+describe('extractCardName', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('crops+upscales CROP_NOMBRE (the title bar), not CROP_TEXTO', async () => {
+    const { dims } = stubCanvasContext();
+    const text = await extractCardName(fakeSource());
+
+    expect(text).toBe('Lightning Bolt'); // same mocked tesseract.js worker as extractCardText's test
+
+    expect(dims[0]).toEqual({ width: CANONICAL_WIDTH, height: CANONICAL_HEIGHT });
+    const crop = computeCropRect(CANONICAL_WIDTH, CANONICAL_HEIGHT, CROP_NOMBRE);
     expect(dims[1]).toEqual({ width: crop.width * OCR_UPSCALE, height: crop.height * OCR_UPSCALE });
   });
 });

@@ -173,9 +173,22 @@ model CatalogCard {
   manaCost   String?
   cmc        Float?
   colors     String[]
-  oracleText String? @db.Text
+  oracleText String?  @db.Text
   imageUrl   String?
   edhrecRank Int?
+
+  // Added for ROADMAP.md E3b — Stage 3's client-side tabular feature
+  // builder (priceFeatures.ts, mirrors pytorch/src/price_features.py) needs
+  // these to build its 50-dim vector for a catalog-identified card at scan
+  // time; the fields above alone aren't enough (no set_type/frame/
+  // border_color/color_identity/finishes/frame_effects/released_at).
+  setType       String?
+  frame         String?
+  borderColor   String?
+  colorIdentity String[]
+  finishes      String[]
+  frameEffects  String[]
+  releasedAt    String?
 
   createdAt DateTime @default(now())
 
