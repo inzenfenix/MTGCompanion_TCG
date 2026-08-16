@@ -1059,12 +1059,42 @@ export class ScriptsService {
   }
 
   /** El import de catálogo de 58,679 cartas (F6) vía SSM Run Command en vez de a mano — mismo mecanismo que scripts/deploy-backend.sh, un solo `docker exec`. */
+  /**
+   * Dos bugs reales encontrados en vivo, corriendo esto contra la instancia
+   * real por primera vez, ninguno hipotético:
+   *  1. `certamen_1/data/cards.json` (59MB) nunca llega a la instancia — el
+   *     deploy solo empaqueta `backend/`. Se sube ahora al bucket
+   *     deploy_artifacts (mismo bucket que ya usa deploy-backend.sh) y se
+   *     copia adentro del contenedor con `docker cp` antes de correr el
+   *     import — el contenedor no tiene `aws` cli instalado, por eso se baja
+   *     en el HOST (que sí lo tiene) y se copia adentro, no se baja directo
+   *     desde adentro del contenedor.
+   *  2. `ts-node prisma/import-catalog.ts` solo, revienta con
+   *     `ERR_UNKNOWN_FILE_EXTENSION` — el `"module": "nodenext"` de
+   *     tsconfig.json hace que el loader ESM nativo de Node intente cargar
+   *     el .ts directo, sin pasar por el hook de ts-node. Fix confirmado:
+   *     `TS_NODE_COMPILER_OPTIONS='{"module":"commonjs"}'` fuerza a ts-node
+   *     a compilar este archivo puntual como CommonJS, sin tocar
+   *     tsconfig.json ni el resto de la app.
+   */
   async importCatalog(): Promise<{ runId: string }> {
     const outputs = await this.getTerraformOutputs();
     const backendInstanceId = outputs?.backend_instance_id;
     const region = outputs?.aws_region;
-    if (!backendInstanceId || typeof backendInstanceId !== 'string' || !region || typeof region !== 'string') {
-      throw new BadRequestException('No hay backend_instance_id/aws_region todavía — ¿corriste "terraform apply"?');
+    const artifactsBucket = outputs?.deploy_artifacts_bucket_name;
+    if (
+      !backendInstanceId ||
+      typeof backendInstanceId !== 'string' ||
+      !region ||
+      typeof region !== 'string' ||
+      !artifactsBucket ||
+      typeof artifactsBucket !== 'string'
+    ) {
+      throw new BadRequestException('No hay backend_instance_id/aws_region/deploy_artifacts_bucket_name todavía — ¿corriste "terraform apply"?');
+    }
+    const cardsJsonPath = path.join(REPO_ROOT, 'Proyecto', 'certamen_1', 'data', 'cards.json');
+    if (!fs.existsSync(cardsJsonPath)) {
+      throw new BadRequestException(`No se encontró ${cardsJsonPath} en esta máquina — corré el scraper (Scraper tab) primero.`);
     }
     // Se resuelve ANTES de crear el runId — así falta de credenciales es un
     // 400 inmediato en la llamada HTTP, no un run que arranca y muere solo.
@@ -1073,15 +1103,25 @@ export class ScriptsService {
     const runId = randomUUID();
     this.runs.set(runId, { id: runId, scriptId: 'ssm-run-command:import-catalog', status: 'running', startedAt: Date.now() });
     this.gateway.emitStatus(runId, 'running');
+    const log = (msg: string) => this.gateway.emitLog(runId, 'stdout', `${msg}\n`);
 
     (async () => {
       try {
+        const s3Key = 'import/cards.json';
+        log(`Subiendo ${cardsJsonPath} (59MB) a s3://${artifactsBucket}/${s3Key} ...`);
+        await this.execAndStream(runId, 'aws', ['s3', 'cp', cardsJsonPath, `s3://${artifactsBucket}/${s3Key}`, '--region', region], REPO_ROOT, env as Record<string, string>);
+
         await runSsmCommand(
           backendInstanceId,
-          ['docker exec mtg-backend-app npm run db:import-catalog'],
+          [
+            `aws s3 cp "s3://${artifactsBucket}/${s3Key}" /tmp/cards.json --region ${region}`,
+            'docker cp /tmp/cards.json mtg-backend-app:/tmp/cards.json',
+            `docker exec -e TS_NODE_COMPILER_OPTIONS='{"module":"commonjs"}' mtg-backend-app node_modules/.bin/ts-node -r dotenv/config prisma/import-catalog.ts --file /tmp/cards.json`,
+            'rm -f /tmp/cards.json',
+          ],
           region,
           env,
-          (msg) => this.gateway.emitLog(runId, 'stdout', `${msg}\n`),
+          log,
         );
         const record = this.runs.get(runId);
         if (record) {

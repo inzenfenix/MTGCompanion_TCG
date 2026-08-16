@@ -68,9 +68,27 @@ terraform apply
    - Rebuild: `npm run build` → `npx cap sync android` → `cd android &&
      ./gradlew assembleDebug`.
 4. One-time catalog import (not part of `user_data` — a 58k-row import
-   shouldn't block instance boot): open a shell on `backend` (see "Admin
-   access" below) and run `docker exec mtg-backend-app npm run
-   db:import-catalog`, then `npm run db:seed` if needed.
+   shouldn't block instance boot). Easiest: desktop-runner's Deploy tab →
+   Outputs card → "3. Importar catálogo" (uploads `certamen_1/data/
+   cards.json` to `deploy_artifacts_bucket_name` and runs it remotely via
+   SSM Run Command, no shell needed). Doing it by hand instead needs two
+   real gotchas worked around, both found running this for real against a
+   live instance:
+   - `certamen_1/data/cards.json` isn't on the instance (only `backend/`
+     gets shipped) — copy it in yourself first (`docker cp` after getting it
+     onto the instance somehow, e.g. via the same S3-staging trick
+     `deploy-backend.sh` uses).
+   - `npm run db:import-catalog` (`ts-node prisma/import-catalog.ts`) fails
+     with `ERR_UNKNOWN_FILE_EXTENSION` as-is — `tsconfig.json`'s `"module":
+     "nodenext"` makes Node's own ESM loader grab the `.ts` file before
+     ts-node's CommonJS hook can. Fix: run it with
+     `TS_NODE_COMPILER_OPTIONS='{"module":"commonjs"}'` set, and via
+     `node_modules/.bin/ts-node` directly (not the `npm run` wrapper), e.g.
+     `docker exec -e TS_NODE_COMPILER_OPTIONS='{"module":"commonjs"}'
+     mtg-backend-app node_modules/.bin/ts-node -r dotenv/config
+     prisma/import-catalog.ts --file /path/to/cards.json`. Then `npm run
+     db:seed` if needed (same fix likely applies — not hit yet, `db:seed`
+     wasn't run this session).
 
 ## Admin access (SSM Session Manager, no SSH)
 

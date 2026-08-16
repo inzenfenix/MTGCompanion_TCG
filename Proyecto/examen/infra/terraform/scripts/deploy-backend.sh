@@ -66,12 +66,17 @@ aws s3 cp "$TMP_TAR" "s3://$ARTIFACTS_BUCKET/$DEPLOY_KEY" --region "$AWS_REGION"
 # machine's own credentials — never written to a file) and build the .env
 # content in memory.
 echo "==> Resolving secrets from Secrets Manager"
-SECRETS_OUT=$(python3 - "$TERRAFORM_DIR" <<'PY'
+SECRETS_OUT=$(python3 - "$TERRAFORM_DIR" "$AWS_REGION" <<'PY'
 import json, subprocess, sys
 tf_dir = sys.argv[1]
+aws_region = sys.argv[2]
 arns = json.loads(subprocess.check_output(["terraform", "output", "-json", "secrets_manager_secret_arns"], cwd=tf_dir))
 def fetch(arn):
-    out = subprocess.check_output(["aws", "secretsmanager", "get-secret-value", "--secret-id", arn, "--query", "SecretString", "--output", "text"])
+    # --region explícito: sin esto, aws cli no tiene de dónde sacar la
+    # región acá (ni AWS_DEFAULT_REGION ni un ~/.aws/config con default
+    # existen necesariamente en esta máquina) y falla con "NoRegion"
+    # (confirmado en una corrida real contra la cuenta real).
+    out = subprocess.check_output(["aws", "secretsmanager", "get-secret-value", "--secret-id", arn, "--region", aws_region, "--query", "SecretString", "--output", "text"])
     val = out.decode().strip()
     # "unset" is secrets.tf's sentinel for "the mercadopago_* var was left
     # blank" — Secrets Manager's real API rejects a literal empty

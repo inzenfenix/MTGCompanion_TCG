@@ -37,6 +37,15 @@ mkdir -p "$MOUNT_POINT"
 mount "$DEVICE" "$MOUNT_POINT" || true
 grep -q "$DEVICE" /etc/fstab || echo "$DEVICE $MOUNT_POINT ext4 defaults,nofail 0 2" >>/etc/fstab
 
+# Postgres' own data dir has to be a SUBDIRECTORY of the mount point, never
+# the mount point itself — `mkfs.ext4` always creates a `lost+found` at the
+# filesystem's root, so `initdb` sees a "non-empty directory" and refuses to
+# start (confirmed for real: `mtg-postgres` crash-looped on the first real
+# `apply` with exactly that error). `postgres:16-alpine`'s official image
+# already runs as the right uid/gid internally, no extra chown needed.
+PGDATA_DIR="$MOUNT_POINT/pgdata"
+mkdir -p "$PGDATA_DIR"
+
 # Instance-role credentials only (LabInstanceProfile, attached in
 # ec2_postgres.tf) — never a static key pair. If the AL2023 "aws-cli"
 # package name ever changes, fall back to the pip install.
@@ -50,5 +59,5 @@ docker run -d --name mtg-postgres --restart unless-stopped \
   -e POSTGRES_USER=mtg \
   -e POSTGRES_PASSWORD="$PGPASSWORD" \
   -e POSTGRES_DB=mtg_companion \
-  -v "$MOUNT_POINT":/var/lib/postgresql/data \
+  -v "$PGDATA_DIR":/var/lib/postgresql/data \
   postgres:16-alpine
