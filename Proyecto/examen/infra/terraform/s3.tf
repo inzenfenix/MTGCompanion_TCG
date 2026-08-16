@@ -12,6 +12,44 @@ resource "aws_s3_bucket" "card_photos" {
 
 data "aws_caller_identity" "current" {}
 
+# Staging area for scripts/deploy-backend.sh — unconditional (unlike
+# card_photos above, this exists regardless of use_minio: it's a build
+# artifact bucket, not the app's user-facing photo storage, so it shouldn't
+# be coupled to that toggle). deploy-backend.sh tars the backend source,
+# `aws s3 cp`s it here, then `aws ssm send-command`s the backend instance to
+# pull it down and build — replaced the old SSH/SCP flow, which never
+# actually had a real key pair wired to these instances (see
+# security_groups.tf's comment). Private, no CORS (server-to-server only,
+# never touched by a browser), lifecycle rule so old deploy tarballs don't
+# pile up across repeated deploys.
+resource "aws_s3_bucket" "deploy_artifacts" {
+  bucket = "${var.project_name}-deploy-artifacts-${data.aws_caller_identity.current.account_id}"
+
+  tags = { Name = "${var.project_name}-deploy-artifacts" }
+}
+
+resource "aws_s3_bucket_public_access_block" "deploy_artifacts" {
+  bucket = aws_s3_bucket.deploy_artifacts.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "deploy_artifacts" {
+  bucket = aws_s3_bucket.deploy_artifacts.id
+
+  rule {
+    id     = "expire-old-deploys"
+    status = "Enabled"
+    filter {}
+    expiration {
+      days = 7
+    }
+  }
+}
+
 resource "aws_s3_bucket_public_access_block" "card_photos" {
   count  = var.use_minio ? 0 : 1
   bucket = aws_s3_bucket.card_photos[0].id

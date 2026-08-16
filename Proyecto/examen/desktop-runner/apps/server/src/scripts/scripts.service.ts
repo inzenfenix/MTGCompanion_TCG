@@ -23,7 +23,18 @@ import { LogsGateway } from './logs.gateway';
 import { detectGpu, GpuDetectionResult } from './gpu-detect';
 import { getScraperCardCount, ScraperCardCountResult } from './scryfall-card-count';
 import { readSettings, writeSettings, RunnerSettings, AwsCredentials, AwsServicesChecklist } from './settings';
-import { buildTerraformEnv, getTerraformEligibility, TERRAFORM_DIR, TerraformAction, TerraformEligibility } from './terraform';
+import { buildAwsCliEnv, buildTerraformEnv, getTerraformEligibility, TERRAFORM_DIR, TerraformAction, TerraformEligibility } from './terraform';
+import { installTool as installToolBinary, pathEnvWithToolBin, ToolInstallTarget } from './tool-install';
+import {
+  buildPortForwardArgs,
+  buildStartSessionArgs,
+  isSessionManagerPluginInstalled,
+  launchNativeTerminal,
+  runSsmCommand,
+  SSM_INSTANCES,
+  SsmInstanceKey,
+} from './ssm';
+import { applyBackendUrl, ApplyBackendUrlResult, resolveAndroidJavaHome, TRADING_APP_DIR } from './android-deploy';
 import {
   buildSanitizedInstallCommand,
   buildTfDockerRunArgs,
@@ -576,9 +587,9 @@ export class ScriptsService {
   }
 
   /** Corre un comando y streamea su output por el gateway bajo un runId, esperando a que termine. */
-  private execAndStream(runId: string, cmd: string, args: string[], cwd: string): Promise<void> {
+  private execAndStream(runId: string, cmd: string, args: string[], cwd: string, extraEnv?: Record<string, string>): Promise<void> {
     return new Promise((resolve, reject) => {
-      const child = spawn(cmd, args, { cwd, env: { ...process.env, PYTHONUNBUFFERED: '1' } });
+      const child = spawn(cmd, args, { cwd, env: { ...process.env, PYTHONUNBUFFERED: '1', ...extraEnv } });
       child.stdout.on('data', (d) => this.gateway.emitLog(runId, 'stdout', d.toString()));
       child.stderr.on('data', (d) => this.gateway.emitLog(runId, 'stderr', d.toString()));
       child.on('error', (err) => reject(err));
@@ -784,7 +795,7 @@ export class ScriptsService {
 
     const child: ChildProcessWithoutNullStreams = spawn('terraform', args, {
       cwd: TERRAFORM_DIR,
-      env: { ...process.env, ...buildTerraformEnv(settings.awsCredentials) },
+      env: { ...pathEnvWithToolBin(), ...buildTerraformEnv(settings.awsCredentials) },
       // Mismo motivo que runScript(): apply/destroy pueden colgarse, y
       // stopRun() necesita poder matar el árbol de procesos completo en
       // POSIX (ver ese comentario más abajo).
@@ -820,7 +831,7 @@ export class ScriptsService {
     return new Promise((resolve) => {
       let child;
       try {
-        child = spawn('terraform', ['output', '-json'], { cwd: TERRAFORM_DIR });
+        child = spawn('terraform', ['output', '-json'], { cwd: TERRAFORM_DIR, env: pathEnvWithToolBin() });
       } catch {
         resolve(null);
         return;
@@ -840,6 +851,257 @@ export class ScriptsService {
         }
       });
     });
+  }
+
+  /**
+   * Instala `terraform`/`aws` automáticamente (tool-install.ts) — mismo
+   * shape de streaming que runTerraform() (runId + this.runs/gateway), pero
+   * sin proceso hijo único: es una secuencia de pasos (resolver
+   * versión → descargar → descomprimir/instalar) narrada línea a línea por
+   * el mismo runId/LogConsole. Nunca sudo — ver tool-install.ts para el
+   * porqué de cada rama por SO.
+   */
+  async installTool(tool: ToolInstallTarget): Promise<{ runId: string }> {
+    const runId = randomUUID();
+    const startedAt = Date.now();
+    this.runs.set(runId, { id: runId, scriptId: `tool-install:${tool}`, status: 'running', startedAt });
+    this.gateway.emitStatus(runId, 'running');
+    this.gateway.emitLog(runId, 'stdout', `$ instalar ${tool}\n`);
+
+    const log = (message: string) => this.gateway.emitLog(runId, 'stdout', `${message}\n`);
+
+    installToolBinary(tool, log)
+      .then(() => {
+        const record = this.runs.get(runId);
+        if (record) {
+          record.status = 'success';
+          record.endedAt = Date.now();
+        }
+        this.gateway.emitStatus(runId, 'success');
+      })
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : String(err);
+        this.gateway.emitLog(runId, 'stderr', `\nFalló: ${message}\n`);
+        const record = this.runs.get(runId);
+        if (record) {
+          record.status = 'error';
+          record.endedAt = Date.now();
+        }
+        this.gateway.emitStatus(runId, 'error');
+      });
+
+    return { runId };
+  }
+
+  // ── SSM (pestaña Deploy — conectarse a lo que terraform ya creó) ────────
+  // Complementa runTerraform()/getTerraformOutputs(): esas crean/destruyen
+  // infra, esto es solo para hablarle a instancias que ya existen. Ningún
+  // security group tiene puertos administrativos abiertos (ver
+  // infra/terraform/security_groups.tf) — todo pasa por SSM.
+
+  /** Expone SSM_INSTANCES (ssm.ts) para que el renderer no duplique labels/puertos a mano — mismo motivo que GET /run-all-sequences expone RUN_ALL_SEQUENCES. */
+  getSsmInstances(): typeof SSM_INSTANCES {
+    return SSM_INSTANCES;
+  }
+
+  async getSsmStatus(): Promise<{ sessionManagerPluginInstalled: boolean }> {
+    return { sessionManagerPluginInstalled: await isSessionManagerPluginInstalled() };
+  }
+
+  /**
+   * PATH aumentado + credenciales AWS, para cualquier `aws ssm ...` que
+   * lance este servicio — sin esto, `aws` no tiene forma de autenticarse
+   * (confirmado en vivo: `NoCredentials` real al probar `runSsmCommand()`
+   * sin esto, mismo error que tendría cualquier usuario real). `buildAwsCliEnv()`,
+   * no `buildTerraformEnv()` — esa usa nombres `TF_VAR_*` que solo terraform
+   * entiende, `aws` necesita las variables estándar (`AWS_ACCESS_KEY_ID`/...).
+   * Dos rutas de credenciales del proyecto (ver terraform.ts), esto es la de
+   * "corre localmente", no la del rol de la instancia.
+   */
+  private awsCliEnv(): NodeJS.ProcessEnv {
+    const settings = readSettings();
+    if (!settings.awsCredentials) {
+      throw new BadRequestException('No hay credenciales AWS configuradas — pegalas en la pestaña "Deploy" primero.');
+    }
+    return { ...pathEnvWithToolBin(), ...buildAwsCliEnv(settings.awsCredentials) };
+  }
+
+  private async resolveSsmInstanceId(
+    key: SsmInstanceKey,
+  ): Promise<{ def: (typeof SSM_INSTANCES)[number]; instanceId: string; region: string }> {
+    const def = SSM_INSTANCES.find((i) => i.key === key);
+    if (!def) throw new BadRequestException(`Instancia SSM desconocida: "${key}"`);
+    const outputs = await this.getTerraformOutputs();
+    const instanceId = outputs?.[def.outputKey];
+    const region = outputs?.aws_region;
+    if (!instanceId || typeof instanceId !== 'string' || !region || typeof region !== 'string') {
+      throw new BadRequestException(`No hay un instance id para "${key}" todavía — ¿corriste "terraform apply"?`);
+    }
+    return { def, instanceId, region };
+  }
+
+  /** Abre una terminal nativa del SO con una sesión SSM interactiva ya armada — no pasa por this.runs/gateway, es un proceso completamente aparte (su propia ventana), no algo que la app siga rastreando. */
+  async openSsmTerminal(key: SsmInstanceKey): Promise<void> {
+    const { instanceId, region } = await this.resolveSsmInstanceId(key);
+    await launchNativeTerminal(buildStartSessionArgs(instanceId, region), this.awsCliEnv());
+  }
+
+  /**
+   * Túnel de puerto (MailHog/MinIO) vía SSM — a diferencia de openSsmTerminal
+   * de arriba, esto SÍ se registra en this.runs/this.children (mismo
+   * runId/LogConsole/botón "Detener" que terraform init/plan/...): es un
+   * proceso de larga duración que hay que poder parar, no algo fire-and-forget.
+   */
+  async startSsmPortForward(key: SsmInstanceKey): Promise<{ runId: string }> {
+    const { def, instanceId, region } = await this.resolveSsmInstanceId(key);
+    if (!def.webPort) throw new BadRequestException(`"${key}" no tiene una UI web para tunelear.`);
+
+    const runId = randomUUID();
+    const args = buildPortForwardArgs(instanceId, def.webPort, region);
+    this.gateway.emitLog(runId, 'stdout', `$ aws ${args.join(' ')}\n`);
+
+    const child: ChildProcessWithoutNullStreams = spawn('aws', args, {
+      env: this.awsCliEnv(),
+      // detached en POSIX: mismo motivo que runTerraform()/runScript() — el
+      // túnel corre indefinidamente hasta que el usuario le da "Detener",
+      // stopRun() necesita poder matar el grupo de procesos entero.
+      detached: process.platform !== 'win32',
+    });
+    this.trackStreamedProcess(runId, child, `ssm-port-forward:${key}`, Date.now());
+
+    return { runId };
+  }
+
+  /** Wiring compartido de un proceso de larga duración en this.runs/this.children/gateway — mismo bloque que runTerraform() repetía inline; factorizado acá porque startSsmPortForward() es ya la tercera copia casi idéntica (instalTool() de arriba también lo hace a mano, pero con pasos async en vez de un único child_process). */
+  private trackStreamedProcess(runId: string, child: ChildProcessWithoutNullStreams, scriptId: string, startedAt: number): void {
+    this.runs.set(runId, { id: runId, scriptId, status: 'running', startedAt });
+    this.children.set(runId, child);
+    this.gateway.emitStatus(runId, 'running');
+    child.stdout.on('data', (d) => this.gateway.emitLog(runId, 'stdout', d.toString()));
+    child.stderr.on('data', (d) => this.gateway.emitLog(runId, 'stderr', d.toString()));
+
+    const finish = (outcome: 'success' | 'error', exitCode: number | null) => {
+      this.children.delete(runId);
+      const status: RunRecord['status'] = this.stopRequested.delete(runId) ? 'stopped' : outcome;
+      const record = this.runs.get(runId);
+      if (record) {
+        record.status = status;
+        record.endedAt = Date.now();
+        record.exitCode = exitCode;
+      }
+      this.gateway.emitStatus(runId, status, { exitCode });
+    };
+    child.on('error', (err) => {
+      this.gateway.emitLog(runId, 'stderr', `\n[error al lanzar el proceso] ${err.message}\n`);
+      finish('error', null);
+    });
+    child.on('close', (code) => finish(code === 0 ? 'success' : 'error', code));
+  }
+
+  // ── Android hand-off (pestaña Deploy — Outputs) ─────────────────────────
+  // Automatiza lo que el README documentaba solo en texto: pegar backend_url
+  // en dos archivos locales, y correr los 3 comandos para reconstruir el
+  // APK. A pedido del usuario ("¿esto no se puede automatizar?").
+
+  /** Rápido, no streameado — son un par de escrituras de archivo locales, no vale la pena un runId/LogConsole para esto. */
+  async applyAndroidBackendUrl(): Promise<ApplyBackendUrlResult> {
+    const outputs = await this.getTerraformOutputs();
+    const backendUrl = outputs?.backend_url;
+    const backendHost = outputs?.backend_public_ip;
+    if (!backendUrl || typeof backendUrl !== 'string' || !backendHost || typeof backendHost !== 'string') {
+      throw new BadRequestException('No hay backend_url/backend_public_ip todavía — ¿corriste "terraform apply"?');
+    }
+    return applyBackendUrl(backendUrl, backendHost);
+  }
+
+  /** `npm run build` -> `npx cap sync android` -> `gradlew assembleDebug`, streameado. Mismo JDK portable que ROADMAP.md's E3d instaló para esta máquina si no hay JAVA_HOME ya seteado (android-deploy.ts::resolveAndroidJavaHome). */
+  async rebuildApk(): Promise<{ runId: string }> {
+    const runId = randomUUID();
+    this.runs.set(runId, { id: runId, scriptId: 'android:rebuild-apk', status: 'running', startedAt: Date.now() });
+    this.gateway.emitStatus(runId, 'running');
+
+    (async () => {
+      try {
+        const javaHome = resolveAndroidJavaHome();
+        const extraEnv = javaHome ? { JAVA_HOME: javaHome } : undefined;
+        this.gateway.emitLog(runId, 'stdout', `JAVA_HOME: ${javaHome ?? '(no encontrado — se usa lo que haya en el PATH)'}\n`);
+
+        this.gateway.emitLog(runId, 'stdout', '$ npm run build\n');
+        await this.execAndStream(runId, 'npm', ['run', 'build'], TRADING_APP_DIR, extraEnv);
+
+        this.gateway.emitLog(runId, 'stdout', '$ npx cap sync android\n');
+        await this.execAndStream(runId, 'npx', ['cap', 'sync', 'android'], TRADING_APP_DIR, extraEnv);
+
+        const androidDir = path.join(TRADING_APP_DIR, 'android');
+        const gradlew = path.join(androidDir, process.platform === 'win32' ? 'gradlew.bat' : 'gradlew');
+        this.gateway.emitLog(runId, 'stdout', `$ ${gradlew} assembleDebug\n`);
+        await this.execAndStream(runId, gradlew, ['assembleDebug'], androidDir, extraEnv);
+
+        const record = this.runs.get(runId);
+        if (record) {
+          record.status = 'success';
+          record.endedAt = Date.now();
+        }
+        this.gateway.emitStatus(runId, 'success');
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.gateway.emitLog(runId, 'stderr', `\nFalló: ${message}\n`);
+        const record = this.runs.get(runId);
+        if (record) {
+          record.status = 'error';
+          record.endedAt = Date.now();
+        }
+        this.gateway.emitStatus(runId, 'error');
+      }
+    })();
+
+    return { runId };
+  }
+
+  /** El import de catálogo de 58,679 cartas (F6) vía SSM Run Command en vez de a mano — mismo mecanismo que scripts/deploy-backend.sh, un solo `docker exec`. */
+  async importCatalog(): Promise<{ runId: string }> {
+    const outputs = await this.getTerraformOutputs();
+    const backendInstanceId = outputs?.backend_instance_id;
+    const region = outputs?.aws_region;
+    if (!backendInstanceId || typeof backendInstanceId !== 'string' || !region || typeof region !== 'string') {
+      throw new BadRequestException('No hay backend_instance_id/aws_region todavía — ¿corriste "terraform apply"?');
+    }
+    // Se resuelve ANTES de crear el runId — así falta de credenciales es un
+    // 400 inmediato en la llamada HTTP, no un run que arranca y muere solo.
+    const env = this.awsCliEnv();
+
+    const runId = randomUUID();
+    this.runs.set(runId, { id: runId, scriptId: 'ssm-run-command:import-catalog', status: 'running', startedAt: Date.now() });
+    this.gateway.emitStatus(runId, 'running');
+
+    (async () => {
+      try {
+        await runSsmCommand(
+          backendInstanceId,
+          ['docker exec mtg-backend-app npm run db:import-catalog'],
+          region,
+          env,
+          (msg) => this.gateway.emitLog(runId, 'stdout', `${msg}\n`),
+        );
+        const record = this.runs.get(runId);
+        if (record) {
+          record.status = 'success';
+          record.endedAt = Date.now();
+        }
+        this.gateway.emitStatus(runId, 'success');
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.gateway.emitLog(runId, 'stderr', `\nFalló: ${message}\n`);
+        const record = this.runs.get(runId);
+        if (record) {
+          record.status = 'error';
+          record.endedAt = Date.now();
+        }
+        this.gateway.emitStatus(runId, 'error');
+      }
+    })();
+
+    return { runId };
   }
 
   /**

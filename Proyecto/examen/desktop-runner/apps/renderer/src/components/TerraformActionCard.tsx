@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { LogConsole } from './LogConsole';
 import { useRunLogs } from '@/lib/useRunLogs';
 import { api } from '@/lib/api';
-import type { RunnerSettings, TerraformAction, TerraformStatus } from '@/lib/types';
+import type { RunnerSettings, TerraformAction, TerraformStatus, ToolInstallTarget } from '@/lib/types';
 
 const STALE_AFTER_MS = 3.5 * 60 * 60 * 1000;
 
@@ -36,12 +36,18 @@ const ACTIONS: { action: TerraformAction; label: string; destructive?: boolean; 
  * en un segundo click (no un solo botón que ya dispara) y quedan
  * deshabilitados sin credenciales configuradas.
  */
-export function TerraformActionCard() {
+export interface TerraformActionCardProps {
+  /** AwsTab.tsx lo incrementa cuando AwsCredentialsBox (componente hermano) guarda credenciales nuevas — sin esto, esta tarjeta seguía mostrando "Pegá tus credenciales AWS arriba primero" hasta recargar la pestaña entera, porque su propio `settings` solo se cargaba una vez al montar. */
+  credentialsRefreshToken?: number;
+}
+
+export function TerraformActionCard({ credentialsRefreshToken }: TerraformActionCardProps = {}) {
   const [status, setStatus] = useState<TerraformStatus | null>(null);
   const [settings, setSettings] = useState<RunnerSettings | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const [pendingConfirm, setPendingConfirm] = useState<TerraformAction | null>(null);
   const [starting, setStarting] = useState<TerraformAction | null>(null);
+  const [installing, setInstalling] = useState<ToolInstallTarget | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stopping, setStopping] = useState(false);
   const runLogs = useRunLogs(runId);
@@ -51,7 +57,28 @@ export function TerraformActionCard() {
     api.terraformStatus().then(setStatus);
     api.getSettings().then(setSettings);
   };
-  useEffect(load, []);
+  useEffect(load, [credentialsRefreshToken]);
+
+  // Al terminar una instalación (éxito o no), se refresca el status para que
+  // el badge/botones reaccionen sin que el usuario tenga que recargar la
+  // pestaña. Ojo con la carrera obvia acá: justo después de setRunId(id),
+  // useRunLogs(runId) todavía no re-corrió su propio efecto — en ese primer
+  // render intermedio `runStatus` es el valor VIEJO (p.ej. "success" de una
+  // corrida anterior de init/plan), no "idle"/"running" del nuevo run. Sin
+  // el sawRunningRef de abajo, ese valor viejo dispara esto de una y
+  // termina la instalación como "lista" antes de que arranque de verdad.
+  // Solo se cuenta como terminada una vez que este runId puntual ya se vio
+  // en "running" al menos una vez.
+  const sawRunningForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (runId && runStatus === 'running') sawRunningForRef.current = runId;
+  }, [runId, runStatus]);
+  useEffect(() => {
+    if (installing && runId && sawRunningForRef.current === runId && runStatus !== 'running') {
+      setInstalling(null);
+      load();
+    }
+  }, [runStatus, runId, installing]);
 
   const creds = settings?.awsCredentials ?? null;
   const stale = creds ? Date.now() - creds.savedAt > STALE_AFTER_MS : false;
@@ -72,6 +99,27 @@ export function TerraformActionCard() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setStarting(null);
+    }
+  };
+
+  const startInstall = async (tool: ToolInstallTarget) => {
+    setError(null);
+    setInstalling(tool);
+    // Invalida cualquier runId "ya visto corriendo" de una instalación
+    // ANTERIOR — sin esto, si esta instalación es la segunda de la sesión
+    // (p.ej. terraform y después aws cli), hay un instante entre setInstalling
+    // y que llegue el runId nuevo donde `runId` todavía es el de la corrida
+    // vieja (ya terminada), y coincidía por accidente con este ref viejo:
+    // la instalación se marcaba "terminada" antes de arrancar de verdad, y
+    // el refresh real de status (al final, el que importa) nunca llegaba a
+    // dispararse. Confirmado en vivo: pasaba justo así con terraform → aws cli.
+    sawRunningForRef.current = null;
+    try {
+      const { runId: id } = await api.installTool(tool);
+      setRunId(id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setInstalling(null);
     }
   };
 
@@ -111,15 +159,28 @@ export function TerraformActionCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {disabledReason && <p className="text-xs text-amber-700">{disabledReason}</p>}
+        {status && !status.terraformInstalled && (
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-amber-700">terraform no está instalado en esta máquina.</p>
+            <Button size="sm" variant="outline" disabled={running} onClick={() => startInstall('terraform')}>
+              {installing === 'terraform' ? 'Instalando…' : 'Instalar terraform'}
+            </Button>
+          </div>
+        )}
+        {status?.terraformInstalled && !creds && <p className="text-xs text-amber-700">Pegá tus credenciales AWS arriba primero.</p>}
         {stale && !disabledReason && (
           <p className="text-xs text-amber-700">Las credenciales AWS guardadas pueden estar vencidas — considerá repegarlas.</p>
         )}
         {status && !status.awsCliInstalled && (
-          <p className="text-xs text-muted-foreground">
-            aws cli no detectado — no bloquea Terraform, pero{' '}
-            <code className="font-mono">scripts/deploy-backend.sh</code> lo necesita.
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              aws cli no detectado — no bloquea Terraform, pero{' '}
+              <code className="font-mono">scripts/deploy-backend.sh</code> lo necesita.
+            </p>
+            <Button size="sm" variant="outline" disabled={running} onClick={() => startInstall('aws-cli')}>
+              {installing === 'aws-cli' ? 'Instalando…' : 'Instalar aws cli'}
+            </Button>
+          </div>
         )}
 
         {error && <p className="text-xs text-destructive">{error}</p>}

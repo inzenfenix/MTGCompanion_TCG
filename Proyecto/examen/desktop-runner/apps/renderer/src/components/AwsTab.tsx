@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { AwsCredentialsBox } from './AwsCredentialsBox';
 import { AwsServicesChecklist } from './AwsServicesChecklist';
 import { TerraformActionCard } from './TerraformActionCard';
+import { SsmAccessCard } from './SsmAccessCard';
+import { LogConsole } from './LogConsole';
+import { useRunLogs } from '@/lib/useRunLogs';
 import { api } from '@/lib/api';
+import type { ApplyBackendUrlResult } from '@/lib/types';
 
 /**
  * Pestaña "Deploy" (ROADMAP.md workstream I) — infraestructura AWS real vía
@@ -15,6 +20,11 @@ import { api } from '@/lib/api';
 export function AwsTab() {
   const [outputs, setOutputs] = useState<Record<string, unknown> | null>(null);
   const [loadingOutputs, setLoadingOutputs] = useState(true);
+  // AwsCredentialsBox y TerraformActionCard son hermanos, no padre/hijo —
+  // cada uno tiene su propio `settings` cargado una sola vez al montar.
+  // Este contador es cómo uno le avisa al otro "guardé algo nuevo, volvé a
+  // pedir /settings" sin levantar todo el estado de credenciales acá arriba.
+  const [credentialsRefreshToken, setCredentialsRefreshToken] = useState(0);
 
   const loadOutputs = () => {
     setLoadingOutputs(true);
@@ -28,41 +38,176 @@ export function AwsTab() {
 
   return (
     <div className="space-y-4">
-      <AwsCredentialsBox />
+      <AwsCredentialsBox onSaved={() => setCredentialsRefreshToken((v) => v + 1)} />
       <AwsServicesChecklist />
-      <TerraformActionCard />
+      <TerraformActionCard credentialsRefreshToken={credentialsRefreshToken} />
+      <SsmAccessCard />
+      <OutputsCard outputs={outputs} loading={loadingOutputs} onReload={loadOutputs} />
+    </div>
+  );
+}
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle>Outputs</CardTitle>
-            <button
-              onClick={loadOutputs}
-              className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-            >
+function copyValue(value: unknown): string {
+  return typeof value === 'string' ? value : JSON.stringify(value);
+}
+
+function OutputsCard({
+  outputs,
+  loading,
+  onReload,
+}: {
+  outputs: Record<string, unknown> | null;
+  loading: boolean;
+  onReload: () => void;
+}) {
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [copiedAll, setCopiedAll] = useState(false);
+  const [applyResult, setApplyResult] = useState<ApplyBackendUrlResult | null>(null);
+  const [applying, setApplying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [apkRunId, setApkRunId] = useState<string | null>(null);
+  const [startingApk, setStartingApk] = useState(false);
+  const apkLogs = useRunLogs(apkRunId);
+
+  const [catalogRunId, setCatalogRunId] = useState<string | null>(null);
+  const [startingCatalog, setStartingCatalog] = useState(false);
+  const catalogLogs = useRunLogs(catalogRunId);
+
+  const copy = async (key: string, value: unknown) => {
+    await navigator.clipboard.writeText(copyValue(value));
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey((k) => (k === key ? null : k)), 2000);
+  };
+
+  const copyAll = async () => {
+    if (!outputs) return;
+    await navigator.clipboard.writeText(JSON.stringify(outputs, null, 2));
+    setCopiedAll(true);
+    setTimeout(() => setCopiedAll(false), 2000);
+  };
+
+  const applyBackendUrl = async () => {
+    setError(null);
+    setApplying(true);
+    setApplyResult(null);
+    try {
+      setApplyResult(await api.applyAndroidBackendUrl());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const rebuildApk = async () => {
+    setError(null);
+    setStartingApk(true);
+    try {
+      const { runId } = await api.rebuildApk();
+      setApkRunId(runId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setStartingApk(false);
+    }
+  };
+
+  const importCatalog = async () => {
+    setError(null);
+    setStartingCatalog(true);
+    try {
+      const { runId } = await api.importCatalog();
+      setCatalogRunId(runId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setStartingCatalog(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle>Outputs</CardTitle>
+          <div className="flex items-center gap-3">
+            {outputs && (
+              <Button size="sm" variant="outline" onClick={copyAll}>
+                {copiedAll ? 'Copiado' : 'Copiar todo (JSON)'}
+              </Button>
+            )}
+            <button onClick={onReload} className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">
               Actualizar
             </button>
           </div>
-          <CardDescription>
-            Resultado de <code className="font-mono">terraform output</code> — <code className="font-mono">backend_url</code>{' '}
-            es el valor a pegar en <code className="font-mono">trading-app-ionic/.env</code>'s{' '}
-            <code className="font-mono">VITE_API_BASE_URL</code>.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loadingOutputs && <p className="text-xs text-muted-foreground">Cargando…</p>}
-          {!loadingOutputs && !outputs && (
-            <p className="text-xs text-muted-foreground">
-              Sin outputs todavía — corré <code className="font-mono">apply</code> arriba primero.
+        </div>
+        <CardDescription>
+          Resultado de <code className="font-mono">terraform output</code> — cada valor tiene su botón de copiar. Los tres
+          pasos de abajo son el resto del hand-off que <code className="font-mono">infra/terraform/README.md</code>{' '}
+          documentaba a mano.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {loading && <p className="text-xs text-muted-foreground">Cargando…</p>}
+        {!loading && !outputs && (
+          <p className="text-xs text-muted-foreground">
+            Sin outputs todavía — corré <code className="font-mono">apply</code> arriba primero.
+          </p>
+        )}
+
+        {outputs && (
+          <div className="space-y-1">
+            {Object.entries(outputs).map(([key, value]) => (
+              <div key={key} className="flex items-center justify-between gap-2 rounded-md border border-border px-2 py-1">
+                <div className="min-w-0">
+                  <div className="font-mono text-xs text-muted-foreground">{key}</div>
+                  <div className="truncate font-mono text-xs">{copyValue(value)}</div>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => copy(key, value)}>
+                  {copiedKey === key ? 'Copiado' : 'Copiar'}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {error && <p className="text-xs text-destructive">{error}</p>}
+
+        {applyResult && (
+          <div className="rounded-md border border-border bg-muted/40 p-2 text-xs space-y-0.5">
+            <p>{applyResult.envUpdated ? '✓' : '·'} {applyResult.envPath}</p>
+            <p>
+              {applyResult.xmlUpdated ? '✓' : applyResult.xmlSkippedReason ? '✗' : '·'}{' '}
+              {applyResult.xmlSkippedReason ?? applyResult.xmlPath}
             </p>
-          )}
-          {outputs && (
-            <pre className="overflow-x-auto rounded-md bg-muted/40 p-3 text-xs">
-              {JSON.stringify(outputs, null, 2)}
-            </pre>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+          </div>
+        )}
+        {apkRunId && (
+          <LogConsole lines={apkLogs.lines} currentLine={apkLogs.currentLine} status={apkLogs.status} lastActivityAt={apkLogs.lastActivityAt} />
+        )}
+        {catalogRunId && (
+          <LogConsole
+            lines={catalogLogs.lines}
+            currentLine={catalogLogs.currentLine}
+            status={catalogLogs.status}
+            lastActivityAt={catalogLogs.lastActivityAt}
+          />
+        )}
+      </CardContent>
+      {outputs && (
+        <CardFooter className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" disabled={applying} onClick={applyBackendUrl}>
+            {applying ? 'Aplicando…' : '1. Aplicar backend_url a la app'}
+          </Button>
+          <Button size="sm" variant="outline" disabled={startingApk || apkLogs.status === 'running'} onClick={rebuildApk}>
+            {apkLogs.status === 'running' ? 'Reconstruyendo…' : '2. Reconstruir APK'}
+          </Button>
+          <Button size="sm" variant="outline" disabled={startingCatalog || catalogLogs.status === 'running'} onClick={importCatalog}>
+            {catalogLogs.status === 'running' ? 'Importando…' : '3. Importar catálogo (58,679 cartas)'}
+          </Button>
+        </CardFooter>
+      )}
+    </Card>
   );
 }

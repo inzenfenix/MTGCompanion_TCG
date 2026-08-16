@@ -93,6 +93,73 @@ export class ScriptsController {
     return this.scriptsService.getTerraformOutputs();
   }
 
+  // Instala terraform/aws cli automáticamente (tool-install.ts) — mismo
+  // mecanismo de runId que arriba, no hace falta confirmación (nunca toca
+  // sudo ni crea infraestructura, solo baja/copia binarios).
+  @Post('terraform/install/:tool')
+  @HttpCode(202)
+  async installTool(@Param('tool') tool: 'terraform' | 'aws-cli' | 'session-manager-plugin') {
+    if (!['terraform', 'aws-cli', 'session-manager-plugin'].includes(tool)) {
+      throw new BadRequestException(`Herramienta desconocida: "${tool}"`);
+    }
+    const { runId } = await this.scriptsService.installTool(tool);
+    return { runId };
+  }
+
+  // Acceso SSM a las instancias que terraform ya creó (no crea/destruye
+  // nada — eso lo hacen las rutas terraform/* de arriba).
+  @Get('ssm/instances')
+  getSsmInstances() {
+    return this.scriptsService.getSsmInstances();
+  }
+
+  @Get('ssm/status')
+  getSsmStatus() {
+    return this.scriptsService.getSsmStatus();
+  }
+
+  @Post('ssm/terminal/:instance')
+  @HttpCode(202)
+  async openSsmTerminal(@Param('instance') instance: 'backend' | 'postgres' | 'mailhog' | 'minio') {
+    if (!['backend', 'postgres', 'mailhog', 'minio'].includes(instance)) {
+      throw new BadRequestException(`Instancia desconocida: "${instance}"`);
+    }
+    await this.scriptsService.openSsmTerminal(instance);
+    return { ok: true };
+  }
+
+  @Post('ssm/port-forward/:instance')
+  @HttpCode(202)
+  async startSsmPortForward(@Param('instance') instance: 'backend' | 'postgres' | 'mailhog' | 'minio') {
+    if (!['backend', 'postgres', 'mailhog', 'minio'].includes(instance)) {
+      throw new BadRequestException(`Instancia desconocida: "${instance}"`);
+    }
+    const { runId } = await this.scriptsService.startSsmPortForward(instance);
+    return { runId };
+  }
+
+  // Automatiza el hand-off de Outputs → app (README's "After apply", ahora
+  // botones en vez de copiar/pegar a mano).
+  @Post('android/apply-backend-url')
+  @HttpCode(200)
+  applyAndroidBackendUrl() {
+    return this.scriptsService.applyAndroidBackendUrl();
+  }
+
+  @Post('android/rebuild-apk')
+  @HttpCode(202)
+  async rebuildApk() {
+    const { runId } = await this.scriptsService.rebuildApk();
+    return { runId };
+  }
+
+  @Post('ssm/import-catalog')
+  @HttpCode(202)
+  async importCatalog() {
+    const { runId } = await this.scriptsService.importCatalog();
+    return { runId };
+  }
+
   @Get('runs/:runId')
   getRun(@Param('runId') runId: string) {
     return this.scriptsService.getRun(runId);

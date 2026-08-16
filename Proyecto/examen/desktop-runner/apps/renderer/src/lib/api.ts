@@ -8,9 +8,14 @@ import type {
   RunRecord,
   ScraperCardCountResult,
   ScriptInfo,
+  ApplyBackendUrlResult,
+  SsmInstanceDef,
+  SsmInstanceKey,
+  SsmStatus,
   TerraformAction,
   TerraformStatus,
   TfDockerStatus,
+  ToolInstallTarget,
 } from './types';
 
 export const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'http://127.0.0.1:4550';
@@ -92,6 +97,18 @@ export const api = {
       body: JSON.stringify({ confirm }),
     }).then((r) => json<{ runId: string }>(r)),
   terraformOutputs: () => fetch(`${API_BASE}/terraform/outputs`).then((r) => json<Record<string, unknown> | null>(r)),
+  installTool: (tool: ToolInstallTarget) =>
+    fetch(`${API_BASE}/terraform/install/${tool}`, { method: 'POST' }).then((r) => json<{ runId: string }>(r)),
+  ssmInstances: () => fetch(`${API_BASE}/ssm/instances`).then((r) => json<SsmInstanceDef[]>(r)),
+  ssmStatus: () => fetch(`${API_BASE}/ssm/status`).then((r) => json<SsmStatus>(r)),
+  ssmOpenTerminal: (instance: SsmInstanceKey) =>
+    fetch(`${API_BASE}/ssm/terminal/${instance}`, { method: 'POST' }).then((r) => json<{ ok: boolean }>(r)),
+  ssmStartPortForward: (instance: SsmInstanceKey) =>
+    fetch(`${API_BASE}/ssm/port-forward/${instance}`, { method: 'POST' }).then((r) => json<{ runId: string }>(r)),
+  applyAndroidBackendUrl: () =>
+    fetch(`${API_BASE}/android/apply-backend-url`, { method: 'POST' }).then((r) => json<ApplyBackendUrlResult>(r)),
+  rebuildApk: () => fetch(`${API_BASE}/android/rebuild-apk`, { method: 'POST' }).then((r) => json<{ runId: string }>(r)),
+  importCatalog: () => fetch(`${API_BASE}/ssm/import-catalog`, { method: 'POST' }).then((r) => json<{ runId: string }>(r)),
 };
 
 let socket: Socket | null = null;

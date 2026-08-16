@@ -30,17 +30,6 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-# ── Access control ───────────────────────────────────────────────────────
-variable "admin_cidr" {
-  description = "CIDR (your own IP, e.g. 203.0.113.4/32) allowed SSH + admin-web access to every instance. No default on purpose — never defaults to 0.0.0.0/0."
-  type        = string
-
-  validation {
-    condition     = var.admin_cidr != "0.0.0.0/0"
-    error_message = "admin_cidr must not be 0.0.0.0/0 — scope it to your own IP."
-  }
-}
-
 variable "instance_profile_name" {
   description = "Name of the pre-existing IAM instance profile to attach to every EC2 instance (AWS Academy Lab accounts provide 'LabInstanceProfile', wrapping 'LabRole')."
   type        = string

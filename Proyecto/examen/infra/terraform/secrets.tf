@@ -32,8 +32,15 @@ resource "aws_secretsmanager_secret" "mercadopago_access_token" {
 }
 
 resource "aws_secretsmanager_secret_version" "mercadopago_access_token" {
-  secret_id     = aws_secretsmanager_secret.mercadopago_access_token.id
-  secret_string = var.mercadopago_access_token
+  secret_id = aws_secretsmanager_secret.mercadopago_access_token.id
+  # Secrets Manager's real API rejects PutSecretValue with a literal empty
+  # string ("You must provide either SecretString or SecretBinary") —
+  # confirmed against the live account, terraform validate/plan don't catch
+  # this (client-side schema check only). "unset" is a sentinel, not a real
+  # value — scripts/deploy-backend.sh's fetch() converts it back to "" when
+  # writing the backend's actual .env, so blank-means-NoopPaymentProvider
+  # behavior is unchanged end to end.
+  secret_string = var.mercadopago_access_token != "" ? var.mercadopago_access_token : "unset"
 }
 
 resource "aws_secretsmanager_secret" "minio_root_user" {
@@ -66,6 +73,8 @@ resource "aws_secretsmanager_secret" "mercadopago_webhook_secret" {
 }
 
 resource "aws_secretsmanager_secret_version" "mercadopago_webhook_secret" {
-  secret_id     = aws_secretsmanager_secret.mercadopago_webhook_secret.id
-  secret_string = var.mercadopago_webhook_secret
+  secret_id = aws_secretsmanager_secret.mercadopago_webhook_secret.id
+  # Same "unset" sentinel as mercadopago_access_token above — see that
+  # resource's comment for why a literal empty string can't be stored here.
+  secret_string = var.mercadopago_webhook_secret != "" ? var.mercadopago_webhook_secret : "unset"
 }

@@ -29,7 +29,12 @@ function relativeAge(savedAt: number): string {
  * una excepción. Ninguno de los tres campos se vuelve a mostrar en claro
  * después de guardar.
  */
-export function AwsCredentialsBox() {
+export interface AwsCredentialsBoxProps {
+  /** AwsTab.tsx lo usa para avisarle a TerraformActionCard (componente hermano, no un padre/hijo) que hay credenciales nuevas — sin esto, guardar acá no le llegaba a esa tarjeta hasta recargar la pestaña, cada uno cargaba `settings` una sola vez al montar y por separado. */
+  onSaved?: () => void;
+}
+
+export function AwsCredentialsBox({ onSaved }: AwsCredentialsBoxProps) {
   const [saved, setSaved] = useState<AwsCredentials | null>(null);
   const [accessKeyId, setAccessKeyId] = useState('');
   const [secretAccessKey, setSecretAccessKey] = useState('');
@@ -62,6 +67,7 @@ export function AwsCredentialsBox() {
       setSaved(next.awsCredentials);
       setSecretAccessKey('');
       setSessionToken('');
+      onSaved?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

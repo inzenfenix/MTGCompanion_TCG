@@ -24,8 +24,8 @@ references — never open CIDRs between them, except the backend's port 3000
 
 ```bash
 cp terraform.tfvars.example terraform.tfvars
-# edit terraform.tfvars: paste your credentials, set admin_cidr to YOUR
-# own IP/32 (never 0.0.0.0/0), set real postgres_password/jwt_secret.
+# edit terraform.tfvars: paste your credentials, set real
+# postgres_password/jwt_secret.
 terraform init
 terraform validate
 terraform plan
@@ -47,10 +47,14 @@ terraform apply
 2. Deploy the backend app itself (Terraform only provisions the instances +
    installs Docker on `backend`; it doesn't ship the app):
    ```bash
-   ./scripts/deploy-backend.sh /path/to/your-ec2-key.pem
+   ./scripts/deploy-backend.sh
    ```
-   Re-run this any time you want to push a new backend version — it's
-   idempotent, not just a first-deploy step.
+   No SSH key needed — it stages the source through the
+   `deploy_artifacts_bucket_name` S3 bucket and builds/runs it via `aws ssm
+   send-command` (Run Command), using this machine's own AWS credentials
+   (not the instance's role) same as `terraform apply` itself. Re-run this
+   any time you want to push a new backend version — it's idempotent, not
+   just a first-deploy step.
 3. Point the Android build at the real server:
    - `trading-app-ionic/.env`: `VITE_API_BASE_URL=<terraform output backend_url>`
    - `backend`'s remote `.env` already gets `PUBLIC_API_URL` set by
@@ -64,9 +68,33 @@ terraform apply
    - Rebuild: `npm run build` → `npx cap sync android` → `cd android &&
      ./gradlew assembleDebug`.
 4. One-time catalog import (not part of `user_data` — a 58k-row import
-   shouldn't block instance boot): SSH into `backend` (or run remotely via
-   `docker exec`) and run `npm run db:import-catalog`, then `npm run
-   db:seed` if needed.
+   shouldn't block instance boot): open a shell on `backend` (see "Admin
+   access" below) and run `docker exec mtg-backend-app npm run
+   db:import-catalog`, then `npm run db:seed` if needed.
+
+## Admin access (SSM Session Manager, no SSH)
+
+No instance has any inbound admin port open — no SSH, no admin-web CIDR
+rule (see `security_groups.tf`'s header comment for why). Every instance is
+reached exclusively through **AWS Systems Manager Session Manager**, which
+this account's `LabRole` already supports (`AmazonSSMManagedInstanceCore`
+is attached) — no bastion host, no SSH key pair, no open ports, IAM-
+authenticated and CloudTrail-audited. desktop-runner's Deploy tab has
+"Abrir terminal"/"Abrir túnel" buttons for this; from a plain terminal,
+after installing the [Session Manager
+plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html)
+(desktop-runner can also install this one automatically):
+
+```bash
+# Interactive shell on any instance:
+aws ssm start-session --target $(terraform output -raw backend_instance_id)
+
+# Tunnel a web UI (MailHog) to localhost — same idea for MinIO's console on 9001:
+aws ssm start-session --target $(terraform output -raw mailhog_instance_id) \
+  --document-name AWS-StartPortForwardingSession \
+  --parameters '{"portNumber":["8025"],"localPortNumber":["8025"]}'
+# then open http://localhost:8025
+```
 
 ## MinIO vs. real S3
 

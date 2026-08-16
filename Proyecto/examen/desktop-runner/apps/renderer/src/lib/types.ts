@@ -78,11 +78,40 @@ export interface RunnerSettings {
 
 export type TerraformAction = 'init' | 'validate' | 'plan' | 'apply' | 'destroy';
 
+/** Mismo id que ToolInstallTarget del server (tool-install.ts). */
+export type ToolInstallTarget = 'terraform' | 'aws-cli' | 'session-manager-plugin';
+
 /** Mismo shape que TerraformEligibility del server (terraform.ts). */
 export interface TerraformStatus {
   terraformInstalled: boolean;
   awsCliInstalled: boolean;
   eligible: boolean;
+}
+
+/** Mismo id que SsmInstanceKey del server (ssm.ts). */
+export type SsmInstanceKey = 'backend' | 'postgres' | 'mailhog' | 'minio';
+
+/** Mismo shape que SsmInstanceDef del server (ssm.ts). */
+export interface SsmInstanceDef {
+  key: SsmInstanceKey;
+  label: string;
+  outputKey: string;
+  webPort?: number;
+}
+
+export interface SsmStatus {
+  sessionManagerPluginInstalled: boolean;
+}
+
+/** Mismo shape que ApplyBackendUrlResult del server (android-deploy.ts). */
+export interface ApplyBackendUrlResult {
+  envPath: string;
+  envUpdated: boolean;
+  xmlPath: string;
+  xmlUpdated: boolean;
+  xmlSkippedReason: string | null;
+  backendUrl: string;
+  backendHost: string;
 }
 
 export type RunStatus = 'idle' | 'running' | 'success' | 'error' | 'stopped';

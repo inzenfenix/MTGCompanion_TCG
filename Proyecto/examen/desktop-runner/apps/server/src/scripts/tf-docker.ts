@@ -41,12 +41,19 @@ export function buildSanitizedInstallCommand(requirementsRelPath: string): strin
   );
 }
 
-/** Exportado para que terraform.ts (ROADMAP.md workstream I) lo reuse en vez de duplicar la misma lógica de "¿este comando existe y corre?". */
-export function probeCommand(cmd: string, args: string[]): Promise<boolean> {
+/**
+ * Exportado para que terraform.ts (ROADMAP.md workstream I) lo reuse en vez
+ * de duplicar la misma lógica de "¿este comando existe y corre?". `env`
+ * opcional: terraform.ts lo pasa con TOOL_BIN_DIR antepuesto al PATH
+ * (tool-install.ts::pathEnvWithToolBin) para detectar un terraform/aws
+ * instalado por esta misma app aunque no esté en el PATH del sistema;
+ * docker/isImagePresent (abajo) no lo necesitan y siguen sin pasarlo.
+ */
+export function probeCommand(cmd: string, args: string[], env?: NodeJS.ProcessEnv): Promise<boolean> {
   return new Promise((resolve) => {
     let child;
     try {
-      child = spawn(cmd, args);
+      child = spawn(cmd, args, env ? { env } : undefined);
     } catch {
       resolve(false);
       return;
