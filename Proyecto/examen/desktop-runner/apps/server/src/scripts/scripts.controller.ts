@@ -67,6 +67,32 @@ export class ScriptsController {
     return this.scriptsService.getRunAllSequences();
   }
 
+  // Pestaña "Deploy" (ROADMAP.md workstream I) — mismo mecanismo de
+  // streaming que /scripts/:id/run (runId + eventos por WebSocket), pero
+  // para `terraform <action>` en vez de un ScriptDef.
+  @Get('terraform/status')
+  getTerraformStatus() {
+    return this.scriptsService.getTerraformStatus();
+  }
+
+  @Post('terraform/:action')
+  @HttpCode(202)
+  async runTerraform(
+    @Param('action') action: 'init' | 'validate' | 'plan' | 'apply' | 'destroy',
+    @Body() body: { confirm?: boolean },
+  ) {
+    if (!['init', 'validate', 'plan', 'apply', 'destroy'].includes(action)) {
+      throw new BadRequestException(`Acción de terraform inválida: "${action}"`);
+    }
+    const { runId } = await this.scriptsService.runTerraform(action, body?.confirm === true);
+    return { runId };
+  }
+
+  @Get('terraform/outputs')
+  getTerraformOutputs() {
+    return this.scriptsService.getTerraformOutputs();
+  }
+
   @Get('runs/:runId')
   getRun(@Param('runId') runId: string) {
     return this.scriptsService.getRun(runId);

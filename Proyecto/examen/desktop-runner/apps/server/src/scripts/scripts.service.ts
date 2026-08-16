@@ -22,7 +22,8 @@ import {
 import { LogsGateway } from './logs.gateway';
 import { detectGpu, GpuDetectionResult } from './gpu-detect';
 import { getScraperCardCount, ScraperCardCountResult } from './scryfall-card-count';
-import { readSettings, writeSettings, RunnerSettings } from './settings';
+import { readSettings, writeSettings, RunnerSettings, AwsCredentials, AwsServicesChecklist } from './settings';
+import { buildTerraformEnv, getTerraformEligibility, TERRAFORM_DIR, TerraformAction, TerraformEligibility } from './terraform';
 import {
   buildSanitizedInstallCommand,
   buildTfDockerRunArgs,
@@ -165,6 +166,21 @@ export class ScriptsService {
     }
     if (patch.roboflowApiKey !== undefined && patch.roboflowApiKey !== null && typeof patch.roboflowApiKey !== 'string') {
       throw new BadRequestException('roboflowApiKey inválida: debe ser string o null.');
+    }
+    if (patch.awsCredentials !== undefined && patch.awsCredentials !== null) {
+      const c = patch.awsCredentials;
+      if (typeof c.accessKeyId !== 'string' || typeof c.secretAccessKey !== 'string' || (c.sessionToken !== null && typeof c.sessionToken !== 'string')) {
+        throw new BadRequestException('awsCredentials inválidas: se espera { accessKeyId, secretAccessKey, sessionToken }.');
+      }
+      // savedAt lo pone el server, no el cliente — así "guardado hace Xh" (la
+      // pista de staleness en la UI) no depende de que el reloj del cliente
+      // esté bien puesto.
+      patch.awsCredentials = { ...c, savedAt: Date.now() };
+    }
+    if (patch.awsServicesChecklist !== undefined) {
+      const keys: (keyof AwsServicesChecklist)[] = ['ec2', 's3', 'secretsManager', 'sns', 'sqs', 'dynamodb', 'cognito', 'useMinio'];
+      const invalid = keys.some((k) => typeof patch.awsServicesChecklist?.[k] !== 'boolean');
+      if (invalid) throw new BadRequestException('awsServicesChecklist inválido: se espera un boolean por cada servicio.');
     }
     return writeSettings(patch);
   }
@@ -732,6 +748,98 @@ export class ScriptsService {
     });
 
     return { runId, done };
+  }
+
+  // ── Terraform (pestaña "Deploy", ROADMAP.md workstream I) ──────────────
+
+  getTerraformStatus(): Promise<TerraformEligibility> {
+    return getTerraformEligibility();
+  }
+
+  /**
+   * Corre `terraform <action>` streameado, mismo shape que runScript() pero
+   * sin pasar por ScriptDef/argv (Terraform no es un ScriptDef) — se
+   * registra igual en `this.runs`/`this.children` así stopRun()/
+   * GET /runs/:runId/useRunLogs funcionan sin modificarlos. apply/destroy
+   * son reales, facturables y hacia afuera — exigen `confirm:true` explícito
+   * en el body además de credenciales configuradas; nunca se auto-corren.
+   */
+  async runTerraform(action: TerraformAction, confirm: boolean): Promise<{ runId: string }> {
+    const settings = readSettings();
+    if (!settings.awsCredentials) {
+      throw new BadRequestException('No hay credenciales AWS configuradas — pegalas en la pestaña "Deploy" primero.');
+    }
+    if ((action === 'apply' || action === 'destroy') && !confirm) {
+      throw new BadRequestException(`"${action}" crea/destruye infraestructura real y facturable — requiere confirmación explícita.`);
+    }
+
+    const runId = randomUUID();
+    const startedAt = Date.now();
+    const args = [action, '-no-color'];
+    if (action === 'apply' || action === 'destroy') args.push('-auto-approve');
+
+    this.runs.set(runId, { id: runId, scriptId: `terraform:${action}`, status: 'running', startedAt });
+    this.gateway.emitStatus(runId, 'running');
+    this.gateway.emitLog(runId, 'stdout', `$ terraform ${args.join(' ')}\n`);
+
+    const child: ChildProcessWithoutNullStreams = spawn('terraform', args, {
+      cwd: TERRAFORM_DIR,
+      env: { ...process.env, ...buildTerraformEnv(settings.awsCredentials) },
+      // Mismo motivo que runScript(): apply/destroy pueden colgarse, y
+      // stopRun() necesita poder matar el árbol de procesos completo en
+      // POSIX (ver ese comentario más abajo).
+      detached: process.platform !== 'win32',
+    });
+    this.children.set(runId, child);
+
+    child.stdout.on('data', (d) => this.gateway.emitLog(runId, 'stdout', d.toString()));
+    child.stderr.on('data', (d) => this.gateway.emitLog(runId, 'stderr', d.toString()));
+
+    const finish = (outcome: 'success' | 'error', exitCode: number | null) => {
+      this.children.delete(runId);
+      const status: RunRecord['status'] = this.stopRequested.delete(runId) ? 'stopped' : outcome;
+      const record = this.runs.get(runId);
+      if (record) {
+        record.status = status;
+        record.endedAt = Date.now();
+        record.exitCode = exitCode;
+      }
+      this.gateway.emitStatus(runId, status, { exitCode });
+    };
+    child.on('error', (err) => {
+      this.gateway.emitLog(runId, 'stderr', `\n[error al lanzar terraform] ${err.message}\n`);
+      finish('error', null);
+    });
+    child.on('close', (code) => finish(code === 0 ? 'success' : 'error', code));
+
+    return { runId };
+  }
+
+  /** `terraform output -json` parseado a un objeto plano {clave: valor} — null si no hay state todavía (nunca se corrió apply) o terraform no está instalado, nunca un error. No se streamea (una respuesta rápida, no vale la pena un log). */
+  getTerraformOutputs(): Promise<Record<string, unknown> | null> {
+    return new Promise((resolve) => {
+      let child;
+      try {
+        child = spawn('terraform', ['output', '-json'], { cwd: TERRAFORM_DIR });
+      } catch {
+        resolve(null);
+        return;
+      }
+      let stdout = '';
+      child.stdout.on('data', (d) => (stdout += d.toString()));
+      child.on('error', () => resolve(null));
+      child.on('close', (code) => {
+        if (code !== 0) return resolve(null);
+        try {
+          const raw = JSON.parse(stdout) as Record<string, { value: unknown }>;
+          const flat: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(raw)) flat[k] = v.value;
+          resolve(flat);
+        } catch {
+          resolve(null);
+        }
+      });
+    });
   }
 
   /**

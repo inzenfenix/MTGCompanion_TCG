@@ -1,0 +1,8 @@
+terraform.tfvars
+*.tfstate
+*.tfstate.*
+.terraform/
+crash.log
+crash.*.log
+
+# Do commit .terraform.lock.hcl — standard practice, not swept up here.

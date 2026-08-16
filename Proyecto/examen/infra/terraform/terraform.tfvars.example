@@ -1,0 +1,27 @@
+# Copy this to terraform.tfvars (gitignored) and fill in real values.
+# Never commit terraform.tfvars — it holds live credentials/secrets.
+
+aws_region            = "us-east-1"
+aws_access_key_id     = "ASIA..." # AWS Academy Lab "AWS Details" panel
+aws_secret_access_key = "..."     # same panel
+aws_session_token     = "..."     # same panel — REQUIRED for Academy Lab, expires ~4h
+
+admin_cidr            = "203.0.113.4/32" # your own IP/32 — never 0.0.0.0/0
+instance_profile_name = "LabInstanceProfile"
+
+use_minio = false # true = self-hosted MinIO EC2 instead of real S3
+
+instance_type_postgres = "t3.small"
+instance_type_mailhog  = "t3.micro"
+instance_type_minio    = "t3.small"
+instance_type_backend  = "t3.small"
+
+postgres_password = "change-me"
+jwt_secret         = "change-me"
+
+mercadopago_access_token   = ""
+mercadopago_webhook_secret = ""
+
+# Only matter when use_minio = true:
+minio_root_user     = "mtg_minio_admin"
+minio_root_password = "change-me-minio"

@@ -1,0 +1,10 @@
+node_modules
+dist
+generated
+coverage
+test
+docker
+.git
+.env
+.env.example
+*.md

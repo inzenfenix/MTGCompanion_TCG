@@ -41,7 +41,8 @@ export function buildSanitizedInstallCommand(requirementsRelPath: string): strin
   );
 }
 
-function probeCommand(cmd: string, args: string[]): Promise<boolean> {
+/** Exportado para que terraform.ts (ROADMAP.md workstream I) lo reuse en vez de duplicar la misma lógica de "¿este comando existe y corre?". */
+export function probeCommand(cmd: string, args: string[]): Promise<boolean> {
   return new Promise((resolve) => {
     let child;
     try {

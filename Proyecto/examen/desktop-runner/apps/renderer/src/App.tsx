@@ -7,6 +7,7 @@ import { FrameworkTab } from '@/components/FrameworkTab';
 import { RunEverythingPanel } from '@/components/RunEverythingPanel';
 import { FirstRunSetup } from '@/components/FirstRunSetup';
 import { ExportPanel } from '@/components/ExportPanel';
+import { AwsTab } from '@/components/AwsTab';
 import { api } from '@/lib/api';
 import { useRunAllStatus } from '@/lib/useRunAllStatus';
 import { cn } from '@/lib/utils';
@@ -24,7 +25,7 @@ const ONBOARDING_DISMISSED_KEY = 'mtg-runner:onboarding-dismissed';
 // antes se llamaba "Dataset compartido" (mismo contenido: scraper del
 // catálogo + downloader de imágenes + descarga de negativos) — sigue
 // siendo UNA sola pestaña, no dos.
-type TabValue = 'scraper' | 'pytorch' | 'tensorflow' | 'testing' | 'export';
+type TabValue = 'scraper' | 'pytorch' | 'tensorflow' | 'testing' | 'export' | 'aws';
 
 const TABS: { value: TabValue; label: string }[] = [
   { value: 'scraper', label: 'Scraper' },
@@ -32,6 +33,7 @@ const TABS: { value: TabValue; label: string }[] = [
   { value: 'tensorflow', label: 'TensorFlow' },
   { value: 'testing', label: 'Testing' },
   { value: 'export', label: 'Exportar' },
+  { value: 'aws', label: 'Deploy' },
 ];
 
 const SCRAPER_TAB_SCRIPTS = [
@@ -164,6 +166,8 @@ export default function App() {
             <FrameworkTab framework={value} scripts={scripts} onVenvChanged={load} />
           ) : value === 'export' ? (
             <ExportPanel scripts={scripts} onVenvChanged={load} />
+          ) : value === 'aws' ? (
+            <AwsTab />
           ) : value === 'testing' ? (
             scripts.filter((s) => s.group === 'testing').map((script) => <ScriptCard key={script.id} script={script} onVenvChanged={load} />)
           ) : (

@@ -36,6 +36,10 @@
 
 # misc
 .DS_Store
+# ROADMAP.md workstream I: VITE_API_BASE_URL (the real EC2 backend URL,
+# post `terraform apply`) gets pasted into a plain .env here — was only
+# excluding the .env.*.local variants before, not bare .env itself.
+.env
 .env.local
 .env.development.local
 .env.test.local

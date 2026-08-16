@@ -30,10 +30,14 @@ export class StorageService {
       region: storage.region,
       endpoint: storage.endpoint, // set for MinIO, undefined -> real AWS S3
       forcePathStyle: storage.forcePathStyle, // required by MinIO, ignored by AWS
-      credentials: {
-        accessKeyId: storage.accessKeyId,
-        secretAccessKey: storage.secretAccessKey,
-      },
+      // Only pass explicit static credentials when STORAGE_ACCESS_KEY_ID is
+      // actually set (local dev against MinIO). Left unset (prod, EC2 with
+      // LabInstanceProfile attached), the SDK falls through to its default
+      // credential chain (instance role) — same pattern SesEmailProvider
+      // already uses, auto-refreshing, no manual rotation.
+      ...(storage.accessKeyId
+        ? { credentials: { accessKeyId: storage.accessKeyId, secretAccessKey: storage.secretAccessKey } }
+        : {}),
     });
   }
 

@@ -179,8 +179,50 @@ S3, MailHog standing in for real email) started by hand, with no
 Dockerfile for the NestJS app itself, no CI, and no IaC anywhere in the repo
 — confirmed by a full-repo search before writing this plan. This workstream
 is the plan (not yet implemented) to stand up a real always-on backend on
-AWS via Terraform so a build APK can point at a real URL. **Nothing in this
-workstream has been started — planning only, per this session's request.**
+AWS via Terraform so a build APK can point at a real URL. **Update (16 ago):
+now built (see status update below) — nothing has been applied to real AWS
+yet.**
+
+**Status update (16 ago) — built and verified offline, nothing applied
+yet.** Every file in the plan below now exists: `backend/Dockerfile` +
+`.dockerignore` + `docker-entrypoint.sh` + the `storage.service.ts`
+instance-role fallback (I1); the full `Proyecto/examen/infra/terraform/`
+stack — `providers.tf`/`variables.tf`/`data.tf`/`security_groups.tf`/
+`secrets.tf`/`s3.tf`/four `ec2_*.tf`/`outputs.tf`/`user_data/*.sh.tpl`/
+`terraform.tfvars.example`/`.gitignore`/`README.md`/
+`scripts/deploy-backend.sh` (I2-I5, I7); a new **"Deploy" tab** in
+desktop-runner (I2's own scope addition — server: `settings.ts`'s
+`awsCredentials`/`awsServicesChecklist`, new `terraform.ts`, `runTerraform`/
+`getTerraformOutputs` in `scripts.service.ts`, `GET/POST /terraform/*`
+routes; renderer: `AwsCredentialsBox.tsx`/`AwsServicesChecklist.tsx`/
+`TerraformActionCard.tsx`/`AwsTab.tsx`, wired into `App.tsx` as "Deploy");
+and the Android cleartext exception (`network_security_config.xml` +
+`AndroidManifest.xml`'s `networkSecurityConfig`, I6's cheap-path half) +
+`trading-app-ionic/.gitignore`'s missing bare `.env` line. **Verified,
+all offline, no AWS calls/money**: `terraform fmt -check` clean, `terraform
+validate` succeeds (confirms provider config + all resource references
+resolve — doesn't need real credentials, only `plan`/`apply` do);
+desktop-runner `apps/server`+`apps/renderer` both `tsc --noEmit`/`npm run
+build` clean; `trading-app-ionic` `tsc --noEmit`/`eslint`/`npm run build`
+clean (also caught up a stale `npm install` — `tesseract.js`/
+`@techstark/opencv-js` were in `package.json` from a prior session but
+never installed on this machine). One real gotcha found and fixed while
+writing the Terraform: t3.\* instances are Nitro-based, so an attached EBS
+volume shows up in the guest OS as `/dev/nvme1n1`, not the device name
+Terraform's attachment resource requests — `postgres.sh.tpl`/`minio.sh.tpl`
+now detect the real device (with a retry loop, since the volume can finish
+attaching a few seconds after the instance starts booting) instead of
+assuming. **Not done, deliberately** — this needs a separate go-ahead each
+time per this project's standing rule on billable/outward-facing actions,
+and no AWS credentials exist anywhere in this repo/session: `terraform
+apply`/`destroy` were never run (no real EC2/S3/Secrets Manager resources
+exist), `scripts/deploy-backend.sh` was never run against a live instance,
+`docker build` on the real Dockerfile is still unverified (Docker Desktop
+wasn't running this session), and I6's real-TLS path (Caddy+nip.io or a
+real domain) stays documented-only, not built. Windows-specific adaptation
+from the original plan: `deploy-backend.sh` uses `tar czf - | ssh | tar
+xzf -` instead of `rsync` (not available in Git Bash on Windows; `ssh`/
+`scp`/`tar` all are).
 
 **Full implementation plan (16 ago)**: see
 [`Proyecto/examen/infra/PLAN.md`](Proyecto/examen/infra/PLAN.md) — written
@@ -237,21 +279,25 @@ backend code, not assumed):
 
 | # | Task | Priority | Complexity | Notes |
 |---|---|---|---|---|
-| I1 | Write a `Dockerfile` for `backend/` (multi-stage: `npm ci` → `npm run build` → slim runtime image running `node dist/main`) | P0 | S | Not started. Prerequisite for I3 — nothing else in this workstream can run the app without it. Should also get a `.dockerignore` (exclude `node_modules`, `docker/`, test artifacts). |
-| I2 | New `Proyecto/examen/infra/terraform/` directory: `providers.tf`, `variables.tf`, `main.tf`, `outputs.tf`, plus a committed `terraform.tfvars.example` and a gitignored real `terraform.tfvars` | P0 | S | Not started. `variables.tf` declares `aws_access_key_id`, `aws_secret_access_key`, and an **optional** `aws_session_token` (default `null` — only needed for temporary/lab-account credentials, omit entirely for a normal IAM user) as `sensitive = true` string variables, wired straight into the `provider "aws"` block's `access_key`/`secret_key`/`token` args instead of relying on ambient shell env vars or a CLI profile — this is the "easily change the keys" ask: rotating credentials (e.g. every time an Academy lab session resets) is a one-file edit to `terraform.tfvars`, no shell state to remember. Add `terraform.tfvars` (and `*.tfstate*`, `.terraform/`) to `.gitignore` immediately — the state file itself can contain secrets in plain text once resources exist. |
-| I3 | Compute: one EC2 instance (t3.micro/t3.small — matches typical Academy lab-account instance-type + budget limits) running the backend + Postgres both via Docker (`docker compose up -d` from a `docker-compose.prod.yml`, driven by an EC2 `user_data` script that installs Docker, pulls the I1 image or clones+builds the repo, and starts it), same shape as local dev but with the app itself containerized this time | P0 | M | Not started. Deliberately **not** RDS for Postgres in the first pass — self-hosting it in Docker on the same instance avoids needing RDS-creation permissions some lab accounts restrict, and keeps this a true 1:1 mirror of `backend/docker/docker-compose.yml`'s shape (swap MinIO → real S3, keep Postgres). An EBS volume (or a Terraform-managed one) should back Postgres's data dir so a `terraform apply`/instance replace doesn't wipe the DB. Needs an Elastic IP (or the plan for I5) so the URL doesn't change every restart. Note as a documented future upgrade: swapping the Docker Postgres for RDS is a small `main.tf` change if reliability/backups become a real concern later. |
-| I4 | S3 bucket for card photos (`aws_s3_bucket` + `aws_s3_bucket_cors_configuration` matching what the presigned-URL upload flow needs — allow the app's origin, `PUT`/`GET`, the headers the client actually sends) | P0 | S | Not started. Maps directly to `STORAGE_BUCKET`/`STORAGE_REGION` env vars — no code changes needed per the endpoint-agnostic design noted above. IAM: prefer attaching an existing instance role (Academy accounts commonly only allow a pre-existing `LabRole`, not custom IAM role/policy creation) with S3 access already granted; fall back to a plain IAM user access key pair (reusing the same I2 credential-variable pattern) only if no usable role exists. |
-| I5 | Terraform outputs: the backend's public URL (`http://<elastic-ip-or-public-dns>:<port>`, or `https://...` once I6 lands), the S3 bucket name/region, and the DB host (even though it's the same EC2 instance, useful for any external debugging) | P0 | S | Not started. This output is the one value that actually unblocks the APK: it's what gets pasted into `trading-app-ionic/.env`'s `VITE_API_BASE_URL` and `backend/.env`'s `PUBLIC_API_URL` before the next `npm run build` + Capacitor rebuild. Document this hand-off explicitly (e.g. a short "after `terraform apply`" section in this new directory's own README) so it isn't tribal knowledge. |
-| I6 | TLS/domain plan (real cert via a domain + Let's Encrypt/ACM+ALB, **or** a documented, explicitly-labeled-as-dev-only Android cleartext exception for the bare EC2 URL) | P1 | S–M | Not started, and genuinely a decision the user needs to make (is there a domain to point at this instance, or is HTTP-plus-cleartext-exception acceptable for a course project's grading demo?) rather than something to default silently. Cheapest path if no domain exists: Caddy as a reverse proxy container in the same `docker-compose.prod.yml` can still get you HTTPS via a nip.io/sslip.io-style hostname bound to the Elastic IP, no real domain purchase needed — worth trying before reaching for ALB+ACM. |
-| I7 | Secrets beyond the AWS credentials themselves (`JWT_SECRET`, `MERCADOPAGO_ACCESS_TOKEN`/`WEBHOOK_SECRET`, DB password) | P1 | S | Not started. Simplest first pass: more Terraform `sensitive` variables, templated into the instance's `.env` via `user_data` (same mechanism as I3), never committed. Flag AWS Systems Manager Parameter Store as the natural upgrade if this needs to survive instance replacement more gracefully — skipped for v1 to keep the lab-account permission surface small. |
-| I8 | `db:seed`/`db:import-catalog` on first real deploy (the 58,679-row Scryfall catalog import `backend/package.json` already has a script for) | P2 | S | Not started. One-time step after I3 first stands up, not an ongoing Terraform concern — note it in the new infra README's runbook rather than automating it in `user_data` (a 58k-row import doesn't belong blocking instance boot). |
+| I1 | Write a `Dockerfile` for `backend/` (multi-stage: `npm ci` → `npm run build` → slim runtime image running `node dist/main`) | P0 | S | ✅ **Built (16 ago)**, superseded by PLAN.md's exact 3-stage spec — `backend/Dockerfile`/`.dockerignore`/`docker-entrypoint.sh`, plus the `storage.service.ts` instance-role fallback. `docker build` itself unverified this session (Docker Desktop wasn't running) — see the status update above. |
+| I2 | New `Proyecto/examen/infra/terraform/` directory: `providers.tf`, `variables.tf`, `main.tf`, `outputs.tf`, plus a committed `terraform.tfvars.example` and a gitignored real `terraform.tfvars` | P0 | S | ✅ **Built (16 ago)**, superseded by PLAN.md's 4-instance architecture (no `main.tf` — split into `security_groups.tf`/`secrets.tf`/`s3.tf`/`data.tf`/four `ec2_*.tf` instead) plus the new desktop-runner "Deploy" tab for pasting/rotating credentials. `terraform fmt`/`validate` clean. |
+| I3 | Compute: one EC2 instance ... running the backend + Postgres both via Docker ... | P0 | M | ✅ **Built (16 ago), architecture changed per PLAN.md**: 4 single-purpose instances (`postgres`/`mailhog`/`minio`-optional/`backend`) wired by SG-to-SG references instead of one combined box, `LabInstanceProfile` attached, EBS-backed Postgres/MinIO data dirs. Not RDS, same reasoning this row already gave. Never applied. |
+| I4 | S3 bucket for card photos (`aws_s3_bucket` + `aws_s3_bucket_cors_configuration` matching what the presigned-URL upload flow needs — allow the app's origin, `PUT`/`GET`, the headers the client actually sends) | P0 | S | ✅ **Built (16 ago)** — `s3.tf` (private bucket, `public_access_block`, wildcard-origin CORS since the client is a Capacitor WebView with no fixed origin), conditional on `use_minio=false` (default). IAM via `LabInstanceProfile`, matching this row's own preference. Never applied. |
+| I5 | Terraform outputs: the backend's public URL ... the S3 bucket name/region, and the DB host | P0 | S | ✅ **Built (16 ago)** — `outputs.tf`'s `backend_url` is the hand-off value, documented in `infra/terraform/README.md`'s "After apply" section and surfaced live in desktop-runner's new Deploy tab (`GET /terraform/outputs`). |
+| I6 | TLS/domain plan (real cert via a domain + Let's Encrypt/ACM+ALB, **or** a documented, explicitly-labeled-as-dev-only Android cleartext exception for the bare EC2 URL) | P1 | S–M | **Half built (16 ago)**: the cheap path is done — `network_security_config.xml` (new) + `AndroidManifest.xml`'s `networkSecurityConfig` wire a cleartext exception for a placeholder host, swapped for the real EC2 host after `apply` (documented in the infra README). Real TLS (Caddy+nip.io, or a domain+ACM) stays documented-only in the README, not built — still the user's call per this row's own note. |
+| I7 | Secrets beyond the AWS credentials themselves (`JWT_SECRET`, `MERCADOPAGO_ACCESS_TOKEN`/`WEBHOOK_SECRET`, DB password) | P1 | S | ✅ **Built (16 ago)** — `secrets.tf` (Secrets Manager, one secret+version per value), fetched at instance boot via `user_data`'s `aws secretsmanager get-secret-value` using the instance role, never templated in plaintext. Never applied. |
+| I8 | `db:seed`/`db:import-catalog` on first real deploy (the 58,679-row Scryfall catalog import `backend/package.json` already has a script for) | P2 | S | **Documented (16 ago)**, not automated — exactly as this row recommended: a manual runbook step in `infra/terraform/README.md`'s "After apply" section, not wired into `user_data`. |
 
 **Dependency chain:** I1 blocks I3 (needs an image/build target to run). I2
 blocks everything else (provider auth). I4 is independent of I3 and can be
 done in parallel. I5 depends on I3+I4 existing (nothing to output before
 then). I6/I7/I8 are follow-ups once I3 is up and reachable. **Recommended
 order: I2 → I1 → I3 → I4 → I5, then I6/I7/I8 as time allows** — that's the
-minimum path to "APK can talk to a real server."
+minimum path to "APK can talk to a real server." **Status (16 ago): every
+row above is built (I6 half); nothing has been applied to real AWS** — see
+the status update paragraph earlier in this workstream for what's verified
+vs. what still needs a real `terraform apply` + a live credential paste
+into desktop-runner's new Deploy tab.
 
 ---
 

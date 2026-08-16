@@ -48,10 +48,41 @@ export interface TfDockerStatus {
 
 export type TensorflowExecutionMode = 'venv' | 'docker';
 
+/** Mismo shape que AwsCredentials del server (settings.ts). */
+export interface AwsCredentials {
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken: string | null;
+  savedAt: number;
+}
+
+/** Mismo shape que AwsServicesChecklist del server (settings.ts). */
+export interface AwsServicesChecklist {
+  ec2: boolean;
+  s3: boolean;
+  secretsManager: boolean;
+  sns: boolean;
+  sqs: boolean;
+  dynamodb: boolean;
+  cognito: boolean;
+  useMinio: boolean;
+}
+
 /** Mismo shape que RunnerSettings del server (settings.ts). */
 export interface RunnerSettings {
   tensorflowExecutionMode: TensorflowExecutionMode;
   roboflowApiKey: string | null;
+  awsCredentials: AwsCredentials | null;
+  awsServicesChecklist: AwsServicesChecklist;
+}
+
+export type TerraformAction = 'init' | 'validate' | 'plan' | 'apply' | 'destroy';
+
+/** Mismo shape que TerraformEligibility del server (terraform.ts). */
+export interface TerraformStatus {
+  terraformInstalled: boolean;
+  awsCliInstalled: boolean;
+  eligible: boolean;
 }
 
 export type RunStatus = 'idle' | 'running' | 'success' | 'error' | 'stopped';

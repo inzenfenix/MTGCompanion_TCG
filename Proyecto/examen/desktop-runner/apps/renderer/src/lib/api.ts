@@ -8,6 +8,8 @@ import type {
   RunRecord,
   ScraperCardCountResult,
   ScriptInfo,
+  TerraformAction,
+  TerraformStatus,
   TfDockerStatus,
 } from './types';
 
@@ -82,6 +84,14 @@ export const api = {
   exportComparison: () => fetch(`${API_BASE}/export/comparison`).then((r) => json<ExportComparisonStage[]>(r)),
   scraperCardCount: () =>
     fetch(`${API_BASE}/scripts/shared-scraper/card-count`).then((r) => json<ScraperCardCountResult>(r)),
+  terraformStatus: () => fetch(`${API_BASE}/terraform/status`).then((r) => json<TerraformStatus>(r)),
+  runTerraform: (action: TerraformAction, confirm = false) =>
+    fetch(`${API_BASE}/terraform/${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm }),
+    }).then((r) => json<{ runId: string }>(r)),
+  terraformOutputs: () => fetch(`${API_BASE}/terraform/outputs`).then((r) => json<Record<string, unknown> | null>(r)),
 };
 
 let socket: Socket | null = null;

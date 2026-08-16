@@ -26,9 +26,62 @@ export interface RunnerSettings {
    * propia key — null si todavía no se configuró.
    */
   roboflowApiKey: string | null;
+  /**
+   * Credenciales AWS temporales (ROADMAP.md workstream I) para correr
+   * Terraform localmente contra la cuenta real (AWS Academy Learner Lab
+   * suele rotar estas cada ~4h). Nunca se escriben al repo ni a
+   * terraform.tfvars — solo viven acá y se inyectan como env vars
+   * TF_VAR_* al proceso de terraform que se lanza (ver terraform.ts).
+   */
+  awsCredentials: AwsCredentials | null;
+  /**
+   * Checklist informativo de qué servicios AWS están en juego — EC2/S3/
+   * Secrets Manager tienen efecto real (S3 vs. MinIO condiciona
+   * `use_minio` en terraform.tfvars); SNS/SQS/DynamoDB/Cognito son
+   * puramente documentales (esta app no los integra hoy — ver
+   * infra/PLAN.md "Open decision").
+   */
+  awsServicesChecklist: AwsServicesChecklist;
 }
 
-const DEFAULTS: RunnerSettings = { tensorflowExecutionMode: 'venv', roboflowApiKey: null };
+export interface AwsCredentials {
+  accessKeyId: string;
+  secretAccessKey: string;
+  /** null para un usuario IAM normal de larga duración; obligatorio para Academy Lab. */
+  sessionToken: string | null;
+  /** Date.now() al guardar — la UI lo usa para el aviso de "puede estar vencida" (Academy Lab expira ~4h). */
+  savedAt: number;
+}
+
+export interface AwsServicesChecklist {
+  ec2: boolean;
+  s3: boolean;
+  secretsManager: boolean;
+  sns: boolean;
+  sqs: boolean;
+  dynamodb: boolean;
+  cognito: boolean;
+  /** El único checkbox con efecto real en infra — espeja terraform.tfvars' use_minio, no lo aplica solo. */
+  useMinio: boolean;
+}
+
+const DEFAULT_AWS_SERVICES_CHECKLIST: AwsServicesChecklist = {
+  ec2: true,
+  s3: true,
+  secretsManager: true,
+  sns: false,
+  sqs: false,
+  dynamodb: false,
+  cognito: false,
+  useMinio: false,
+};
+
+const DEFAULTS: RunnerSettings = {
+  tensorflowExecutionMode: 'venv',
+  roboflowApiKey: null,
+  awsCredentials: null,
+  awsServicesChecklist: DEFAULT_AWS_SERVICES_CHECKLIST,
+};
 
 const SETTINGS_DIR = path.join(os.homedir(), '.mtg-desktop-runner');
 const SETTINGS_PATH = path.join(SETTINGS_DIR, 'settings.json');
