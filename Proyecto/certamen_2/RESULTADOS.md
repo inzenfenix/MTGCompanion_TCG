@@ -23,53 +23,60 @@ sale cerca de cero por el sesgo/outliers de precios, es un artefacto
 esperado, no un bug).
 
 Dataset: 51,939 cartas con precio (36,359 train / 7,790 val / 7,790 test),
-split por `card_id`.
+split por `card_id`. Features tabulares: 50-dim (48 originales + `edhrec_rank_conocido`/
+`edhrec_rank_log`, agregados en B6, ver más abajo).
 
 | Modelo | n (test) | MAE (log) | RMSE (log) | **R² (log)** | MAE (USD) | Mediana AE (USD) | RMSE (USD) | R² (USD) |
 |---|---|---|---|---|---|---|---|---|
 | Baseline tabular (RF, sin imagen) | 10,325 | 0.317 | 0.531 | **0.521** | $2.59 | $0.20 | $45.23 | 0.191 |
-| PyTorch — plain | 7,790 | 0.340 | 0.592 | **0.427** | $3.19 | $0.19 | $64.08 | 0.044 |
-| PyTorch — Optuna (tuned) | 7,790 | 0.337 | 0.585 | **0.441** | $3.17 | $0.19 | $61.62 | 0.116 |
-| TensorFlow — plain | 7,790 | 0.362 | 0.592 | **0.427** | $3.26 | $0.24 | $65.04 | 0.015 |
-| TensorFlow — Optuna (tuned) | 7,790 | 0.334 | 0.591 | **0.430** | $3.24 | $0.18 | $63.02 | 0.075 |
+| PyTorch — plain | 7,790 | 0.261 | 0.462 | **0.651** | $2.86 | $0.16 | $60.95 | 0.135 |
+| PyTorch — Optuna (tuned) | 7,790 | 0.249 | 0.457 | **0.658** | $2.77 | $0.12 | $59.48 | 0.176 |
+| TensorFlow — plain | 7,790 | 0.254 | 0.464 | **0.648** | $2.89 | $0.14 | $64.61 | 0.028 |
+| TensorFlow — Optuna (tuned) | 7,790 | 0.240 | 0.463 | **0.649** | $2.89 | $0.11 | $64.72 | 0.025 |
 
-**Ganador (tuned, R² log): PyTorch, 0.4411 vs. TensorFlow 0.4300** — diferencia
-0.0111, mayor al umbral de empate (0.005), así que no es un empate: PyTorch
-gana esta stage. Coincide con lo que ya reporta en vivo el endpoint
-`/export/comparison` del desktop-runner (C5).
+**Ganador (tuned, R² log): PyTorch, 0.6585 vs. TensorFlow 0.6491** —
+diferencia 0.0094, mayor al umbral de empate (0.005), así que no es un
+empate: PyTorch gana esta stage. Coincide con lo que ya reporta en vivo el
+endpoint `/export/comparison` del desktop-runner (C5).
 
-**Hiperparámetros ganadores (Optuna, ambos frameworks convergieron casi
-idénticos):**
+**Actualización (B6, mismo día — la tabla de arriba ya la refleja, esta nota
+documenta el cambio):** los números originales de esta sección (PyTorch
+0.4411 / TensorFlow 0.4300) eran de *antes* de B6 del ROADMAP, que agregó
+`edhrec_rank` (popularidad/demanda, desde `certamen_1/merge_edhrec_rank.py`)
+como feature tabular — el R² log saltó de 0.427–0.441 a 0.648–0.658 en
+ambos frameworks, cerrando y superando la brecha con el baseline tabular
+(0.521) que esta sección originalmente señalaba como sin cerrar. Ver B6 en
+ROADMAP.md para el diagnóstico completo (era un techo de información — sin
+señal de demanda/escasez, no un problema de tuning).
+
+**Hiperparámetros ganadores (Optuna, post-B6):**
 
 | Parámetro | PyTorch | TensorFlow |
 |---|---|---|
-| learning_rate | 2.09e-4 | 1.62e-4 |
-| weight_decay | 5.21e-6 | 5.60e-6 |
+| learning_rate | 2.73e-4 | 2.73e-4 |
+| weight_decay | 1.07e-4 | 7.15e-5 |
 | batch_size | 32 | 32 |
-| hidden_units | 256 | 256 |
-| dropout | 0.1 | 0.1 |
+| hidden_units | 448 | 384 |
+| dropout | 0.0 | 0.3 |
 | optimizer | adam | adam |
 
 **Observaciones:**
 
-- El tuning de Optuna aporta una ganancia chica en ambos frameworks (+0.014
-  PyTorch, +0.003 TensorFlow sobre el entrenamiento plano) pero **ninguno
-  cierra la brecha con el baseline tabular-only** (0.521). Esto es el techo
-  de información ya diagnosticado en B6 del ROADMAP: las features
-  categóricas actuales (`rarity`/`set_type`/`frame`/`border_color`, sin señal
-  de identidad de carta) no distinguen una común de $0.10 de una rara "chase"
-  de $40 con los mismos valores categóricos — el precio lo maneja demanda/
-  escasez, que hoy no está capturado. Agregar `edhrec_rank` (B6, no
-  implementado) es el camino propuesto para cerrar esa brecha, no más
-  hiperparámetros.
-- **R² en espacio USD es sistemáticamente bajo (0.02–0.19) mientras que en
-  espacio log ronda 0.43–0.52** — no es un bug: los precios de MTG tienen
-  cola muy larga (unas pocas cartas "chase" a $100+ dominan la varianza en
+- Con `edhrec_rank` en el feature set, **ambos frameworks superan
+  claramente al baseline tabular-only** (0.658/0.649 vs. 0.521) — el techo
+  de información diagnosticado en B6 (features categóricas sin señal de
+  demanda/escasez) era el problema real, no falta de tuning: el tuning de
+  Optuna post-`edhrec_rank` aporta una ganancia chica (+0.007 PyTorch,
+  +0.001 TensorFlow sobre el entrenamiento plano), consistente con "ya casi
+  no queda techo de información por cerrar con hiperparámetros".
+- **R² en espacio USD es sistemáticamente bajo (0.02–0.18) mientras que en
+  espacio log ronda 0.65** — no es un bug: los precios de MTG tienen cola
+  muy larga (unas pocas cartas "chase" a $100+ dominan la varianza en
   escala lineal), por eso el target real del entrenamiento es
   `log1p(precio)`. El log-space R² es la métrica justa para comparar
   frameworks; el USD-space se reporta como referencia descriptiva únicamente.
 - La mediana de error absoluto en USD (no sensible a esos outliers) es más
-  chica y estable: $0.18–$0.24 en los 4 modelos reales, $0.20 en el
+  chica y estable: $0.11–$0.16 en los 4 modelos reales, $0.20 en el
   baseline — todos los modelos, reales y baseline, aciertan razonablemente
   bien la mayoría de las cartas comunes/baratas; la varianza que explica el
   R² bajo en USD-space viene de las pocas cartas caras.
@@ -120,7 +127,8 @@ no un placeholder.
 
 ---
 
-*Última actualización: 2026-08-15. Datos de Stage 3 leídos directamente de
+*Última actualización: 2026-08-16 (Stage 3 refrescado post-B6/`edhrec_rank`,
+ver nota en esa sección). Datos de Stage 3 leídos directamente de
 `certamen_1/output/{pytorch,tensorflow}/{price_estimator,optuna_price_estimator}/latest/`
-y `certamen_2/output/price_baseline/latest/`. Datos de Stage 2 pendientes de
-re-run (ver sección de arriba).*
+y `certamen_2/output/price_baseline/latest/`. Datos de Stage 2 de la corrida
+real documentada arriba (H2).*
