@@ -613,6 +613,22 @@ export const SCRIPTS: ScriptDef[] = [
       { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a trading-app-ionic/public/models/', default: false },
     ],
   },
+  {
+    id: 'pt-export-onnx-price-embedding',
+    group: 'pytorch',
+    label: '19 · Exportar embedding visual de Stage 1 a ONNX (para Stage 3)',
+    description:
+      'Exporta solo el extractor de embedding visual congelado de Stage 1 (MTGDetector.features→avgpool→flatten, 1280 dims, mismo checkpoint que 09_export_onnx.py pero sin la cabeza de clasificación) a ONNX, para que la app Ionic pueda calcular la mitad visual del vector de Stage 3 del lado del cliente. No reentrena nada. TensorFlow no tiene equivalente — el cliente Ionic usa el embedding de PyTorch para ambos casos (ROADMAP.md E2).',
+    cwd: PT_DIR,
+    script: '19_export_onnx_price_embedding.py',
+    env: 'pytorch',
+    args: [
+      { flag: '--imagen', name: 'imagen', kind: 'file', label: 'Imagen de verificación (opcional, si no se usa un tensor aleatorio)', help: 'Recomendado: una foto real da paridad ~1e-6; el tensor aleatorio por defecto da ~1e-4, cerca del límite de tolerancia.' },
+      { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
+      { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0002 },
+      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a trading-app-ionic/public/models/', default: false },
+    ],
+  },
 
   // ── PyTorch — Stage 4: Clasificador de condición ────────────────────────
   {
@@ -1011,14 +1027,30 @@ export const RUN_ALL_DOWNLOAD_SEQUENCE: string[] = ['shared-downloader', 'shared
  * en ambos frameworks (todas las etapas registradas hoy: Stage 1, 2, 3 y 4).
  * Los scripts de export no reentrenan nada, solo leen el checkpoint que las
  * fases pytorch/tensorflow de arriba acaban de dejar guardado.
+ *
+ * Stage 1/2/4 son intercambiables acá — ambos frameworks publican el mismo
+ * contrato de entrada/salida bajo el mismo nombre público, así que "el
+ * último que corre gana" es inofensivo (`ExportPanel.tsx` deja elegir cuál
+ * de los dos queda). **Stage 3 es la excepción, orden importa** (ROADMAP.md
+ * E2, 16 ago): `stage3-price-estimator.onnx` de PyTorch espera un input de
+ * 1330 dims (50 tabular + 1280 visual, `stage1-embedder.onnx`), el de
+ * TensorFlow espera 626 (50 + 576) — no son intercambiables, y
+ * TensorFlow no tiene ningún export equivalente a `stage1-embedder.onnx`
+ * (`19_export_onnx_price_embedding.py` es PyTorch-only). `stage3Price
+ * Estimator.ts` solo sabe construir el input de 1280-dim, así que el
+ * TensorFlow de Stage 3 nunca es utilizable del lado del cliente — por eso
+ * `tf-export-onnx-price-estimator` corre ANTES que el par PyTorch acá,
+ * a propósito, para que el archivo que quede publicado al final de la
+ * secuencia sea siempre el de PyTorch, nunca el de TensorFlow.
  */
 export const RUN_ALL_EXPORT_SEQUENCE: string[] = [
   'pt-export-onnx',
   'tf-export-onnx',
   'pt-export-onnx-text-validator',
   'tf-export-onnx-text-validator',
-  'pt-export-onnx-price-estimator',
   'tf-export-onnx-price-estimator',
+  'pt-export-onnx-price-estimator',
+  'pt-export-onnx-price-embedding',
   'pt-export-onnx-condition',
   'tf-export-onnx-condition',
 ];

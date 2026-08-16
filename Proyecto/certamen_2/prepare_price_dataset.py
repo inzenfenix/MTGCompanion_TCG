@@ -23,11 +23,21 @@ Salidas, todas bajo data/price_dataset/ (gitignored):
                           entrenen/evalúen sobre exactamente las mismas
                           cartas (más fuerte que un train_test_split
                           independiente por script).
-  - tabular_scaler.json : media/desvío de los 5 campos numéricos sin acotar
-                          (NUMERIC_FIELDS), calculados SOLO sobre el split de
+  - tabular_scaler.json : media/desvío de los 6 campos numéricos sin acotar
+                          (NUMERIC_FIELDS, incluye edhrec_rank_log desde
+                          ROADMAP.md B6), calculados SOLO sobre el split de
                           train — no un StandardScaler pickleado (no portable
                           entre venvs de dos lenguajes, tampoco exportable a
                           ONNX), solo los números.
+
+Además, si se corre con el dataset completo (sin --n), publica
+tabular_scaler.json en trading-app-ionic/public/models/stage3-tabular-scaler.json
+(ROADMAP.md E2) — mismo patrón publicar_en_ionic() que los scripts
+*_export_onnx*.py (CLAUDE.md regla 3), con el mismo --no-ionic-copy para
+saltarlo. Solo el escalador de la corrida --n 0 (catálogo completo) debe
+publicarse: uno calculado sobre una sub-muestra mediría un mean/std distinto
+del que el modelo real (entrenado sobre el catálogo completo) espera, así
+que una corrida --n truncada nunca se copia, con o sin la flag.
 
 Uso:
     python prepare_price_dataset.py                # dataset completo (~51.6k cartas con precio)
@@ -39,12 +49,17 @@ import csv
 import json
 import pathlib
 import random
+import shutil
 import sys
 
 CERTAMEN2_DIR = pathlib.Path(__file__).resolve().parent
 CARDS_JSON = CERTAMEN2_DIR.parent / "certamen_1" / "data" / "cards.json"
 IMAGES_DIR = CERTAMEN2_DIR.parent / "certamen_1" / "data" / "images"
 PRICE_DATASET_DIR = CERTAMEN2_DIR / "data" / "price_dataset"
+# Misma convención que 09_export_onnx.py / 18_export_onnx_price_estimator.py
+# (CLAUDE.md regla 3), aunque este script no exporta un .onnx — publica un
+# artefacto de datos (el escalador) que el cliente Ionic necesita igual.
+IONIC_MODELS_DIR = CERTAMEN2_DIR.parent / "examen" / "trading-app-ionic" / "public" / "models"
 
 # src/price_features.py es Python puro (sin torch/tf) — cualquiera de las
 # dos copias (pytorch/src o tensorFlow/src) sirve igual, son byte-idénticas.
@@ -106,6 +121,19 @@ def calcular_scaler(filas: list[dict], train_ids: set[str]) -> dict:
     return {"fields": NUMERIC_FIELDS, "mean": medias, "std": desvios}
 
 
+def publicar_en_ionic(destino: pathlib.Path, nombre_publico: str) -> pathlib.Path | None:
+    """Copia tabular_scaler.json a trading-app-ionic/public/models/ — ver
+    18_export_onnx_price_estimator.py::publicar_en_ionic() (mismo patrón,
+    sin sidecar porque esto no es un .onnx)."""
+    if not IONIC_MODELS_DIR.parent.exists():
+        print(f"  aviso: no se encontró {IONIC_MODELS_DIR.parent} — no se copia a la app Ionic.")
+        return None
+    IONIC_MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    publico = IONIC_MODELS_DIR / nombre_publico
+    shutil.copy2(destino, publico)
+    return publico
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Arma la mitad tabular + split + escalador del dataset de Stage 3 (Certamen 2)."
@@ -114,6 +142,8 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=SEED)
     parser.add_argument("--val-split", type=float, default=VAL_SPLIT)
     parser.add_argument("--test-split", type=float, default=TEST_SPLIT)
+    parser.add_argument("--no-ionic-copy", action="store_true",
+                         help="No copiar tabular_scaler.json a trading-app-ionic/public/models/.")
     args = parser.parse_args()
 
     if not CARDS_JSON.exists():
@@ -194,6 +224,17 @@ def main() -> None:
     print(f"\ncards.csv          : {cards_csv_path}  ({len(filas):,} filas)")
     print(f"split.json          : {split_json_path}")
     print(f"tabular_scaler.json : {scaler_json_path}")
+
+    # Solo publicar si esto fue una corrida del catálogo completo — un
+    # escalador de --n truncado mediría un mean/std distinto del que el
+    # modelo real (entrenado sobre el catálogo completo) espera.
+    if not args.n and not args.no_ionic_copy:
+        publico = publicar_en_ionic(scaler_json_path, "stage3-tabular-scaler.json")
+        if publico:
+            print(f"Copiado a la app Ionic       : {publico}")
+    elif args.n and not args.no_ionic_copy:
+        print("(no publicado a Ionic: corrida con --n, no es el catálogo completo)")
+
     print("\nPróximo paso: correr pytorch/prepare_price_embeddings.py y")
     print("tensorFlow/prepare_price_embeddings.py para precalcular el embedding")
     print("visual congelado (cada uno en el venv de su framework).")

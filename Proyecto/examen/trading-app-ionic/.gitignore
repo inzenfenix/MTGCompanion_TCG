@@ -15,6 +15,15 @@
 # (binarios, se regeneran corriendo el export — no se versionan, mismo criterio
 # que pytorch/models/ y tensorFlow/models/ en certamen_1)
 /public/models/*.onnx
+# escalador de Stage 3, generado por certamen_2/prepare_price_dataset.py sobre
+# el catálogo completo (ROADMAP.md E2) — mismo criterio que los .onnx de arriba.
+/public/models/stage3-tabular-scaler.json
+
+# tesseract.js (ROADMAP.md E3) descarga el paquete de idioma inglés (~5MB) al
+# cwd cuando corre en Node (dev/test/scripts) — el navegador lo trae de su
+# propio CDN/cache, esto solo aparece localmente. Mismo criterio que
+# certamen_2/.tessdata (gitignored ahí también).
+/eng.traineddata
 
 # misc
 .DS_Store

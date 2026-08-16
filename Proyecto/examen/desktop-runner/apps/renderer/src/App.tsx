@@ -50,13 +50,19 @@ const TAB_BUCKETS: Record<string, string[]> = {
   scraper: ['shared-downloader', 'shared-real-photos'],
   pytorch: ['pt-embedder', 'shared-evaluate', 'pt-visualize', 'pt-binary-classifier', 'pt-text-validator', 'pt-price-estimator', 'pt-condition-grader'],
   tensorflow: ['tf-embeddings', 'shared-evaluate', 'tf-visualize', 'tf-binary-classifier', 'tf-text-validator', 'tf-price-estimator', 'tf-condition-grader'],
+  // Stage 3's order is deliberately TF-then-PT, not PT-then-TF like every
+  // other stage — see scripts.config.ts's RUN_ALL_EXPORT_SEQUENCE comment
+  // (ROADMAP.md E2, 16 ago): the two frameworks' stage3-price-estimator.onnx
+  // aren't interchangeable (1330 vs 626 input dims) and only PyTorch's has a
+  // matching stage1-embedder.onnx, so PyTorch must be the one left standing.
   export: [
     'pt-export-onnx',
     'tf-export-onnx',
     'pt-export-onnx-text-validator',
     'tf-export-onnx-text-validator',
-    'pt-export-onnx-price-estimator',
     'tf-export-onnx-price-estimator',
+    'pt-export-onnx-price-estimator',
+    'pt-export-onnx-price-embedding',
     'pt-export-onnx-condition',
     'tf-export-onnx-condition',
   ],
