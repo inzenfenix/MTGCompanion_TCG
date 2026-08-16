@@ -39,4 +39,25 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Live camera preview (Tab2/ListCard/GuidedCapture's Smart Scan —
+         `navigator.mediaDevices.getUserMedia({video:..., audio:false})` in
+         useLiveCamera.ts). Capacitor's BridgeWebChromeClient already
+         implements onPermissionRequest()'s runtime-permission-request flow
+         out of the box (no app code needed) — but Android silently denies
+         any runtime permission the manifest never declares, so the OS
+         prompt never appeared without this. audio:false in the actual
+         getUserMedia call — no RECORD_AUDIO/MODIFY_AUDIO_SETTINGS needed. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+    <!-- Bazaar tab's "like Tinder" distance search (TabSearch.tsx,
+         navigator.geolocation.getCurrentPosition — see PATCH
+         /users/me/location, ROADMAP.md E6). Coarse is enough for a
+         city-scale distance estimate, but both are requested together
+         (same as BridgeWebChromeClient's onGeolocationPermissionsShowPrompt
+         default) so the OS can grant "approximate" if the user declines
+         "precise". -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 </manifest>
