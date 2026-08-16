@@ -212,13 +212,26 @@ volume shows up in the guest OS as `/dev/nvme1n1`, not the device name
 Terraform's attachment resource requests — `postgres.sh.tpl`/`minio.sh.tpl`
 now detect the real device (with a retry loop, since the volume can finish
 attaching a few seconds after the instance starts booting) instead of
-assuming. **Not done, deliberately** — this needs a separate go-ahead each
+assuming. **Update (16 ago) — `docker build` verified for real**, not just
+build-clean: once Docker Desktop was untangled (its WSL integration was
+stuck retrying against an unrelated, unused `Ubuntu` WSL distro on this
+machine — unregistered it, unrelated to this repo), `docker build` on the
+real `backend/Dockerfile` succeeded, and the image was run end-to-end
+against the local dev Postgres (`docker/dev.sh` stack, `host.docker.
+internal` for the DB host) — `docker-entrypoint.sh`'s `prisma migrate
+deploy` applied cleanly, Nest started, `GET /` and `GET /catalog/search`
+both answered for real. One cosmetic-only finding: `prisma generate` prints
+a "failed to detect the libssl/openssl version" warning on `node:20-slim`
+(no OpenSSL installed) — confirmed harmless for this project's WASM
+query-compiler engine (per PLAN.md's own research), not fixed, since the
+verified runtime behavior is what actually matters, not the warning text.
+Test container/image/stack all torn down after, nothing left running.
+**Still not done, deliberately** — this needs a separate go-ahead each
 time per this project's standing rule on billable/outward-facing actions,
 and no AWS credentials exist anywhere in this repo/session: `terraform
 apply`/`destroy` were never run (no real EC2/S3/Secrets Manager resources
 exist), `scripts/deploy-backend.sh` was never run against a live instance,
-`docker build` on the real Dockerfile is still unverified (Docker Desktop
-wasn't running this session), and I6's real-TLS path (Caddy+nip.io or a
+and I6's real-TLS path (Caddy+nip.io or a
 real domain) stays documented-only, not built. Windows-specific adaptation
 from the original plan: `deploy-backend.sh` uses `tar czf - | ssh | tar
 xzf -` instead of `rsync` (not available in Git Bash on Windows; `ssh`/
@@ -279,7 +292,7 @@ backend code, not assumed):
 
 | # | Task | Priority | Complexity | Notes |
 |---|---|---|---|---|
-| I1 | Write a `Dockerfile` for `backend/` (multi-stage: `npm ci` → `npm run build` → slim runtime image running `node dist/main`) | P0 | S | ✅ **Built (16 ago)**, superseded by PLAN.md's exact 3-stage spec — `backend/Dockerfile`/`.dockerignore`/`docker-entrypoint.sh`, plus the `storage.service.ts` instance-role fallback. `docker build` itself unverified this session (Docker Desktop wasn't running) — see the status update above. |
+| I1 | Write a `Dockerfile` for `backend/` (multi-stage: `npm ci` → `npm run build` → slim runtime image running `node dist/main`) | P0 | S | ✅ **Built and verified (16 ago)**, superseded by PLAN.md's exact 3-stage spec — `backend/Dockerfile`/`.dockerignore`/`docker-entrypoint.sh`, plus the `storage.service.ts` instance-role fallback. `docker build` succeeded and the image was run end-to-end against local dev Postgres — see the status update above for the full verification. |
 | I2 | New `Proyecto/examen/infra/terraform/` directory: `providers.tf`, `variables.tf`, `main.tf`, `outputs.tf`, plus a committed `terraform.tfvars.example` and a gitignored real `terraform.tfvars` | P0 | S | ✅ **Built (16 ago)**, superseded by PLAN.md's 4-instance architecture (no `main.tf` — split into `security_groups.tf`/`secrets.tf`/`s3.tf`/`data.tf`/four `ec2_*.tf` instead) plus the new desktop-runner "Deploy" tab for pasting/rotating credentials. `terraform fmt`/`validate` clean. |
 | I3 | Compute: one EC2 instance ... running the backend + Postgres both via Docker ... | P0 | M | ✅ **Built (16 ago), architecture changed per PLAN.md**: 4 single-purpose instances (`postgres`/`mailhog`/`minio`-optional/`backend`) wired by SG-to-SG references instead of one combined box, `LabInstanceProfile` attached, EBS-backed Postgres/MinIO data dirs. Not RDS, same reasoning this row already gave. Never applied. |
 | I4 | S3 bucket for card photos (`aws_s3_bucket` + `aws_s3_bucket_cors_configuration` matching what the presigned-URL upload flow needs — allow the app's origin, `PUT`/`GET`, the headers the client actually sends) | P0 | S | ✅ **Built (16 ago)** — `s3.tf` (private bucket, `public_access_block`, wildcard-origin CORS since the client is a Capacitor WebView with no fixed origin), conditional on `use_minio=false` (default). IAM via `LabInstanceProfile`, matching this row's own preference. Never applied. |
