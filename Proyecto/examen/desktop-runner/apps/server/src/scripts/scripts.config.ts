@@ -13,7 +13,7 @@ export const CERTAMEN_DIR = path.resolve(__dirname, '..', '..', '..', '..', '..'
 /** Igual que CERTAMEN_DIR pero apuntando a certamen_2/ (hermano de certamen_1/ bajo Proyecto/). */
 export const CERTAMEN2_DIR = path.resolve(__dirname, '..', '..', '..', '..', '..', '..', 'certamen_2');
 
-export type EnvId = 'pytorch' | 'tensorflow' | 'testing' | 'system';
+export type EnvId = 'pytorch' | 'tensorflow' | 'testing' | 'certamen2' | 'system';
 
 export interface EnvDef {
   id: EnvId;
@@ -55,6 +55,17 @@ export const ENVS: Record<EnvId, EnvDef> = {
     label: 'Testing (comparación entre frameworks)',
     dir: path.join(CERTAMEN_DIR, 'Testing'),
     requirementsFile: path.join(CERTAMEN_DIR, 'Testing', 'requirements.txt'),
+  },
+  certamen2: {
+    id: 'certamen2',
+    label: 'Certamen 2 (preparación de datasets — Stage 2/3/4)',
+    // Venv liviano, framework-agnóstico (pandas/sklearn/opencv-headless/
+    // pytesseract, ver certamen_2/requirements.txt) — deliberadamente sin
+    // torch/tensorflow, así los scripts de prepare_*_dataset.py no tienen
+    // que instalar ninguno de los dos frameworks pesados solo para leer
+    // cards.json y correr OCR/OpenCV (ver ROADMAP.md workstream C, C1).
+    dir: CERTAMEN2_DIR,
+    requirementsFile: path.join(CERTAMEN2_DIR, 'requirements.txt'),
   },
   system: {
     id: 'system',
@@ -284,6 +295,70 @@ export const SCRIPTS: ScriptDef[] = [
       }
       return files;
     },
+  },
+
+  // Preparación de datasets de certamen_2/ (pasos lentos de I/O — OCR,
+  // descarga, desgaste sintético — separados del entrenamiento en sí, ver
+  // los docstrings de cada script). Usan el venv 'certamen2' (C1 en
+  // ROADMAP.md), no 'pytorch': son Python puro/OpenCV/sklearn, no necesitan
+  // torch ni tensorflow instalados. Deliberadamente fuera de
+  // RUN_ALL_SEQUENCES/RUN_ALL_DOWNLOAD_SEQUENCE — igual que shared-scraper
+  // (regla 2 de CLAUDE.md), son pasos manuales de una sola vez, no algo para
+  // re-correr sin pensar en cada "Correr todo" (prepare_text_validator_dataset.py
+  // en particular re-muestrea cartas al azar cada vez que corre).
+  {
+    id: 'shared-prepare-text-validator',
+    group: 'shared',
+    label: 'Preparar dataset — Stage 2 (OCR + pares de texto)',
+    description:
+      'Descarga N cartas en calidad "large", corre OCR (tesseract) sobre el recorte de texto y arma pares (ocr_text, texto_referencia, label) balanceados 1:1 en certamen_2/data/text_pairs/index.csv. Paso lento — necesita tesseract instalado en el sistema. Usa el venv certamen2.',
+    cwd: CERTAMEN2_DIR,
+    script: 'prepare_text_validator_dataset.py',
+    env: 'certamen2',
+    args: [
+      { flag: '--n', name: 'n', kind: 'number', label: 'Cartas a muestrear', default: 800 },
+      {
+        flag: '--quality',
+        name: 'quality',
+        kind: 'select',
+        label: 'Calidad de descarga',
+        options: ['normal', 'large', 'png'],
+        default: 'large',
+        recommended: 'large',
+        help: '"small" no es una opción acá (a diferencia del scraper) — el texto tiene que ser legible para el OCR.',
+      },
+      { flag: '--seed', name: 'seed', kind: 'number', label: 'Seed', default: 42 },
+    ],
+  },
+  {
+    id: 'shared-prepare-price',
+    group: 'shared',
+    label: 'Preparar dataset — Stage 3 (tabular + split + escalador)',
+    description:
+      'Arma la mitad tabular del dataset de precio (cards.csv), el split train/val/test por card_id (split.json) y el escalador de features numéricas (tabular_scaler.json), todos bajo certamen_2/data/price_dataset/. No toca imágenes ni ningún backbone — eso lo hacen pytorch/prepare_price_embeddings.py y tensorFlow/prepare_price_embeddings.py después, cada uno en su propio venv. Usa el venv certamen2.',
+    cwd: CERTAMEN2_DIR,
+    script: 'prepare_price_dataset.py',
+    env: 'certamen2',
+    args: [
+      { flag: '--n', name: 'n', kind: 'number', label: 'Sub-muestra (0 = todas las cartas con precio)', default: 0 },
+      { flag: '--seed', name: 'seed', kind: 'number', label: 'Seed', default: 42 },
+      { flag: '--val-split', name: 'val_split', kind: 'float', label: 'Fracción de validación', default: 0.15 },
+      { flag: '--test-split', name: 'test_split', kind: 'float', label: 'Fracción de test', default: 0.15 },
+    ],
+  },
+  {
+    id: 'shared-prepare-condition',
+    group: 'shared',
+    label: 'Preparar dataset — Stage 4 (desgaste sintético)',
+    description:
+      'Bootstrap de datos para el clasificador de condición: por cada carta muestreada genera una versión por grado (NM/LP/MP/HP/DMG) con synthetic_wear.py, todas a partir de la misma imagen limpia. No reemplaza fotos reales (ver Roboflow, arriba) — es para tener algo entrenable antes de conseguir/etiquetar fotos reales. Usa el venv certamen2.',
+    cwd: CERTAMEN2_DIR,
+    script: 'prepare_condition_dataset.py',
+    env: 'certamen2',
+    args: [
+      { flag: '--n', name: 'n', kind: 'number', label: 'Cartas base a muestrear', default: 500 },
+      { flag: '--seed', name: 'seed', kind: 'number', label: 'Seed', default: 42 },
+    ],
   },
 
   // ── PyTorch ─────────────────────────────────────────────────────────────

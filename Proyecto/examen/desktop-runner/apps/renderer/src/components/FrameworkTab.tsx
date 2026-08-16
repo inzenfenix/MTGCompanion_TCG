@@ -18,16 +18,16 @@ const STAGE_SCRIPTS: Record<Framework, Record<StageValue, string[]>> = {
   pytorch: {
     retrieval: ['pt-embedder', 'shared-evaluate', 'pt-visualize', 'pt-finetune', 'pt-scanner'],
     stage1: ['pt-binary-classifier', 'pt-optuna-binary-classifier'],
-    stage2: ['pt-text-validator', 'pt-optuna-text-validator'],
-    stage3: ['pt-price-estimator', 'pt-optuna-price-estimator'],
-    stage4: ['pt-condition-grader', 'pt-optuna-condition-grader', 'pt-condition-grader-combined', 'pt-predict-condition'],
+    stage2: ['shared-prepare-text-validator', 'pt-text-validator', 'pt-optuna-text-validator'],
+    stage3: ['shared-prepare-price', 'pt-price-estimator', 'pt-optuna-price-estimator'],
+    stage4: ['shared-prepare-condition', 'pt-condition-grader', 'pt-optuna-condition-grader', 'pt-condition-grader-combined', 'pt-predict-condition'],
   },
   tensorflow: {
     retrieval: ['tf-embeddings', 'shared-evaluate', 'tf-visualize', 'tf-scanner'],
     stage1: ['tf-binary-classifier', 'tf-optuna-binary-classifier'],
-    stage2: ['tf-text-validator', 'tf-optuna-text-validator'],
-    stage3: ['tf-price-estimator', 'tf-optuna-price-estimator'],
-    stage4: ['tf-condition-grader', 'tf-optuna-condition-grader'],
+    stage2: ['shared-prepare-text-validator', 'tf-text-validator', 'tf-optuna-text-validator'],
+    stage3: ['shared-prepare-price', 'tf-price-estimator', 'tf-optuna-price-estimator'],
+    stage4: ['shared-prepare-condition', 'tf-condition-grader', 'tf-optuna-condition-grader'],
   },
 };
 

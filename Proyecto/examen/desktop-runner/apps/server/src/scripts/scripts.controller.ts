@@ -74,7 +74,7 @@ export class ScriptsController {
 
   @Post('envs/:envId/ensure')
   @HttpCode(202)
-  async ensureVenv(@Param('envId') envId: 'pytorch' | 'tensorflow' | 'testing' | 'system' | 'tensorflow-docker') {
+  async ensureVenv(@Param('envId') envId: 'pytorch' | 'tensorflow' | 'testing' | 'certamen2' | 'system' | 'tensorflow-docker') {
     await this.scriptsService.ensureVenv(envId);
     return { ok: true };
   }

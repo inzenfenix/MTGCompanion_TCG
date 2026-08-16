@@ -421,6 +421,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(f"  ROC-AUC  : {metrics['roc_auc']:.4f}")
         print(f"  Accuracy : {metrics['accuracy_en_umbral_optimo']:.4f}")
+        print(f"  F1       : {metrics['f1_en_umbral_optimo']:.4f}")
         print(f"  Modelo   : {MODELS_DIR / 'text_matcher.pth'}")
 
     update_latest(OUTPUT_ROOT, run_dir)

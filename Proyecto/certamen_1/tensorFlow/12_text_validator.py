@@ -32,7 +32,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-from sklearn.metrics import accuracy_score, roc_auc_score, roc_curve
+from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, roc_curve
 
 from src.text_matcher import N_FEATURES, build_text_matcher, build_vectorizer
 
@@ -113,12 +113,15 @@ def evaluar(model: tf.keras.Model, X_val, y_val) -> tuple:
     fpr, tpr, thresholds = roc_curve(y_true, y_score)
     youden = tpr - fpr
     umbral_optimo = float(thresholds[np.argmax(youden)])
-    accuracy = float(accuracy_score(y_true, (y_score >= umbral_optimo).astype(int)))
+    y_pred = (y_score >= umbral_optimo).astype(int)
+    accuracy = float(accuracy_score(y_true, y_pred))
+    f1 = float(f1_score(y_true, y_pred)) if len(set(y_true)) > 1 else 0.0
 
     metricas = {
         "roc_auc": auc,
         "umbral_optimo": umbral_optimo,
         "accuracy_en_umbral_optimo": accuracy,
+        "f1_en_umbral_optimo": f1,
         "n_val": int(len(y_true)),
     }
     return metricas, fpr, tpr, y_true, y_score, umbral_optimo
@@ -233,6 +236,7 @@ def main() -> None:
     print(f"  ROC-AUC                : {metricas['roc_auc']:.4f}")
     print(f"  Umbral óptimo (Youden)  : {metricas['umbral_optimo']:.4f}")
     print(f"  Accuracy en ese umbral  : {metricas['accuracy_en_umbral_optimo']:.4f}")
+    print(f"  F1 en ese umbral        : {metricas['f1_en_umbral_optimo']:.4f}")
 
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
     run_dir = pathlib.Path(args.output_dir) if args.output_dir else OUTPUT_ROOT / timestamp

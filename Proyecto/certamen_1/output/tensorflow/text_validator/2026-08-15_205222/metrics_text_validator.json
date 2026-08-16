@@ -1,0 +1,7 @@
+{
+  "roc_auc": 0.9861251977767861,
+  "umbral_optimo": 0.530526340007782,
+  "accuracy_en_umbral_optimo": 0.9490445859872612,
+  "f1_en_umbral_optimo": 0.9470198675496688,
+  "n_val": 314
+}

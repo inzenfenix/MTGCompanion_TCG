@@ -1,0 +1,16 @@
+{
+  "trial_number": 7,
+  "best_value": 0.9903850054768957,
+  "metric": "val_auc",
+  "params": {
+    "learning_rate": 0.0020736445177905022,
+    "weight_decay": 6.235377135673162e-06,
+    "batch_size": 32,
+    "hidden_units": 384,
+    "dropout": 0.4,
+    "optimizer": "adamw"
+  },
+  "study_name": "text_validator_pytorch",
+  "completed_trials": 9,
+  "total_trials": 20
+}
