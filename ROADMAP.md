@@ -182,6 +182,23 @@ is the plan (not yet implemented) to stand up a real always-on backend on
 AWS via Terraform so a build APK can point at a real URL. **Nothing in this
 workstream has been started — planning only, per this session's request.**
 
+**Full implementation plan (16 ago)**: see
+[`Proyecto/examen/infra/PLAN.md`](Proyecto/examen/infra/PLAN.md) — written
+after live-testing scope with the user's real AWS Academy Learner Lab
+credentials (temporary, rotate ~4h). Expands/overrides the table below in
+several ways: a new generically-named **"Deploy" tab in desktop-runner**
+(not AWS-specific — meant to host other cloud/payment credentials later
+too) for pasting/rotating credentials, a **4-separate-EC2** architecture
+(one each for MailHog replacing SES, MinIO-or-S3, Postgres, backend) wired
+by least-privilege security groups instead of I3's original single-instance
+plan, a **t3.medium** instance-size ceiling (lab account restriction), and
+Secrets Manager wired in for real (the one extra managed service beyond
+S3/EC2 judged worth it — SNS/SQS/DynamoDB/Cognito are available in the lab
+account but stay informational-only, no code integration, no current use
+case in this app). Read that file before picking up any `I#` row below —
+it supersedes this table's per-item shape (still useful for priority/
+complexity context) with a concrete, ordered file-by-file plan.
+
 **Key constraints this plan is designed around** (from surveying the actual
 backend code, not assumed):
 - `storage.service.ts` already targets plain `@aws-sdk/client-s3` and is
