@@ -252,7 +252,9 @@ export async function uploadCardPhoto(
 // from the card's stored `guessedPrice` at creation time, derived
 // server-side, never sent by the client.
 
-export type TransactionStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+// Matches backend/prisma/schema.prisma's TransactionStatus enum exactly —
+// 'PAID', not 'COMPLETED' (verified against generated/prisma/index.d.ts).
+export type TransactionStatus = 'PENDING' | 'PAID' | 'FAILED' | 'CANCELLED';
 
 export type Transaction = {
   id: string;

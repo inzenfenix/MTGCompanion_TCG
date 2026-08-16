@@ -29,10 +29,11 @@ model User {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  settings  UserSettings?
-  cards     Card[]        @relation("CardOwner")
-  purchases Transaction[] @relation("BuyerTransactions")
-  sales     Transaction[] @relation("SellerTransactions")
+  settings      UserSettings?
+  cards         Card[]         @relation("CardOwner")
+  purchases     Transaction[]  @relation("BuyerTransactions")
+  sales         Transaction[]  @relation("SellerTransactions")
+  refreshTokens RefreshToken[]
 
   @@map("users")
 }
@@ -54,6 +55,27 @@ model UserSettings {
   notifyByEmail Boolean @default(true)
 
   @@map("user_settings")
+}
+
+// One row per issued refresh token (POST /auth/refresh — see AuthService).
+// Stores a hash, never the raw token — same principle as User.passwordHash,
+// just SHA-256 instead of bcrypt: this is a high-entropy random token, not a
+// low-entropy user secret, so bcrypt's deliberate slowness buys nothing.
+// Rotated on every use: AuthService.refresh() deletes the row for the
+// presented token and inserts a new one for the token it returns, so
+// replaying an already-used refresh token (e.g. one stolen off a device
+// that has since refreshed) is rejected outright instead of silently
+// working.
+model RefreshToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
 }
 
 // ─────────────────────────────────────────────────────────────────────────

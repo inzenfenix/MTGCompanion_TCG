@@ -24,17 +24,34 @@ transacciona.
   `Authorization: Bearer <token>` y el dueño/comprador se toma del token,
   nunca del body (con chequeo de ownership: editar/borrar una carta ajena
   da 404, no 403 — no confirma que el id exista). `GET` sigue público.
-- 🚧 Sin refresh tokens ni 2FA todavía — deliberadamente fuera de este pase
-  (ver "Qué falta").
+- ✅ Refresh tokens (`POST /auth/refresh`) — `POST /auth/login` ahora
+  también devuelve un `refreshToken` opaco (512 bits aleatorios, no un JWT)
+  además del `accessToken`; su hash SHA-256 se guarda en la tabla
+  `refresh_tokens` (`JWT_REFRESH_TTL`, default 30 días). `POST
+  /auth/refresh` intercambia un refresh token vigente por un access token +
+  refresh token nuevos, **rotando** el que se presentó (se borra al usarlo,
+  válido una sola vez) — reusar uno viejo devuelve 401 en vez de funcionar
+  en silencio. Todavía no hay endpoint de logout/revocación explícita (la
+  tabla `refresh_tokens` ya tiene el índice por `userId` que un futuro
+  "cerrar sesión en todos los dispositivos" necesitaría, pero el método de
+  repositorio para borrarlos en bloque no está escrito — no se agregó
+  código sin un caller real todavía) ni el frontend consume este endpoint
+  todavía (`AuthContext.tsx` sigue
+  cerrando sesión en cualquier 401 del access token, sin intentar
+  refrescar primero — ver `trading-app-ionic/README.md`).
+- 🚧 Sin 2FA todavía — deliberadamente fuera de este pase (ver "Qué
+  falta").
 
 ## 🏗️ Arquitectura
 
-Cada módulo de dominio (`users/`, `cards/`, `transactions/`) sigue la misma
-separación en capas, para que cambiar de ORM, agregar tests con mocks, o
-mover un caso de uso no obligue a tocar el resto (`auth/` es la excepción:
-no tiene entidad propia, solo orquesta `UsersService` + `@nestjs/jwt`, así
-que sigue la forma más simple de `notifications/`/`payments/` en vez de
-domain/infrastructure/application completos):
+Cada módulo de dominio (`users/`, `cards/`, `transactions/`, y desde los
+refresh tokens también `auth/`) sigue la misma separación en capas, para que
+cambiar de ORM, agregar tests con mocks, o mover un caso de uso no obligue a
+tocar el resto. `auth/` no tiene una entidad "de negocio" propia como
+`Card`/`Transaction` — sigue orquestando `UsersService` para todo lo
+relacionado a `User` — pero sí tiene su propia entidad de infraestructura
+(`RefreshToken`, con su `domain/`/`infrastructure/` igual que los demás
+módulos) desde que dejó de ser un simple wrapper de `@nestjs/jwt`:
 
 ```
 <módulo>/
@@ -146,10 +163,6 @@ dispara y el correo se genera con el contenido correcto).
 
 ## Qué falta (a propósito, fuera de alcance de este pase)
 
-- **Refresh tokens.** El login (`POST /auth/login`) emite un access token
-  (`JWT_ACCESS_TTL`, default 15 minutos) — cuando expira, hay que loguearse
-  de nuevo, no hay endpoint de refresh todavía. `JWT_REFRESH_TTL` ya está
-  reservada en `.env.example` para cuando se implemente.
 - **2FA real.** El schema ya tiene `twoFactorEnabled`/`twoFactorSecret` en
   `UserSettings`, pero sin lógica detrás. El método elegido para cuando se
   implemente es **TOTP** (app autenticadora), no OTP por correo.

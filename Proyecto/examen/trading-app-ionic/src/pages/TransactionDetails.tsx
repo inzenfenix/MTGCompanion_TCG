@@ -50,15 +50,15 @@ const TransactionDetails: React.FC = () => {
   // yet) means every transaction stays PENDING today; this renders honestly
   // by real status rather than always claiming success.
   const statusIcon =
-    transaction?.status === 'COMPLETED' ? checkmarkCircleOutline :
+    transaction?.status === 'PAID' ? checkmarkCircleOutline :
     transaction?.status === 'PENDING' ? timeOutline :
     closeCircleOutline;
   const statusColor =
-    transaction?.status === 'COMPLETED' ? '#00733e' :
+    transaction?.status === 'PAID' ? '#00733e' :
     transaction?.status === 'PENDING' ? '#d4af37' :
     '#5c1b1b';
   const statusLabel =
-    transaction?.status === 'COMPLETED' ? t('transaction_complete') :
+    transaction?.status === 'PAID' ? t('transaction_complete') :
     transaction?.status === 'PENDING' ? t('transaction_status_pending') :
     transaction?.status === 'FAILED' ? t('transaction_status_failed') :
     t('transaction_status_cancelled');

@@ -130,13 +130,27 @@ usable, cae a CPU.
   una RX 6800S real — sin el override, cualquier operación en GPU segfaultea
   aunque `torch.cuda.is_available()` diga `True`).
 - **TensorFlow + AMD**: no hay wheel ROCm mantenido para `tensorflow>=2.16`
-  vía pip (el paquete `tensorflow-rocm` de PyPI quedó en 2.9.4; el camino
-  actual de AMD es Docker — imágenes `rocm/tensorflow`, no un venv). El
-  runner lo loguea claramente en la pantalla de configuración y sigue con
-  TensorFlow en modo CPU — PyTorch sí queda acelerado. Si necesitás TF
-  acelerado igual, `docker/tf-rocm/` tiene el escape hatch manual (probado
-  de verdad en esta laptop, RX 6800S) — no está enchufado a la UI a propósito,
-  ver `docker/tf-rocm/README.md`.
+  vía pip (el paquete `tensorflow-rocm` de PyPI quedó en 2.9.4). El venv
+  siempre corre en CPU. **A diferencia de lo que decía esta sección antes,
+  el escape hatch de Docker (`docker/tf-rocm/`) sí está enchufado a la UI**:
+  en la pantalla de Configuración inicial, si la GPU detectada es AMD/ROCm,
+  aparece una tarjeta "TensorFlow en esta GPU AMD" con un toggle **CPU
+  (venv) / GPU vía Docker (ROCm)** — persiste como `tensorflowExecutionMode`
+  en `~/.mtg-desktop-runner/settings.json` (`GET`/`POST /settings`,
+  `apps/server/src/scripts/settings.ts`), leído por `scripts.service.ts`
+  para decidir cómo lanzar cada script de TensorFlow. Default: `'venv'`
+  (CPU) — el toggle a `'docker'` se deshabilita solo si `GET
+  /tf-docker/status` no lo reporta elegible (Docker no instalado, imagen no
+  construida, etc.). **Excepción importante**: los scripts
+  `*_export_onnx*.py` corren siempre por venv/CPU sin importar este ajuste
+  — hay un mismatch de versión de Keras entre el venv y la imagen Docker
+  que rompe la carga de checkpoints `.keras` guardados por uno y cargados
+  por el otro (bug real, encontrado y trabajado — ver `docker/tf-rocm/
+  README.md` § "Known gotchas"), y los exports no entrenan nada de todas
+  formas, así que no hay ninguna razón para pagar el costo/riesgo de
+  Docker ahí. Medición real de GPU-vs-CPU (vale la pena leerla antes de
+  activar el toggle) en `docker/tf-rocm/README.md` § "Measured: GPU vs
+  CPU".
 - **Nada detectado / todo falló**: wheels CPU explícitos (`.../whl/cpu`,
   livianos), sin frenar el resto de la instalación.
 

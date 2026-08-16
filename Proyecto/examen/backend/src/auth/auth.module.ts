@@ -5,12 +5,14 @@ import { PassportModule } from '@nestjs/passport';
 import type { AppConfig } from '../config/configuration';
 import { UsersModule } from '../users/users.module';
 import { AuthService } from './application/auth.service';
+import { REFRESH_TOKEN_REPOSITORY } from './domain/refresh-token.repository';
+import { PrismaRefreshTokenRepository } from './infrastructure/prisma-refresh-token.repository';
 import { AuthController } from './presentation/auth.controller';
 import { JwtStrategy } from './presentation/jwt.strategy';
 
 @Module({
   imports: [
-    UsersModule, // AuthService only ever talks to UsersService.validateCredentials(), never touches Prisma
+    UsersModule, // AuthService talks to UsersService.validateCredentials()/findById(), never touches User via Prisma directly — refresh tokens are its own table it does own, see PrismaRefreshTokenRepository below
     PassportModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
@@ -30,7 +32,14 @@ import { JwtStrategy } from './presentation/jwt.strategy';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    {
+      provide: REFRESH_TOKEN_REPOSITORY,
+      useClass: PrismaRefreshTokenRepository,
+    },
+  ],
   exports: [JwtModule], // so other modules' guards (JwtAuthGuard -> JwtStrategy) resolve without re-registering JwtModule
 })
 export class AuthModule {}
