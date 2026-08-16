@@ -77,7 +77,23 @@ function copy(src, destDir, filename = undefined) {
   return dest;
 }
 
-async function downloadIfMissing(url, dest) {
+/**
+ * Downloads the .gz and writes the DECOMPRESSED `.traineddata` (no `.gz`
+ * suffix) — real bug found live (ROADMAP.md I17): Android's Gradle/AAPT
+ * asset packaging silently gunzips any `.gz`-named asset and strips the
+ * extension when it builds the APK (`eng.traineddata.gz` on disk becomes
+ * `eng.traineddata` inside the packaged app — confirmed with `unzip -l` on
+ * a real built APK), but `ocrExtractor.ts` was still asking tesseract.js to
+ * fetch the exact `.gz` name — a real 404 on-device, OCR permanently stuck
+ * on "Identifying card" with the pipeline having no error handling either
+ * (see runScanPipeline() in ListCard.tsx). Rather than fight Android's
+ * repacking, this script now ships the same plain, already-decompressed
+ * file everywhere (desktop, mobile web, Android) — `ocrExtractor.ts` asks
+ * tesseract.js for the plain name too (`gzip: false` in its `createWorker`
+ * call), so there's only one real filename/shape to reason about, matching
+ * what Android would produce anyway.
+ */
+async function downloadDecompressedIfMissing(url, dest) {
   if (existsSync(dest)) {
     console.log(`  already present, skipping download: ${dest}`);
     return;
@@ -87,10 +103,12 @@ async function downloadIfMissing(url, dest) {
   if (!res.ok) {
     throw new Error(`Failed to download ${url}: HTTP ${res.status}`);
   }
+  const gz = Buffer.from(await res.arrayBuffer());
+  const { gunzipSync } = await import('node:zlib');
+  const buf = gunzipSync(gz);
   mkdirSync(dirname(dest), { recursive: true });
-  const buf = Buffer.from(await res.arrayBuffer());
   await import('node:fs/promises').then((fs) => fs.writeFile(dest, buf));
-  console.log(`  wrote ${dest} (${(buf.length / 1024 / 1024).toFixed(2)} MB)`);
+  console.log(`  wrote ${dest} (${(buf.length / 1024 / 1024).toFixed(2)} MB, decompressed from ${(gz.length / 1024 / 1024).toFixed(2)} MB)`);
 }
 
 console.log('1/3 — worker.min.js');
@@ -102,7 +120,7 @@ for (const variant of CORE_LSTM_VARIANTS) {
   copy(join(TESSERACT_CORE_DIR, `${variant}.wasm`), PUBLIC_CORE_DIR);
 }
 
-console.log('3/3 — English traineddata');
-await downloadIfMissing(LANG_DATA_URL, join(PUBLIC_TESSDATA_DIR, `${LANG}.traineddata.gz`));
+console.log('3/3 — English traineddata (decompressed, see downloadDecompressedIfMissing() for why)');
+await downloadDecompressedIfMissing(LANG_DATA_URL, join(PUBLIC_TESSDATA_DIR, `${LANG}.traineddata`));
 
 console.log('Done. public/tesseract/ and public/tessdata/ are ready for OCR to run without hitting any CDN.');

@@ -189,6 +189,12 @@ describe('getWorker (via extractCardText) — ROADMAP.md E3c self-hosted assets'
       workerPath: TESSERACT_WORKER_PATH,
       corePath: TESSERACT_CORE_PATH,
       langPath: TESSERACT_LANG_PATH,
+      // false — ROADMAP.md I17: Android's APK packaging silently
+      // decompresses .gz assets and strips the extension, so the file that
+      // actually ships on-device is already-decompressed; requesting the
+      // .gz name 404s for real. setup-tesseract-assets.mjs now ships the
+      // plain (already-decompressed) file everywhere, this just matches it.
+      gzip: false,
     });
     // Sanity: these are local paths, not jsdelivr — the whole point of E3c.
     expect(TESSERACT_WORKER_PATH).not.toContain('cdn.jsdelivr.net');

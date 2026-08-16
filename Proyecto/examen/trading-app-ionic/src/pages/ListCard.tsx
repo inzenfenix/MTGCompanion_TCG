@@ -49,6 +49,18 @@ import { identifyCard, toScryfallFields, type IdentifyCandidate } from '../lib/s
 //   shape the rest of the app already uses (E5's price-edit-before-QR step).
 const CONDITIONS: api.CardCondition[] = ['NM', 'LP', 'MP', 'HP', 'DMG'];
 
+// ROADMAP.md I17 — safety net for runScanPipeline() below: a promise that
+// hangs (neither resolves nor rejects — the actual failure mode hit live,
+// tesseract.js's worker never settling after an init-time asset error)
+// can't be caught by any try/catch, only raced against a timeout.
+const SCAN_PIPELINE_TIMEOUT_MS = 30000;
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${label} tardó más de ${ms / 1000}s — timeout.`)), ms)),
+  ]);
+}
+
 type CaptureMode = 'manual' | 'scan';
 type ScanPhase = 'idle' | 'identifying' | 'estimating' | 'matched' | 'no-match' | 'error';
 
@@ -178,43 +190,68 @@ const ListCard: React.FC = () => {
   // see identifyCard.ts), then price (Stage 3, needs the winning
   // candidate's real metadata) and condition (Stage 4, photo-only,
   // independent of identification) against the same canonical canvas.
+  //
+  // Real bug, found live (ROADMAP.md I17): identifyCard()/
+  // runStage4ConditionGrading() both already have their own try/catch and
+  // turn failures into a `{status:'error'}` result rather than throwing —
+  // but this whole function had NO try/catch of its own, and (separately,
+  // the actual trigger this time) tesseract.js's worker can flat-out HANG
+  // — neither resolve nor reject — if its own internal error propagation
+  // for an init-time failure (e.g. a 404 loading its language data) never
+  // makes it back out of the worker thread as a rejected promise. Either
+  // way the symptom was identical: scanPhase stuck on "Identifying card"
+  // forever, no error shown, no way out short of leaving the screen — same
+  // class of bug as I15's OpenCV.js hang. Fixed the same way: a timeout
+  // ceiling plus a catch-all, so ANY future failure mode here (not just
+  // this one root cause) surfaces an error instead of hanging silently.
   const runScanPipeline = async (canvas: HTMLCanvasElement) => {
     setScanCanvas(canvas);
     setScanPhase('identifying');
     setScanErrorMessage(null);
 
-    const [identifyResult, stage4] = await Promise.all([
-      identifyCard(canvas),
-      runStage4ConditionGrading(canvas),
-    ]);
+    try {
+      const [identifyResult, stage4] = await withTimeout(
+        Promise.all([identifyCard(canvas), runStage4ConditionGrading(canvas)]),
+        SCAN_PIPELINE_TIMEOUT_MS,
+        'identifyCard()/runStage4ConditionGrading()',
+      );
 
-    setConditionWarning(stage4.status === 'likely-no-card-content');
-    if (stage4.status === 'ok') setCondition(stage4.result.condition);
+      setConditionWarning(stage4.status === 'likely-no-card-content');
+      if (stage4.status === 'ok') setCondition(stage4.result.condition);
 
-    canvas.toBlob((blob) => {
-      if (blob) {
-        setPhotoBlob(blob);
-        setPhotoPreviewUrl(canvas.toDataURL('image/jpeg', 0.9));
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            setPhotoBlob(blob);
+            setPhotoPreviewUrl(canvas.toDataURL('image/jpeg', 0.9));
+          }
+        },
+        'image/jpeg',
+        0.9,
+      );
+
+      if (identifyResult.status === 'ok' && identifyResult.result.candidates.length > 0) {
+        const ranked = identifyResult.result.candidates;
+        setCandidates(ranked);
+        setSelectedCandidateIdx(0);
+        applyCandidateMetadata(ranked[0]);
+        setScanPhase('estimating');
+        await withTimeout(estimatePriceFor(canvas, ranked[0]), SCAN_PIPELINE_TIMEOUT_MS, 'estimatePriceFor()');
+        setScanPhase('matched');
+      } else if (identifyResult.status === 'error') {
+        setScanErrorMessage(identifyResult.message);
+        setScanPhase('error');
+      } else {
+        setCandidates([]);
+        setScanPhase('no-match');
       }
-    }, 'image/jpeg', 0.9);
-
-    if (identifyResult.status === 'ok' && identifyResult.result.candidates.length > 0) {
-      const ranked = identifyResult.result.candidates;
-      setCandidates(ranked);
-      setSelectedCandidateIdx(0);
-      applyCandidateMetadata(ranked[0]);
-      setScanPhase('estimating');
-      await estimatePriceFor(canvas, ranked[0]);
-      setScanPhase('matched');
-    } else if (identifyResult.status === 'error') {
-      setScanErrorMessage(identifyResult.message);
+    } catch (err) {
+      console.error('[ListCard] runScanPipeline() failed:', err);
+      setScanErrorMessage(err instanceof Error ? err.message : String(err));
       setScanPhase('error');
-    } else {
-      setCandidates([]);
-      setScanPhase('no-match');
+    } finally {
+      setCaptureMode('manual'); // release the live camera, show the (now prefilled) review form
     }
-
-    setCaptureMode('manual'); // release the live camera, show the (now prefilled) review form
   };
 
   // Stage 1 gate — same reasoning/comment as Tab2.tsx's handleGuidedCapture:

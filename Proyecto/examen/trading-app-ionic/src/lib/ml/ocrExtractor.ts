@@ -173,6 +173,17 @@ async function getWorker(): Promise<TesseractWorker> {
         workerPath: TESSERACT_WORKER_PATH,
         corePath: TESSERACT_CORE_PATH,
         langPath: TESSERACT_LANG_PATH,
+        // gzip:false -> tesseract.js fetches "eng.traineddata" (no .gz
+        // suffix). Real bug found live (ROADMAP.md I17): Android's Gradle/
+        // AAPT asset packaging silently gunzips any .gz-named asset and
+        // strips the extension when building the APK, so the file that
+        // actually ships inside a real APK is already-decompressed
+        // "eng.traineddata" — requesting the .gz name 404s on-device even
+        // though setup-tesseract-assets.mjs's OWN download used to save it
+        // as .gz. That script now saves the already-decompressed file
+        // under this exact name everywhere (desktop/web/Android), so this
+        // flag just matches reality instead of fighting Android's repacking.
+        gzip: false,
       });
     })();
   }
