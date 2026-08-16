@@ -30,7 +30,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { IonButton, IonIcon } from '@ionic/react';
-import { scanOutline, refreshOutline } from 'ionicons/icons';
+import { scanOutline, refreshOutline, cameraReverseOutline } from 'ionicons/icons';
 import { useTranslation } from 'react-i18next';
 import type { useLiveCamera } from '../lib/camera/useLiveCamera';
 import {
@@ -355,6 +355,26 @@ export function GuidedCapture({ camera, onCaptured }: GuidedCaptureProps) {
             <IonIcon icon={refreshOutline} />
             <span>{t('guided_capture_rescan_button')}</span>
           </div>
+        </IonButton>
+      )}
+
+      {/* Real user request: getUserMedia({facingMode:'environment'}) doesn't
+          let you pick WHICH back lens — on multi-camera phones that can
+          silently resolve to the ultra-wide (0.5x), which looks
+          distorted/soft this close to the card. Only shown once we actually
+          know there's more than one to switch between (devices list is
+          empty until the first successful start() — see useLiveCamera.ts). */}
+      {camera.devices.length > 1 && loopState !== 'captured' && (
+        <IonButton
+          size="small"
+          fill="outline"
+          className="mtg-btn"
+          disabled={loopState === 'initializing'}
+          onClick={camera.cycleCamera}
+          style={{ position: 'absolute', top: 8, right: 8, pointerEvents: 'auto' }}
+          aria-label={t('guided_capture_switch_camera_button')}
+        >
+          <IonIcon icon={cameraReverseOutline} />
         </IonButton>
       )}
     </div>

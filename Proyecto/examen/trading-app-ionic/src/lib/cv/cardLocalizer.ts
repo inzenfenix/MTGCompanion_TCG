@@ -89,20 +89,72 @@ export const YCRCB_PIEL_CB_MAX = 127;
 export const UMBRAL_PIEL_FRACCION = 0.5;
 export const PIEL_EDGE_FRACCION_MAX = 0.02;
 
-// Lazy dynamic import + module-level cache, same reasoning as every other
-// heavy client-side runtime in this app (onnxruntime-web, tesseract.js).
-// Follows the exact loading pattern @techstark/opencv-js's own README
-// documents — cvModule can be a Promise, an already-ready module (Node), or
-// a module still running its WASM init (`onRuntimeInitialized`).
+// Lazy load + module-level cache, same reasoning as every other heavy
+// client-side runtime in this app (onnxruntime-web, tesseract.js).
 let cvPromise: Promise<OpenCvModule> | null = null;
+
+/**
+ * `import('@techstark/opencv-js')`'s CJS export is itself a thenable
+ * (documented in vite.config.ts's Vitest workaround comment) — that shape
+ * breaks Rollup's dynamic-import CJS interop in the real production build:
+ * `await import('@techstark/opencv-js')` throws `TypeError: Method
+ * Promise.prototype.then called on incompatible receiver`, confirmed live
+ * on a physical Android device (this was the actual cause of a permanent
+ * "Loading vision..." hang, not slowness — see ROADMAP.md I15). Fixing the
+ * downstream handling of the resolved value (duck-typing `.then` instead of
+ * `instanceof Promise`) was NOT enough — the crash happens on the bare
+ * `import()` itself, before any of that code even runs.
+ *
+ * Real fix: don't import it as an ES/CJS module at all in the browser.
+ * `npm run setup:opencv` (scripts/setup-opencv-assets.mjs) copies the exact
+ * same `dist/opencv.js` file to `public/opencv.js`, self-hosted same as
+ * tesseract.js's assets (ROADMAP.md E3c) — loaded here as a classic
+ * `<script>` tag, which sidesteps ES/CJS interop entirely (this is also how
+ * OpenCV.js's own docs recommend loading it on a plain web page). `window.cv`
+ * ends up being the exact same object shape `import()` would have resolved
+ * to (Promise-like, or plain-with-onRuntimeInitialized, or already-ready) —
+ * the duck-typing below still has to handle all three, same as before.
+ *
+ * Node (this module's own `.test.ts`, real WASM, not mocked) has no
+ * `document` to inject a script tag into — kept on the `import()` path
+ * there, which Node's plain ESM loader (not Rollup) handles fine, per the
+ * same Vitest comment.
+ */
+function loadOpenCvGlobal(): Promise<unknown> {
+  if (typeof document === 'undefined') {
+    return import('@techstark/opencv-js').then((m) => (m as unknown as { default?: unknown }).default ?? m);
+  }
+  return new Promise((resolve, reject) => {
+    const existing = (window as unknown as { cv?: unknown }).cv;
+    if (existing) {
+      resolve(existing);
+      return;
+    }
+    const src = (import.meta.env.VITE_OPENCV_SCRIPT_URL as string | undefined) ?? '/opencv.js';
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.onload = () => resolve((window as unknown as { cv?: unknown }).cv);
+    script.onerror = () => reject(new Error(`No se pudo cargar ${src} — corriste "npm run setup:opencv"?`));
+    document.head.appendChild(script);
+  });
+}
 
 export async function getOpenCv(): Promise<OpenCvModule> {
   if (!cvPromise) {
     cvPromise = (async () => {
-      const cvModule = await import('@techstark/opencv-js');
-      const candidate = (cvModule as unknown as { default?: unknown }).default ?? cvModule;
-      if (candidate instanceof Promise) return (await candidate) as OpenCvModule;
+      const candidate = await loadOpenCvGlobal();
       if ((candidate as { Mat?: unknown }).Mat) return candidate as OpenCvModule;
+      // Duck-type on `.then`, not `instanceof Promise` — the object can be
+      // a genuine Promise, a Promise-like proxy that fails the native
+      // brand-check `instanceof` alone can't detect, or (Node path above)
+      // an already-unwrapped module — see this function's own comment.
+      // Promise.resolve() safely consumes ANY thenable through the spec's
+      // own resolution procedure rather than invoking a possibly-fake
+      // `.then` directly.
+      if (typeof (candidate as { then?: unknown }).then === 'function') {
+        return (await Promise.resolve(candidate)) as OpenCvModule;
+      }
       await new Promise<void>((resolve) => {
         (candidate as { onRuntimeInitialized?: () => void }).onRuntimeInitialized = () => resolve();
       });

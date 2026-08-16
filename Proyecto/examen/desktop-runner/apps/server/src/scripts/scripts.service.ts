@@ -1042,7 +1042,7 @@ export class ScriptsService {
     return applyBackendUrl(backendUrl, backendHost);
   }
 
-  /** `npm run build` -> `npx cap sync android` -> `gradlew assembleDebug`, streameado. Mismo JDK portable que ROADMAP.md's E3d instaló para esta máquina si no hay JAVA_HOME ya seteado (android-deploy.ts::resolveAndroidJavaHome). */
+  /** `npm run setup:opencv` -> `npm run build` -> `npx cap sync android` -> `gradlew assembleDebug`, streameado. Mismo JDK portable que ROADMAP.md's E3d instaló para esta máquina si no hay JAVA_HOME ya seteado (android-deploy.ts::resolveAndroidJavaHome). */
   async rebuildApk(): Promise<{ runId: string }> {
     const runId = randomUUID();
     this.runs.set(runId, { id: runId, scriptId: 'android:rebuild-apk', status: 'running', startedAt: Date.now() });
@@ -1053,6 +1053,16 @@ export class ScriptsService {
         const javaHome = resolveAndroidJavaHome();
         const extraEnv = javaHome ? { JAVA_HOME: javaHome } : undefined;
         this.gateway.emitLog(runId, 'stdout', `JAVA_HOME: ${javaHome ?? '(no encontrado — se usa lo que haya en el PATH)'}\n`);
+
+        // ROADMAP.md I15: public/opencv.js es un asset generado (gitignored,
+        // igual que public/tesseract/'s E3c) — sin este paso, un checkout
+        // limpio que nunca corrió "npm run setup:opencv" a mano se rompe en
+        // tiempo de ejecución (404 en el <script> tag), no en build time,
+        // así que es fácil no notarlo hasta probarlo en el teléfono. Idempotente
+        // (solo copia un archivo), correrlo siempre acá es más seguro que
+        // confiar en que alguien se acuerde de correrlo a mano una vez.
+        this.gateway.emitLog(runId, 'stdout', '$ npm run setup:opencv\n');
+        await this.execAndStream(runId, 'npm', ['run', 'setup:opencv'], TRADING_APP_DIR, extraEnv);
 
         this.gateway.emitLog(runId, 'stdout', '$ npm run build\n');
         await this.execAndStream(runId, 'npm', ['run', 'build'], TRADING_APP_DIR, extraEnv);

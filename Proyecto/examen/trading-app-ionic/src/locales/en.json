@@ -162,6 +162,7 @@
   "guided_capture_glare": "Glare detected — tilt the card or move away from direct light.",
   "guided_capture_captured": "Card captured.",
   "guided_capture_manual_button": "Capture now",
+  "guided_capture_switch_camera_button": "Switch camera",
   "guided_capture_rescan_button": "Scan again",
   "model_not_available": "The Companion's sight isn't ready yet — scanning will be available in a future update.",
   "model_error": "Detection failed: {{message}}",

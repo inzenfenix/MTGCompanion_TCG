@@ -10,7 +10,8 @@
     "test.e2e": "cypress run",
     "test.unit": "vitest",
     "lint": "eslint",
-    "setup:tesseract": "node scripts/setup-tesseract-assets.mjs"
+    "setup:tesseract": "node scripts/setup-tesseract-assets.mjs",
+    "setup:opencv": "node scripts/setup-opencv-assets.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

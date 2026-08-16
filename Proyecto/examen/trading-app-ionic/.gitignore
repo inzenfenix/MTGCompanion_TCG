@@ -34,6 +34,13 @@
 /public/tesseract/
 /public/tessdata/
 
+# ROADMAP.md I15 — `npm run setup:opencv` (scripts/setup-opencv-assets.mjs)
+# copies @techstark/opencv-js's dist/opencv.js here so it can be loaded as a
+# classic <script> tag (cardLocalizer.ts::getOpenCv()) instead of a bundled
+# ES/CJS import — same generated-not-source criterion as the tesseract/onnx
+# entries above.
+/public/opencv.js
+
 # misc
 .DS_Store
 # ROADMAP.md workstream I: VITE_API_BASE_URL (the real EC2 backend URL,

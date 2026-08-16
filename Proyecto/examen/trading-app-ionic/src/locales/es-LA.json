@@ -162,6 +162,7 @@
   "guided_capture_glare": "Hay un reflejo de luz — inclina la carta o aléjate de la luz directa.",
   "guided_capture_captured": "Carta capturada.",
   "guided_capture_manual_button": "Capturar ahora",
+  "guided_capture_switch_camera_button": "Cambiar cámara",
   "guided_capture_rescan_button": "Escanear de nuevo",
   "model_not_available": "La visión del Compañero todavía no está lista — el escaneo va a estar disponible en una futura actualización.",
   "model_error": "Falló la detección: {{message}}",

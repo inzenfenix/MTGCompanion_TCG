@@ -162,6 +162,7 @@
   "guided_capture_glare": "Reflet détecté — inclinez la carte ou éloignez-vous de la lumière directe.",
   "guided_capture_captured": "Carte capturée.",
   "guided_capture_manual_button": "Capturer maintenant",
+  "guided_capture_switch_camera_button": "Changer de caméra",
   "guided_capture_rescan_button": "Scanner à nouveau",
   "model_not_available": "La vision du Compagnon n'est pas encore prête — le scan sera disponible dans une future mise à jour.",
   "model_error": "Échec de la détection : {{message}}",
