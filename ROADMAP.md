@@ -212,13 +212,28 @@ volume shows up in the guest OS as `/dev/nvme1n1`, not the device name
 Terraform's attachment resource requests — `postgres.sh.tpl`/`minio.sh.tpl`
 now detect the real device (with a retry loop, since the volume can finish
 attaching a few seconds after the instance starts booting) instead of
-assuming. **Not done, deliberately** — this needs a separate go-ahead each
-time per this project's standing rule on billable/outward-facing actions,
-and no AWS credentials exist anywhere in this repo/session: `terraform
-apply`/`destroy` were never run (no real EC2/S3/Secrets Manager resources
-exist), `scripts/deploy-backend.sh` was never run against a live instance,
-`docker build` on the real Dockerfile is still unverified (Docker Desktop
-wasn't running this session), and I6's real-TLS path (Caddy+nip.io or a
+assuming. **Update (16 ago) — `docker build` verified for real**, not just
+build-clean: once Docker Desktop was untangled (its WSL integration was
+stuck retrying against an unrelated, unused `Ubuntu` WSL distro on this
+machine — unregistered it, unrelated to this repo), `docker build` on the
+real `backend/Dockerfile` succeeded, and the image was run end-to-end
+against the local dev Postgres (`docker/dev.sh` stack, `host.docker.
+internal` for the DB host) — `docker-entrypoint.sh`'s `prisma migrate
+deploy` applied cleanly, Nest started, `GET /` and `GET /catalog/search`
+both answered for real. One cosmetic-only finding: `prisma generate` prints
+a "failed to detect the libssl/openssl version" warning on `node:20-slim`
+(no OpenSSL installed) — confirmed harmless for this project's WASM
+query-compiler engine (per PLAN.md's own research), not fixed, since the
+verified runtime behavior is what actually matters, not the warning text.
+Test container/image/stack all torn down after, nothing left running.
+**Update (16 ago) — superseded by I9/I10 below: `terraform apply` has now
+actually been run for real** against the user's live AWS Academy Lab
+account (with their explicit go-ahead) — all 4 EC2 instances, both S3
+buckets, and all 4 Secrets Manager secrets exist for real now, see I9/I10's
+own rows for the two real bugs that surfaced mid-`apply` (fixed) and the
+security-group/SSM rework that replaced the original `admin_cidr` design
+entirely. `scripts/deploy-backend.sh` has also actually been run against
+the live `backend` instance (see I10). I6's real-TLS path (Caddy+nip.io or a
 real domain) stays documented-only, not built. Windows-specific adaptation
 from the original plan: `deploy-backend.sh` uses `tar czf - | ssh | tar
 xzf -` instead of `rsync` (not available in Git Bash on Windows; `ssh`/
@@ -279,7 +294,7 @@ backend code, not assumed):
 
 | # | Task | Priority | Complexity | Notes |
 |---|---|---|---|---|
-| I1 | Write a `Dockerfile` for `backend/` (multi-stage: `npm ci` → `npm run build` → slim runtime image running `node dist/main`) | P0 | S | ✅ **Built (16 ago)**, superseded by PLAN.md's exact 3-stage spec — `backend/Dockerfile`/`.dockerignore`/`docker-entrypoint.sh`, plus the `storage.service.ts` instance-role fallback. `docker build` itself unverified this session (Docker Desktop wasn't running) — see the status update above. |
+| I1 | Write a `Dockerfile` for `backend/` (multi-stage: `npm ci` → `npm run build` → slim runtime image running `node dist/main`) | P0 | S | ✅ **Built and verified (16 ago)**, superseded by PLAN.md's exact 3-stage spec — `backend/Dockerfile`/`.dockerignore`/`docker-entrypoint.sh`, plus the `storage.service.ts` instance-role fallback. `docker build` succeeded and the image was run end-to-end against local dev Postgres — see the status update above for the full verification. |
 | I2 | New `Proyecto/examen/infra/terraform/` directory: `providers.tf`, `variables.tf`, `main.tf`, `outputs.tf`, plus a committed `terraform.tfvars.example` and a gitignored real `terraform.tfvars` | P0 | S | ✅ **Built (16 ago)**, superseded by PLAN.md's 4-instance architecture (no `main.tf` — split into `security_groups.tf`/`secrets.tf`/`s3.tf`/`data.tf`/four `ec2_*.tf` instead) plus the new desktop-runner "Deploy" tab for pasting/rotating credentials. `terraform fmt`/`validate` clean. **Follow-up (16 ago): `TerraformActionCard.tsx` now self-installs `terraform`/`aws` instead of just reporting "no disponible".** New `apps/server/src/scripts/tool-install.ts` + `POST /terraform/install/:tool` — scoped to this project's 3 real machines (Windows, Ubuntu, Fedora/Nobara; no macOS). Never `sudo`: Linux (Ubuntu and Fedora share one code path, no apt/dnf branching needed) downloads the official zip/AWS-bundled-installer straight into `~/.mtg-desktop-runner/{bin,aws-cli}` — entirely user-owned dirs, no package manager involved; Windows tries `winget` first (same pattern already proven in this project for tesseract, CLAUDE.md/H2), falling back to a zip (terraform) / the official silent `.msi` (aws cli, `msiexec /qn`) which *can* trigger a Windows admin/UAC prompt — allowed explicitly by the user, still never `sudo`. `TOOL_BIN_DIR` gets prepended to `PATH` for every terraform/aws probe and spawn (`tf-docker.ts::probeCommand` gained an optional `env` param for this), so a binary installed this way is found without touching the system `PATH`. **Real bug found and fixed while testing end-to-end on this Fedora/Nobara machine** (both tools were genuinely uninstalled here, a clean test): `adm-zip`'s `extractAllTo()` defaults to *not* preserving the zip's Unix executable bit, so the extracted `aws` CLI binary came out `-rw-r--r--` — the bundled AWS installer script hit `Permission denied` on its own binary but still exited 0, which would have silently reported "success" on a real install. Fixed at the root (`extractAllTo(dir, true, true)`, the `keepOriginalPermission` flag) and added a `verifyBinaryOrThrow()` step at the end of both installers that actually runs `terraform version`/`aws --version` and fails loudly if that doesn't work — not just trusting the installer's own exit code. **Verified for real, not just build-clean**: ran both installers against this live machine (terraform/aws-cli genuinely absent beforehand), confirmed `terraform version`/`aws --version` work afterward, confirmed `getTerraformEligibility()` detects both via the augmented `PATH` while `which terraform`/`which aws` still fail on the plain system `PATH` (proving no system-wide PATH mutation happened), then deleted the test-installed binaries so this machine's state wasn't left changed by the verification itself. Windows path (`winget`/`msiexec` branches) is code-reviewed but **not** live-tested this session (no Windows machine here) — flagged honestly, not assumed. `apps/server/package.json` gained `adm-zip`+`@types/adm-zip` (root `package-lock.json` confirmed to have picked both up in full, avoiding this project's recurring "npm install forgot the lockfile" gotcha). |
 | I3 | Compute: one EC2 instance ... running the backend + Postgres both via Docker ... | P0 | M | ✅ **Built (16 ago), architecture changed per PLAN.md**: 4 single-purpose instances (`postgres`/`mailhog`/`minio`-optional/`backend`) wired by SG-to-SG references instead of one combined box, `LabInstanceProfile` attached, EBS-backed Postgres/MinIO data dirs. Not RDS, same reasoning this row already gave. Never applied. |
 | I4 | S3 bucket for card photos (`aws_s3_bucket` + `aws_s3_bucket_cors_configuration` matching what the presigned-URL upload flow needs — allow the app's origin, `PUT`/`GET`, the headers the client actually sends) | P0 | S | ✅ **Built (16 ago)** — `s3.tf` (private bucket, `public_access_block`, wildcard-origin CORS since the client is a Capacitor WebView with no fixed origin), conditional on `use_minio=false` (default). IAM via `LabInstanceProfile`, matching this row's own preference. Never applied. |
