@@ -1,0 +1,48 @@
+{
+  "accuracy": 0.6570631970260223,
+  "f1_macro": 0.6367603089972457,
+  "precision_macro": 0.638269383336325,
+  "recall_macro": 0.6416278681676229,
+  "n_val": 1076,
+  "por_grado": {
+    "NM": {
+      "precision": 0.8267148014440433,
+      "recall": 0.7869415807560137,
+      "f1": 0.8063380281690141
+    },
+    "LP": {
+      "precision": 0.6328502415458938,
+      "recall": 0.645320197044335,
+      "f1": 0.6390243902439025
+    },
+    "MP": {
+      "precision": 0.6481481481481481,
+      "recall": 0.5706521739130435,
+      "f1": 0.6069364161849711
+    },
+    "HP": {
+      "precision": 0.4437869822485207,
+      "recall": 0.3865979381443299,
+      "f1": 0.4132231404958678
+    },
+    "DMG": {
+      "precision": 0.6398467432950191,
+      "recall": 0.8186274509803921,
+      "f1": 0.7182795698924731
+    }
+  },
+  "hiperparametros": {
+    "learning_rate": 0.0006233843477099821,
+    "weight_decay": 1.1089509545987041e-06,
+    "batch_size": 16,
+    "head_units": 512,
+    "dropout": 0.5,
+    "optimizer": "adam",
+    "freeze_ratio": 0.5
+  },
+  "dataset": {
+    "total_cartas_fotos": 1984,
+    "fotos_reales_roboflow": 1184,
+    "cartas_sinteticas": 800
+  }
+}

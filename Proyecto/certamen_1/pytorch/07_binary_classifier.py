@@ -75,6 +75,7 @@ VAL_SPLIT    = 0.20
 POKEMON_API = "https://api.pokemontcg.io/v2/cards"
 YUGIOH_API  = "https://db.ygoprodeck.com/api/v7/cardinfo.php"
 COMMONS_API = "https://commons.wikimedia.org/w/api.php"
+SWU_API     = "https://api.swu-db.com"
 NEG_HDR     = {"User-Agent": "MTG-Scanner-Academic/1.0 (UDD Frameworks de IA)"}
 NEG_DELAY   = 0.06  # 60 ms entre descargas de imagen, para cualquier fuente
 
@@ -206,6 +207,56 @@ def obtener_metadata_yugioh(n_target: int) -> list:
     return cartas[:n_target]
 
 
+def obtener_metadata_star_wars(n_target: int) -> list:
+    """
+    Descarga metadatos de cartas Star Wars: Unlimited desde api.swu-db.com
+    (comunitaria, sin API key). Se sumó como fuente de negativos porque
+    pruebas reales en dispositivo (Smart Scan) encontraron que Stage 1
+    confunde cartas de Star Wars: Unlimited con MTG con alta confianza —
+    su layout moderno (barra de título arriba, caja de texto de reglas
+    abajo, proporciones de carta similares) se parece mucho más a Magic que
+    cualquiera de las otras fuentes de negativos ya presentes acá (ver
+    ROADMAP.md, ítem I18). Pagina por set (GET /sets → lista de setId,
+    GET /cards/{setId} → cartas de ese set) hasta juntar n_target cartas.
+    Retorna lista de dicts {id, name, image_url}.
+    """
+    cartas = []
+    print(f"  Descargando metadatos Star Wars: Unlimited (objetivo: {n_target:,} cartas)...")
+
+    try:
+        resp = _get_con_reintentos(f"{SWU_API}/sets", headers=NEG_HDR, timeout=30)
+    except requests.exceptions.RequestException as e:
+        print(f"    ✗ No se pudo obtener la lista de sets ({e}); 0 cartas obtenidas.")
+        return cartas
+
+    for s in resp.json():
+        if len(cartas) >= n_target:
+            break
+        set_id = s.get("setId")
+        if not set_id:
+            continue
+        try:
+            resp = _get_con_reintentos(f"{SWU_API}/cards/{set_id}", headers=NEG_HDR, timeout=60)
+        except requests.exceptions.RequestException as e:
+            print(f"    ✗ Set {set_id} falló tras reintentos ({e}); saltando.")
+            continue
+
+        batch = resp.json().get("data", [])
+        for card in batch:
+            url = card.get("FrontArt")
+            if not url:
+                continue
+            cid = f"{card.get('Set', set_id)}_{card.get('Number', len(cartas))}"
+            cartas.append({"id": cid, "name": card.get("Name", cid), "image_url": url})
+
+        print(f"    Set {set_id}: +{len(batch)} cartas  ({len(cartas)}/{n_target} cargadas)")
+        if len(cartas) >= n_target:
+            break
+        time.sleep(0.25)  # sin rate-limit documentado, pero cortesía con el resto de fuentes
+
+    return cartas[:n_target]
+
+
 def _commons_category_files(category: str) -> list[str]:
     """Lista todos los títulos de archivo de una categoría de Wikimedia Commons
     (con paginación vía cmcontinue)."""
@@ -307,12 +358,15 @@ def obtener_metadata_playing_cards_es(n_target: int) -> list:
 _COMMONS_DL = {"workers": 1, "delay": 1.5, "max_reintentos": 6, "backoff": 3.0}
 
 NEG_SOURCES = {
-    "pokemon":          {"fetch": obtener_metadata_pokemon,          "scalable": True},
-    "yugioh":           {"fetch": obtener_metadata_yugioh,           "scalable": True},
+    "pokemon":            {"fetch": obtener_metadata_pokemon,          "scalable": True},
+    "yugioh":             {"fetch": obtener_metadata_yugioh,           "scalable": True},
+    # Star Wars: Unlimited — ver docstring de obtener_metadata_star_wars() para
+    # por qué se sumó (confusión real con MTG encontrada en dispositivo, ROADMAP I18).
+    "star_wars_unlimited":{"fetch": obtener_metadata_star_wars,        "scalable": True},
     # Wikimedia Commons (upload.wikimedia.org) devuelve 429 "Too many requests"
     # incluso en serie con el delay/backoff por defecto — ver _descargar_fuente.
-    "playing_cards_en": {"fetch": obtener_metadata_playing_cards_en, "scalable": False, **_COMMONS_DL},
-    "playing_cards_es": {"fetch": obtener_metadata_playing_cards_es, "scalable": False, **_COMMONS_DL},
+    "playing_cards_en":   {"fetch": obtener_metadata_playing_cards_en, "scalable": False, **_COMMONS_DL},
+    "playing_cards_es":   {"fetch": obtener_metadata_playing_cards_es, "scalable": False, **_COMMONS_DL},
 }
 
 

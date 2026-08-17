@@ -65,8 +65,11 @@ const TAB_BUCKETS: Record<string, string[]> = {
     'tf-export-onnx-price-estimator',
     'pt-export-onnx-price-estimator',
     'pt-export-onnx-price-embedding',
-    'pt-export-onnx-condition',
+    // TF-then-PT for Stage 4 too — mirrors scripts.config.ts's
+    // RUN_ALL_EXPORT_SEQUENCE comment: PyTorch's combined checkpoint clearly
+    // outperforms TensorFlow's, "last wins" must leave PyTorch's live.
     'tf-export-onnx-condition',
+    'pt-export-onnx-condition',
   ],
 };
 

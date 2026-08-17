@@ -6,8 +6,8 @@
   "roc_auc": 1.0,
   "threshold": 0.5,
   "n_val": 1200,
-  "n_mtg_val": 575,
-  "n_no_mtg_val": 625,
+  "n_mtg_val": 583,
+  "n_no_mtg_val": 617,
   "split": "validation_used_for_model_selection",
   "best_params": {
     "learning_rate": 0.0001329291894316216,

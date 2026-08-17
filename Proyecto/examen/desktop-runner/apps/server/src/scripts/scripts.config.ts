@@ -260,7 +260,7 @@ export const SCRIPTS: ScriptDef[] = [
     group: 'shared',
     label: 'Descargar cartas negativas (Pokémon + otras fuentes)',
     description:
-      'Descarga (o completa) las imágenes no-MTG usadas como negativos por el detector Stage 1 — Pokémon TCG, Yu-Gi-Oh! y dos mazos de naipes. Idempotente: reutiliza lo que ya existe en disco y solo descarga lo que falta. Usa el venv de pytorch/ (compartida con TensorFlow: misma carpeta en disco).',
+      'Descarga (o completa) las imágenes no-MTG usadas como negativos por el detector Stage 1 — Pokémon TCG, Yu-Gi-Oh!, Star Wars: Unlimited (sumada por ROADMAP.md I18 — confusión real encontrada en dispositivo, layout de carta parecido a MTG) y dos mazos de naipes. Idempotente: reutiliza lo que ya existe en disco y solo descarga lo que falta. Usa el venv de pytorch/ (compartida con TensorFlow: misma carpeta en disco).',
     cwd: PT_DIR,
     script: '07_binary_classifier.py',
     env: 'pytorch',
@@ -1055,8 +1055,15 @@ export const RUN_ALL_EXPORT_SEQUENCE: string[] = [
   'tf-export-onnx-price-estimator',
   'pt-export-onnx-price-estimator',
   'pt-export-onnx-price-embedding',
-  'pt-export-onnx-condition',
+  // Stage 4 is TF-then-PT, same exception/reasoning as Stage 3 above:
+  // PyTorch's combined (real+synthetic) checkpoint significantly outperforms
+  // TensorFlow's (accuracy 0.8615/F1-macro 0.8535 vs. 0.6571/0.6368, measured
+  // 17 ago when TF's own combined-checkpoint script — 11_condition_grader_
+  // combined.py, ROADMAP.md I20 item 2 — first started existing/being
+  // runnable) — "last export wins" would otherwise leave the weaker
+  // TensorFlow model live in Ionic on every future "Correr Todo" run.
   'tf-export-onnx-condition',
+  'pt-export-onnx-condition',
 ];
 
 export function findScript(id: string): ScriptDef | undefined {

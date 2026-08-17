@@ -10,11 +10,17 @@ Acá se resuelve el lado TensorFlow con `tf2onnx`, igual que 09_export_onnx.py
 (Stage 1); el lado PyTorch usa `torch.onnx.export` (ver
 pytorch/12_export_onnx_condition.py, el script espejo de este).
 
-Este script no vuelve a entrenar nada: toma el `condition_grader.keras` +
-`condition_grader_cfg.json` que ya estén publicados (por
-09_condition_grader.py o 10_optuna_condition_grader.py) y los convierte. Si
-el modelo cambia (reentrenamiento, nueva corrida de Optuna), basta con correr
-este script de nuevo — no hace falta tocarlo.
+Este script no vuelve a entrenar nada: toma el `condition_grader_combined.keras`
++ `condition_grader_combined_cfg.json` que ya estén publicados (por
+11_condition_grader_combined.py) y los convierte — el mismo checkpoint
+COMBINADO (sintético + fotos reales de Roboflow) que carga
+predict_condition.py del lado PyTorch, no el `condition_grader.keras` plano
+de 09_condition_grader.py/10_optuna_condition_grader.py: ese plano da mejor
+accuracy en su propio split pero generaliza mal a fotos reales — mismo
+motivo ya documentado en CLAUDE.md y en pytorch/12_export_onnx_condition.py
+para el checkpoint combinado de PyTorch (ROADMAP.md ítem I20 punto 2). Si el
+modelo cambia (reentrenamiento), basta con correr
+11_condition_grader_combined.py y luego este script de nuevo.
 
 Verificación incluida: corre la misma imagen (o un array aleatorio si no se
 pasa ninguna) por el modelo Keras y por el modelo ONNX exportado
@@ -119,11 +125,11 @@ def main() -> None:
                         help="No copiar el .onnx a trading-app-ionic/public/models/ (solo dejarlo en models/).")
     args = parser.parse_args()
 
-    cfg_path = MODELS_DIR / "condition_grader_cfg.json"
-    model_path = MODELS_DIR / "condition_grader.keras"
+    cfg_path = MODELS_DIR / "condition_grader_combined_cfg.json"
+    model_path = MODELS_DIR / "condition_grader_combined.keras"
     if not model_path.exists() or not cfg_path.exists():
         print(f"Error: no existen {model_path} / {cfg_path}.")
-        print("Corré 09_condition_grader.py o 10_optuna_condition_grader.py primero.")
+        print("Corré 11_condition_grader_combined.py primero.")
         sys.exit(1)
 
     with open(cfg_path) as f:
@@ -137,7 +143,7 @@ def main() -> None:
     modelo = tf.keras.models.load_model(model_path)
     entrada = array_de_entrada(args.imagen)
 
-    destino = MODELS_DIR / "condition_grader.onnx"
+    destino = MODELS_DIR / "condition_grader_combined.onnx"
     print(f"\nExportando a {destino} (opset {args.opset})...")
     exportar(modelo, destino, args.opset)
 

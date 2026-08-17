@@ -1,0 +1,21 @@
+{
+  "accuracy": 1.0,
+  "precision": 1.0,
+  "recall": 1.0,
+  "f1": 1.0,
+  "roc_auc": 1.0,
+  "threshold": 0.5,
+  "n_val": 1200,
+  "n_mtg_val": 582,
+  "n_no_mtg_val": 618,
+  "split": "validation_used_for_model_selection",
+  "best_params": {
+    "learning_rate": 0.0001329291894316216,
+    "weight_decay": 0.006351221010640704,
+    "batch_size": 16,
+    "head_units": 128,
+    "dropout": 0.0,
+    "optimizer": "adam",
+    "freeze_ratio": 0.65
+  }
+}

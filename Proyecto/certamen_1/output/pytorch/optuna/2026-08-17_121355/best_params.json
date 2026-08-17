@@ -11,7 +11,7 @@
     "optimizer": "adam",
     "freeze_ratio": 0.65
   },
-  "study_name": "mtg_detector_tensorflow",
-  "completed_trials": 17,
+  "study_name": "mtg_detector_pytorch",
+  "completed_trials": 13,
   "total_trials": 20
 }

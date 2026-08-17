@@ -1,14 +1,14 @@
 {
-  "study_name": "mtg_detector_tensorflow",
-  "run_dir": "C:\\Users\\JoaquinRodríguezWoca\\OneDrive - SERVICIOS DE SALUD OCUPACIONAL SPA (WORKMED)\\Escritorio\\Extra\\u\\framework-ia-UDD\\Proyecto\\certamen_1\\output\\tensorflow\\optuna\\2026-07-21_104919",
+  "study_name": "mtg_detector_pytorch",
+  "run_dir": "/home/inzenfenix/Documents/Github/framework-ia-UDD/Proyecto/certamen_1/output/pytorch/optuna/2026-08-17_121355",
   "n_per_class_requested": 3000,
-  "n_per_class_effective": 2999,
+  "n_per_class_effective": 3000,
   "trials_target": 20,
   "trial_epochs": 6,
   "final_epochs": 15,
   "timeout_hours": null,
   "seed": 42,
-  "skip_download": false,
+  "skip_download": true,
   "no_final_train": false,
   "search_space": {
     "learning_rate": {
@@ -48,7 +48,8 @@
       1.0
     ]
   },
-  "python": "3.12.10",
-  "tensorflow": "2.21.0",
+  "python": "3.14.6",
+  "torch": "2.13.0+rocm7.1",
+  "device": "cuda",
   "optuna": "4.9.0"
 }

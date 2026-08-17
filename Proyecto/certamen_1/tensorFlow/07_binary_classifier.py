@@ -3,8 +3,9 @@ MTG Card Scanner — Certamen 1
 07_binary_classifier.py: Clasificador binario "¿Es una carta MTG?" (TensorFlow)
 
 Pipeline:
-    1. Descarga metadatos e imágenes de cartas Pokémon desde pokemontcg.io (negativos).
-    2. Construye dataset balanceado: N cartas MTG + N cartas Pokémon (clases iguales).
+    1. Descarga metadatos e imágenes de cartas Pokémon (pokemontcg.io) y
+       Star Wars: Unlimited (api.swu-db.com) como negativos.
+    2. Construye dataset balanceado: N cartas MTG + N cartas no-MTG (clases iguales).
     3. Fine-tune MobileNetV3Small con cabeza binaria (binary_crossentropy).
     4. Evalúa: confusion matrix, F1-score, ROC-AUC.
     5. Guarda modelo en models/mtg_detector.keras para usar en scanner.py.
@@ -60,6 +61,8 @@ VAL_SPLIT    = 0.20
 POKEMON_API   = "https://api.pokemontcg.io/v2/cards"
 POKEMON_HDR   = {"User-Agent": "MTG-Scanner-Academic/1.0 (UDD Frameworks de IA)"}
 POKEMON_DELAY = 0.06  # 60 ms entre descargas de imagen
+
+SWU_API = "https://api.swu-db.com"  # Star Wars: Unlimited — ver obtener_metadata_star_wars()
 
 random.seed(SEED)
 np.random.seed(SEED)
@@ -133,6 +136,56 @@ def obtener_metadata_pokemon(n_target: int) -> list:
     return cartas[:n_target]
 
 
+def obtener_metadata_star_wars(n_target: int) -> list:
+    """
+    Descarga metadatos de cartas Star Wars: Unlimited desde api.swu-db.com
+    (comunitaria, sin API key). Se sumó como segunda fuente de negativos
+    porque pruebas reales en dispositivo (Smart Scan) encontraron que
+    Stage 1 confunde cartas de Star Wars: Unlimited con MTG con alta
+    confianza — su layout moderno (barra de título arriba, caja de texto
+    de reglas abajo, proporciones de carta similares) se parece mucho más
+    a Magic que Pokémon, la única fuente que este script tenía hasta ahora
+    (ver ROADMAP.md, ítem I18). Pagina por set (GET /sets → lista de
+    setId, GET /cards/{setId} → cartas de ese set) hasta juntar n_target
+    cartas. Retorna lista de dicts {id, name, image_url}.
+    """
+    cartas = []
+    print(f"  Descargando metadatos Star Wars: Unlimited (objetivo: {n_target:,} cartas)...")
+
+    try:
+        resp = _get_con_reintentos(f"{SWU_API}/sets", headers=POKEMON_HDR, timeout=30)
+    except requests.exceptions.RequestException as e:
+        print(f"    ✗ No se pudo obtener la lista de sets ({e}); 0 cartas obtenidas.")
+        return cartas
+
+    for s in resp.json():
+        if len(cartas) >= n_target:
+            break
+        set_id = s.get("setId")
+        if not set_id:
+            continue
+        try:
+            resp = _get_con_reintentos(f"{SWU_API}/cards/{set_id}", headers=POKEMON_HDR, timeout=60)
+        except requests.exceptions.RequestException as e:
+            print(f"    ✗ Set {set_id} falló tras reintentos ({e}); saltando.")
+            continue
+
+        batch = resp.json().get("data", [])
+        for card in batch:
+            url = card.get("FrontArt")
+            if not url:
+                continue
+            cid = f"{card.get('Set', set_id)}_{card.get('Number', len(cartas))}"
+            cartas.append({"id": cid, "name": card.get("Name", cid), "image_url": url})
+
+        print(f"    Set {set_id}: +{len(batch)} cartas  ({len(cartas)}/{n_target} cargadas)")
+        if len(cartas) >= n_target:
+            break
+        time.sleep(0.25)  # sin rate-limit documentado, pero cortesía con la API
+
+    return cartas[:n_target]
+
+
 def _descargar_una(card: dict, dest_dir: pathlib.Path) -> bool:
     dest = dest_dir / f"{card['id']}.jpg"
     if dest.exists():
@@ -148,42 +201,58 @@ def _descargar_una(card: dict, dest_dir: pathlib.Path) -> bool:
         return False
 
 
-def descargar_negativos(n_target: int, skip: bool = False) -> list:
-    """
-    Descarga imágenes de cartas Pokémon como ejemplos negativos.
-    Retorna lista de rutas a archivos descargados existentes.
-    """
-    poke_dir = IMAGES_NEG / "pokemon"
-    poke_dir.mkdir(parents=True, exist_ok=True)
+def _descargar_fuente(nombre: str, fetch_meta, n_target: int, skip: bool) -> list:
+    """Descarga (con caché) las imágenes de UNA fuente de negativos —
+    factorizado de descargar_negativos() para no duplicar la lógica de
+    caché/descarga al sumar Star Wars: Unlimited como segunda fuente."""
+    dir_ = IMAGES_NEG / nombre
+    dir_.mkdir(parents=True, exist_ok=True)
 
-    meta_path = IMAGES_NEG / "pokemon_meta.json"
+    meta_path = IMAGES_NEG / f"{nombre}_meta.json"
     if meta_path.exists():
         with open(meta_path) as f:
             cartas = json.load(f)
-        print(f"  Metadatos Pokémon en caché: {len(cartas):,} cartas")
+        print(f"  Metadatos en caché ({nombre}): {len(cartas):,} cartas")
         if len(cartas) < n_target:
             print(f"  Caché insuficiente ({len(cartas)} < {n_target}), expandiendo...")
-            cartas = obtener_metadata_pokemon(n_target)
+            cartas = fetch_meta(n_target)
             with open(meta_path, "w") as f:
                 json.dump(cartas, f)
     else:
-        cartas = obtener_metadata_pokemon(n_target)
+        cartas = fetch_meta(n_target)
         with open(meta_path, "w") as f:
             json.dump(cartas, f)
 
     if not skip:
-        pendientes = [c for c in cartas if not (poke_dir / f"{c['id']}.jpg").exists()]
+        pendientes = [c for c in cartas if not (dir_ / f"{c['id']}.jpg").exists()]
         ya_ok = len(cartas) - len(pendientes)
         print(f"  Ya descargadas: {ya_ok:,}  |  Pendientes: {len(pendientes):,}")
         if pendientes:
-            print(f"  Descargando imágenes Pokémon (4 hilos, ~{len(pendientes)*100//1024} MB estimado)...")
+            print(f"  Descargando imágenes {nombre} (4 hilos, ~{len(pendientes)*100//1024} MB estimado)...")
             with ThreadPoolExecutor(max_workers=4) as pool:
-                futures = {pool.submit(_descargar_una, c, poke_dir): c for c in pendientes}
-                ok = sum(1 for f in tqdm(as_completed(futures), total=len(pendientes), desc="    Pokémon") if f.result())
+                futures = {pool.submit(_descargar_una, c, dir_): c for c in pendientes}
+                ok = sum(1 for f in tqdm(as_completed(futures), total=len(pendientes), desc=f"    {nombre}") if f.result())
             print(f"  Descargadas: {ok:,} nuevas")
 
-    rutas = [str(poke_dir / f"{c['id']}.jpg") for c in cartas
-             if (poke_dir / f"{c['id']}.jpg").exists()]
+    return [str(dir_ / f"{c['id']}.jpg") for c in cartas if (dir_ / f"{c['id']}.jpg").exists()]
+
+
+def descargar_negativos(n_target: int, skip: bool = False) -> list:
+    """
+    Descarga imágenes de dos fuentes como ejemplos negativos — Pokémon TCG
+    y Star Wars: Unlimited (ver obtener_metadata_star_wars() para el porqué
+    de la segunda fuente) — repartiendo el presupuesto n_target parejo
+    entre ambas. Retorna lista de rutas a archivos descargados existentes.
+    """
+    n_poke = n_target // 2
+    n_sw   = n_target - n_poke
+
+    print(f"  ── Fuente de negativos: pokemon (objetivo: {n_poke:,} cartas) ──")
+    rutas = _descargar_fuente("pokemon", obtener_metadata_pokemon, n_poke, skip)
+
+    print(f"  ── Fuente de negativos: star_wars_unlimited (objetivo: {n_sw:,} cartas) ──")
+    rutas += _descargar_fuente("star_wars_unlimited", obtener_metadata_star_wars, n_sw, skip)
+
     return rutas
 
 
