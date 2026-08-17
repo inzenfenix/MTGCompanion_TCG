@@ -33,7 +33,9 @@ import {
   getOpenCv,
   localizarCarta,
   matFromRgba,
+  medirDesalineacion,
   ordenarEsquinas,
+  type Corners,
   type OpenCvModule,
   type Point,
 } from './cardLocalizer';
@@ -51,6 +53,56 @@ describe('ordenarEsquinas', () => {
     expect(tr).toEqual({ x: 100, y: 0 });
     expect(br).toEqual({ x: 100, y: 100 });
     expect(bl).toEqual({ x: 0, y: 100 });
+  });
+});
+
+describe('medirDesalineacion (ROADMAP.md I28b)', () => {
+  it('reports a perfect rectangle, at ANY rotation, as fully aligned (ratio 1.0)', () => {
+    const rect: Corners = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 150 }, { x: 0, y: 150 }];
+    const result = medirDesalineacion(rect);
+    expect(result.misaligned).toBe(false);
+    expect(result.horizontalRatio).toBeCloseTo(1.0);
+    expect(result.verticalRatio).toBeCloseTo(1.0);
+
+    // Same rectangle, rotated 30° — still perfectly "parallel" to whatever
+    // plane it's on, still fully aligned. This is the whole point (user's
+    // own framing): absolute rotation doesn't matter, only relative keystone.
+    const angle = (30 * Math.PI) / 180;
+    const rotate = (p: Point): Point => ({
+      x: p.x * Math.cos(angle) - p.y * Math.sin(angle),
+      y: p.x * Math.sin(angle) + p.y * Math.cos(angle),
+    });
+    const rotated = rect.map(rotate) as Corners;
+    const rotatedResult = medirDesalineacion(rotated);
+    expect(rotatedResult.misaligned).toBe(false);
+    expect(rotatedResult.horizontalRatio).toBeCloseTo(1.0);
+    expect(rotatedResult.verticalRatio).toBeCloseTo(1.0);
+  });
+
+  it('flags a horizontal (top/bottom) keystone as misaligned', () => {
+    // Top edge much shorter than bottom — classic "camera tilted forward/back" trapezoid.
+    const trapezoid: Corners = [{ x: 30, y: 0 }, { x: 70, y: 0 }, { x: 100, y: 150 }, { x: 0, y: 150 }];
+    const result = medirDesalineacion(trapezoid);
+    expect(result.misaligned).toBe(true);
+    expect(result.horizontalRatio).toBeLessThan(0.65);
+  });
+
+  it('flags a vertical (left/right) keystone as misaligned', () => {
+    // Left edge (tl-bl) compressed relative to the right edge (tr-br) —
+    // constructed symmetrically so top/bottom stay equal length (isolates
+    // the vertical axis, doesn't also trip the horizontal one).
+    const trapezoid: Corners = [{ x: 0, y: 40 }, { x: 100, y: 0 }, { x: 100, y: 150 }, { x: 0, y: 110 }];
+    const result = medirDesalineacion(trapezoid);
+    expect(result.horizontalRatio).toBeCloseTo(1.0);
+    expect(result.misaligned).toBe(true);
+    expect(result.verticalRatio).toBeLessThan(0.65);
+  });
+
+  it('does not flag mild keystone within tolerance (generous by design, per user feedback that a tight check is unusable by hand)', () => {
+    // 0.8 ratio, well inside the real 122-photo dataset's observed range (worst case 0.822).
+    const mild: Corners = [{ x: 10, y: 0 }, { x: 90, y: 0 }, { x: 100, y: 150 }, { x: 0, y: 150 }];
+    const result = medirDesalineacion(mild);
+    expect(result.misaligned).toBe(false);
   });
 });
 
@@ -86,9 +138,28 @@ describe('localizarCarta (real @techstark/opencv-js)', () => {
     const height = 400;
     // Saturated blue background, light-gray low-saturation "card" — same
     // contrast profile _mascara_saturacion() is designed for.
+    const outer = { x: 100, y: 60, w: 200, h: 280 };
     const data = makeImage(width, height, [20, 20, 220], {
-      x: 100, y: 60, w: 200, h: 280, color: [230, 225, 220], // 200/280 ≈ 0.714, close to ASPECT_RATIO_CARTA
+      ...outer, color: [230, 225, 220], // 200/280 ≈ 0.714, close to ASPECT_RATIO_CARTA
     });
+    // ROADMAP.md I32 — a flat solid-color rect (the original fixture here)
+    // now correctly fails `candidatosValidos`'s new texture filter: a real
+    // card always has internal structure, a real background surface
+    // (I32's actual failure case, e.g. a mousepad) doesn't. Same dark-frame
+    // + light-text-box pattern as the skin-tone regression guard below,
+    // to keep this fixture representing a real card, not a flat blob.
+    for (let y = outer.y + 10; y < outer.y + 60; y++) {
+      for (let x = outer.x + 10; x < outer.x + outer.w - 10; x++) {
+        const i = (y * width + x) * 4;
+        data[i] = 20; data[i + 1] = 20; data[i + 2] = 20;
+      }
+    }
+    for (let y = outer.y + 190; y < outer.y + 250; y += 8) {
+      for (let x = outer.x + 20; x < outer.x + outer.w - 20; x++) {
+        const i = (y * width + x) * 4;
+        data[i] = 30; data[i + 1] = 30; data[i + 2] = 30;
+      }
+    }
     const mat = matFromRgba(cv, data, width, height);
     let result;
     try {
@@ -209,6 +280,137 @@ describe('localizarCarta — G4e containment fix', () => {
     expect(Math.max(...xs)).toBeGreaterThan(outer.x + outer.w - 15);
     expect(Math.min(...ys)).toBeLessThan(outer.y + 15);
     expect(Math.max(...ys)).toBeGreaterThan(outer.y + outer.h - 15);
+  });
+});
+
+describe('localizarCarta — I32 background-surface fixes', () => {
+  it('ignores a large, uniform-color region (e.g. a mousepad) and picks a smaller, textured card-shaped region instead', { timeout: 20000 }, async () => {
+    const cv: OpenCvModule = await getOpenCv();
+    const width = 500;
+    const height = 500;
+    // Two SEPARATE low-saturation regions on a saturated background, same
+    // card aspect ratio, so texture is the only thing distinguishing them —
+    // mirrors the real repro (a big uniform surface competing with the
+    // actual card, both roughly card-shaped by chance).
+    const mousepad = { x: 30, y: 30, w: 180, h: 252 }; // solid fill, no internal structure
+    const card = { x: 280, y: 220, w: 175, h: 245 }; // dark-frame + light-textbox, like a real card (frac ≈ 0.17, above AREA_MINIMA_FRACCION)
+    const data = makeImage(width, height, [200, 20, 20], { ...mousepad, color: [190, 185, 180] });
+    for (let y = card.y; y < card.y + card.h; y++) {
+      for (let x = card.x; x < card.x + card.w; x++) {
+        const i = (y * width + x) * 4;
+        data[i] = 190; data[i + 1] = 185; data[i + 2] = 180;
+      }
+    }
+    for (let y = card.y + 8; y < card.y + 45; y++) {
+      for (let x = card.x + 8; x < card.x + card.w - 8; x++) {
+        const i = (y * width + x) * 4;
+        data[i] = 20; data[i + 1] = 20; data[i + 2] = 20;
+      }
+    }
+    for (let y = card.y + 130; y < card.y + 190; y += 6) {
+      for (let x = card.x + 15; x < card.x + card.w - 15; x++) {
+        const i = (y * width + x) * 4;
+        data[i] = 25; data[i + 1] = 25; data[i + 2] = 25;
+      }
+    }
+    const mat = matFromRgba(cv, data, width, height);
+    let result;
+    try {
+      result = localizarCarta(cv, mat);
+    } finally {
+      mat.delete();
+    }
+
+    expect(result).not.toBeNull();
+    // Winning corners should bound the TEXTURED card region, not the uniform mousepad.
+    const cx = result!.corners.reduce((s, p) => s + p.x, 0) / 4;
+    const cy = result!.corners.reduce((s, p) => s + p.y, 0) / 4;
+    expect(cx).toBeGreaterThan(mousepad.x + mousepad.w); // clear of the mousepad's x-range
+    expect(cy).toBeGreaterThan(mousepad.y + mousepad.h); // clear of the mousepad's y-range
+  });
+
+  it('returns null when the only candidate is implausibly large (AREA_MAXIMA_FRACCION)', { timeout: 20000 }, async () => {
+    const cv: OpenCvModule = await getOpenCv();
+    const width = 400;
+    const height = 400;
+    // 85% of the frame, card aspect ratio, WITH texture (isolates the size
+    // filter from the texture filter — this candidate would otherwise pass).
+    const outer = { x: 20, y: 20, w: 340, h: 340 * (88 / 63) };
+    const data = makeImage(width, height, [20, 20, 220], { ...outer, w: outer.w, h: Math.min(outer.h, height - 40), color: [230, 225, 220] });
+    for (let y = 40; y < 90; y++) {
+      for (let x = 40; x < 360; x++) {
+        const i = (y * width + x) * 4;
+        data[i] = 20; data[i + 1] = 20; data[i + 2] = 20;
+      }
+    }
+    const mat = matFromRgba(cv, data, width, height);
+    let result;
+    try {
+      result = localizarCarta(cv, mat);
+    } finally {
+      mat.delete();
+    }
+    expect(result).toBeNull();
+  });
+
+  it('deprioritizes (but does not hard-reject) a border-touching candidate when a clean alternative exists', { timeout: 20000 }, async () => {
+    const cv: OpenCvModule = await getOpenCv();
+    const width = 500;
+    const height = 300;
+    // Two textured, equally card-shaped candidates: one flush against the
+    // left edge (crosses x=0), one fully inside the frame — the inside one
+    // should win even though both otherwise score identically.
+    const touching = { x: -20, y: 30, w: 160, h: 224 };
+    const clear = { x: 300, y: 30, w: 160, h: 224 };
+    const data = makeImage(width, height, [200, 20, 20], { x: 0, y: touching.y, w: touching.w + touching.x, h: touching.h, color: [190, 185, 180] });
+    for (let y = clear.y; y < clear.y + clear.h; y++) {
+      for (let x = clear.x; x < clear.x + clear.w; x++) {
+        const i = (y * width + x) * 4;
+        data[i] = 190; data[i + 1] = 185; data[i + 2] = 180;
+      }
+    }
+    // Give BOTH regions the same internal texture, so texture isn't the deciding factor.
+    for (const region of [{ x: 0, y: touching.y, w: touching.w + touching.x }, clear]) {
+      for (let y = region.y + 8; y < region.y + 40; y++) {
+        for (let x = region.x + 8; x < region.x + region.w - 8; x++) {
+          const i = (y * width + x) * 4;
+          data[i] = 20; data[i + 1] = 20; data[i + 2] = 20;
+        }
+      }
+    }
+    const mat = matFromRgba(cv, data, width, height);
+    let result;
+    try {
+      result = localizarCarta(cv, mat);
+    } finally {
+      mat.delete();
+    }
+
+    expect(result).not.toBeNull();
+    const cx = result!.corners.reduce((s, p) => s + p.x, 0) / 4;
+    expect(cx).toBeGreaterThan(width / 2); // picked the CLEAR (right-hand) candidate, not the border-touching one
+  });
+
+  it('still returns a border-touching candidate when it is the only one available (deprioritized, not rejected)', { timeout: 20000 }, async () => {
+    const cv: OpenCvModule = await getOpenCv();
+    const width = 300;
+    const height = 300;
+    const touching = { x: -10, y: 20, w: 180, h: 252 };
+    const data = makeImage(width, height, [200, 20, 20], { x: 0, y: touching.y, w: touching.w + touching.x, h: touching.h, color: [190, 185, 180] });
+    for (let y = touching.y + 8; y < touching.y + 40; y++) {
+      for (let x = 8; x < touching.w + touching.x - 8; x++) {
+        const i = (y * width + x) * 4;
+        data[i] = 20; data[i + 1] = 20; data[i + 2] = 20;
+      }
+    }
+    const mat = matFromRgba(cv, data, width, height);
+    let result;
+    try {
+      result = localizarCarta(cv, mat);
+    } finally {
+      mat.delete();
+    }
+    expect(result).not.toBeNull();
   });
 });
 

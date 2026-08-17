@@ -123,6 +123,132 @@ UMBRAL_PIEL_FRACCION = 0.5
 # "Sol Ring" perdidas por el falso positivo de color).
 PIEL_EDGE_FRACCION_MAX = 0.02
 
+# ROADMAP.md I32 — el localizador a veces elige una superficie de fondo
+# uniforme (ej. un mousepad negro) en vez de la carta: `_candidatos_validos`
+# hasta ahora solo filtraba por área mínima + aspect-ratio + piel, sin
+# ninguna noción de (a) si el candidato toca el borde del cuadro (una
+# superficie de fondo suele extenderse más allá de cámara; una carta bien
+# encuadrada normalmente no), (b) si tiene textura real (arte/texto) en vez
+# de ser un blob de color casi uniforme, o (c) si su tamaño es plausible
+# para una carta sostenida a distancia normal de captura. Los tres filtros
+# de abajo se midieron contra las 122 fotos reales de G4b/G4c antes de
+# elegir umbrales (`i32_measure.py`, script de una sola vez, no versionado):
+#
+# - `_toca_borde`: **deliberadamente NO es un filtro duro** — 5 de los 122
+#   candidatos GANADORES reales miden un margen ligeramente NEGATIVO (el
+#   rectángulo rotado de `cv2.minAreaRect` puede sobresalir un poco del
+#   cuadro por redondeo incluso sobre una carta correctamente detectada, no
+#   solo sobre una superficie de fondo) — un rechazo duro aquí regresionaría
+#   esas 5 detecciones reales, exactamente el tipo de sobre-filtrado que
+#   `normalizar_carta`'s propio docstring ya advierte para el caso de área/
+#   solidez/extent. En cambio, tocar el borde solo AGREGA una penalización al
+#   score (`PENALIZACION_BORDE`) — desempata a favor del candidato que no
+#   toca el borde cuando hay más de uno, pero un candidato tocando el borde
+#   sigue pudiendo ganar si es el único disponible (mejor una carta
+#   ligeramente mal encuadrada que ningún candidato en absoluto, mismo
+#   principio que el fallback a imagen completa de `normalizar_carta`).
+BORDE_MARGEN_FRACCION = 0.01  # 1% del ancho/alto del frame
+PENALIZACION_BORDE = 0.5  # >> TOLERANCIA_ASPECT_RATIO (0.18), para siempre perder contra un candidato que no toca el borde
+
+# - `_std_en_rect` (textura): SÍ es un filtro duro — a diferencia del margen
+#   de borde, la desviación estándar de grises dentro del candidato tiene
+#   separación real y amplia en el dataset de 122 fotos: los candidatos
+#   ganadores reales miden 41.5-59.6 (media ~51), muy por encima de
+#   `FUNDA_OPACA_STD_MAX` (15, el umbral ya validado en este archivo para
+#   "superficie de color casi uniforme"). 20 deja margen real (>2x) por
+#   debajo del mínimo observado sin acercarse al umbral de "sin contenido"
+#   ya establecido. Nota: `PIEL_EDGE_FRACCION_MAX`/densidad de bordes NO se
+#   reusa aquí como filtro duro adicional — medido en el mismo dataset, el
+#   candidato ganador de menor densidad de bordes real mide 0.0014 (una
+#   carta real, fotografiada en ángulo, con la mayor parte del marco/arte
+#   fuera del rect sin perspectiva corregir todavía) — muy por debajo de
+#   `FUNDA_OPACA_EDGE_FRACCION_MAX` (0.02), así que ese umbral no es
+#   transferible a este contexto (candidato SIN corregir perspectiva) sin
+#   generar un falso rechazo real; std por sí solo ya separa el caso real
+#   (mousepad uniforme) sin ese riesgo.
+CANDIDATO_TEXTURA_STD_MIN = 20.0
+
+# - área máxima: filtro duro simple — el candidato ganador real de mayor
+#   área mide 0.583 de fracción del frame; 0.75 deja ~30% de margen real por
+#   encima sin acercarse a rechazar una carta legítima fotografiada de cerca.
+AREA_MAXIMA_FRACCION = 0.75
+
+# ROADMAP.md I28b — el enfoque original de I28 medía si el TELÉFONO estaba
+# nivelado respecto a la GRAVEDAD (`DeviceOrientationEvent`, beta/gamma).
+# Feedback directo del usuario en vivo tras probarlo: "demasiado ajustado...
+# lo que hay que igualar es el ángulo de la carta y el teléfono, si la carta
+# está a 45°, el teléfono también debería estarlo — si no, es difícil
+# sostenerlo tan firme". Diagnóstico correcto: nivelar respecto a la
+# gravedad es la métrica equivocada — lo que realmente degrada la captura es
+# que el teléfono NO esté paralelo al PLANO de la carta, sin importar el
+# ángulo absoluto de ese plano respecto al suelo (una carta en la mano a
+# 45°, fotografiada con el teléfono también a 45° respecto a ella, produce
+# una foto tan buena como una perfectamente nivelada). Ese desalineamiento
+# relativo ya es medible directamente de la imagen, sin ningún sensor: una
+# carta rectangular fotografiada exactamente de frente (teléfono paralelo a
+# la carta) siempre proyecta lados opuestos de igual longitud, sin importar
+# la rotación/ángulo absoluto del plano — cualquier keystone (lados opuestos
+# de longitud distinta) es exactamente la señal de desalineamiento relativo
+# que `useDeviceTilt`/`DeviceOrientationEvent` intentaba aproximar indirecta
+# y ruidosamente vía gravedad. `medir_desalineacion()` abajo mide esto
+# directamente sobre las esquinas que `localizar_carta()` ya calcula cada
+# frame — cero costo extra, cero permisos de sensor, cero ambigüedad de
+# convención de ejes (todo lo que I28 dejó "no verificado en vivo").
+#
+# Umbral medido contra las 122 fotos reales (`localizar_carta()` post-I32,
+# no simulado), por eje SEPARADO (ver `medir_desalineacion()` — un eje
+# desalineado ya es suficiente para avisar, no hace falta que ambos lo
+# estén): eje horizontal (arriba/abajo, keystone por rotación tipo "yaw")
+# real 0.822-1.0; eje vertical (izquierda/derecha, keystone por rotación
+# tipo "pitch") real 0.909-1.0 — ese set ya se usa en todo este archivo como
+# el bar de "capturas reales que funcionan en la práctica" (G4b/G4d/I25).
+# 0.65 deja margen real amplio por debajo del peor caso de AMBOS ejes, para
+# no repetir el mismo error de "demasiado ajustado" que motivó este cambio.
+#
+# Se consideró expresar esto como un umbral en GRADOS (pedido explícito del
+# usuario: "algo como 8-12 grados en cada eje") en vez de un ratio de
+# longitud de lados — descartado tras medir: la aproximación ingenua
+# ratio≈cos(ángulo) pondría a las MEJORES fotos reales de este set en
+# ~35-49° de "inclinación aparente", porque a la distancia típica de
+# captura a mano el keystone está dominado por perspectiva de PROXIMIDAD
+# (el borde cercano de la carta está objetivamente más cerca de la cámara
+# en términos absolutos) más que por el ángulo real del plano — un tope
+# literal de 8-12° bajo esa fórmula sería MÁS estricto que lo que ya
+# funciona en la práctica, repitiendo el problema original. El ratio
+# medido contra fotos reales es la métrica honesta acá, no un ángulo
+# inventado con una fórmula que no aplica a esta distancia de captura.
+DESALINEACION_RATIO_MIN = 0.65
+
+
+def _toca_borde(rect, ancho_img: int, alto_img: int, margen_fraccion: float = BORDE_MARGEN_FRACCION) -> bool:
+    """True si alguna esquina de `rect` (formato `cv2.minAreaRect`) cae
+    dentro de (o más allá de) un margen de `margen_fraccion` del borde del
+    frame. Ver el comentario junto a `PENALIZACION_BORDE` sobre por qué esto
+    es un desempate y no un filtro duro (ROADMAP.md I32)."""
+    box = cv2.boxPoints(rect)
+    margen_x = margen_fraccion * ancho_img
+    margen_y = margen_fraccion * alto_img
+    return bool(
+        (box[:, 0] <= margen_x).any() or (box[:, 0] >= ancho_img - margen_x).any()
+        or (box[:, 1] <= margen_y).any() or (box[:, 1] >= alto_img - margen_y).any()
+    )
+
+
+def _std_en_rect(img_gris: np.ndarray, rect) -> float:
+    """Desviación estándar de grises dentro de `rect` (formato
+    `cv2.minAreaRect`) — mismo principio que `detectar_funda_opaca`
+    (ROADMAP.md G4f) pero aplicado al candidato ANTES de recortar/enderezar,
+    para descartar superficies de fondo uniformes (ej. un mousepad) en la
+    SELECCIÓN del candidato, no solo como guard post-captura
+    (ROADMAP.md I32)."""
+    box = cv2.boxPoints(rect).astype(np.int32)
+    mascara_rect = np.zeros(img_gris.shape, dtype=np.uint8)
+    cv2.fillPoly(mascara_rect, [box], 255)
+    valores = img_gris[mascara_rect == 255]
+    if valores.size == 0:
+        return 0.0
+    return float(valores.std())
+
 
 def _ordenar_esquinas(pts: np.ndarray) -> np.ndarray:
     """Ordena 4 puntos como (top-left, top-right, bottom-right, bottom-left)."""
@@ -218,14 +344,18 @@ def _candidatos_validos(
     area_img: int,
     mascara_piel: np.ndarray | None = None,
     mapa_bordes: np.ndarray | None = None,
+    img_gris: np.ndarray | None = None,
 ) -> list[tuple[np.ndarray, np.ndarray, float, float]]:
     """Todos los contornos de una máscara (no solo el más grande) que pasan
-    los filtros de área/aspect-ratio/piel, como (rect, score, area). `score`
-    = qué tan cerca está el aspect ratio del ideal de una carta MTG (0 =
-    match perfecto). Evaluar todos y no solo el más grande es lo que permite
-    `_descartar_contenidos` detectar el caso "el contorno más grande de la
-    máscara es en realidad una sub-región interior de la carta" — con un solo
-    candidato por máscara no hay nada contra qué compararlo.
+    los filtros de área/aspect-ratio/piel/textura/tamaño, como
+    (contorno, rect, score, area). `score` = qué tan cerca está el aspect
+    ratio del ideal de una carta MTG (0 = match perfecto), MÁS
+    `PENALIZACION_BORDE` si el candidato toca el borde del frame
+    (ROADMAP.md I32 — desempate, no filtro duro, ver su comentario). Evaluar
+    todos y no solo el más grande es lo que permite `_descartar_contenidos`
+    detectar el caso "el contorno más grande de la máscara es en realidad
+    una sub-región interior de la carta" — con un solo candidato por máscara
+    no hay nada contra qué compararlo.
 
     `mascara_piel`/`mapa_bordes` (ROADMAP.md G4e, dirección (a)) son
     opcionales — si ambos se pasan, un candidato se descarta aquí mismo
@@ -236,17 +366,43 @@ def _candidatos_validos(
     grisáceos que por casualidad cae en el mismo rango de color (medido en
     la práctica, ver el comentario de `PIEL_EDGE_FRACCION_MAX`). Es un
     filtro por candidato (como área/aspect ratio), no una relación entre
-    candidatos, así que vive en esta función."""
+    candidatos, así que vive en esta función.
+
+    `img_gris` (ROADMAP.md I32) es opcional — si se pasa, un candidato con
+    área mayor a `AREA_MAXIMA_FRACCION` del frame o con desviación estándar
+    de grises por debajo de `CANDIDATO_TEXTURA_STD_MIN` dentro de su rect se
+    descarta aquí mismo (superficie de fondo demasiado grande o demasiado
+    uniforme para ser una carta real — ver los comentarios junto a esas
+    constantes para los números reales que las respaldan)."""
     contornos, _ = cv2.findContours(mascara, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    ancho_img, alto_img = mascara.shape[1], mascara.shape[0]
     candidatos = []
     for contorno in contornos:
         area = cv2.contourArea(contorno)
         if area < AREA_MINIMA_FRACCION * area_img:
             continue
+        if area > AREA_MAXIMA_FRACCION * area_img:
+            continue
 
         rect = cv2.minAreaRect(contorno)
         (_, _), (ancho, alto), _ = rect
         if ancho == 0 or alto == 0:
+            continue
+
+        # ROADMAP.md I38 — real bug found live: `area` arriba es el área de
+        # PÍXELES RELLENOS del contorno, no necesariamente el área del rect
+        # que termina siendo las esquinas finales del warp. Un blob
+        # IRREGULAR (no rectangular — ej. una escena de fondo con bordes
+        # recortados/ruidosos) puede tener área rellena bajo el 75% pero un
+        # `minAreaRect` (el rectángulo rotado que lo encierra, y lo que
+        # `_esquinas_desde_contorno`/`corregir_perspectiva` realmente usa)
+        # que cubre casi todo el frame — confirmado en vivo (un candidato
+        # real con esquinas (0,0)-(w,0)-(w,h)-(0,h), score con penalización
+        # de borde) y reproducido con un blob sintético (relleno 69.9%, bajo
+        # el cap, pero `minAreaRect` 99.6% del frame). El filtro de área
+        # mínima/máxima original solo miraba el relleno; esto agrega el
+        # chequeo que realmente importa — el tamaño del rect de salida.
+        if (ancho * alto) > AREA_MAXIMA_FRACCION * area_img:
             continue
 
         ratio = min(ancho, alto) / max(ancho, alto)
@@ -261,7 +417,11 @@ def _candidatos_validos(
                 if fraccion_bordes < PIEL_EDGE_FRACCION_MAX:
                     continue
 
-        candidatos.append((contorno, rect, diff, area))
+        if img_gris is not None and _std_en_rect(img_gris, rect) < CANDIDATO_TEXTURA_STD_MIN:
+            continue
+
+        score = diff + (PENALIZACION_BORDE if _toca_borde(rect, ancho_img, alto_img) else 0.0)
+        candidatos.append((contorno, rect, score, area))
     return candidatos
 
 
@@ -363,15 +523,26 @@ def localizar_carta(img_bgr: np.ndarray) -> np.ndarray | None:
     `GuidedCapture.tsx`/`ListCard.tsx`, que sigue siendo la defensa
     principal (esta heurística geométrica no tiene ninguna noción de "esto
     es realmente una carta MTG", solo de "esto no parece piel real").
+
+    También descarta candidatos demasiado grandes o demasiado uniformes
+    (`img_gris`, `AREA_MAXIMA_FRACCION`/`CANDIDATO_TEXTURA_STD_MIN`) y
+    penaliza (sin descartar) los que tocan el borde del frame
+    (`PENALIZACION_BORDE`) — ROADMAP.md I32, ver los comentarios junto a esas
+    constantes para el razonamiento y los números reales medidos contra el
+    dataset de 122 fotos. Ataca el caso "una superficie de fondo uniforme
+    (ej. un mousepad) se elige en vez de la carta", reportado en vivo por el
+    usuario, distinto del caso de G4e (una sub-región interior de la carta
+    misma comparte su aspect ratio).
     """
     h_img, w_img = img_bgr.shape[:2]
     area_img = h_img * w_img
     mascara_piel = _mascara_piel(img_bgr)
     mapa_bordes = _mapa_bordes(img_bgr)
+    img_gris = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
 
     candidatos = []
     for mascara in (_mascara_saturacion(img_bgr), _mascara_brillo(img_bgr)):
-        candidatos.extend(_candidatos_validos(mascara, area_img, mascara_piel, mapa_bordes))
+        candidatos.extend(_candidatos_validos(mascara, area_img, mascara_piel, mapa_bordes, img_gris))
 
     candidatos = _descartar_contenidos(candidatos)
     if not candidatos:
@@ -379,6 +550,39 @@ def localizar_carta(img_bgr: np.ndarray) -> np.ndarray | None:
 
     mejor_contorno, mejor_rect, _, _ = min(candidatos, key=lambda c: c[2])
     return _ordenar_esquinas(_esquinas_desde_contorno(mejor_contorno, mejor_rect).astype("float32"))
+
+
+def medir_desalineacion(esquinas: np.ndarray, umbral: float = DESALINEACION_RATIO_MIN) -> tuple[bool, float, float]:
+    """Mide qué tan PARALELO está el teléfono al plano de la carta, POR EJE
+    — ROADMAP.md I28b, ver el comentario junto a `DESALINEACION_RATIO_MIN`
+    para el porqué esto reemplaza el enfoque original basado en gravedad, y
+    por qué son dos ejes independientes y no un solo ratio combinado (pedido
+    explícito del usuario: "8-12 grados en cada eje" — acá el equivalente
+    real es cada eje evaluado por separado, no una fórmula de grados).
+
+    Una carta rectangular fotografiada exactamente de frente proyecta lados
+    opuestos de igual longitud (arriba≈abajo, izquierda≈derecha) sin
+    importar el ángulo/rotación absoluto del plano. Cualquier desalineamiento
+    teléfono-vs-carta produce keystone en uno o ambos ejes: los lados
+    opuestos dejan de medir lo mismo (el lado más cerca de la cámara se ve
+    más largo). `esquinas` debe venir en el orden que `_ordenar_esquinas()`
+    produce (tl, tr, br, bl) — mismo formato que retorna `localizar_carta()`.
+
+    Retorna (esta_desalineada, ratio_horizontal, ratio_vertical) — cada
+    ratio es arriba/abajo o izquierda/derecha respectivamente (1.0 =
+    perfectamente paralelo en ese eje, más bajo = más keystone en ese eje);
+    `esta_desalineada` es True si CUALQUIERA de los dos ejes cae debajo de
+    `umbral` — un solo eje mal alineado ya es señal suficiente, no hace
+    falta que ambos lo estén."""
+    tl, tr, br, bl = esquinas
+    arriba = float(np.linalg.norm(tr - tl))
+    abajo = float(np.linalg.norm(br - bl))
+    izquierda = float(np.linalg.norm(bl - tl))
+    derecha = float(np.linalg.norm(br - tr))
+    ratio_horizontal = min(arriba, abajo) / max(arriba, abajo) if max(arriba, abajo) > 0 else 0.0
+    ratio_vertical = min(izquierda, derecha) / max(izquierda, derecha) if max(izquierda, derecha) > 0 else 0.0
+    desalineada = ratio_horizontal < umbral or ratio_vertical < umbral
+    return desalineada, ratio_horizontal, ratio_vertical
 
 
 def corregir_perspectiva(

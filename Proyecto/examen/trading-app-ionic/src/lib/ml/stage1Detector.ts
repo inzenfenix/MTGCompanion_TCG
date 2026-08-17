@@ -6,25 +6,36 @@
  * wired here on purpose; see Proyecto/examen/README.md and
  * Proyecto/certamen_2/README.md for the full 3-stage pipeline plan.
  *
- * NO TRAINED MODEL FILE SHIPS IN THIS REPO YET. `Proyecto/certamen_1/pytorch/
- * 09_export_onnx.py` exists but has not been run to produce an artifact in
- * this repo's history, and TensorFlow has no export script at all yet (see
- * root README.md "Próximos pasos"). This module is written to degrade
- * gracefully when the model file is missing (`{ status: 'unavailable' }`)
- * rather than throw — the UI (Tab2.tsx) shows "modelo no disponible
- * todavía" instead of crashing.
- *
- * To plug in a real model once it's exported:
- *   1. Run the export script for whichever framework won Stage 1 (see
- *      Proyecto/certamen_2/README.md §"selección del modelo ganador").
- *   2. Drop the resulting .onnx file at
- *      trading-app-ionic/public/models/stage1-detector.onnx (or point
- *      VITE_STAGE1_MODEL_URL at wherever it's hosted).
- *   3. Double-check IMG_SIZE/MEAN/STD/interpretOutput() below actually match
- *      the export script's preprocessing + output shape — they're
- *      placeholder assumptions (224x224, ImageNet normalization, either a
- *      single sigmoid output or a 2-class softmax) until verified against
- *      the real exported graph.
+ * ROADMAP.md I37 — this file's header used to say "NO TRAINED MODEL FILE
+ * SHIPS IN THIS REPO YET" and described `IMG_SIZE`/`MEAN`/`STD` as
+ * "placeholder assumptions... until verified against the real exported
+ * graph" — stale. A real model (`public/models/stage1-detector.onnx`) has
+ * shipped for a while, but that verification never actually happened, and
+ * the placeholder assumptions were WRONG: found live via a real
+ * `onnxruntime-web` exception on-device (`OrtRun(): Got invalid dimensions
+ * for input: imagen`), then confirmed directly by loading the real graph
+ * with `onnx` (Python) — every single Stage 1 inference had been throwing
+ * and silently falling open (any capture accepted, geometric localizer's
+ * candidate treated as "yes, an MTG card") since this preprocessing was
+ * written, not "occasionally wrong" but ALWAYS broken. Real facts about
+ * the shipped graph (not assumptions):
+ *   - Input `imagen`: `[batch, 224, 224, 3]` — **NHWC** (channels-LAST),
+ *     not NCHW. This is a TensorFlow/Keras export (`tf2onnx`, per
+ *     CLAUDE.md's own note on `tf2onnx.convert.from_keras()` — the "imagen"
+ *     /"dense_1" names are Keras-generated, not PyTorch's), and Keras'
+ *     native tensor layout is channels-last.
+ *   - **No client-side normalization** — the graph's very first op
+ *     (`.../MobileNetV3Small_1/rescaling_1/mul`) is a Keras `Rescaling`
+ *     layer applied directly to raw `imagen` input, confirmed by walking
+ *     the actual ONNX graph nodes. `07_binary_classifier.py` (TensorFlow)
+ *     itself explains why: MobileNetV3's `preprocess_input` is a
+ *     documented Keras no-op ("preprocessing... included in the model
+ *     implementation") — the real rescaling is baked into the exported
+ *     graph, not something the caller is supposed to do. Feed raw 0-255
+ *     float32 values, not `/255` and not ImageNet mean/std.
+ * If Stage 1 is ever re-exported from a different framework/architecture,
+ * re-verify this against the new graph the same way — `onnx.load()` +
+ * inspect `graph.input`/`graph.node`, don't re-guess.
  */
 
 // Lazily imported inside getSession()/preprocess() so onnxruntime-web (and
@@ -35,11 +46,9 @@ type OrtModule = typeof import('onnxruntime-web');
 const STAGE1_MODEL_URL: string =
   (import.meta.env.VITE_STAGE1_MODEL_URL as string | undefined) ?? '/models/stage1-detector.onnx';
 
-// Placeholder preprocessing contract — see file header. Adjust if it
-// doesn't match the real export.
+// Real preprocessing contract, verified against the actual shipped ONNX
+// graph — see file header (ROADMAP.md I37). NHWC, raw 0-255, no mean/std.
 const IMG_SIZE = 224;
-const MEAN = [0.485, 0.456, 0.406] as const; // ImageNet defaults (torchvision convention)
-const STD = [0.229, 0.224, 0.225] as const;
 
 export type Stage1Result = {
   isMtgCard: boolean;
@@ -72,7 +81,31 @@ async function getSession() {
   return sessionPromise;
 }
 
-/** Resizes the captured frame to IMG_SIZE×IMG_SIZE and normalizes to an NCHW Float32Array. */
+/**
+ * Builds the model's real input tensor from raw RGBA pixels — NHWC, raw
+ * 0-255 float32 (see file header, ROADMAP.md I37, for why: verified
+ * directly against the shipped graph, not assumed). Pure/no DOM, so it's
+ * unit-testable directly against the real ONNX model without needing an
+ * `HTMLCanvasElement` in Node — see this module's own `.test.ts`.
+ */
+export function buildInputTensor(
+  ort: OrtModule,
+  rgba: Uint8ClampedArray | Uint8Array,
+  size: number = IMG_SIZE,
+): InstanceType<OrtModule['Tensor']> {
+  // NHWC with 3 channels is the SAME per-pixel layout `getImageData` already
+  // uses, minus the alpha channel — just RGBA -> RGB per pixel, in raster order.
+  const hwc = new Float32Array(3 * size * size);
+  const pixelCount = size * size;
+  for (let i = 0; i < pixelCount; i++) {
+    hwc[i * 3] = rgba[i * 4];
+    hwc[i * 3 + 1] = rgba[i * 4 + 1];
+    hwc[i * 3 + 2] = rgba[i * 4 + 2];
+  }
+  return new ort.Tensor('float32', hwc, [1, size, size, 3]);
+}
+
+/** Resizes the captured frame to IMG_SIZE×IMG_SIZE and builds the model's real input tensor. */
 function preprocess(canvas: HTMLCanvasElement, ort: OrtModule): InstanceType<OrtModule['Tensor']> {
   const resized = document.createElement('canvas');
   resized.width = IMG_SIZE;
@@ -82,18 +115,7 @@ function preprocess(canvas: HTMLCanvasElement, ort: OrtModule): InstanceType<Ort
   ctx.drawImage(canvas, 0, 0, IMG_SIZE, IMG_SIZE);
 
   const { data } = ctx.getImageData(0, 0, IMG_SIZE, IMG_SIZE); // RGBA, HWC, 0..255
-  const chw = new Float32Array(3 * IMG_SIZE * IMG_SIZE);
-  const plane = IMG_SIZE * IMG_SIZE;
-  for (let i = 0; i < plane; i++) {
-    const r = data[i * 4] / 255;
-    const g = data[i * 4 + 1] / 255;
-    const b = data[i * 4 + 2] / 255;
-    chw[i] = (r - MEAN[0]) / STD[0];
-    chw[plane + i] = (g - MEAN[1]) / STD[1];
-    chw[2 * plane + i] = (b - MEAN[2]) / STD[2];
-  }
-
-  return new ort.Tensor('float32', chw, [1, 3, IMG_SIZE, IMG_SIZE]);
+  return buildInputTensor(ort, data, IMG_SIZE);
 }
 
 /** Interprets either a single sigmoid output or a 2-class softmax as (isMtgCard, confidence). */

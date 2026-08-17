@@ -15,14 +15,24 @@
  * from `certamen_1/data/real_photos/`, the same ground-truth set
  * `card_preprocessing.py` was measured against (ROADMAP.md G4b).
  *
- * **Not ported** (same scope boundary G4c's own roadmap note already
- * drew): orientation correction (`orientation_fix.py` needs a real
- * tesseract binary, not portable to the browser) and CLAHE contrast
- * enhancement (`mejorar_contraste()`, no native canvas/OpenCV.js
- * equivalent worth the complexity here). The guide overlay in
+ * **Not ported**: orientation correction (`orientation_fix.py` needs a
+ * real tesseract binary, not portable to the browser). The guide overlay in
  * `GuidedCapture.tsx` is the intended browser-side mitigation for
  * upside-down captures — the user aligns to the silhouette instead of the
  * software correcting it after the fact.
+ *
+ * `mejorar_contraste()`'s CLAHE (contrast-limited adaptive histogram
+ * equalization) is **ported** — see `mejorarContraste()` below
+ * (ROADMAP.md I27). This module's own earlier note said there was "no
+ * native canvas/OpenCV.js equivalent worth the complexity here", which
+ * turned out to be stale: OpenCV.js has already been loaded in the browser
+ * since G4c, and its build genuinely exposes `cv.CLAHE` (confirmed live,
+ * not assumed — `createCLAHE()`, the classic C++-style factory, is NOT
+ * bound in this build, but `new cv.CLAHE(clipLimit, tileGridSize)` +
+ * `.apply()` works). `ocrExtractor.ts::extractRegionText()` uses this
+ * function too, since CLAHE is meant to run BEFORE the Otsu/grayscale step
+ * that module already documents as "somewhat robust... just not as robust
+ * as CLAHE+Otsu together".
  *
  * **WASM memory discipline**: OpenCV.js `Mat`s are not garbage-collected —
  * every intermediate `Mat`/`MatVector` created here is `.delete()`d in a
@@ -105,6 +115,78 @@ export const YCRCB_PIEL_CB_MAX = 127;
 export const UMBRAL_PIEL_FRACCION = 0.5;
 export const PIEL_EDGE_FRACCION_MAX = 0.02;
 
+// ROADMAP.md I32 — the localizer sometimes picks a large uniform background
+// surface (e.g. a mousepad) instead of the card: `candidatosValidos()` used
+// to score purely by area-min + aspect-ratio + skin, no notion of (a)
+// whether a candidate touches the frame border, (b) whether it has real
+// texture, or (c) whether its size is plausible. All three thresholds below
+// were measured against the same real 122-photo set (`card_preprocessing.py`
+// is the source of truth — see its own comments for the exact numbers), not
+// guessed. Port faithfully, don't re-derive independently.
+//
+// `tocaBorde` is deliberately NOT a hard filter — 5/122 real WINNING
+// candidates measure a slightly NEGATIVE margin (`cv.minAreaRect`'s rotated
+// box can legitimately poke past the frame by rounding even on a correctly
+// detected card, not only on a background surface) — a hard reject here
+// would regress those 5 real detections, the same class of over-filtering
+// `normalizarCarta`'s own Python docstring already warns against for the
+// area/solidity/extent case. Instead it only adds `PENALIZACION_BORDE` to
+// the score — deprioritizes a border-touching candidate when a better one
+// exists, but still lets it win if it's the only candidate (better a
+// slightly-misframed card than no candidate at all).
+export const BORDE_MARGEN_FRACCION = 0.01; // 1% of frame width/height
+export const PENALIZACION_BORDE = 0.5; // >> TOLERANCIA_ASPECT_RATIO (0.18) — always loses to a non-border candidate
+
+// `texturaStd` IS a hard filter — real winning candidates in the 122-photo
+// set measure grayscale std 41.5-59.6 within their rect, far above
+// `FUNDA_OPACA_STD_MAX` (15, the already-validated "near-uniform color"
+// threshold elsewhere in this file). 20 leaves >2x real margin below the
+// observed minimum without approaching the existing "no content" threshold.
+// Edge-density is NOT reused as an additional hard filter here (unlike the
+// skin-rejection case above) — measured on the same dataset, the real
+// winning candidate with the LOWEST edge density scores 0.0014, far below
+// `FUNDA_OPACA_EDGE_FRACCION_MAX` (0.02); that threshold isn't transferable
+// to this pre-perspective-correction context without a real false-reject
+// risk, whereas std alone already separates the uniform-surface case safely.
+export const CANDIDATO_TEXTURA_STD_MIN = 20;
+
+// Simple hard cap — the real winning candidate with the LARGEST area in the
+// 122-photo set measures 0.583 of the frame; 0.75 leaves ~30% real margin
+// above that without risking a reject on a legitimately close-up capture.
+export const AREA_MAXIMA_FRACCION = 0.75;
+
+// ROADMAP.md I28b — replaces I28's original `useDeviceTilt`/
+// `DeviceOrientationEvent`-based approach entirely, per direct user
+// feedback after trying it live: "too tight... what we should equalize is
+// the angle of the card and the phone, if the card is at 45° so should the
+// phone be — otherwise it's hard to hold that steady". Correct diagnosis:
+// gravity-level was the wrong metric — what actually matters is whether the
+// phone is PARALLEL to the card's plane, independent of that plane's
+// absolute angle to the ground. That relative alignment is measurable
+// directly from the image, no sensor needed: a rectangular card
+// photographed exactly head-on always projects opposite sides of equal
+// length, at ANY rotation — any keystone (opposite sides of different
+// length) IS the phone-vs-card misalignment `useDeviceTilt` was trying to
+// approximate indirectly and noisily via gravity. See `medirDesalineacion`.
+//
+// Threshold measured against the real 122-photo set (`localizarCarta()`
+// post-I32), per axis separately: horizontal (top/bottom, "yaw"-style
+// keystone) real 0.822-1.0; vertical (left/right, "pitch"-style keystone)
+// real 0.909-1.0. 0.65 leaves real margin below BOTH axes' worst real case.
+//
+// Explicitly considered expressing this as a DEGREES threshold instead (the
+// user's own ask: "something like 8-12 degrees on each axis") — measured
+// and rejected: the naive ratio≈cos(angle) approximation would put even the
+// BEST real photos in this set at ~35-49° of "apparent tilt", because at
+// typical hand-held scanning distance the keystone is dominated by
+// PROXIMITY perspective (the near edge of the card is objectively closer to
+// the camera in absolute terms) rather than pure plane-tilt — a literal
+// 8-12° cap under that formula would be STRICTER than what already works in
+// practice, reintroducing the exact "too tight" problem this replaces. The
+// ratio measured against real photos is the honest metric here, not a
+// degree figure from a formula that doesn't hold at this capture distance.
+export const DESALINEACION_RATIO_MIN = 0.65;
+
 // Lazy load + module-level cache, same reasoning as every other heavy
 // client-side runtime in this app (onnxruntime-web, tesseract.js).
 let cvPromise: Promise<OpenCvModule> | null = null;
@@ -183,6 +265,61 @@ export async function getOpenCv(): Promise<OpenCvModule> {
 /** Builds a `cv.Mat` (CV_8UC4, RGBA) from a raw pixel buffer — portable between canvas ImageData (browser) and `sharp` output (Node verification). */
 export function matFromRgba(cv: OpenCvModule, data: Uint8ClampedArray | Uint8Array, width: number, height: number) {
   return cv.matFromArray(height, width, cv.CV_8UC4, Array.from(data));
+}
+
+/** clipLimit/tileGridSize identical to `mejorar_contraste()`'s `cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))`. */
+export const CLAHE_CLIP_LIMIT = 2.0;
+export const CLAHE_TILE_GRID = 8;
+
+/**
+ * `mejorar_contraste()` — CLAHE (contrast-limited adaptive histogram
+ * equalization) on the Lab luminance channel only, normalizing uneven
+ * lighting without washing out color (ROADMAP.md I27). Faithful port, not
+ * an approximation — same algorithm, same parameters. `cv.createCLAHE()`
+ * (the classic C++-style factory `mejorar_contraste()`'s Python side uses)
+ * is NOT bound in `@techstark/opencv-js`'s build (confirmed live, not
+ * assumed) — `new cv.CLAHE(clipLimit, tileGridSize)` + `.apply()` is the
+ * equivalent this build actually exposes. Caller owns/deletes the returned
+ * Mat; does not mutate `rgba`.
+ */
+export function mejorarContraste(cv: OpenCvModule, rgba: InstanceType<OpenCvModule['Mat']>) {
+  const rgb = new cv.Mat();
+  const lab = new cv.Mat();
+  const channels = new cv.MatVector();
+  const lNorm = new cv.Mat();
+  const merged = new cv.Mat();
+  const result = new cv.Mat();
+  const clahe = new cv.CLAHE(CLAHE_CLIP_LIMIT, new cv.Size(CLAHE_TILE_GRID, CLAHE_TILE_GRID));
+  try {
+    cv.cvtColor(rgba, rgb, cv.COLOR_RGBA2RGB);
+    cv.cvtColor(rgb, lab, cv.COLOR_RGB2Lab);
+    cv.split(lab, channels);
+    const l = channels.get(0);
+    const a = channels.get(1);
+    const b = channels.get(2);
+    try {
+      clahe.apply(l, lNorm);
+      const outChannels = new cv.MatVector();
+      outChannels.push_back(lNorm);
+      outChannels.push_back(a);
+      outChannels.push_back(b);
+      try {
+        cv.merge(outChannels, merged);
+        cv.cvtColor(merged, rgb, cv.COLOR_Lab2RGB);
+        cv.cvtColor(rgb, result, cv.COLOR_RGB2RGBA);
+        const out = new cv.Mat();
+        result.copyTo(out);
+        return out;
+      } finally {
+        outChannels.delete();
+      }
+    } finally {
+      l.delete(); a.delete(); b.delete();
+    }
+  } finally {
+    rgb.delete(); lab.delete(); channels.delete(); lNorm.delete(); merged.delete(); result.delete();
+    clahe.delete();
+  }
 }
 
 function morphOpenClose(cv: OpenCvModule, mask: InstanceType<OpenCvModule['Mat']>) {
@@ -310,6 +447,43 @@ function fraccionEnRect(cv: OpenCvModule, mask: InstanceType<OpenCvModule['Mat']
 }
 
 /**
+ * `_toca_borde()` — true if any corner of `rect` falls within (or past)
+ * `BORDE_MARGEN_FRACCION` of the image border. See that constant's own
+ * comment for why this is a scoring deprioritization, not a hard filter
+ * (ROADMAP.md I32).
+ */
+function tocaBorde(cv: OpenCvModule, rect: InstanceType<OpenCvModule['RotatedRect']>, anchoImg: number, altoImg: number): boolean {
+  const box = cv.boxPoints(rect);
+  const margenX = BORDE_MARGEN_FRACCION * anchoImg;
+  const margenY = BORDE_MARGEN_FRACCION * altoImg;
+  return box.some((p) => p.x <= margenX || p.x >= anchoImg - margenX || p.y <= margenY || p.y >= altoImg - margenY);
+}
+
+/**
+ * `_std_en_rect()` — grayscale standard deviation within `rect`, same
+ * principle as `detectarFundaOpaca` (ROADMAP.md G4f) but applied to a
+ * candidate BEFORE cropping/warping, to reject uniform background surfaces
+ * (e.g. a mousepad) at candidate-SELECTION time, not just as a post-capture
+ * guard (ROADMAP.md I32).
+ */
+function stdEnRect(cv: OpenCvModule, gray: InstanceType<OpenCvModule['Mat']>, rect: InstanceType<OpenCvModule['RotatedRect']>): number {
+  const box = cv.boxPoints(rect);
+  const boxMask = cv.Mat.zeros(gray.rows, gray.cols, cv.CV_8UC1);
+  const contour = cv.matFromArray(box.length, 1, cv.CV_32SC2, box.flatMap((p) => [Math.round(p.x), Math.round(p.y)]));
+  const contours = new cv.MatVector();
+  contours.push_back(contour);
+  const mean = new cv.Mat();
+  const stddev = new cv.Mat();
+  try {
+    cv.fillPoly(boxMask, contours, new cv.Scalar(255));
+    cv.meanStdDev(gray, mean, stddev, boxMask);
+    return stddev.data64F[0];
+  } finally {
+    boxMask.delete(); contour.delete(); contours.delete(); mean.delete(); stddev.delete();
+  }
+}
+
+/**
  * `_candidatos_validos()` — every contour in `mask` (not just the largest)
  * that passes the area/aspect-ratio filters. Evaluating all of them, not
  * only the biggest, is what lets `discardContained()` below catch "the
@@ -323,7 +497,15 @@ function fraccionEnRect(cv: OpenCvModule, mask: InstanceType<OpenCvModule['Mat']
  * BOTH are required (color alone false-positives on real, warm-toned
  * cards).
  *
- * Does NOT delete `mask`/`skinMask`/`edgeMap` (caller's responsibility).
+ * `gray` (ROADMAP.md I32) is optional — when given, a candidate whose area
+ * exceeds `AREA_MAXIMA_FRACCION` or whose `stdEnRect` falls below
+ * `CANDIDATO_TEXTURA_STD_MIN` is discarded here (too large or too uniform a
+ * region to plausibly be a held card — see those constants' own comments
+ * for the real numbers behind them). A candidate that merely touches the
+ * frame border gets `PENALIZACION_BORDE` added to its score instead of
+ * being discarded (see that constant's own comment for why).
+ *
+ * Does NOT delete `mask`/`skinMask`/`edgeMap`/`gray` (caller's responsibility).
  */
 function candidatosValidos(
   cv: OpenCvModule,
@@ -331,16 +513,20 @@ function candidatosValidos(
   areaImg: number,
   skinMask?: InstanceType<OpenCvModule['Mat']>,
   edgeMap?: InstanceType<OpenCvModule['Mat']>,
+  gray?: InstanceType<OpenCvModule['Mat']>,
 ): Candidate[] {
   const contours = new cv.MatVector();
   const hierarchy = new cv.Mat();
   try {
     cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+    const anchoImg = mask.cols;
+    const altoImg = mask.rows;
     const candidates: Candidate[] = [];
     for (let i = 0; i < contours.size(); i++) {
       const contour = contours.get(i);
       const area = cv.contourArea(contour);
       if (area < AREA_MINIMA_FRACCION * areaImg) continue;
+      if (area > AREA_MAXIMA_FRACCION * areaImg) continue;
 
       const rect = cv.minAreaRect(contour);
       const { width, height } = rect.size;
@@ -358,7 +544,10 @@ function candidatosValidos(
         }
       }
 
-      candidates.push({ rect, score: diff, area, contour });
+      if (gray && stdEnRect(cv, gray, rect) < CANDIDATO_TEXTURA_STD_MIN) continue;
+
+      const score = diff + (tocaBorde(cv, rect, anchoImg, altoImg) ? PENALIZACION_BORDE : 0);
+      candidates.push({ rect, score, area, contour });
     }
     return candidates;
   } finally {
@@ -456,25 +645,55 @@ export function ordenarEsquinas(points: Point[]): Corners {
   return [tl, tr, br, bl];
 }
 
+export type AlignmentResult = { misaligned: boolean; horizontalRatio: number; verticalRatio: number };
+
+/**
+ * `medir_desalineacion()` — measures how PARALLEL the phone is to the
+ * card's plane, PER AXIS (ROADMAP.md I28b — see `DESALINEACION_RATIO_MIN`'s
+ * own comment for why this replaces the gravity-based approach, and why two
+ * independent axes rather than one combined ratio). `corners` must already
+ * be ordered (tl, tr, br, bl) — same shape `localizarCarta` returns.
+ * `misaligned` is true if EITHER axis falls below `threshold` — one badly
+ * misaligned axis is already a real signal, both don't need to be bad.
+ */
+export function medirDesalineacion(corners: Corners, threshold = DESALINEACION_RATIO_MIN): AlignmentResult {
+  const [tl, tr, br, bl] = corners;
+  const dist = (a: Point, b: Point) => Math.hypot(b.x - a.x, b.y - a.y);
+  const top = dist(tl, tr);
+  const bottom = dist(bl, br);
+  const left = dist(tl, bl);
+  const right = dist(tr, br);
+  const horizontalRatio = Math.max(top, bottom) > 0 ? Math.min(top, bottom) / Math.max(top, bottom) : 0;
+  const verticalRatio = Math.max(left, right) > 0 ? Math.min(left, right) / Math.max(left, right) : 0;
+  return {
+    misaligned: horizontalRatio < threshold || verticalRatio < threshold,
+    horizontalRatio,
+    verticalRatio,
+  };
+}
+
 /**
  * `localizar_carta()` — tries both segmentation strategies, collects every
- * contour from each that passes the area/aspect-ratio/skin filter
- * (`candidatosValidos`, G4e direction (a)), discards any contained inside a
- * larger candidate (`discardContained`, G4e direction (b)), then keeps
- * whichever survivor's aspect ratio is closest to a real MTG card. Returns
- * null if nothing survives. Caller does NOT need to delete anything — this
- * function owns and cleans up all its own Mats.
+ * contour from each that passes the area/aspect-ratio/skin/texture/size
+ * filter (`candidatosValidos`, G4e direction (a) + I32), discards any
+ * contained inside a larger candidate (`discardContained`, G4e direction
+ * (b)), then keeps the lowest-scoring survivor (aspect-ratio closeness,
+ * plus I32's border penalty). Returns null if nothing survives. Caller does
+ * NOT need to delete anything — this function owns and cleans up all its
+ * own Mats.
  */
 export function localizarCarta(cv: OpenCvModule, rgba: InstanceType<OpenCvModule['Mat']>): LocalizationResult | null {
   const areaImg = rgba.rows * rgba.cols;
   const masks = [mascaraSaturacion(cv, rgba), mascaraBrillo(cv, rgba)];
   const skinMask = mascaraPiel(cv, rgba);
   const edgeMap = mapaBordes(cv, rgba);
+  const gray = new cv.Mat();
+  cv.cvtColor(rgba, gray, cv.COLOR_RGBA2GRAY);
   let candidates: Candidate[] = [];
   try {
     candidates = discardContained(
       cv,
-      masks.flatMap((mask) => candidatosValidos(cv, mask, areaImg, skinMask, edgeMap)),
+      masks.flatMap((mask) => candidatosValidos(cv, mask, areaImg, skinMask, edgeMap, gray)),
     );
     if (candidates.length === 0) return null;
 
@@ -485,6 +704,7 @@ export function localizarCarta(cv: OpenCvModule, rgba: InstanceType<OpenCvModule
     masks.forEach((m) => m.delete());
     skinMask.delete();
     edgeMap.delete();
+    gray.delete();
     candidates.forEach((c) => c.contour.delete());
   }
 }

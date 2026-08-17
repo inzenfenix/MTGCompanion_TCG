@@ -225,6 +225,26 @@ const Tab2: React.FC = () => {
     const result = await runStage1Detection(canvas);
     setStage1Status(result);
     setIsDetecting(false);
+    // Breadcrumb every real verdict (same console.debug pattern I27's blur
+    // logging already established) — a false-positive "accepted a non-card"
+    // is otherwise only diagnosable by guessing (ROADMAP.md I31: Stage 1 has
+    // never seen a "nothing at all" negative, so it can confidently accept
+    // real-world clutter that the geometric localizer legitimately found a
+    // card-shaped, textured region in). Real confidence numbers here are
+    // what turns "it thought a hand was a card" into an actual, gradeable
+    // bug report instead of an anecdote.
+    // Plain string interpolation, not an object arg — this WebView's
+    // console-to-`adb logcat` forwarding stringifies object args as bare
+    // "[object Object]" (found live — this line was silently useless in
+    // practice until this fix), same real bug as GuidedCapture.tsx's
+    // corner logging had.
+    // Same gap fixed on ListCard.tsx's copy of this log — 'error' carries a
+    // real `.message` that was being dropped, leaving no way to tell WHAT
+    // threw.
+    console.debug(`[Tab2] Stage 1 verdict: ${
+      result.status === 'ok' ? `isMtgCard=${result.result.isMtgCard} confidence=${result.result.confidence.toFixed(3)}`
+        : result.status === 'error' ? `error: ${result.message}` : result.status
+    }`);
     if (result.status === 'ok' && !result.result.isMtgCard) return false;
     return true;
   };

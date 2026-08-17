@@ -48,6 +48,20 @@ import {
   TfDockerEligibility,
 } from './tf-docker';
 
+// ROADMAP.md I39 — the real deployed backend instance only has ~2GB RAM; a
+// single `ts-node` process handling all 58,679 catalog rows in one go ran
+// V8 out of heap around row 24,000 (confirmed live via
+// `aws ssm get-command-invocation`'s real stderr). `importCatalog()` below
+// now runs `IMPORT_CATALOG_CHUNKS` separate `ts-node` invocations, each a
+// fresh process/fresh heap covering `IMPORT_CATALOG_CHUNK_SIZE` rows
+// (`import-catalog.ts`'s own `--offset`/`--limit` flags). Product must
+// comfortably exceed the real card count (58,679 as of this writing) —
+// bump `IMPORT_CATALOG_CHUNKS` if a future re-scrape grows the catalog
+// past what this covers (a chunk whose offset exceeds the real row count
+// just processes 0 rows, harmless but wasted work, not an error).
+const IMPORT_CATALOG_CHUNK_SIZE = 10000;
+const IMPORT_CATALOG_CHUNKS = 6;
+
 export interface RunRecord {
   id: string;
   scriptId: string;
@@ -1138,7 +1152,7 @@ export class ScriptsService {
     return { runId };
   }
 
-  /** El import de catálogo de 58,679 cartas (F6) vía SSM Run Command en vez de a mano — mismo mecanismo que scripts/deploy-backend.sh, un solo `docker exec`. */
+  /** El import de catálogo de 58,679 cartas (F6) vía SSM Run Command en vez de a mano — mismo mecanismo que scripts/deploy-backend.sh, ahora varios `docker exec` en chunks (ROADMAP.md I39, ver el comentario junto a `IMPORT_CATALOG_CHUNK_SIZE`). */
   /**
    * Dos bugs reales encontrados en vivo, corriendo esto contra la instancia
    * real por primera vez, ninguno hipotético:
@@ -1201,12 +1215,29 @@ export class ScriptsService {
           await this.execAndStream(runId, 'aws', ['s3', 'cp', cardsJsonPath, `s3://${artifactsBucket}/${s3Key}`, '--region', region], REPO_ROOT, env as Record<string, string>);
         }
 
+        // ROADMAP.md I39 — real bug found live: a single `ts-node` process
+        // handling all 58,679 upserts genuinely ran the real deployed
+        // instance (only ~2GB RAM) out of V8 heap around row 24,000
+        // ("FATAL ERROR: Reached heap limit... JavaScript heap out of
+        // memory", confirmed via `aws ssm get-command-invocation`, not
+        // guessed). Fix: several separate `ts-node` invocations, each a
+        // fresh process/fresh heap, covering a `--offset`/`--limit` slice
+        // each (`import-catalog.ts`'s own new flags) — multiple `docker
+        // exec` calls into the SAME running container share its
+        // filesystem, so the file only needs downloading/copying ONCE.
+        // IMPORT_CATALOG_CHUNK_SIZE * IMPORT_CATALOG_CHUNKS must comfortably
+        // exceed the real card count (58,679 as of this writing) — bump
+        // IMPORT_CATALOG_CHUNKS if the catalog grows past what this covers.
+        const importChunkCommands = Array.from({ length: IMPORT_CATALOG_CHUNKS }, (_, i) => {
+          const offset = i * IMPORT_CATALOG_CHUNK_SIZE;
+          return `docker exec -e TS_NODE_COMPILER_OPTIONS='{"module":"commonjs"}' mtg-backend-app node_modules/.bin/ts-node -r dotenv/config prisma/import-catalog.ts --file /tmp/cards.json --offset ${offset} --limit ${IMPORT_CATALOG_CHUNK_SIZE}`;
+        });
         await runSsmCommand(
           backendInstanceId,
           [
             `aws s3 cp "s3://${artifactsBucket}/${s3Key}" /tmp/cards.json --region ${region}`,
             'docker cp /tmp/cards.json mtg-backend-app:/tmp/cards.json',
-            `docker exec -e TS_NODE_COMPILER_OPTIONS='{"module":"commonjs"}' mtg-backend-app node_modules/.bin/ts-node -r dotenv/config prisma/import-catalog.ts --file /tmp/cards.json`,
+            ...importChunkCommands,
             'rm -f /tmp/cards.json',
           ],
           region,

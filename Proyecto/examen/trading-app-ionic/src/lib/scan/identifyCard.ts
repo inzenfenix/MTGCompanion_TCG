@@ -48,9 +48,13 @@ const MIN_TEXT_LENGTH = 10;
 
 export type IdentifyCandidate = {
   card: api.CatalogEntry;
-  /** Stage 2's confidence (0..1) that `card`'s real oracle text matches the OCR'd rules text. */
+  /** Stage 2's confidence (0..1) that `card`'s real oracle text matches the OCR'd rules text. UNCHANGED by name weighting — still the raw model output, so `isMatch`/any "X% confidence" UI stays meaningful on its own. */
   confidence: number;
   isMatch: boolean;
+  /** 0..1 trigram similarity between the OCR'd title and `card.name` — see `rankScore`'s own comment. */
+  nameSimilarity: number;
+  /** `TEXT_WEIGHT * confidence + NAME_WEIGHT * nameSimilarity` — candidates are sorted by THIS, not `confidence` alone. */
+  rankScore: number;
 };
 
 export type IdentifyResult = {
@@ -72,6 +76,54 @@ export type IdentifyStatus =
 /** Mirrors `texto_referencia()` in `certamen_2/text_validator_baseline.py` — same format the model was trained on. */
 function referenceText(card: api.CatalogEntry): string {
   return `${card.name} ${card.oracleText ?? ''}`;
+}
+
+// ROADMAP.md I35 — user's own finding, after a lot of real testing: rules
+// text alone can be identical or near-identical across DIFFERENT cards
+// (reprints of the same templated ability, or two cards that just happen to
+// share wording), so Stage 2's text-only confidence sometimes can't tell
+// them apart — the title is exactly the signal that DOES, since two cards
+// with the same rules text virtually never share a name. Before this,
+// `ocrName` only ever fed the initial `searchCatalog()` candidate pool
+// (E3b/I19) — it never influenced the FINAL ranking, which sorted purely by
+// Stage 2's text-match confidence. `rankScore` below blends both.
+//
+// TEXT_WEIGHT > NAME_WEIGHT on purpose: Stage 2 is a real trained,
+// evaluated model (E1's own precision/recall numbers); name similarity here
+// is a raw trigram heuristic with no such validation, and OCR title reads
+// are the historically noisier of the two crops (I19/I21's own "Pe __ dd og
+// | Moonstone Fuloyist RA" garbage-read writeup, CROP_NOMBRE being the
+// smaller/more failure-prone box). 0.65/0.35 is a reasoned STARTING split,
+// not empirically tuned against a labeled real-photo set (no such labeled
+// set with known-correct answers per photo exists yet to grid-search
+// against) — same honesty bar as this file's other unmeasured constants.
+export const TEXT_WEIGHT = 0.65;
+export const NAME_WEIGHT = 0.35;
+
+/**
+ * Character-trigram Sørensen-Dice similarity, 0..1 — same conceptual
+ * approach as the backend's `pg_trgm` fuzzy matching (`search()`'s
+ * fallback, I22; `search-by-text`, I26), computed client-side here since
+ * both strings (`ocrName`, `card.name`) are already in hand. Deliberately
+ * NOT exact-match or substring-based — a noisy OCR title ("Moonstone
+ * Fuloyist" for the real "Moonstone Eulogist") should still score high
+ * against the correct name, not 0.
+ */
+function trigramas(s: string): Set<string> {
+  const limpio = s.toLowerCase().trim();
+  const relleno = `  ${limpio} `; // padding so short names still produce at least one trigram
+  const grams = new Set<string>();
+  for (let i = 0; i < relleno.length - 2; i++) grams.add(relleno.slice(i, i + 3));
+  return grams;
+}
+
+export function nameSimilarity(a: string, b: string): number {
+  const ga = trigramas(a);
+  const gb = trigramas(b);
+  if (ga.size === 0 || gb.size === 0) return 0;
+  let compartidos = 0;
+  for (const g of ga) if (gb.has(g)) compartidos++;
+  return (2 * compartidos) / (ga.size + gb.size);
 }
 
 /** Merges the name-search and text-search candidate lists, keeping first-seen order and dropping repeats by card id. */
@@ -123,7 +175,12 @@ export async function identifyCard(
     // needs to tell "OCR misread the name" apart from "catalog search missed
     // the right card" apart from "Stage 2 misranked a decent OCR read", none
     // of which were distinguishable from the outside before this.
-    console.debug('[identifyCard] OCR name=%o rulesTextChars=%d', ocrName, ocrRulesText.length);
+    // ROADMAP.md I35 — the rules text's actual CONTENT wasn't logged before,
+    // only its length. Found a real, concrete case live: Stage 2 gave a
+    // wrong candidate 0.98 confidence against a right candidate's 0.01 —
+    // undiagnosable without seeing what OCR actually read that Stage 2 was
+    // scoring against, only its character count.
+    console.debug('[identifyCard] OCR name=%o rulesText=%o', ocrName, ocrRulesText);
 
     const nameQuery = ocrName.trim();
     const textQuery = ocrRulesText.trim();
@@ -158,13 +215,20 @@ export async function identifyCard(
         // isMatch false, not a hard failure of the whole identify step.
         const confidence = stage2.status === 'ok' ? stage2.result.confidence : 0;
         const isMatch = stage2.status === 'ok' && stage2.result.isMatch;
-        return { card, confidence, isMatch };
+        const similarity = nameSimilarity(nameQuery, card.name);
+        const rankScore = TEXT_WEIGHT * confidence + NAME_WEIGHT * similarity;
+        return { card, confidence, isMatch, nameSimilarity: similarity, rankScore };
       }),
     );
-    scored.sort((a, b) => b.confidence - a.confidence);
+    // ROADMAP.md I35 — sorted by the BLENDED score, not `confidence` alone,
+    // so the title can break ties/correct rankings when rules text is
+    // identical or near-identical across different real cards (see
+    // `TEXT_WEIGHT`'s own comment). `confidence`/`isMatch` on each candidate
+    // stay Stage 2's raw, unweighted output — untouched by this.
+    scored.sort((a, b) => b.rankScore - a.rankScore);
     console.debug(
       '[identifyCard] ranked: %o',
-      scored.map((c) => `${c.card.name}=${c.confidence.toFixed(2)}${c.isMatch ? '(match)' : ''}`),
+      scored.map((c) => `${c.card.name}=rank${c.rankScore.toFixed(2)}(text${c.confidence.toFixed(2)}+name${c.nameSimilarity.toFixed(2)})${c.isMatch ? '(match)' : ''}`),
     );
 
     return { status: 'ok', result: { ocrName, ocrRulesText, candidates: scored } };

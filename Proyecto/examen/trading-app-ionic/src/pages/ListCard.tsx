@@ -268,6 +268,24 @@ const ListCard: React.FC = () => {
   // errored model does not block the flow.
   const handleGuidedCapture = async (canvas: HTMLCanvasElement): Promise<boolean> => {
     const stage1 = await runStage1Detection(canvas);
+    // Same breadcrumb as Tab2.tsx's handleGuidedCapture (I31 diagnosis) —
+    // this screen ("List a Card") has its OWN independent GuidedCapture/
+    // Stage 1 wiring, separate from Tab2.tsx's, and was missing this
+    // logging entirely until now — a real gap, not just an oversight:
+    // whichever screen a false-positive actually happens on is the one
+    // whose logs matter, and this is the one "List a Card"'s Smart Scan
+    // tab actually uses.
+    // Plain string interpolation, not an object arg — same real logging bug
+    // GuidedCapture.tsx's corner logging had (this WebView's console
+    // forwarding stringifies object args as bare "[object Object]").
+    // `status: 'error'` carries a real `.message` (Stage1Status's own
+    // catch-all) — dropped from the log before, leaving only the bare
+    // string "error" with no way to tell WHAT threw. Real gap: found live
+    // when Stage 1 started erroring on every single capture attempt.
+    console.debug(`[ListCard] Stage 1 verdict: ${
+      stage1.status === 'ok' ? `isMtgCard=${stage1.result.isMtgCard} confidence=${stage1.result.confidence.toFixed(3)}`
+        : stage1.status === 'error' ? `error: ${stage1.message}` : stage1.status
+    }`);
     if (stage1.status === 'ok' && !stage1.result.isMtgCard) return false;
     void runScanPipeline(canvas);
     return true;
@@ -445,7 +463,7 @@ const ListCard: React.FC = () => {
                       <ul style={{ margin: '4px 0', paddingLeft: '18px' }}>
                         {identifyDebug.result.candidates.map((c) => (
                           <li key={c.card.id}>
-                            {c.card.name} — {Math.round(c.confidence * 100)}%{c.isMatch ? ' ✓' : ''}
+                            {c.card.name} — rank {Math.round(c.rankScore * 100)}% (text {Math.round(c.confidence * 100)}% + name {Math.round(c.nameSimilarity * 100)}%){c.isMatch ? ' ✓' : ''}
                           </li>
                         ))}
                       </ul>

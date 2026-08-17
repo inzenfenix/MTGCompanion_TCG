@@ -140,6 +140,48 @@ describe('identifyCard', () => {
     expect(result.result.candidates[0].isMatch).toBe(true);
   });
 
+  // ROADMAP.md I35 — user's own real-world finding: rules text can be
+  // identical/near-identical across different real cards, so Stage 2's
+  // text-only confidence sometimes can't tell them apart — the title
+  // should. Two candidates tied on `confidence`, one whose real name is a
+  // close match for the OCR'd title, one whose isn't — the close-name one
+  // must win the ranking now (it wouldn't have before this fix, since the
+  // old code sorted by `confidence` alone and this would have been a coin
+  // flip / stable-sort artifact).
+  it('breaks a Stage 2 confidence TIE using name similarity to the OCR\'d title', async () => {
+    const rightName = fakeCatalogEntry({ id: 'right-name', name: 'Moonstone Eulogist' });
+    const wrongName = fakeCatalogEntry({ id: 'wrong-name', name: 'Totally Different Card' });
+    vi.mocked(extractCardName).mockResolvedValue('Moonstone Eulogist');
+    vi.mocked(extractCardText).mockResolvedValue('shared templated rules text both cards happen to have');
+    vi.mocked(api.searchCatalog).mockResolvedValue([wrongName, rightName]); // wrong-name listed FIRST on purpose
+    vi.mocked(runStage2Validation).mockResolvedValue({ status: 'ok', result: { isMatch: true, confidence: 0.8 } }); // same confidence for both
+
+    const result = await identifyCard(fakeCanvas);
+    if (result.status !== 'ok') throw new Error(`expected ok, got ${result.status}`);
+    expect(result.result.candidates.map((c) => c.card.id)).toEqual(['right-name', 'wrong-name']);
+    expect(result.result.candidates[0].nameSimilarity).toBeGreaterThan(result.result.candidates[1].nameSimilarity);
+    expect(result.result.candidates[0].rankScore).toBeGreaterThan(result.result.candidates[1].rankScore);
+    // Stage 2's own raw confidence stays untouched by the name weighting — still tied.
+    expect(result.result.candidates[0].confidence).toBeCloseTo(result.result.candidates[1].confidence);
+  });
+
+  it('does not let name similarity override a clearly BETTER text match (text still weighted higher)', async () => {
+    const wrongNameGoodText = fakeCatalogEntry({ id: 'good-text', name: 'Totally Different Card' });
+    const rightNameBadText = fakeCatalogEntry({ id: 'bad-text', name: 'Moonstone Eulogist' });
+    vi.mocked(extractCardName).mockResolvedValue('Moonstone Eulogist');
+    vi.mocked(extractCardText).mockResolvedValue('rules text long enough to search');
+    vi.mocked(api.searchCatalog).mockResolvedValue([wrongNameGoodText, rightNameBadText]);
+    vi.mocked(runStage2Validation).mockImplementation(async (_ocr, refText) => {
+      if (refText.startsWith('Totally Different Card')) return { status: 'ok', result: { isMatch: true, confidence: 0.95 } };
+      return { status: 'ok', result: { isMatch: false, confidence: 0.05 } };
+    });
+
+    const result = await identifyCard(fakeCanvas);
+    if (result.status !== 'ok') throw new Error(`expected ok, got ${result.status}`);
+    // The real oracle-text match wins even though its name doesn't match the OCR'd title at all.
+    expect(result.result.candidates[0].card.id).toBe('good-text');
+  });
+
   it('treats an unavailable/errored Stage 2 model as zero confidence, not a hard failure', async () => {
     vi.mocked(extractCardName).mockResolvedValue('Lightning Bolt');
     vi.mocked(extractCardText).mockResolvedValue('rules text long enough to search');

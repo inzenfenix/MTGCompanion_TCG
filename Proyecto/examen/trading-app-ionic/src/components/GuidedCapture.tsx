@@ -34,8 +34,8 @@ import { scanOutline, refreshOutline, cameraReverseOutline } from 'ionicons/icon
 import { useTranslation } from 'react-i18next';
 import type { useLiveCamera } from '../lib/camera/useLiveCamera';
 import {
-  CANONICAL_HEIGHT, CANONICAL_WIDTH, corregirPerspectiva, detectarBrilloEspecular, detectarDesenfoque, getOpenCv, localizarCarta,
-  matFromRgba, type Corners, type OpenCvModule,
+  ASPECT_RATIO_CARTA, CANONICAL_HEIGHT, CANONICAL_WIDTH, corregirPerspectiva, DESENFOQUE_LAPLACIAN_VAR_MIN, detectarBrilloEspecular,
+  detectarDesenfoque, getOpenCv, localizarCarta, matFromRgba, medirDesalineacion, type Corners, type OpenCvModule,
 } from '../lib/cv/cardLocalizer';
 import { computeSampleSize, mapNativeToDisplay, scalePoint, type Size } from '../lib/cv/frameGeometry';
 
@@ -49,7 +49,7 @@ const SEARCH_TIMEOUT_MS = 7000;
 // false-positive) re-triangulates, and the user would never actually see it.
 const REJECTED_COOLDOWN_MS = 2000;
 
-type LoopState = 'initializing' | 'searching' | 'aligning' | 'capturing' | 'timeout' | 'rejected' | 'glare' | 'blur' | 'captured' | 'vision-error';
+type LoopState = 'initializing' | 'searching' | 'aligning' | 'capturing' | 'timeout' | 'rejected' | 'glare' | 'blur' | 'tilted' | 'captured' | 'vision-error';
 const VISION_LOAD_TIMEOUT_MS = 20000; // OpenCV.js is ~15MB of WASM — genuinely slow to compile on some real devices, but this needs a ceiling: getOpenCv().then(...) below had no .catch() at all, so any real failure (not just slowness) hung 'initializing' forever with zero feedback (found live — a real user got stuck on "Loading vision..." with no way out short of leaving the screen).
 // 'no-candidate': localizarCarta/perspective-warp found nothing at full res
 // (same honest "couldn't find it" case as before). 'rejected': a candidate
@@ -67,7 +67,13 @@ const VISION_LOAD_TIMEOUT_MS = 20000; // OpenCV.js is ~15MB of WASM — genuinel
 // or bad focus, which degrades everything downstream even worse than glare
 // does (OCR especially, ROADMAP.md I19/I22/I23) — checked FIRST, before
 // glare/Stage 1, same "don't waste work on data we already know is bad"
-// reasoning.
+// reasoning. 'tilted' (ROADMAP.md I28b): a candidate WAS found, but its
+// detected corners are keystoned (`medirDesalineacion`) — the phone isn't
+// parallel to the CARD's plane (not "isn't level to gravity", which I28's
+// original `DeviceOrientationEvent` approach got wrong per direct user
+// feedback — see that function's own comment). Complementary to I25's
+// card-tilt correction, which reacts to whatever shape the card projects
+// as; this is about flagging a shape that's still too skewed to trust.
 type CaptureOutcome = 'captured' | 'no-candidate' | 'rejected' | 'glare' | 'blur';
 
 export type GuidedCaptureProps = {
@@ -111,7 +117,35 @@ export function GuidedCapture({ camera, onCaptured }: GuidedCaptureProps) {
   useEffect(() => () => { mountedRef.current = false; }, []);
   const lastTickRef = useRef(0);
 
-  const drawOverlay = useCallback((corners: Corners | null, videoSize: Size) => {
+  /**
+   * ROADMAP.md I34 — user's own idea, live: a static "place the card here"
+   * guide rect (same pattern as a bank ID-scan flow's document outline),
+   * shown while nothing is tracked yet, complementary to — not a
+   * replacement for — the reactive OpenCV-tracked box below. Two real
+   * benefits, not just cosmetic: (1) tells the user WHERE to frame the card
+   * before the localizer has anything to react to, closing the "what do I
+   * do" gap the pure reactive box always had; (2) nudges the user toward
+   * filling the guide tightly with just the card, which should make I32's
+   * background-surface confusion (a large uniform surface filling the
+   * frame) less likely to occur in the first place — the algorithmic fix
+   * stays as defense-in-depth for whoever doesn't follow the guide exactly.
+   * Dashed + dimmer than the real tracked box, so the two are visually
+   * distinct at a glance (a target to aim for vs. "I found something").
+   */
+  const drawGuideRect = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number) => {
+    const guideW = Math.min(w, h * ASPECT_RATIO_CARTA) * 0.7;
+    const guideH = guideW / ASPECT_RATIO_CARTA;
+    const x = (w - guideW) / 2;
+    const y = (h - guideH) / 2;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(242, 227, 205, 0.55)'; // same parchment accent as the tracked box, dimmer
+    ctx.lineWidth = 2;
+    ctx.setLineDash([10, 8]);
+    ctx.strokeRect(x, y, guideW, guideH);
+    ctx.restore();
+  }, []);
+
+  const drawOverlay = useCallback((corners: Corners | null, videoSize: Size, showGuide = false) => {
     const canvas = overlayRef.current;
     const container = containerRef.current;
     if (!canvas || !container) return;
@@ -123,7 +157,10 @@ export function GuidedCapture({ camera, onCaptured }: GuidedCaptureProps) {
     if (!ctx) return;
     ctx.clearRect(0, 0, w, h);
 
-    if (!corners) return;
+    if (!corners) {
+      if (showGuide) drawGuideRect(ctx, w, h);
+      return;
+    }
     const displayCorners = corners.map((p) => mapNativeToDisplay(p, videoSize, { width: w, height: h }));
     const stable = stabilityRef.current >= STABILITY_FRAMES_REQUIRED;
     ctx.strokeStyle = stable ? '#4ade80' : '#f2e3cd'; // green once stable, else the app's parchment accent
@@ -138,7 +175,7 @@ export function GuidedCapture({ camera, onCaptured }: GuidedCaptureProps) {
       ctx.fillStyle = stable ? '#4ade80' : '#f2e3cd';
       ctx.fill();
     });
-  }, []);
+  }, [drawGuideRect]);
 
   const doCapture = useCallback(async (): Promise<CaptureOutcome> => {
     const cv = cvRef.current;
@@ -152,12 +189,30 @@ export function GuidedCapture({ camera, onCaptured }: GuidedCaptureProps) {
     try {
       const result = localizarCarta(cv, mat);
       if (!result) return 'no-candidate';
+      // ROADMAP.md I31/I32 diagnosis — breadcrumb the full-res candidate the
+      // geometric localizer found on every real capture attempt, same
+      // reasoning as the blur/Stage-1 logging around it: a false "found a
+      // card" on real-world clutter is otherwise only diagnosable by
+      // guessing which layer (geometry vs. Stage 1) is actually at fault.
+      // `JSON.stringify` on purpose — this Capacitor WebView's console
+      // forwarding to `adb logcat` stringifies object args as bare
+      // "[object Object]" (found live, real bug in the logging itself —
+      // this line used to be useless in practice), so the corner
+      // coordinates need to be baked into the message string directly.
+      console.debug(`[GuidedCapture] candidate found, score: ${result.score.toFixed(4)}, corners: ${JSON.stringify(result.corners)}, frame: ${imageData.width}x${imageData.height}`);
       const warped = corregirPerspectiva(cv, mat, result.corners, CANONICAL_WIDTH, CANONICAL_HEIGHT);
       try {
         // Checked first, before glare/Stage 1: a blurry capture is already
         // known-bad data (OCR especially — ROADMAP.md I19/I22/I23), so
         // there's no point spending any further work on it.
         const blur = detectarDesenfoque(cv, warped);
+        // ROADMAP.md I27 — DESENFOQUE_LAPLACIAN_VAR_MIN (15) was calibrated
+        // from 2 screenshot-downscaled photos, not a real on-device corpus.
+        // Breadcrumb every real variance reading (same `console.debug`
+        // pattern I21 already established for `adb logcat` diagnosis) so a
+        // future live session can pull real numbers instead of guessing
+        // again — this does NOT change behavior, only observability.
+        console.debug('[GuidedCapture] blur variance:', blur.variance, 'isBlurry:', blur.isBlurry, 'threshold:', DESENFOQUE_LAPLACIAN_VAR_MIN);
         if (blur.isBlurry) return 'blur';
 
         // Checked before Stage 1: a glary capture is already known-bad data
@@ -166,6 +221,10 @@ export function GuidedCapture({ camera, onCaptured }: GuidedCaptureProps) {
         // on it — and "glare detected" is a more actionable message than
         // whatever Stage 1 would say about a partially-washed-out card.
         const glare = detectarBrilloEspecular(cv, warped);
+        // Same breadcrumb reasoning as blur above — previously the ONLY
+        // guard in this function with no logging at all, a real gap flagged
+        // twice (ROADMAP.md I27, I31) but not actually added until now.
+        console.debug(`[GuidedCapture] glare fraction: ${glare.fraction.toFixed(4)} hasGlare: ${glare.hasGlare}`);
         if (glare.hasGlare) return 'glare';
 
         const outCanvas = document.createElement('canvas');
@@ -279,9 +338,27 @@ export function GuidedCapture({ camera, onCaptured }: GuidedCaptureProps) {
       }
 
       if (result) {
+        const nativeCorners = result.corners.map((p) => scalePoint(p, sampleSize, videoSize)) as Corners;
+
+        // ROADMAP.md I28b — checked as soon as a candidate is found, before
+        // it's allowed to count toward stability: a card found at a bad
+        // phone-vs-card angle is already known-bad data (same "don't spend
+        // more work on data we already know is bad" reasoning blur/glare
+        // use), and repeatedly re-triggering it while barely-misaligned
+        // would just flicker between 'aligning'/'tilted'. Still draws the
+        // real tracked box (not the static guide) — the user IS pointed at
+        // something, they just need to square up to it.
+        if (medirDesalineacion(result.corners).misaligned) {
+          stabilityRef.current = 0;
+          setProgress(0);
+          drawOverlay(nativeCorners, videoSize);
+          setLoopState('tilted');
+          searchStartRef.current = now;
+          return;
+        }
+
         stabilityRef.current += 1;
         searchStartRef.current = now; // found something -> reset the "been searching too long" clock
-        const nativeCorners = result.corners.map((p) => scalePoint(p, sampleSize, videoSize)) as Corners;
         drawOverlay(nativeCorners, videoSize);
         setProgress(Math.min(1, stabilityRef.current / STABILITY_FRAMES_REQUIRED));
         setLoopState(stabilityRef.current >= STABILITY_FRAMES_REQUIRED ? 'capturing' : 'aligning');
@@ -304,7 +381,7 @@ export function GuidedCapture({ camera, onCaptured }: GuidedCaptureProps) {
       } else {
         stabilityRef.current = 0;
         setProgress(0);
-        drawOverlay(null, videoSize);
+        drawOverlay(null, videoSize, true);
         if (now - searchStartRef.current > SEARCH_TIMEOUT_MS) {
           setLoopState('timeout');
         } else {
@@ -334,6 +411,7 @@ export function GuidedCapture({ camera, onCaptured }: GuidedCaptureProps) {
           {loopState === 'rejected' && t('guided_capture_rejected')}
           {loopState === 'glare' && t('guided_capture_glare')}
           {loopState === 'blur' && t('guided_capture_blur')}
+          {loopState === 'tilted' && t('guided_capture_tilted')}
           {loopState === 'captured' && t('guided_capture_captured')}
           {loopState === 'vision-error' && t('guided_capture_vision_error')}
         </p>
@@ -375,8 +453,16 @@ export function GuidedCapture({ camera, onCaptured }: GuidedCaptureProps) {
           silently resolve to the ultra-wide (0.5x), which looks
           distorted/soft this close to the card. Only shown once we actually
           know there's more than one to switch between (devices list is
-          empty until the first successful start() — see useLiveCamera.ts). */}
-      {camera.devices.length > 1 && loopState !== 'captured' && (
+          empty until the first successful start() — see useLiveCamera.ts).
+          ROADMAP.md I31 follow-up — real bug found live: this used to hide
+          during `loopState === 'captured'` too, so a false-positive capture
+          (Stage 1 accepting real-world clutter as a card, see I31) left the
+          user stuck staring at a wrong result with NO way to switch lenses
+          without first tapping "scan again" — exactly backwards, since a
+          bad capture is precisely when you'd want to try a different
+          camera. Now visible in every state except 'initializing' (nothing
+          to switch INTO yet). */}
+      {camera.devices.length > 1 && (
         <IonButton
           size="small"
           fill="outline"

@@ -21,17 +21,22 @@
  * the exact same class of input, not yet fixed client-side. Not wired into
  * any page here for that reason — see ROADMAP.md's newly-added E3b/G4c note.
  *
- * Also **not** ported: `mejorar_contraste()`'s CLAHE (contrast-limited
- * adaptive histogram equalization on the Lab luminance channel) — no native
- * canvas equivalent, and porting CLAHE correctly is its own nontrivial
- * algorithm. Skipped rather than faked; Otsu thresholding below is somewhat
- * robust to uneven lighting on its own (it's an adaptive per-image
- * threshold, not a fixed one), just not as robust as CLAHE+Otsu together.
+ * `mejorar_contraste()`'s CLAHE (contrast-limited adaptive histogram
+ * equalization on the Lab luminance channel) **is now ported**
+ * (ROADMAP.md I27) — `cardLocalizer.ts::mejorarContraste()`, applied here
+ * right after the crop/upscale, before grayscale/Otsu. This module's
+ * earlier note said this had "no native canvas equivalent" — stale by the
+ * time G4c landed OpenCV.js client-side for the localizer; that same
+ * `cv.CLAHE` is reused here, not a second implementation. Applied via
+ * `getOpenCv()` (fails open — if OpenCV.js isn't loaded/loadable for any
+ * reason, `extractRegionText` falls back to the un-enhanced crop rather
+ * than blocking OCR entirely; Otsu thresholding alone is still "somewhat
+ * robust" to uneven lighting on its own, per the original reasoning below).
  *
  * Pipeline here: resize input to the canonical MTG card ratio (750×1050,
  * same `ANCHO_CANONICO`/`ALTO_CANONICO` as `card_preprocessing.py`) → crop
  * the rules-text box (`CROP_TEXTO`, identical fractions to the Python
- * module) → 3x upscale → grayscale → Otsu threshold → `tesseract.js`.
+ * module) → 3x upscale → CLAHE → grayscale → Otsu threshold → `tesseract.js`.
  * `computeCropRect`/`toGrayscale`/`otsuThreshold`/`binarize` are pure
  * (no DOM), unit-tested directly; `extractCardText` is the DOM-facing glue
  * (canvas draw/crop/upscale, which jsdom can't actually render — see this
@@ -72,6 +77,49 @@ export const OCR_UPSCALE = 3;
 
 export type RgbaImage = { data: Uint8ClampedArray; width: number; height: number };
 export type GrayImage = { data: Uint8ClampedArray; width: number; height: number };
+
+// ROADMAP.md I15 — `getOpenCv()`'s own comment documents that its WASM init
+// can genuinely hang (not just reject) under some environments (jsdom in
+// tests; a real device with a broken/missing asset in production) — a bare
+// try/catch around an `await` doesn't help when the awaited promise never
+// settles at all, only a race against a timeout does (same pattern
+// `ListCard.tsx::withTimeout()` already established for I17's tesseract
+// worker hang).
+const ENHANCE_CONTRAST_TIMEOUT_MS = 3000;
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`timed out after ${ms}ms`)), ms)),
+  ]);
+}
+
+/**
+ * `mejorarContraste()` wrapper (ROADMAP.md I27) — CLAHE on an already
+ * crop/upscaled RGBA buffer, ahead of `preprocessForOcr`'s grayscale/Otsu
+ * step. Fails OPEN: if `getOpenCv()` rejects OR hangs (WASM asset missing/
+ * failed to load/never settles — see `getOpenCv()`'s own comment), or CLAHE
+ * itself throws, returns `img` UNCHANGED rather than blocking OCR — this is
+ * an enhancement, not a hard dependency; Otsu alone downstream is still
+ * "somewhat robust" per this module's own header.
+ */
+export async function enhanceContrast(img: RgbaImage): Promise<RgbaImage> {
+  try {
+    const { getOpenCv, matFromRgba, mejorarContraste } = await import('../cv/cardLocalizer');
+    const cv = await withTimeout(getOpenCv(), ENHANCE_CONTRAST_TIMEOUT_MS);
+    const mat = matFromRgba(cv, img.data, img.width, img.height);
+    let out;
+    try {
+      out = mejorarContraste(cv, mat);
+      return { data: new Uint8ClampedArray(out.data), width: img.width, height: img.height };
+    } finally {
+      mat.delete();
+      out?.delete();
+    }
+  } catch (err) {
+    console.error('[ocrExtractor] enhanceContrast() failed, using un-enhanced crop:', err);
+    return img;
+  }
+}
 
 /**
  * Pixel rect (in source-image pixels) of a crop box's fractions — defaults
@@ -236,7 +284,8 @@ async function extractRegionText(
   );
 
   const rgba = upscaledCtx.getImageData(0, 0, upscaled.width, upscaled.height);
-  const bin = preprocessForOcr({ data: rgba.data, width: rgba.width, height: rgba.height });
+  const enhanced = await enhanceContrast({ data: rgba.data, width: rgba.width, height: rgba.height });
+  const bin = preprocessForOcr(enhanced);
 
   const outCtx = upscaledCtx;
   const outImageData = outCtx.createImageData(bin.width, bin.height);
