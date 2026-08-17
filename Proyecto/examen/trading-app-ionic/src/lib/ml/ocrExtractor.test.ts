@@ -24,6 +24,7 @@ import {
   extractCardName,
   extractCardText,
   otsuThreshold,
+  pickBestLine,
   preprocessForOcr,
   toGrayscale,
 } from './ocrExtractor';
@@ -200,6 +201,29 @@ describe('getWorker (via extractCardText) — ROADMAP.md E3c self-hosted assets'
     expect(TESSERACT_WORKER_PATH).not.toContain('cdn.jsdelivr.net');
     expect(TESSERACT_CORE_PATH).not.toContain('cdn.jsdelivr.net');
     expect(TESSERACT_LANG_PATH).not.toContain('cdn.jsdelivr.net');
+  });
+});
+
+describe('pickBestLine', () => {
+  it('picks the most letter-dense line out of a real garbage multi-line read (ROADMAP.md I19/I21)', () => {
+    // The actual raw tesseract.js output captured live on a real device
+    // (adb logcat) for a loosely-localized CROP_NOMBRE crop — the real
+    // (if imperfect) name was buried on line 2.
+    const raw = "Pe __ dd og |\nMoonstone Fuloyist RA\n\n\\ HE '\n\nh cub GREE aE | fo";
+    expect(pickBestLine(raw)).toBe('Moonstone Fuloyist RA');
+  });
+
+  it('returns the single line unchanged when there is only one', () => {
+    expect(pickBestLine('Lightning Bolt')).toBe('Lightning Bolt');
+  });
+
+  it('returns an empty string for empty/whitespace-only input', () => {
+    expect(pickBestLine('')).toBe('');
+    expect(pickBestLine('\n\n  \n')).toBe('');
+  });
+
+  it('ignores blank lines when choosing the best one', () => {
+    expect(pickBestLine('\n\nReal Name\n\n')).toBe('Real Name');
   });
 });
 

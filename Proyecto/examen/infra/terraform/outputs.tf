@@ -25,7 +25,7 @@ output "minio_instance_id" {
 }
 
 output "backend_public_ip" {
-  value = aws_instance.backend.public_ip
+  value = aws_eip.backend.public_ip
 }
 
 output "backend_public_dns" {
@@ -33,7 +33,7 @@ output "backend_public_dns" {
 }
 
 output "backend_url" {
-  value = "http://${aws_instance.backend.public_ip}:3000"
+  value = "http://${aws_eip.backend.public_ip}:3000"
 }
 
 output "postgres_private_ip" {

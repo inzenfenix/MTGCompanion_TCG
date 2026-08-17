@@ -47,14 +47,27 @@ export const CROP_TEXTO = [0.07, 0.52, 0.93, 0.88] as const;
  * (x0, y0, x1, y1) fractions of the title bar, i.e. the card's name — no
  * Python precedent for this one (`card_preprocessing.py`/`text_validator_baseline.py`
  * only ever crop the rules-text box above), added for ROADMAP.md E3b's
- * scan-to-identify flow. Estimated from the standard modern (2015+) MTG
- * frame's title-bar proportions, right edge stops short of the mana-cost
- * symbols in the corner. Doesn't need to be pixel-exact — it only feeds a
+ * scan-to-identify flow. Doesn't need to be pixel-exact — it only feeds a
  * fuzzy `GET /catalog/search?q=` lookup, not an exact match; Stage 2 (real
  * oracle-text comparison) is what actually confirms/ranks candidates
  * afterward, see `identifyCard.ts`.
+ *
+ * ROADMAP.md I19/I21 — the original box here (y 0.03-0.09) was a guess and
+ * measurably wrong: 3 real on-device captures (`adb logcat` + screenshots,
+ * one sleeved, two bare, one hand-held/loosely-framed) all read pure noise
+ * for the name ("pam", "ee a a", "—") while the SAME captures' `CROP_TEXTO`
+ * read real, near-correct text once lighting was decent — proving this was
+ * a geometry bug in this box specifically, not a lighting/OCR-quality issue.
+ * Measured the real title-bar band by pixel brightness (light gray/white
+ * bar vs. dark art below) on the two flat-surface captures: y 0.08-0.15
+ * bare, y 0.10-0.15 sleeved (a sleeve's border pushes it down a bit further
+ * — a real, separate, compounding effect, not the root cause, worth keeping
+ * in mind as the localizer/sleeve work in G4f evolves). Widened well beyond
+ * that measured band (not fit tightly to it) to also tolerate a loose/
+ * imperfect localizer crop, which the 3rd (hand-held) capture showed can
+ * push the real title bar down further still.
  */
-export const CROP_NOMBRE = [0.07, 0.03, 0.8, 0.09] as const;
+export const CROP_NOMBRE = [0.06, 0.05, 0.85, 0.20] as const;
 export const OCR_UPSCALE = 3;
 
 export type RgbaImage = { data: Uint8ClampedArray; width: number; height: number };
@@ -251,12 +264,49 @@ export function extractCardText(source: HTMLCanvasElement | HTMLImageElement): P
 }
 
 /**
+ * Picks the single most name-like line out of tesseract's raw output.
+ * `CROP_NOMBRE` is a single-line title bar, but a loose/imperfect
+ * card-localizer crop (ROADMAP.md G4c/G4e — not pixel-perfect by design)
+ * regularly lets stray noise from the border/mana-cost/art bleed into the
+ * box, and tesseract.js happily reports that as several newline-separated
+ * "lines". Real read captured live (ROADMAP.md I19/I21): `"Pe __ dd og |\n
+ * Moonstone Fuloyist RA\n\n\\ HE '\n\nh cub GREE aE | fo"` — the actual (if
+ * imperfect) name was line 2, buried in noise. Handing the WHOLE blob to
+ * `GET /catalog/search?q=` as one query can never match anything, even
+ * though the real name-shaped line inside it might have. Picks the line
+ * with the most letter characters — cheap, no dictionary/NLP needed, and
+ * the title bar's line is reliably the most letter-dense one in practice
+ * (border/art noise reads as symbols or short garbage, not long letter runs).
+ */
+export function pickBestLine(text: string): string {
+  const lines = text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  if (lines.length === 0) return '';
+
+  let best = lines[0];
+  let bestScore = -1;
+  for (const line of lines) {
+    const score = (line.match(/[A-Za-zÀ-ÖØ-öø-ÿ]/g) ?? []).length;
+    if (score > bestScore) {
+      bestScore = score;
+      best = line;
+    }
+  }
+  return best;
+}
+
+/**
  * Extracts the card's name from its title bar — see `CROP_NOMBRE`'s own
  * comment for why this box is approximate. Feed the result to
  * `GET /catalog/search?q=` as a fuzzy first pass; `identifyCard.ts` uses
  * Stage 2 against the rules text to actually rank/confirm candidates, so an
- * imperfect name read here doesn't need to be exact.
+ * imperfect name read here doesn't need to be exact. `pickBestLine()`
+ * collapses tesseract's possibly-multi-line raw output to just the one
+ * real candidate line before it ever reaches that search — see its own
+ * comment for the real garbage-multi-line read that motivated this.
  */
 export function extractCardName(source: HTMLCanvasElement | HTMLImageElement): Promise<string> {
-  return extractRegionText(source, CROP_NOMBRE);
+  return extractRegionText(source, CROP_NOMBRE).then(pickBestLine);
 }

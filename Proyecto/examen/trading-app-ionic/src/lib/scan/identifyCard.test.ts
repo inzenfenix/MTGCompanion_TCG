@@ -17,6 +17,7 @@ vi.mock('../ml/stage2TextValidator', () => ({
 }));
 vi.mock('../api', () => ({
   searchCatalog: vi.fn(),
+  searchCatalogByText: vi.fn(),
 }));
 
 import { extractCardName, extractCardText } from '../ml/ocrExtractor';
@@ -57,25 +58,66 @@ describe('identifyCard', () => {
     vi.mocked(extractCardText).mockReset();
     vi.mocked(runStage2Validation).mockReset();
     vi.mocked(api.searchCatalog).mockReset();
+    vi.mocked(api.searchCatalogByText).mockReset().mockResolvedValue([]);
   });
   afterEach(() => vi.restoreAllMocks());
 
-  it('returns no-name when the title-bar OCR is too short to be a real name', async () => {
+  it('returns no-name when NEITHER OCR read is usable (name too short, rules text too short for search-by-text)', async () => {
     vi.mocked(extractCardName).mockResolvedValue(' ');
-    vi.mocked(extractCardText).mockResolvedValue('some rules text');
+    vi.mocked(extractCardText).mockResolvedValue('short'); // < MIN_TEXT_LENGTH (10)
 
     const result = await identifyCard(fakeCanvas);
-    expect(result.status).toBe('no-name');
+    // ROADMAP.md I19 — ocrName/ocrRulesText must survive onto this status so
+    // a diagnostics UI can show what OCR actually read, not just "no match".
+    expect(result).toEqual({ status: 'no-name', ocrName: ' ', ocrRulesText: 'short' });
     expect(api.searchCatalog).not.toHaveBeenCalled();
+    expect(api.searchCatalogByText).not.toHaveBeenCalled();
   });
 
-  it('returns no-candidates when the catalog search finds nothing', async () => {
+  it('returns no-candidates when both catalog searches find nothing', async () => {
     vi.mocked(extractCardName).mockResolvedValue('Not A Real Card Name');
-    vi.mocked(extractCardText).mockResolvedValue('rules text');
+    vi.mocked(extractCardText).mockResolvedValue('rules text long enough to search');
     vi.mocked(api.searchCatalog).mockResolvedValue([]);
+    vi.mocked(api.searchCatalogByText).mockResolvedValue([]);
 
     const result = await identifyCard(fakeCanvas);
-    expect(result.status).toBe('no-candidates');
+    expect(result).toEqual({
+      status: 'no-candidates',
+      ocrName: 'Not A Real Card Name',
+      ocrRulesText: 'rules text long enough to search',
+    });
+  });
+
+  // ROADMAP.md I19/I25 — the actual real-session scenario: name OCR is
+  // noise (too short to even search), but the rules-text OCR read well
+  // enough to find the real card via search-by-text alone.
+  it('falls back to search-by-text alone when the name is unusable but the rules text is', async () => {
+    const card = fakeCatalogEntry({ id: 'found-by-text' });
+    vi.mocked(extractCardName).mockResolvedValue(' '); // too short to search at all
+    vi.mocked(extractCardText).mockResolvedValue('Whenever a creature an opponent controls dies, create a Blood token.');
+    vi.mocked(api.searchCatalogByText).mockResolvedValue([card]);
+    vi.mocked(runStage2Validation).mockResolvedValue({ status: 'ok', result: { isMatch: true, confidence: 0.9 } });
+
+    const result = await identifyCard(fakeCanvas);
+    if (result.status !== 'ok') throw new Error(`expected ok, got ${result.status}`);
+    expect(api.searchCatalog).not.toHaveBeenCalled(); // name too short — only search-by-text should have run
+    expect(result.result.candidates.map((c) => c.card.id)).toEqual(['found-by-text']);
+  });
+
+  it('merges name-search and text-search candidates, deduping by card id', async () => {
+    const fromNameOnly = fakeCatalogEntry({ id: 'name-only', name: 'Name Only' });
+    const fromBoth = fakeCatalogEntry({ id: 'both', name: 'Found Both Ways' });
+    const fromTextOnly = fakeCatalogEntry({ id: 'text-only', name: 'Text Only' });
+    vi.mocked(extractCardName).mockResolvedValue('Found Both Ways');
+    vi.mocked(extractCardText).mockResolvedValue('rules text long enough to search');
+    vi.mocked(api.searchCatalog).mockResolvedValue([fromNameOnly, fromBoth]);
+    vi.mocked(api.searchCatalogByText).mockResolvedValue([fromBoth, fromTextOnly]); // 'both' repeated across sources
+    vi.mocked(runStage2Validation).mockResolvedValue({ status: 'ok', result: { isMatch: false, confidence: 0.1 } });
+
+    const result = await identifyCard(fakeCanvas);
+    if (result.status !== 'ok') throw new Error(`expected ok, got ${result.status}`);
+    const ids = result.result.candidates.map((c) => c.card.id).sort();
+    expect(ids).toEqual(['both', 'name-only', 'text-only']); // 3 unique, not 4
   });
 
   it('ranks candidates by Stage 2 confidence, highest first, regardless of catalog search order', async () => {
@@ -100,7 +142,7 @@ describe('identifyCard', () => {
 
   it('treats an unavailable/errored Stage 2 model as zero confidence, not a hard failure', async () => {
     vi.mocked(extractCardName).mockResolvedValue('Lightning Bolt');
-    vi.mocked(extractCardText).mockResolvedValue('rules text');
+    vi.mocked(extractCardText).mockResolvedValue('rules text long enough to search');
     vi.mocked(api.searchCatalog).mockResolvedValue([fakeCatalogEntry()]);
     vi.mocked(runStage2Validation).mockResolvedValue({ status: 'unavailable' });
 

@@ -34,7 +34,7 @@ import { scanOutline, refreshOutline, cameraReverseOutline } from 'ionicons/icon
 import { useTranslation } from 'react-i18next';
 import type { useLiveCamera } from '../lib/camera/useLiveCamera';
 import {
-  CANONICAL_HEIGHT, CANONICAL_WIDTH, corregirPerspectiva, detectarBrilloEspecular, getOpenCv, localizarCarta,
+  CANONICAL_HEIGHT, CANONICAL_WIDTH, corregirPerspectiva, detectarBrilloEspecular, detectarDesenfoque, getOpenCv, localizarCarta,
   matFromRgba, type Corners, type OpenCvModule,
 } from '../lib/cv/cardLocalizer';
 import { computeSampleSize, mapNativeToDisplay, scalePoint, type Size } from '../lib/cv/frameGeometry';
@@ -49,7 +49,7 @@ const SEARCH_TIMEOUT_MS = 7000;
 // false-positive) re-triangulates, and the user would never actually see it.
 const REJECTED_COOLDOWN_MS = 2000;
 
-type LoopState = 'initializing' | 'searching' | 'aligning' | 'capturing' | 'timeout' | 'rejected' | 'glare' | 'captured' | 'vision-error';
+type LoopState = 'initializing' | 'searching' | 'aligning' | 'capturing' | 'timeout' | 'rejected' | 'glare' | 'blur' | 'captured' | 'vision-error';
 const VISION_LOAD_TIMEOUT_MS = 20000; // OpenCV.js is ~15MB of WASM — genuinely slow to compile on some real devices, but this needs a ceiling: getOpenCv().then(...) below had no .catch() at all, so any real failure (not just slowness) hung 'initializing' forever with zero feedback (found live — a real user got stuck on "Loading vision..." with no way out short of leaving the screen).
 // 'no-candidate': localizarCarta/perspective-warp found nothing at full res
 // (same honest "couldn't find it" case as before). 'rejected': a candidate
@@ -62,8 +62,13 @@ const VISION_LOAD_TIMEOUT_MS = 20000; // OpenCV.js is ~15MB of WASM — genuinel
 // highlight (sleeve-glare follow-up) — checked BEFORE Stage 1 so a glary
 // capture never wastes an inference call on data we already know is
 // compromised, and gets its own actionable message instead of a generic
-// "not a card" one.
-type CaptureOutcome = 'captured' | 'no-candidate' | 'rejected' | 'glare';
+// "not a card" one. 'blur': a candidate WAS found and warped, but
+// `detectarDesenfoque` (variance of Laplacian) says it's too blurry — motion
+// or bad focus, which degrades everything downstream even worse than glare
+// does (OCR especially, ROADMAP.md I19/I22/I23) — checked FIRST, before
+// glare/Stage 1, same "don't waste work on data we already know is bad"
+// reasoning.
+type CaptureOutcome = 'captured' | 'no-candidate' | 'rejected' | 'glare' | 'blur';
 
 export type GuidedCaptureProps = {
   camera: ReturnType<typeof useLiveCamera>;
@@ -149,6 +154,12 @@ export function GuidedCapture({ camera, onCaptured }: GuidedCaptureProps) {
       if (!result) return 'no-candidate';
       const warped = corregirPerspectiva(cv, mat, result.corners, CANONICAL_WIDTH, CANONICAL_HEIGHT);
       try {
+        // Checked first, before glare/Stage 1: a blurry capture is already
+        // known-bad data (OCR especially — ROADMAP.md I19/I22/I23), so
+        // there's no point spending any further work on it.
+        const blur = detectarDesenfoque(cv, warped);
+        if (blur.isBlurry) return 'blur';
+
         // Checked before Stage 1: a glary capture is already known-bad data
         // (OCR/embedding/condition-grading all degrade under a specular
         // highlight), so there's no point spending a Stage 1 inference call
@@ -186,7 +197,7 @@ export function GuidedCapture({ camera, onCaptured }: GuidedCaptureProps) {
     if (outcome === 'captured') {
       armedRef.current = false;
       setLoopState('captured');
-    } else if (outcome === 'rejected' || outcome === 'glare') {
+    } else if (outcome === 'rejected' || outcome === 'glare' || outcome === 'blur') {
       setLoopState(outcome);
       rejectedUntilRef.current = Date.now() + REJECTED_COOLDOWN_MS;
       searchStartRef.current = Date.now();
@@ -282,7 +293,7 @@ export function GuidedCapture({ camera, onCaptured }: GuidedCaptureProps) {
           if (outcome === 'captured') {
             armedRef.current = false;
             setLoopState('captured');
-          } else if (outcome === 'rejected' || outcome === 'glare') {
+          } else if (outcome === 'rejected' || outcome === 'glare' || outcome === 'blur') {
             setLoopState(outcome);
             rejectedUntilRef.current = now + REJECTED_COOLDOWN_MS;
             searchStartRef.current = now;
@@ -322,6 +333,7 @@ export function GuidedCapture({ camera, onCaptured }: GuidedCaptureProps) {
           {loopState === 'timeout' && t('guided_capture_timeout')}
           {loopState === 'rejected' && t('guided_capture_rejected')}
           {loopState === 'glare' && t('guided_capture_glare')}
+          {loopState === 'blur' && t('guided_capture_blur')}
           {loopState === 'captured' && t('guided_capture_captured')}
           {loopState === 'vision-error' && t('guided_capture_vision_error')}
         </p>

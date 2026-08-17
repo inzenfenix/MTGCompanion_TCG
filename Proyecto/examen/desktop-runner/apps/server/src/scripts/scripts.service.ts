@@ -854,6 +854,48 @@ export class ScriptsService {
   }
 
   /**
+   * Corre `infra/terraform/scripts/deploy-backend.sh` streameado — el paso
+   * que le faltaba a la pestaña "Deploy": hasta ahora, actualizar el
+   * CÓDIGO del backend ya corriendo (no crear/destruir infra, eso ya lo
+   * hacen apply/destroy arriba) solo era posible corriendo ese script a
+   * mano por terminal. Agregado a pedido del usuario, mismo día que I19/I22
+   * (ROADMAP.md) encontraron bugs reales en el backend que necesitaban
+   * justamente esto para llegar a producción.
+   *
+   * El script mismo sube backend/ a S3, resuelve secrets desde Secrets
+   * Manager, y hace `docker build`+`docker run` en la instancia real vía
+   * SSM Run Command (sin SSH — ver el propio header del script para el
+   * porqué). Necesita terraform (para leer outputs) + aws cli + python3 en
+   * PATH. `buildAwsCliEnv()`, no `buildTerraformEnv()`: el script llama a
+   * `aws` directo (s3 cp, secretsmanager, ssm send-command), no a
+   * `terraform apply`, así que necesita las variables `AWS_*` estándar que
+   * el aws cli entiende, no las `TF_VAR_*` que solo terraform lee — mismo
+   * razonamiento que `awsCliEnv()` ya documenta para los helpers de SSM.
+   */
+  async deployBackend(): Promise<{ runId: string }> {
+    const settings = readSettings();
+    if (!settings.awsCredentials) {
+      throw new BadRequestException('No hay credenciales AWS configuradas — pegalas en la pestaña "Deploy" primero.');
+    }
+
+    const scriptPath = path.join(TERRAFORM_DIR, 'scripts', 'deploy-backend.sh');
+    const runId = randomUUID();
+    this.gateway.emitLog(runId, 'stdout', `$ bash ${scriptPath}\n`);
+
+    const child: ChildProcessWithoutNullStreams = spawn('bash', [scriptPath], {
+      cwd: TERRAFORM_DIR,
+      env: { ...pathEnvWithToolBin(), ...buildAwsCliEnv(settings.awsCredentials) },
+      // detached en POSIX: el script puede tardar varios minutos (docker
+      // build remoto + polling) — mismo motivo/mecanismo que runTerraform()
+      // para que stopRun() pueda matar el árbol de procesos completo.
+      detached: process.platform !== 'win32',
+    });
+    this.trackStreamedProcess(runId, child, 'aws:deploy-backend', Date.now());
+
+    return { runId };
+  }
+
+  /**
    * Instala `terraform`/`aws` automáticamente (tool-install.ts) — mismo
    * shape de streaming que runTerraform() (runId + this.runs/gateway), pero
    * sin proceso hijo único: es una secuencia de pasos (resolver

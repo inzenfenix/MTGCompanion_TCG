@@ -68,6 +68,23 @@ BRILLO_ESPECULAR_FRACCION_AVISO = 0.03  # >= 3% del área de la carta -> avisar
 FUNDA_OPACA_EDGE_FRACCION_MAX = 0.02  # fracción de píxeles de borde (Canny) por debajo de la cual se considera "sin estructura"
 FUNDA_OPACA_STD_MAX = 15.0  # desviación estándar de grises por debajo de la cual se considera "color casi uniforme"
 
+# ROADMAP.md I19/I22/I23 — desenfoque (motion blur o foco fuera de rango)
+# degrada TODO lo que corre después de la captura: Stage 1, la localización
+# misma, y sobre todo el OCR de identifyCard.ts (una foto borrosa produce
+# texto ilegible incluso con el recorte geométrico ya arreglado — visto en
+# vivo esta misma sesión). Varianza del Laplaciano es la heurística clásica
+# de nitidez (Pech-Pacheco et al.) — una imagen nítida tiene muchos bordes de
+# alto contraste (varianza alta tras el filtro de segunda derivada), una
+# borrosa los pierde (varianza baja). Umbral de partida, NO medido contra un
+# corpus real de fotos borrosas en este dispositivo — sí se hizo una
+# calibración aproximada (no en el dataset real, sobre 2 fotos reales de esta
+# sesión reducidas a resolución de pantalla): nítidas ~75-130, la misma
+# imagen emborronada artificialmente (downscale+upscale 8x) ~2-2.5 — más de
+# 30x de margen, motivo por el que 15 es un umbral conservador razonable acá,
+# no una medición real en la resolución/cámara final. Ajustar si en uso real
+# resulta muy laxo/estricto.
+DESENFOQUE_LAPLACIAN_VAR_MIN = 15.0
+
 # ROADMAP.md G4e, dirección (a) — rechazo de candidatos "color piel" en el
 # localizador geométrico mismo (en vez de depender solo del gate de Stage 1
 # en GuidedCapture.tsx, que ya cubre este caso en la práctica — ver el
@@ -201,7 +218,7 @@ def _candidatos_validos(
     area_img: int,
     mascara_piel: np.ndarray | None = None,
     mapa_bordes: np.ndarray | None = None,
-) -> list[tuple[np.ndarray, float, float]]:
+) -> list[tuple[np.ndarray, np.ndarray, float, float]]:
     """Todos los contornos de una máscara (no solo el más grande) que pasan
     los filtros de área/aspect-ratio/piel, como (rect, score, area). `score`
     = qué tan cerca está el aspect ratio del ideal de una carta MTG (0 =
@@ -244,7 +261,7 @@ def _candidatos_validos(
                 if fraccion_bordes < PIEL_EDGE_FRACCION_MAX:
                     continue
 
-        candidatos.append((rect, diff, area))
+        candidatos.append((contorno, rect, diff, area))
     return candidatos
 
 
@@ -259,8 +276,8 @@ def _rect_contenido(interior: np.ndarray, exterior: np.ndarray) -> bool:
 
 
 def _descartar_contenidos(
-    candidatos: list[tuple[np.ndarray, float, float]],
-) -> list[tuple[np.ndarray, float, float]]:
+    candidatos: list[tuple[np.ndarray, np.ndarray, float, float]],
+) -> list[tuple[np.ndarray, np.ndarray, float, float]]:
     """Descarta cualquier candidato cuyo rect esté completamente contenido
     dentro de otro candidato más grande (mismo mask o el otro) — prefiere el
     contorno MÁS EXTERNO entre los que califican en vez de aceptar cualquiera
@@ -272,15 +289,47 @@ def _descartar_contenidos(
     ENTRE dos candidatos (contención geométrica), no una propiedad intrínseca
     de un contorno individual, así que es un mecanismo distinto."""
     sobrevivientes = []
-    for i, (rect_i, score_i, area_i) in enumerate(candidatos):
+    for i, (contorno_i, rect_i, score_i, area_i) in enumerate(candidatos):
         puntos_i = cv2.boxPoints(rect_i)
         contenido = any(
             j != i and area_j > area_i and _rect_contenido(puntos_i, cv2.boxPoints(rect_j))
-            for j, (rect_j, _, area_j) in enumerate(candidatos)
+            for j, (_, rect_j, _, area_j) in enumerate(candidatos)
         )
         if not contenido:
-            sobrevivientes.append((rect_i, score_i, area_i))
+            sobrevivientes.append((contorno_i, rect_i, score_i, area_i))
     return sobrevivientes
+
+
+def _esquinas_desde_contorno(contorno: np.ndarray, rect) -> np.ndarray:
+    """Intenta encontrar las 4 esquinas REALES del candidato ganador vía
+    `cv2.approxPolyDP` — permite un CUADRILÁTERO GENERAL, no forzosamente un
+    rectángulo. Clave para fotos tomadas en ángulo (la norma en un scanner de
+    teléfono, no la excepción): una carta fotografiada así se ve como un
+    TRAPECIO por distorsión de perspectiva (los lados paralelos convergen
+    levemente), no como un rectángulo rotado. `cv2.minAreaRect` (lo que
+    `localizar_carta` usaba hasta ahora para las esquinas finales) SIEMPRE
+    devuelve un rectángulo — no puede representar ese keystoning real — así
+    que `corregir_perspectiva` (una transformación de 4 puntos genuina,
+    capaz de corregir un trapecio de verdad) recibía esquinas de la forma
+    equivocada incluso cuando el rectángulo en sí ya era un buen fit de
+    área/aspect-ratio. Encontrado en vivo esta sesión (ROADMAP.md I19/I25):
+    fotos sostenidas con la mano, en ángulo, salían con una inclinación
+    residual visible en el recorte "canónico" que se suponía ya enderezado —
+    y esa inclinación es justo lo que rompía `CROP_NOMBRE`/OCR corriente
+    abajo incluso después de arreglar la geometría del propio recorte de
+    nombre.
+
+    Fallback a `cv2.boxPoints(rect)` (el comportamiento anterior) si el
+    contorno no reduce limpio a 4 puntos — formas ruidosas o parcialmente
+    ocluidas (p.ej. dedos tapando un borde de la carta) donde un
+    cuadrilátero de 4 puntos no es un fit confiable y el rectángulo sigue
+    siendo la mejor aproximación disponible.
+    """
+    perimetro = cv2.arcLength(contorno, True)
+    aprox = cv2.approxPolyDP(contorno, 0.02 * perimetro, True)
+    if len(aprox) == 4:
+        return aprox.reshape(4, 2).astype(np.float32)
+    return cv2.boxPoints(rect)
 
 
 def localizar_carta(img_bgr: np.ndarray) -> np.ndarray | None:
@@ -328,8 +377,8 @@ def localizar_carta(img_bgr: np.ndarray) -> np.ndarray | None:
     if not candidatos:
         return None
 
-    mejor_rect, _, _ = min(candidatos, key=lambda c: c[1])
-    return _ordenar_esquinas(cv2.boxPoints(mejor_rect).astype("float32"))
+    mejor_contorno, mejor_rect, _, _ = min(candidatos, key=lambda c: c[2])
+    return _ordenar_esquinas(_esquinas_desde_contorno(mejor_contorno, mejor_rect).astype("float32"))
 
 
 def corregir_perspectiva(
@@ -430,6 +479,27 @@ def detectar_funda_opaca(
     std = float(gris.std())
     sospechosa = edge_fraccion < edge_fraccion_max and std < std_max
     return sospechosa, {"edge_fraccion": edge_fraccion, "std": std}
+
+
+def detectar_desenfoque(
+    img_bgr: np.ndarray,
+    var_min: float = DESENFOQUE_LAPLACIAN_VAR_MIN,
+) -> tuple[bool, float]:
+    """Detecta desenfoque (motion blur o foco mal ajustado) sobre `img_bgr` —
+    pensado para correrse sobre la carta YA recortada/enderezada, igual que
+    `detectar_brillo_especular`, y ANTES de gastar una llamada a Stage 1: una
+    captura borrosa degrada la clasificación, la localización y sobre todo
+    el OCR corriente abajo (`identifyCard.ts`), así que no vale la pena
+    seguir con ella. Retorna (es_borrosa, varianza) — mismo shape que
+    `detectar_brillo_especular`, la varianza cruda se retorna siempre por si
+    quien llama quiere loguearla o ajustar el umbral sin recalcular.
+
+    Umbral de partida (`DESENFOQUE_LAPLACIAN_VAR_MIN`), no medido contra un
+    corpus real de fotos borrosas — ver el comentario junto a la constante.
+    """
+    gris = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    varianza = float(cv2.Laplacian(gris, cv2.CV_64F).var())
+    return varianza < var_min, varianza
 
 
 def mejorar_contraste(img_bgr: np.ndarray) -> np.ndarray:

@@ -160,6 +160,7 @@
   "guided_capture_timeout": "Carte introuvable — ajustez l'angle ou l'éclairage et réessayez.",
   "guided_capture_rejected": "Cela ne ressemble pas à une carte Magic — réessayez.",
   "guided_capture_glare": "Reflet détecté — inclinez la carte ou éloignez-vous de la lumière directe.",
+  "guided_capture_blur": "Trop flou — tenez la caméra immobile ou attendez la mise au point.",
   "guided_capture_captured": "Carte capturée.",
   "guided_capture_manual_button": "Capturer maintenant",
   "guided_capture_switch_camera_button": "Changer de caméra",
@@ -180,6 +181,11 @@
   "scan_no_match_banner": "Impossible d'identifier la carte automatiquement — vérifiez les champs ci-dessous.",
   "scan_pick_different": "Ce n'est pas la bonne carte ?",
   "scan_clear_match": "Dissocier la correspondance",
+  "scan_low_confidence_warning": "Confiance faible — vérifiez chaque champ avant d'enregistrer.",
+  "scan_debug_summary": "Détails du scan (ce que le scanner a réellement lu)",
+  "scan_debug_ocr_name": "Nom lu par l'OCR : \"{{text}}\"",
+  "scan_debug_ocr_rules": "Texte de règles lu par l'OCR : \"{{text}}\"",
+  "scan_debug_no_candidates": "Aucune carte du catalogue ne correspond à ce nom.",
 
   "logged_in_as": "Connecté en tant que :",
 

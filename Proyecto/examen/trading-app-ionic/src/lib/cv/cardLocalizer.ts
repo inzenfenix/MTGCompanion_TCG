@@ -68,6 +68,22 @@ export const BRILLO_ESPECULAR_FRACCION_AVISO = 0.03; // >= 3% of the card area -
 export const FUNDA_OPACA_EDGE_FRACCION_MAX = 0.02;
 export const FUNDA_OPACA_STD_MAX = 15;
 
+// ROADMAP.md I19/I22/I23 — blur (motion or bad focus) degrades everything
+// downstream of a capture, `identifyCard.ts`'s OCR worst of all (seen live
+// this session: a blurry-but-otherwise-correctly-cropped capture still read
+// garbage text even after the crop-geometry fix). Variance of the Laplacian
+// is the standard sharpness heuristic (Pech-Pacheco et al.) — real photos
+// have high-contrast edges (high variance after a 2nd-derivative filter),
+// blur washes them out (low variance). Starting threshold, NOT measured
+// against a real corpus of blurry on-device photos — smoke-tested against
+// one real photo from tonight (sharp: 131.8) vs. the same photo Gaussian-
+// blurred (sigma=2, mild: 6.3; sigma=6, heavy: 1.3) via the real
+// `card_preprocessing.py::detectar_desenfoque()` this ports — 15 sits with
+// real margin below a real sharp photo and above even a mild blur, but
+// isn't tuned to this device/camera's real distribution. Revisit if real
+// use shows it's too strict/loose.
+export const DESENFOQUE_LAPLACIAN_VAR_MIN = 15;
+
 // ROADMAP.md G4e, direction (a) — skin-tone rejection in the localizer
 // itself (not just the downstream Stage 1 gate). Classic YCrCb skin range
 // (Cr in [133,173], Cb in [77,127]) — chosen over an HSV range specifically
@@ -223,7 +239,13 @@ export function mascaraBrillo(cv: OpenCvModule, rgba: InstanceType<OpenCvModule[
   }
 }
 
-type Candidate = { rect: InstanceType<OpenCvModule['RotatedRect']>; score: number; area: number };
+type Candidate = {
+  rect: InstanceType<OpenCvModule['RotatedRect']>;
+  score: number;
+  area: number;
+  /** Owned by the candidate until `localizarCarta` deletes it (all candidates', not just the winner's) in its `finally`. */
+  contour: InstanceType<OpenCvModule['Mat']>;
+};
 
 /** `_mascara_piel()` — YCrCb skin-tone mask. Caller owns/deletes the returned Mat. */
 function mascaraPiel(cv: OpenCvModule, rgba: InstanceType<OpenCvModule['Mat']>) {
@@ -336,7 +358,7 @@ function candidatosValidos(
         }
       }
 
-      candidates.push({ rect, score: diff, area });
+      candidates.push({ rect, score: diff, area, contour });
     }
     return candidates;
   } finally {
@@ -378,6 +400,51 @@ function discardContained(cv: OpenCvModule, candidates: Candidate[]): Candidate[
   });
 }
 
+/**
+ * `_esquinas_desde_contorno()` — finds the winning candidate's REAL 4
+ * corners via `approxPolyDP`, allowing a general quadrilateral rather than
+ * forcing a rectangle. Real angled photo (the norm for a phone scanner, not
+ * the exception) projects a card as a TRAPEZOID (parallel edges converge
+ * slightly under perspective), not a simply-rotated rectangle —
+ * `cv.minAreaRect` (what `localizarCarta` used for the final corners until
+ * now) can only ever return a rectangle, so `corregirPerspectiva` (a real
+ * 4-point transform, capable of undistorting an actual trapezoid) was being
+ * fed the wrong-shaped corners even when the rectangle itself was a good
+ * area/aspect-ratio fit. Found live this session (ROADMAP.md I19/I25):
+ * hand-held, angled captures came out of the "canonical" warp with visible
+ * residual tilt, which broke `CROP_NOMBRE`/OCR downstream even after that
+ * crop's own geometry was already fixed. Validated against a synthetic
+ * trapezoid via the real Python port (`card_preprocessing.py`'s
+ * `_esquinas_desde_contorno`): corners within ~1px of the true trapezoid's,
+ * vs. up to ~20px off with the old `minAreaRect`-only corners on the same
+ * input (400x400 test image) — a real, measured improvement, not just a
+ * theoretical one. Falls back to `cv.boxPoints(rect)` (the old behavior) if
+ * the contour doesn't reduce cleanly to 4 points — noisy/partially-occluded
+ * shapes (e.g. fingers covering a card edge) where a clean quadrilateral
+ * fit isn't reliable and the rectangle is still the best available guess.
+ */
+function esquinasDesdeContorno(
+  cv: OpenCvModule,
+  contour: InstanceType<OpenCvModule['Mat']>,
+  rect: InstanceType<OpenCvModule['RotatedRect']>,
+): Point[] {
+  const approx = new cv.Mat();
+  try {
+    const perimeter = cv.arcLength(contour, true);
+    cv.approxPolyDP(contour, approx, 0.02 * perimeter, true);
+    if (approx.rows === 4) {
+      const points: Point[] = [];
+      for (let i = 0; i < 4; i++) {
+        points.push({ x: approx.data32S[i * 2], y: approx.data32S[i * 2 + 1] });
+      }
+      return points;
+    }
+    return cv.boxPoints(rect);
+  } finally {
+    approx.delete();
+  }
+}
+
 /** `_ordenar_esquinas()` — orders 4 points as (top-left, top-right, bottom-right, bottom-left). */
 export function ordenarEsquinas(points: Point[]): Corners {
   const sums = points.map((p) => p.x + p.y);
@@ -403,20 +470,22 @@ export function localizarCarta(cv: OpenCvModule, rgba: InstanceType<OpenCvModule
   const masks = [mascaraSaturacion(cv, rgba), mascaraBrillo(cv, rgba)];
   const skinMask = mascaraPiel(cv, rgba);
   const edgeMap = mapaBordes(cv, rgba);
+  let candidates: Candidate[] = [];
   try {
-    const candidates = discardContained(
+    candidates = discardContained(
       cv,
       masks.flatMap((mask) => candidatosValidos(cv, mask, areaImg, skinMask, edgeMap)),
     );
     if (candidates.length === 0) return null;
 
     const best = candidates.reduce((a, b) => (b.score < a.score ? b : a));
-    const boxPoints = cv.boxPoints(best.rect);
-    return { corners: ordenarEsquinas(boxPoints), score: best.score };
+    const corners = esquinasDesdeContorno(cv, best.contour, best.rect);
+    return { corners: ordenarEsquinas(corners), score: best.score };
   } finally {
     masks.forEach((m) => m.delete());
     skinMask.delete();
     edgeMap.delete();
+    candidates.forEach((c) => c.contour.delete());
   }
 }
 
@@ -502,5 +571,36 @@ export function detectarFundaOpaca(
     return { suspicious: edgeFraction < edgeFraccionMax && std < stdMax, edgeFraction, std };
   } finally {
     gray.delete(); edges.delete(); mean.delete(); stddev.delete();
+  }
+}
+
+export type BlurResult = { isBlurry: boolean; variance: number };
+
+/**
+ * `detectar_desenfoque()` — variance-of-Laplacian sharpness check. Meant to
+ * run on the already-warped canonical card, same spot as
+ * `detectarBrilloEspecular`, and BEFORE it too (no point checking for glare
+ * on data that's already unusably blurry). See the Python docstring/the
+ * constant's own comment for the real (if rough) calibration behind the
+ * threshold.
+ */
+export function detectarDesenfoque(
+  cv: OpenCvModule,
+  rgba: InstanceType<OpenCvModule['Mat']>,
+  varMin = DESENFOQUE_LAPLACIAN_VAR_MIN,
+): BlurResult {
+  const gray = new cv.Mat();
+  const lap = new cv.Mat();
+  const mean = new cv.Mat();
+  const stddev = new cv.Mat();
+  try {
+    cv.cvtColor(rgba, gray, cv.COLOR_RGBA2GRAY);
+    cv.Laplacian(gray, lap, cv.CV_64F);
+    cv.meanStdDev(lap, mean, stddev);
+    const std = stddev.data64F[0];
+    const variance = std * std;
+    return { isBlurry: variance < varMin, variance };
+  } finally {
+    gray.delete(); lap.delete(); mean.delete(); stddev.delete();
   }
 }

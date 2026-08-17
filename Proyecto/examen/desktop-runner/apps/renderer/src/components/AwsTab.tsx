@@ -66,6 +66,10 @@ function OutputsCard({
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [deployRunId, setDeployRunId] = useState<string | null>(null);
+  const [startingDeploy, setStartingDeploy] = useState(false);
+  const deployLogs = useRunLogs(deployRunId);
+
   const [apkRunId, setApkRunId] = useState<string | null>(null);
   const [startingApk, setStartingApk] = useState(false);
   const apkLogs = useRunLogs(apkRunId);
@@ -89,6 +93,19 @@ function OutputsCard({
     await navigator.clipboard.writeText(JSON.stringify(outputs, null, 2));
     setCopiedAll(true);
     setTimeout(() => setCopiedAll(false), 2000);
+  };
+
+  const deployBackend = async () => {
+    setError(null);
+    setStartingDeploy(true);
+    try {
+      const { runId } = await api.deployBackend();
+      setDeployRunId(runId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setStartingDeploy(false);
+    }
   };
 
   const applyBackendUrl = async () => {
@@ -160,9 +177,10 @@ function OutputsCard({
           </div>
         </div>
         <CardDescription>
-          Resultado de <code className="font-mono">terraform output</code> — cada valor tiene su botón de copiar. Los tres
-          pasos de abajo son el resto del hand-off que <code className="font-mono">infra/terraform/README.md</code>{' '}
-          documentaba a mano.
+          Resultado de <code className="font-mono">terraform output</code> — cada valor tiene su botón de copiar. Los pasos
+          de abajo son el resto del hand-off que <code className="font-mono">infra/terraform/README.md</code>{' '}
+          documentaba a mano. El paso 0 sube <code className="font-mono">backend/</code> tal cual está en este checkout —
+          usalo también para actualizar el código de un backend ya desplegado, no solo la primera vez.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -200,6 +218,14 @@ function OutputsCard({
             </p>
           </div>
         )}
+        {deployRunId && (
+          <LogConsole
+            lines={deployLogs.lines}
+            currentLine={deployLogs.currentLine}
+            status={deployLogs.status}
+            lastActivityAt={deployLogs.lastActivityAt}
+          />
+        )}
         {apkRunId && (
           <LogConsole lines={apkLogs.lines} currentLine={apkLogs.currentLine} status={apkLogs.status} lastActivityAt={apkLogs.lastActivityAt} />
         )}
@@ -217,6 +243,9 @@ function OutputsCard({
       </CardContent>
       {outputs && (
         <CardFooter className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" disabled={startingDeploy || deployLogs.status === 'running'} onClick={deployBackend}>
+            {deployLogs.status === 'running' ? 'Desplegando…' : '0. Desplegar backend (código)'}
+          </Button>
           <Button size="sm" variant="outline" disabled={applying} onClick={applyBackendUrl}>
             {applying ? 'Aplicando…' : '1. Aplicar backend_url a la app'}
           </Button>

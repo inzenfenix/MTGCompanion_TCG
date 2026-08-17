@@ -93,6 +93,18 @@ export class ScriptsController {
     return this.scriptsService.getTerraformOutputs();
   }
 
+  // Corre scripts/deploy-backend.sh (sube backend/ actualizado a la
+  // instancia real vía S3+SSM Run Command, ver el propio script) — el paso
+  // que faltaba en esta pestaña para actualizar el CÓDIGO de un backend ya
+  // desplegado, sin volver a pasar por apply/destroy (que son para
+  // crear/destruir infra, no para esto).
+  @Post('deploy/backend')
+  @HttpCode(202)
+  async deployBackend() {
+    const { runId } = await this.scriptsService.deployBackend();
+    return { runId };
+  }
+
   // Instala terraform/aws cli automáticamente (tool-install.ts) — mismo
   // mecanismo de runId que arriba, no hace falta confirmación (nunca toca
   // sudo ni crea infraestructura, solo baja/copia binarios).

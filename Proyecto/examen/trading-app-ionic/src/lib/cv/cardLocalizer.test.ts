@@ -28,6 +28,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ASPECT_RATIO_CARTA,
   detectarBrilloEspecular,
+  detectarDesenfoque,
   detectarFundaOpaca,
   getOpenCv,
   localizarCarta,
@@ -211,6 +212,72 @@ describe('localizarCarta — G4e containment fix', () => {
   });
 });
 
+/** Fills an arbitrary convex polygon (even-odd scanline) — for a genuine trapezoid fixture, which `makeImage()`'s axis-aligned rect helper can't produce. */
+function fillPolygon(
+  width: number,
+  height: number,
+  bg: [number, number, number],
+  poly: { x: number; y: number }[],
+  color: [number, number, number],
+): Uint8ClampedArray {
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let i = 0; i < width * height; i++) {
+    data[i * 4] = bg[0]; data[i * 4 + 1] = bg[1]; data[i * 4 + 2] = bg[2]; data[i * 4 + 3] = 255;
+  }
+  const inside = (x: number, y: number) => {
+    let c = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const { x: xi, y: yi } = poly[i];
+      const { x: xj, y: yj } = poly[j];
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c;
+    }
+    return c;
+  };
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (inside(x, y)) {
+        const i = (y * width + x) * 4;
+        data[i] = color[0]; data[i + 1] = color[1]; data[i + 2] = color[2]; data[i + 3] = 255;
+      }
+    }
+  }
+  return data;
+}
+
+describe('localizarCarta — I19/I25 trapezoid corner precision', () => {
+  it('finds the real 4 corners of a genuinely perspective-distorted (trapezoid) card, not just its bounding rectangle', { timeout: 20000 }, async () => {
+    const cv: OpenCvModule = await getOpenCv();
+    const width = 400;
+    const height = 400;
+    // Same real trapezoid used to validate this against the Python source of
+    // truth (card_preprocessing.py's own smoke test): a card photographed
+    // at an angle, left edge taller than right (converging top edge) —
+    // NOT a simply-rotated rectangle. minAreaRect (the old corner source)
+    // can only ever return a rectangle and was measured up to ~20px off on
+    // this exact input; approxPolyDP gets within ~1-2px.
+    const trueCorners = [
+      { x: 90, y: 60 },
+      { x: 290, y: 75 },
+      { x: 305, y: 345 },
+      { x: 95, y: 335 },
+    ];
+    const data = fillPolygon(width, height, [220, 20, 20], trueCorners, [230, 225, 220]);
+    const mat = matFromRgba(cv, data, width, height);
+    let result;
+    try {
+      result = localizarCarta(cv, mat);
+    } finally {
+      mat.delete();
+    }
+
+    expect(result).not.toBeNull();
+    for (const corner of result!.corners) {
+      const nearestDist = Math.min(...trueCorners.map((t) => Math.hypot(corner.x - t.x, corner.y - t.y)));
+      expect(nearestDist).toBeLessThan(5); // old minAreaRect-only path measured ~12-20px off on this same input
+    }
+  });
+});
+
 describe('localizarCarta — G4e skin-tone rejection (direction (a))', () => {
   it('rejects a uniform skin-tone rect (e.g. a face) that would otherwise match a card aspect ratio', async () => {
     const cv: OpenCvModule = await getOpenCv();
@@ -369,6 +436,48 @@ describe('detectarFundaOpaca', () => {
       mat.delete();
     }
     expect(result.suspicious).toBe(false);
+  });
+});
+
+describe('detectarDesenfoque', () => {
+  it('flags a perfectly uniform image (zero edges — the "no detail at all" extreme of blur)', async () => {
+    const cv: OpenCvModule = await getOpenCv();
+    const width = 300;
+    const height = 300;
+    const data = makeImage(width, height, [180, 170, 160]); // flat, no rect -> zero variance
+    const mat = matFromRgba(cv, data, width, height);
+    let result;
+    try {
+      result = detectarDesenfoque(cv, mat);
+    } finally {
+      mat.delete();
+    }
+    expect(result.isBlurry).toBe(true);
+    expect(result.variance).toBe(0);
+  });
+
+  it('does not flag a high-frequency checkerboard (maximally sharp edges)', async () => {
+    const cv: OpenCvModule = await getOpenCv();
+    const width = 300;
+    const height = 300;
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4;
+        const on = (Math.floor(x / 4) + Math.floor(y / 4)) % 2 === 0;
+        const v = on ? 240 : 15;
+        data[i] = v; data[i + 1] = v; data[i + 2] = v; data[i + 3] = 255;
+      }
+    }
+    const mat = matFromRgba(cv, data, width, height);
+    let result;
+    try {
+      result = detectarDesenfoque(cv, mat);
+    } finally {
+      mat.delete();
+    }
+    expect(result.isBlurry).toBe(false);
+    expect(result.variance).toBeGreaterThan(1000); // real margin above the 15 threshold
   });
 });
 

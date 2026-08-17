@@ -160,6 +160,7 @@
   "guided_capture_timeout": "No se encontró la carta — ajusta el ángulo o la luz e intenta de nuevo.",
   "guided_capture_rejected": "Eso no parece una carta de Magic — intenta de nuevo.",
   "guided_capture_glare": "Hay un reflejo de luz — inclina la carta o aléjate de la luz directa.",
+  "guided_capture_blur": "Está muy borrosa — sostené la cámara firme o esperá a que enfoque.",
   "guided_capture_captured": "Carta capturada.",
   "guided_capture_manual_button": "Capturar ahora",
   "guided_capture_switch_camera_button": "Cambiar cámara",
@@ -180,6 +181,11 @@
   "scan_no_match_banner": "No se pudo identificar la carta automáticamente — revisa los campos abajo.",
   "scan_pick_different": "¿No es la carta correcta?",
   "scan_clear_match": "Desvincular coincidencia",
+  "scan_low_confidence_warning": "Confianza baja — revisa todos los campos antes de guardar.",
+  "scan_debug_summary": "Detalles del escaneo (lo que el escáner realmente leyó)",
+  "scan_debug_ocr_name": "Nombre leído por OCR: \"{{text}}\"",
+  "scan_debug_ocr_rules": "Texto de reglas leído por OCR: \"{{text}}\"",
+  "scan_debug_no_candidates": "Ninguna carta del catálogo coincidió con ese nombre.",
 
   "logged_in_as": "Sesión iniciada como:",
 

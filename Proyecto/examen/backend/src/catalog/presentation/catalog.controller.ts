@@ -12,4 +12,13 @@ export class CatalogController {
   search(@Query('q') q: string, @Query('limit') limit?: string) {
     return this.catalog.search(q, limit ? Number(limit) : undefined);
   }
+
+  // ROADMAP.md I19/I25 — the other half of identifyCard.ts's combined
+  // title+rules-text identify flow: fuzzy search against oracleText instead
+  // of name, for when the rules-text OCR read is good even though the
+  // title-bar crop wasn't.
+  @Get('search-by-text')
+  searchByText(@Query('q') q: string, @Query('limit') limit?: string) {
+    return this.catalog.searchByText(q, limit ? Number(limit) : undefined);
+  }
 }

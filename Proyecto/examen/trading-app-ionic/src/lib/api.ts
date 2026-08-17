@@ -237,6 +237,18 @@ export function searchCatalog(q: string, limit = 10): Promise<CatalogEntry[]> {
   return request<CatalogEntry[]>(`/catalog/search?${qs.toString()}`);
 }
 
+/**
+ * ROADMAP.md I19/I25 — the other half of `identifyCard.ts`'s combined
+ * title+rules-text identify flow: fuzzy search against `oracleText` instead
+ * of `name`, so a good rules-text OCR read can still find the right card
+ * when the title-bar crop didn't. Backend enforces its own 10-char minimum
+ * (`catalog.service.ts`), shorter than `searchCatalog`'s 2-char one.
+ */
+export function searchCatalogByText(q: string, limit = 10): Promise<CatalogEntry[]> {
+  const qs = new URLSearchParams({ q, limit: String(limit) });
+  return request<CatalogEntry[]>(`/catalog/search-by-text?${qs.toString()}`);
+}
+
 // Sending this at all is the consent — see users.controller.ts's doc
 // comment. Only called after the browser's own geolocation permission
 // prompt has already succeeded.

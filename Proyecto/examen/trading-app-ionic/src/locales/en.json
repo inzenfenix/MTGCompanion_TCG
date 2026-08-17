@@ -160,6 +160,7 @@
   "guided_capture_timeout": "Couldn't find the card — adjust the angle or lighting and try again.",
   "guided_capture_rejected": "That doesn't look like an MTG card — try again.",
   "guided_capture_glare": "Glare detected — tilt the card or move away from direct light.",
+  "guided_capture_blur": "Too blurry — hold the camera still or wait for it to focus.",
   "guided_capture_captured": "Card captured.",
   "guided_capture_manual_button": "Capture now",
   "guided_capture_switch_camera_button": "Switch camera",
@@ -180,6 +181,11 @@
   "scan_no_match_banner": "Couldn't identify this card automatically — check the fields below.",
   "scan_pick_different": "Not the right card?",
   "scan_clear_match": "Unlink match",
+  "scan_low_confidence_warning": "Low confidence — please double-check every field before saving.",
+  "scan_debug_summary": "Scan details (what the scanner actually read)",
+  "scan_debug_ocr_name": "Name OCR read: \"{{text}}\"",
+  "scan_debug_ocr_rules": "Rules text OCR read: \"{{text}}\"",
+  "scan_debug_no_candidates": "No catalog entries matched that name.",
 
   "logged_in_as": "Signed in as:",
 

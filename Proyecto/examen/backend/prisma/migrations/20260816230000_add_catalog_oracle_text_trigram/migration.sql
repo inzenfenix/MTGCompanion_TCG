@@ -1,0 +1,12 @@
+-- ROADMAP.md I19/I25 — the same live session found that a Smart Scan photo
+-- can produce a genuinely-good rules-text OCR read while the title-bar crop
+-- still comes out as noise (localizer/warp imprecision on angled/hand-held
+-- captures — see I25's own writeup, a harder problem than a plain OCR bug).
+-- Rather than discard the good rules-text signal whenever the name fails,
+-- `identifyCard.ts` now searches the catalog by BOTH the OCR'd name (against
+-- `name`, unchanged) AND the OCR'd rules text (against `oracleText`, new)
+-- in parallel, merging candidates before Stage 2 reranks them. A GIN
+-- trigram index on `oracleText` makes that second search fast at 58k rows
+-- — `pg_trgm` itself is already enabled (see the earlier catalog-name-
+-- trigram migration), no need to re-create the extension.
+CREATE INDEX "catalog_cards_oracle_text_trgm_idx" ON "catalog_cards" USING GIN ("oracleText" gin_trgm_ops);

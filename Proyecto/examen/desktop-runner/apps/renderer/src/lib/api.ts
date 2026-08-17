@@ -97,6 +97,7 @@ export const api = {
       body: JSON.stringify({ confirm }),
     }).then((r) => json<{ runId: string }>(r)),
   terraformOutputs: () => fetch(`${API_BASE}/terraform/outputs`).then((r) => json<Record<string, unknown> | null>(r)),
+  deployBackend: () => fetch(`${API_BASE}/deploy/backend`, { method: 'POST' }).then((r) => json<{ runId: string }>(r)),
   installTool: (tool: ToolInstallTarget) =>
     fetch(`${API_BASE}/terraform/install/${tool}`, { method: 'POST' }).then((r) => json<{ runId: string }>(r)),
   ssmInstances: () => fetch(`${API_BASE}/ssm/instances`).then((r) => json<SsmInstanceDef[]>(r)),

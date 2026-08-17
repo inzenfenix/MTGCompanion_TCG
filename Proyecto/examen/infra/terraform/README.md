@@ -156,3 +156,28 @@ this deliberately, and only if you're done with the deployed environment.
 - `terraform.tfvars`'s state file (`terraform.tfstate`, gitignored) can
   contain secrets in plaintext once resources exist — don't share it, don't
   commit it, treat it like a credentials file.
+- `terraform.tfvars`'s AWS credential lines silently take precedence over
+  `TF_VAR_*` env vars (Terraform's `.tfvars` > env var precedence) — if
+  you've edited `terraform.tfvars` by hand in the past, a stale credential
+  set in that file will shadow fresh ones injected via env vars (including
+  desktop-runner's Deploy tab, which only injects via env vars, never
+  writes the file) with a confusing "AccessDenied"-style error that looks
+  AWS-side. Fix: keep `terraform.tfvars`'s credential lines in sync with
+  whatever's current, or don't hand-edit that file for credentials at all
+  once you're driving `terraform` through the Deploy tab (16 ago, found
+  live while debugging this).
+
+## Elastic IP (backend)
+
+`backend`'s public IP is an **Elastic IP** (`eip.tf`, `aws_eip.backend` +
+`aws_eip_association.backend`), not the instance's default ephemeral one —
+added 16 ago after AWS Academy Lab stopped/restarted the instance between
+sessions and its ephemeral IP changed (`98.92.218.66` → `100.61.127.188`)
+with no `apply` run in between, silently breaking the APK's baked-in
+`VITE_API_BASE_URL` and the Android cleartext-exception host. An EIP
+survives stop/start — only a `terraform destroy` or instance replacement
+changes it now. Trade-off: free while attached to a *running* instance, a
+small hourly charge while attached to a *stopped* one (likely between Lab
+sessions) or left unassociated — accepted for a course project.
+`postgres`/`mailhog`/`minio` don't have one (only reached via SSM, which
+targets by instance ID, not IP, so their IPs changing is a non-issue).

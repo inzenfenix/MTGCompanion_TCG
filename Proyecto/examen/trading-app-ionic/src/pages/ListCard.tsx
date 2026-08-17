@@ -33,7 +33,7 @@ import { GuidedCapture } from '../components/GuidedCapture';
 import { runStage1Detection } from '../lib/ml/stage1Detector';
 import { runStage3PriceEstimation } from '../lib/ml/stage3PriceEstimator';
 import { runStage4ConditionGrading } from '../lib/ml/stage4ConditionGrader';
-import { identifyCard, toScryfallFields, type IdentifyCandidate } from '../lib/scan/identifyCard';
+import { identifyCard, toScryfallFields, type IdentifyCandidate, type IdentifyStatus } from '../lib/scan/identifyCard';
 
 // Two capture paths, matching Proyecto/examen/README.md's documented split:
 // - "Manual" is the original single-shot @capacitor/camera photo, typed-in
@@ -103,6 +103,11 @@ const ListCard: React.FC = () => {
   const [scanCanvas, setScanCanvas] = useState<HTMLCanvasElement | null>(null);
   const [candidates, setCandidates] = useState<IdentifyCandidate[]>([]);
   const [selectedCandidateIdx, setSelectedCandidateIdx] = useState<number | null>(null);
+  // ROADMAP.md I19 — the raw identifyCard() result (whichever status it came
+  // back with), kept around purely for the "Scan details" panel below so a
+  // failed/low-confidence match is diagnosable in the UI (what OCR actually
+  // read, every candidate's real score) instead of a silent black box.
+  const [identifyDebug, setIdentifyDebug] = useState<IdentifyStatus | null>(null);
 
   useEffect(() => {
     if (captureMode === 'scan') {
@@ -141,6 +146,7 @@ const ListCard: React.FC = () => {
     setScanCanvas(null);
     setCandidates([]);
     setSelectedCandidateIdx(null);
+    setIdentifyDebug(null);
   });
 
   // Release the camera the instant the view leaves, not just on the next
@@ -218,6 +224,7 @@ const ListCard: React.FC = () => {
 
       setConditionWarning(stage4.status === 'likely-no-card-content');
       if (stage4.status === 'ok') setCondition(stage4.result.condition);
+      setIdentifyDebug(identifyResult);
 
       canvas.toBlob(
         (blob) => {
@@ -370,6 +377,17 @@ const ListCard: React.FC = () => {
                       confidence: Math.round(selectedCandidate.confidence * 100),
                     })}
                   </p>
+                  {/* Stage 2's own isMatch (its Youden threshold, not a made-up
+                      number here — see stage2TextValidator.ts's MATCH_THRESHOLD)
+                      is false: this is still the highest-scoring candidate, but
+                      Stage 2 itself doesn't actually confirm it. Flagged
+                      explicitly instead of presenting a weak guess as a real
+                      match — ROADMAP.md I19. */}
+                  {!selectedCandidate.isMatch && (
+                    <p style={{ margin: '0 0 10px', color: '#e0a030', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                      {t('scan_low_confidence_warning')}
+                    </p>
+                  )}
                   {candidates.length > 1 && (
                     <>
                       <p style={{ margin: '0 0 6px', color: '#c2b5b5', fontSize: '0.8rem' }}>{t('scan_pick_different')}</p>
@@ -402,6 +420,39 @@ const ListCard: React.FC = () => {
                 <p style={{ fontSize: '0.85rem', fontStyle: 'italic', marginTop: '10px', color: '#ff8080' }}>
                   {t('model_error', { message: scanErrorMessage })}
                 </p>
+              )}
+
+              {/* ROADMAP.md I19 — makes a wrong/missing match diagnosable
+                  instead of a black box: shows exactly what OCR read and, for
+                  a real identify attempt, every candidate's Stage 2 score, not
+                  just the auto-picked top one. `error` has no OCR text to show
+                  (it can fail before OCR even completes), so it's excluded. */}
+              {identifyDebug && identifyDebug.status !== 'error' && (
+                <details style={{ marginTop: '10px', textAlign: 'left', fontSize: '0.78rem', color: '#c2b5b5' }}>
+                  <summary style={{ cursor: 'pointer', color: '#f2e3cd' }}>{t('scan_debug_summary')}</summary>
+                  <div style={{ marginTop: '6px' }}>
+                    <p style={{ margin: '2px 0' }}>
+                      {t('scan_debug_ocr_name', {
+                        text: (identifyDebug.status === 'ok' ? identifyDebug.result.ocrName : identifyDebug.ocrName).trim() || '—',
+                      })}
+                    </p>
+                    <p style={{ margin: '2px 0' }}>
+                      {t('scan_debug_ocr_rules', {
+                        text: (identifyDebug.status === 'ok' ? identifyDebug.result.ocrRulesText : identifyDebug.ocrRulesText).trim() || '—',
+                      })}
+                    </p>
+                    {identifyDebug.status === 'ok' && (
+                      <ul style={{ margin: '4px 0', paddingLeft: '18px' }}>
+                        {identifyDebug.result.candidates.map((c) => (
+                          <li key={c.card.id}>
+                            {c.card.name} — {Math.round(c.confidence * 100)}%{c.isMatch ? ' ✓' : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {identifyDebug.status === 'no-candidates' && <p style={{ margin: '2px 0' }}>{t('scan_debug_no_candidates')}</p>}
+                  </div>
+                </details>
               )}
             </div>
           )}
