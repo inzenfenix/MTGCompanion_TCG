@@ -155,6 +155,48 @@ export const CANDIDATO_TEXTURA_STD_MIN = 20;
 // above that without risking a reject on a legitimately close-up capture.
 export const AREA_MAXIMA_FRACCION = 0.75;
 
+// Found live (ROADMAP.md I41): `mascaraSaturacion`/`mascaraBrillo` only
+// keep LOW-saturation, plain-colored regions — exactly the opposite of a
+// real card's art box (high-saturation, uneven brightness). On a close-up
+// capture the art box's own height is wider than the gap the old FIXED
+// 25px closing kernel could bridge, so the name/mana-cost bar (above the
+// art) and the type-line/rules-text/border (below it) never merge into one
+// mask blob — only the plain-colored bottom chunk survives as a clean
+// contour, and it lands close enough to a real card's aspect ratio to pass
+// `candidatosValidos()`'s filter ON ITS OWN, with no larger candidate
+// around for `discardContained()` to prefer instead. Confirmed live: a real
+// captured/warped photo showed exactly this — type line down to the
+// bottom border, art and name entirely missing.
+//
+// A FIXED pixel kernel is also resolution-dependent in a way that made this
+// worse specifically on the photo that matters most: `GuidedCapture.tsx`'s
+// live tracking loop runs `localizarCarta` on a downscaled ~480px frame
+// (`SAMPLE_MAX_SIDE`), but `doCapture()` — the actual saved/warped photo —
+// runs it on the camera's native resolution, easily 4x+ larger. The same
+// 25px kernel bridges a proportionally much SMALLER gap there. Scaling the
+// kernel to the mask's own short side, not a fixed pixel count, fixes both
+// problems together: consistent bridging power regardless of which frame
+// size is being processed, and enough absolute bridging at any resolution
+// to actually span a real card's art-box height.
+//
+// Fractions, not absolute pixels. OPEN kept at exactly the OLD fixed
+// kernel's own ratio (15/400=0.0375, measured against
+// `cardLocalizer.test.ts`'s synthetic trapezoid at its native 400px size,
+// not the live app's 480px reference — shrinking it further measurably
+// hurt corner precision on that same test, see below) — its job is small
+// noise removal, no reason to change it. CLOSE is the one that needs real
+// bridging power; empirically probed (not guessed) against that same
+// trapezoid test across a range of values: anywhere from ~0.055 up plateaus
+// at ~3.6px worst-corner error (comfortably under the test's existing 5px
+// bound), so 0.08 buys real margin above the minimum that showed any
+// improvement without spending precision it doesn't need to. Still only
+// validated against one real repro (this session's screenshot) beyond that
+// synthetic probe — AREA_MAXIMA_FRACCION/CANDIDATO_TEXTURA_STD_MIN below
+// already guard against an over-merge swallowing the whole frame, so the
+// downside of erring wide is bounded, not unbounded.
+export const OPEN_KERNEL_FRACCION = 0.0375;
+export const CLOSE_KERNEL_FRACCION = 0.08;
+
 // ROADMAP.md I28b — replaces I28's original `useDeviceTilt`/
 // `DeviceOrientationEvent`-based approach entirely, per direct user
 // feedback after trying it live: "too tight... what we should equalize is
@@ -323,8 +365,14 @@ export function mejorarContraste(cv: OpenCvModule, rgba: InstanceType<OpenCvModu
 }
 
 function morphOpenClose(cv: OpenCvModule, mask: InstanceType<OpenCvModule['Mat']>) {
-  const kernelOpen = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(15, 15));
-  const kernelClose = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(25, 25));
+  // ROADMAP.md I41 — kernel size scales with the mask's own resolution
+  // instead of a fixed pixel count; see OPEN_KERNEL_FRACCION/
+  // CLOSE_KERNEL_FRACCION's own comment for why.
+  const shortSide = Math.min(mask.rows, mask.cols);
+  const openSize = Math.max(3, Math.round(shortSide * OPEN_KERNEL_FRACCION));
+  const closeSize = Math.max(3, Math.round(shortSide * CLOSE_KERNEL_FRACCION));
+  const kernelOpen = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(openSize, openSize));
+  const kernelClose = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(closeSize, closeSize));
   try {
     cv.morphologyEx(mask, mask, cv.MORPH_OPEN, kernelOpen);
     cv.morphologyEx(mask, mask, cv.MORPH_CLOSE, kernelClose);

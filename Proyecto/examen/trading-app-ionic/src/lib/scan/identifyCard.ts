@@ -180,7 +180,13 @@ export async function identifyCard(
     // wrong candidate 0.98 confidence against a right candidate's 0.01 —
     // undiagnosable without seeing what OCR actually read that Stage 2 was
     // scoring against, only its character count.
-    console.debug('[identifyCard] OCR name=%o rulesText=%o', ocrName, ocrRulesText);
+    // ROADMAP.md I40 — found live (17 ago): this Capacitor WebView's
+    // console-to-`adb logcat` bridge does NOT do printf-style substitution
+    // (%o/%d stay literal, with the actual arg values just tacked on after,
+    // unlabeled) — I36 already found and fixed this exact class of bug for
+    // GuidedCapture.tsx/the Stage-1-verdict logs, but missed these three
+    // calls in this file. Plain string interpolation, same as I36's fix.
+    console.debug(`[identifyCard] OCR name=${JSON.stringify(ocrName)} rulesText=${JSON.stringify(ocrRulesText)}`);
 
     const nameQuery = ocrName.trim();
     const textQuery = ocrRulesText.trim();
@@ -200,8 +206,7 @@ export async function identifyCard(
     const results = await Promise.all(searches);
     const catalogCandidates = dedupeById(results.flat());
     console.debug(
-      '[identifyCard] catalog search name=%o text=%o -> %d candidate(s) (merged, deduped)',
-      nameQuery, textQuery.length, catalogCandidates.length,
+      `[identifyCard] catalog search name=${JSON.stringify(nameQuery)} textLen=${textQuery.length} -> ${catalogCandidates.length} candidate(s) (merged, deduped)`,
     );
     if (catalogCandidates.length === 0) {
       return { status: 'no-candidates', ocrName, ocrRulesText };
@@ -227,8 +232,7 @@ export async function identifyCard(
     // stay Stage 2's raw, unweighted output — untouched by this.
     scored.sort((a, b) => b.rankScore - a.rankScore);
     console.debug(
-      '[identifyCard] ranked: %o',
-      scored.map((c) => `${c.card.name}=rank${c.rankScore.toFixed(2)}(text${c.confidence.toFixed(2)}+name${c.nameSimilarity.toFixed(2)})${c.isMatch ? '(match)' : ''}`),
+      `[identifyCard] ranked: ${scored.map((c) => `${c.card.name}=rank${c.rankScore.toFixed(2)}(text${c.confidence.toFixed(2)}+name${c.nameSimilarity.toFixed(2)})${c.isMatch ? '(match)' : ''}`).join(', ')}`,
     );
 
     return { status: 'ok', result: { ocrName, ocrRulesText, candidates: scored } };

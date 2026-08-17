@@ -140,8 +140,12 @@ describe('preprocessForOcr', () => {
 // ROADMAP.md E3's own row).
 vi.mock('tesseract.js', () => ({
   createWorker: vi.fn(async () => ({
+    setParameters: vi.fn(async () => ({})),
     recognize: vi.fn(async () => ({ data: { text: '  Lightning Bolt  \n' } })),
   })),
+  // Real enum values (see node_modules/tesseract.js's .d.ts) — ROADMAP.md
+  // I40's PSM.SINGLE_LINE pin needs the real value, not an arbitrary mock.
+  PSM: { SINGLE_LINE: '7' },
 }));
 
 function fakeSource(): HTMLCanvasElement {

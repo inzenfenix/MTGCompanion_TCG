@@ -37,6 +37,8 @@
  * same `ANCHO_CANONICO`/`ALTO_CANONICO` as `card_preprocessing.py`) → crop
  * the rules-text box (`CROP_TEXTO`, identical fractions to the Python
  * module) → 3x upscale → CLAHE → grayscale → Otsu threshold → `tesseract.js`.
+ * `CROP_NOMBRE` (title bar) runs through a separate worker pinned to
+ * `PSM.SINGLE_LINE` — ROADMAP.md I40, see `getWorker()`'s own comment.
  * `computeCropRect`/`toGrayscale`/`otsuThreshold`/`binarize` are pure
  * (no DOM), unit-tested directly; `extractCardText` is the DOM-facing glue
  * (canvas draw/crop/upscale, which jsdom can't actually render — see this
@@ -224,13 +226,29 @@ export const TESSERACT_LANG_PATH =
   (import.meta.env.VITE_TESSERACT_LANG_PATH as string | undefined) ?? '/tessdata';
 
 type TesseractWorker = Awaited<ReturnType<typeof import('tesseract.js').createWorker>>;
-let workerPromise: Promise<TesseractWorker> | null = null;
 
-async function getWorker(): Promise<TesseractWorker> {
-  if (!workerPromise) {
-    workerPromise = (async () => {
-      const { createWorker } = await import('tesseract.js');
-      return createWorker('eng', undefined, {
+// ROADMAP.md I40 — CROP_NOMBRE's title bar is a SINGLE line, CROP_TEXTO's
+// rules box is a multi-line paragraph; tesseract.js defaults to PSM AUTO
+// (general page segmentation) for both, which is the well-documented wrong
+// mode for a single text line — AUTO's block/column-finding logic has
+// nothing to work with on one short line and is prone to reading stray
+// border/mana-cost noise as separate "blocks". Fixing this needed care, not
+// just a `setParameters()` call before `recognize()`: `identifyCard.ts` runs
+// `extractCardName`/`extractCardText` concurrently (`Promise.all`), and both
+// used to share ONE cached worker — `setParameters()` mutates that worker's
+// persistent engine state, so two concurrent set+recognize pairs racing on
+// the same worker could apply either box's PSM to either box's job,
+// silently and intermittently. Two separate cached workers (one per
+// profile), each given its PSM ONCE right after creation and never mutated
+// again, avoids the race entirely instead of trying to sequence around it.
+type OcrProfile = 'name' | 'text';
+const workerPromises: Record<OcrProfile, Promise<TesseractWorker> | null> = { name: null, text: null };
+
+async function getWorker(profile: OcrProfile): Promise<TesseractWorker> {
+  if (!workerPromises[profile]) {
+    workerPromises[profile] = (async () => {
+      const { createWorker, PSM } = await import('tesseract.js');
+      const worker = await createWorker('eng', undefined, {
         workerPath: TESSERACT_WORKER_PATH,
         corePath: TESSERACT_CORE_PATH,
         langPath: TESSERACT_LANG_PATH,
@@ -246,9 +264,13 @@ async function getWorker(): Promise<TesseractWorker> {
         // flag just matches reality instead of fighting Android's repacking.
         gzip: false,
       });
+      if (profile === 'name') {
+        await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_LINE });
+      }
+      return worker;
     })();
   }
-  return workerPromise;
+  return workerPromises[profile]!;
 }
 
 /**
@@ -259,6 +281,7 @@ async function getWorker(): Promise<TesseractWorker> {
 async function extractRegionText(
   source: HTMLCanvasElement | HTMLImageElement,
   box: readonly [number, number, number, number],
+  profile: OcrProfile,
 ): Promise<string> {
   const resized = document.createElement('canvas');
   resized.width = CANONICAL_WIDTH;
@@ -297,7 +320,7 @@ async function extractRegionText(
   }
   outCtx.putImageData(outImageData, 0, 0);
 
-  const worker = await getWorker();
+  const worker = await getWorker(profile);
   const { data } = await worker.recognize(upscaled);
   return data.text.trim();
 }
@@ -309,7 +332,7 @@ async function extractRegionText(
  * directly as `ocrText` to `runStage2Validation()`.
  */
 export function extractCardText(source: HTMLCanvasElement | HTMLImageElement): Promise<string> {
-  return extractRegionText(source, CROP_TEXTO);
+  return extractRegionText(source, CROP_TEXTO, 'text');
 }
 
 /**
@@ -357,5 +380,5 @@ export function pickBestLine(text: string): string {
  * comment for the real garbage-multi-line read that motivated this.
  */
 export function extractCardName(source: HTMLCanvasElement | HTMLImageElement): Promise<string> {
-  return extractRegionText(source, CROP_NOMBRE).then(pickBestLine);
+  return extractRegionText(source, CROP_NOMBRE, 'name').then(pickBestLine);
 }

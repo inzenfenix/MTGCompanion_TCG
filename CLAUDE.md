@@ -42,7 +42,7 @@ Proyecto/
 | 1 — Detector (MTG/no-MTG) | binary classifier, transfer learning | ✅ done, Optuna done | ✅ done, Optuna done | real |
 | 2 — Text validator (OCR match) | text-pair matching MLP over hashed n-grams | ✅ done, Optuna done, real dataset | ✅ done, Optuna done, real dataset | real, both frameworks |
 | 3 — Price estimator | regression, tabular + frozen visual embedding (Stage 1 backbone) | ✅ done, Optuna done | ✅ done, Optuna done | real, both frameworks |
-| 4 — Condition grader (NM/LP/MP/HP/DMG) | 5-class classifier, transfer learning | ✅ done, Optuna done (+ combined real+synthetic checkpoint — see below) | ✅ done, Optuna done (synthetic-only) | real |
+| 4 — Condition grader (NM/LP/MP/HP/DMG) | 5-class classifier, transfer learning | ✅ done, Optuna done (+ combined real+synthetic checkpoint — see below) | ✅ done, Optuna done (+ combined real+synthetic checkpoint, 17 ago — see below) | real |
 
 ONNX-exported and present in `trading-app-ionic/public/models/`, all 4 stages
 (15 ago — the desktop-runner Exportar tab now has a "Correr todo" button that
@@ -61,7 +61,13 @@ from `10_condition_grader.py`/`11_optuna_condition_grader.py` — that plain
 checkpoint scores higher on its own split (95.25% vs 90.24%) but collapses to
 38.7% accuracy on real photos vs. 72.2% for the combined (real+synthetic)
 model; same reasoning `predict_condition.py` already documents. TensorFlow
-has no combined-checkpoint equivalent yet (see ROADMAP.md item C6).
+now has a combined-checkpoint equivalent too (`tensorFlow/11_condition_grader_combined.py`,
+trained 17 ago on 1,184 real Roboflow photos + 800 synthetic — accuracy
+0.657/f1_macro 0.637, `condition_grader_combined.keras`/`.onnx` on disk and
+republished to Ionic same day; see ROADMAP.md item I20). Neither framework's
+combined checkpoint has seen sleeve-augmented data yet (`synthetic_sleeve.py`
+exists and is wired via `--con-fundas` but no retrain has used it — ROADMAP.md
+item I20, points 3/4).
 
 ## Workflow expectations for any non-trivial task
 
