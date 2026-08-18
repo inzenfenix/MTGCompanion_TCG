@@ -29,6 +29,7 @@
     "framer-motion": "^12.43.0",
     "i18next": "^26.3.6",
     "ionicons": "^7.4.0",
+    "jsqr": "^1.4.0",
     "onnxruntime-web": "^1.27.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",

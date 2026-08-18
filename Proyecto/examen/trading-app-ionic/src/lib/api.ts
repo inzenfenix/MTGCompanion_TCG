@@ -312,6 +312,20 @@ export function updateCard(id: string, input: UpdateCardInput): Promise<Card> {
   return request<Card>(`/cards/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
 }
 
+// ── Listing tokens (J4, ROADMAP.md) — the signed QR payload ───────────────
+
+/** Seller-only — mints the token Tab2.tsx's QR encodes. */
+export function createListingToken(cardId: string): Promise<{ token: string; expiresIn: string }> {
+  return request<{ token: string; expiresIn: string }>(`/cards/${encodeURIComponent(cardId)}/listing-token`, {
+    method: 'POST',
+  });
+}
+
+/** Public — Buy.tsx resolves a scanned token into a real cardId before rendering anything. */
+export function resolveListingToken(token: string): Promise<{ cardId: string }> {
+  return request<{ cardId: string }>(`/cards/listing-token/${encodeURIComponent(token)}`);
+}
+
 export function deleteCard(id: string): Promise<void> {
   return request<void>(`/cards/${id}`, { method: 'DELETE' });
 }
@@ -453,4 +467,9 @@ export type ReceiptBreakdown = {
 
 export function getTransactionReceipt(id: string): Promise<ReceiptBreakdown> {
   return request<ReceiptBreakdown>(`/transactions/${id}/receipt`);
+}
+
+// ROADMAP.md J6/J7 — seller-only, flips a PENDING cash transaction to PAID.
+export function confirmCashReceived(id: string): Promise<Transaction> {
+  return request<Transaction>(`/transactions/${id}/confirm-cash-received`, { method: 'POST' });
 }

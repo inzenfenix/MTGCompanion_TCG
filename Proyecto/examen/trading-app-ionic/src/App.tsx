@@ -30,6 +30,7 @@ const SecuritySettings = lazy(() => import('./pages/SecuritySettings'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
 const ListCard = lazy(() => import('./pages/ListCard'));
 const EditCard = lazy(() => import('./pages/EditCard'));
+const Buy = lazy(() => import('./pages/Buy'));
 
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/react/css/core.css';
@@ -136,6 +137,9 @@ const App: React.FC = () => {
           </Route>
           <Route exact path="/list-card">
             <Suspense fallback={null}><ListCard /></Suspense>
+          </Route>
+          <Route exact path="/buy/:token">
+            <Suspense fallback={null}><Buy /></Suspense>
           </Route>
           <Route path="/account">
             <Suspense fallback={null}><AccountSettings /></Suspense>

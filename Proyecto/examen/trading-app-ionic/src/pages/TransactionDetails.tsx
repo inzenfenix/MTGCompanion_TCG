@@ -18,6 +18,8 @@ const TransactionDetails: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
   const [receipt, setReceipt] = useState<api.ReceiptBreakdown | null>(null);
+  const [isConfirmingCash, setIsConfirmingCash] = useState(false);
+  const [confirmCashError, setConfirmCashError] = useState<string | null>(null);
 
   const fetchAll = useCallback(() => {
     setIsLoading(true);
@@ -50,6 +52,25 @@ const TransactionDetails: React.FC = () => {
   }, [fetchAll]);
 
   const isBuy = transaction?.buyerId === user?.id;
+  const isSeller = transaction?.sellerId === user?.id;
+  // ROADMAP.md J6/J7 — the seller-only "confirm I received the cash" step;
+  // cash no longer auto-settles PAID at creation (see CashPaymentProvider).
+  const canConfirmCash =
+    isSeller && transaction?.paymentMethod === 'CASH' && transaction?.status === 'PENDING';
+
+  const handleConfirmCash = async () => {
+    if (!transaction) return;
+    setIsConfirmingCash(true);
+    setConfirmCashError(null);
+    try {
+      await api.confirmCashReceived(transaction.id);
+      fetchAll();
+    } catch (err) {
+      setConfirmCashError(err instanceof api.ApiError ? err.message : t('confirm_cash_error'));
+    } finally {
+      setIsConfirmingCash(false);
+    }
+  };
 
   // A MercadoPago transaction can flip PENDING → PAID asynchronously (its
   // webhook, after the buyer completes checkout in the tab that opened) —
@@ -113,6 +134,25 @@ const TransactionDetails: React.FC = () => {
                     <IonIcon icon={refreshOutline} slot="start" />
                     {t('refresh_status')}
                   </IonButton>
+                )}
+                {canConfirmCash && (
+                  <>
+                    <IonButton
+                      expand="block"
+                      className="mtg-btn"
+                      style={{ marginTop: '10px' }}
+                      disabled={isConfirmingCash}
+                      onClick={handleConfirmCash}
+                    >
+                      <div className="mtg-btn-content">
+                        <IonIcon icon={cashOutline} />
+                        <span>{isConfirmingCash ? t('confirming_cash') : t('confirm_cash_received')}</span>
+                      </div>
+                    </IonButton>
+                    {confirmCashError && (
+                      <p style={{ color: 'var(--ion-color-danger)', fontSize: '0.85rem' }}>{confirmCashError}</p>
+                    )}
+                  </>
                 )}
               </div>
 

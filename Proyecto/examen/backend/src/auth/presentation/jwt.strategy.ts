@@ -26,15 +26,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   // Whatever this returns becomes req.user — passport-jwt already verified
   // the signature/expiry before this runs, so no DB lookup needed here.
   //
-  // Reject 2FA-challenge tokens explicitly: they're signed with this same
-  // secret (so passport-jwt's signature check alone can't tell them apart
-  // from a real access token) but must never work as a bearer token on a
-  // protected route — only POST /auth/2fa/verify accepts them, and it
-  // verifies the `typ` tag itself rather than going through this guard.
-  validate(payload: JwtPayload | TwoFactorPendingPayload): RequestUser {
-    if ('typ' in payload && payload.typ === '2fa') {
+  // Reject 2FA-challenge and listing (J4, QR) tokens explicitly: both are
+  // signed with this same secret (so passport-jwt's signature check alone
+  // can't tell them apart from a real access token) but must never work as
+  // a bearer token on a protected route — each is only valid where its own
+  // service verifies the `typ` tag itself, not through this guard.
+  validate(
+    payload: JwtPayload | TwoFactorPendingPayload | { typ: 'listing' },
+  ): RequestUser {
+    if (
+      'typ' in payload &&
+      (payload.typ === '2fa' || payload.typ === 'listing')
+    ) {
       throw new UnauthorizedException('Invalid token');
     }
-    return { id: payload.sub, email: (payload as JwtPayload).email };
+    return { id: payload.sub, email: payload.email };
   }
 }

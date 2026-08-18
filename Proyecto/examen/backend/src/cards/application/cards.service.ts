@@ -4,7 +4,9 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import type { CardOrigin } from '../../../generated/prisma';
 import { StorageService } from '../../storage/storage.service';
 import {
@@ -12,6 +14,10 @@ import {
   type AuctionStateUpdate,
   type CardRepository,
 } from '../domain/card.repository';
+import {
+  LISTING_TOKEN_TTL,
+  type ListingTokenPayload,
+} from '../domain/listing-token';
 import type { CreateCardDto } from '../presentation/dto/create-card.dto';
 import type { UpdateCardDto } from '../presentation/dto/update-card.dto';
 
@@ -50,6 +56,7 @@ export class CardsService {
   constructor(
     @Inject(CARD_REPOSITORY) private readonly cards: CardRepository,
     private readonly storage: StorageService,
+    private readonly jwt: JwtService,
   ) {}
 
   create(ownerId: string, dto: CreateCardDto) {
@@ -92,6 +99,34 @@ export class CardsService {
     const card = await this.cards.findById(id);
     if (!card) throw new NotFoundException('Card not found');
     return card;
+  }
+
+  /**
+   * ROADMAP.md J4 — seller-only, mints the short-lived signed token a
+   * generated QR encodes instead of a bare `TRADE:<cardId>`. Stateless (no
+   * DB row) — a JWT signed with the same secret/mechanism as a real access
+   * token, just tagged `typ:'listing'` so JwtStrategy can't mistake it for
+   * one (see domain/listing-token.ts).
+   */
+  async createListingToken(cardId: string, currentUserId: string) {
+    await this.findOwned(cardId, currentUserId);
+    const payload: ListingTokenPayload = { cardId, typ: 'listing' };
+    const token = this.jwt.sign(payload, { expiresIn: LISTING_TOKEN_TTL });
+    return { token, expiresIn: LISTING_TOKEN_TTL };
+  }
+
+  /** Public — the Buy page (J5) resolves a scanned QR's token into the real card id before rendering anything. */
+  resolveListingToken(token: string): string {
+    let payload: ListingTokenPayload;
+    try {
+      payload = this.jwt.verify<ListingTokenPayload>(token);
+    } catch {
+      throw new UnauthorizedException('Invalid or expired listing code');
+    }
+    if (payload.typ !== 'listing') {
+      throw new UnauthorizedException('Invalid or expired listing code');
+    }
+    return payload.cardId;
   }
 
   /**

@@ -16,6 +16,7 @@ import { runStage1Detection, type Stage1Status } from '../lib/ml/stage1Detector'
 import { useAuth } from '../lib/auth/AuthContext';
 import * as api from '../lib/api';
 import { GuidedCapture } from '../components/GuidedCapture';
+import { QrScanner } from '../components/QrScanner';
 
 const TRADE_CODE_PREFIX = 'TRADE:';
 
@@ -38,23 +39,19 @@ const Tab2: React.FC = () => {
   const [soldTransaction, setSoldTransaction] = useState<api.Transaction | null>(null);
   const selectedCard = myCards?.find(c => c.id === selectedCardId) ?? null;
 
-  // Buyer state
-  const [buyerStep, setBuyerStep] = useState<1 | 2 | 3>(1);
-  // No QR-decoding library in the project yet (react-qr-code only generates
-  // codes) — the buyer pastes the code shown on the merchant's screen
-  // instead of a live camera scan. Real camera QR scanning is future work.
-  const [tradeCodeInput, setTradeCodeInput] = useState('');
-  const [lookedUpCard, setLookedUpCard] = useState<api.Card | null>(null);
-  const [sellerName, setSellerName] = useState<string | null>(null);
-  const [isLookingUp, setIsLookingUp] = useState(false);
-  const [lookupError, setLookupError] = useState<string | null>(null);
-  const [isPaying, setIsPaying] = useState(false);
-  const [payError, setPayError] = useState<string | null>(null);
-  const [createdTransaction, setCreatedTransaction] = useState<api.CreateTransactionResult | null>(null);
-  // Defaults to MERCADOPAGO — preserves the existing default checkout path;
-  // Efectivo (cash) is an opt-in alternative that settles PAID immediately,
-  // no external rail — also the fast no-credentials path for testing.
-  const [paymentMethod, setPaymentMethod] = useState<api.PaymentMethod>('MERCADOPAGO');
+  // Buyer state (J4/J5) — scanning a QR is now the buyer's ONLY step here;
+  // the actual purchase flow (payment method, create the transaction) lives
+  // in Buy.tsx (/buy/:token) now, not duplicated inline in this page.
+  // `decodedToken` is set the instant a QR decodes and immediately
+  // navigates away — kept around only to gate the camera-release effect
+  // above (no reason to keep streaming once a code is found).
+  const [decodedToken, setDecodedToken] = useState<string | null>(null);
+
+  // Merchant QR state (J4) — the QR now encodes a short-lived signed
+  // listing token (backend, CardsService.createListingToken), not a bare
+  // `TRADE:<cardId>` — minted once when the merchant reaches step 3.
+  const [listingToken, setListingToken] = useState<string | null>(null);
+  const [listingTokenError, setListingTokenError] = useState<string | null>(null);
 
   // Stage 1 (MTG / no-MTG detector) — live camera via getUserMedia+canvas
   // (see useLiveCamera's header comment for why not
@@ -68,16 +65,17 @@ const Tab2: React.FC = () => {
   const [stage1Status, setStage1Status] = useState<Stage1Status | null>(null);
   const [isDetecting, setIsDetecting] = useState(false);
 
-  // Camera only needs to run while the merchant is on the capture step —
-  // release the device as soon as they move on or switch roles.
+  // Camera runs while the merchant is on the capture step, OR while the
+  // buyer is on the QR-scan screen (J4) — released as soon as either moves
+  // on or the role switches.
   useEffect(() => {
-    if (role === 'merchant' && merchantStep === 1) {
+    if ((role === 'merchant' && merchantStep === 1) || (role === 'buyer' && !decodedToken)) {
       camera.start();
     } else {
       camera.stop();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- start/stop are stable refs from useLiveCamera
-  }, [role, merchantStep]);
+  }, [role, merchantStep, decodedToken]);
 
   // Fetch the merchant's real inventory once they reach the appraisal step.
   useEffect(() => {
@@ -137,6 +135,16 @@ const Tab2: React.FC = () => {
         const updated = await api.updateCard(selectedCard.id, { guessedPrice: price });
         setMyCards(prev => (prev ? prev.map(c => (c.id === updated.id ? updated : c)) : prev));
       }
+      // ROADMAP.md J4 — mint the signed listing token the QR encodes, one
+      // seller-owned card at a time (findOwned on the backend rejects
+      // anything else).
+      setListingTokenError(null);
+      try {
+        const { token } = await api.createListingToken(selectedCard.id);
+        setListingToken(token);
+      } catch (err) {
+        setListingTokenError(err instanceof api.ApiError ? err.message : t('trade_price_update_error'));
+      }
       setMerchantStep(3);
     } catch (err) {
       setPriceError(err instanceof api.ApiError ? err.message : t('trade_price_update_error'));
@@ -151,58 +159,23 @@ const Tab2: React.FC = () => {
     setSelectedCardId(null);
     setSoldTransaction(null);
     setPriceError(null);
-  };
-
-  const handleLookup = async () => {
-    const raw = tradeCodeInput.trim();
-    const cardId = raw.startsWith(TRADE_CODE_PREFIX) ? raw.slice(TRADE_CODE_PREFIX.length) : raw;
-    if (!cardId) return;
-    setIsLookingUp(true);
-    setLookupError(null);
-    try {
-      const card = await api.getCard(cardId);
-      setLookedUpCard(card);
-      setSellerName(null);
-      api.getUser(card.ownerId).then(seller => setSellerName(seller.displayName)).catch(() => { /* show without a name */ });
-      setBuyerStep(2);
-    } catch {
-      setLookupError(t('trade_code_not_found'));
-    } finally {
-      setIsLookingUp(false);
-    }
-  };
-
-  const handlePay = async () => {
-    if (!lookedUpCard) return;
-    setIsPaying(true);
-    setPayError(null);
-    try {
-      const tx = await api.createTransaction({ cardId: lookedUpCard.id, paymentMethod });
-      setCreatedTransaction(tx);
-      // MercadoPago Checkout Pro is a redirect-based flow — send the buyer
-      // there in a new tab (checkoutUrl is only present when the backend
-      // actually has a MercadoPago provider configured; unconfigured falls
-      // back to the existing "recorded, pending" path, no redirect).
-      if (tx.checkoutUrl) {
-        window.open(tx.checkoutUrl, '_blank', 'noopener');
-      }
-      setBuyerStep(3);
-    } catch (err) {
-      setPayError(err instanceof api.ApiError ? err.message : t('trade_payment_error'));
-    } finally {
-      setIsPaying(false);
-    }
+    setListingToken(null);
+    setListingTokenError(null);
   };
 
   const resetBuyerFlow = () => {
-    setBuyerStep(1);
-    setTradeCodeInput('');
-    setLookedUpCard(null);
-    setSellerName(null);
-    setCreatedTransaction(null);
-    setLookupError(null);
-    setPayError(null);
-    setPaymentMethod('MERCADOPAGO');
+    setDecodedToken(null);
+  };
+
+  // ROADMAP.md J4 — a real camera QR decode, replacing the old manual
+  // "paste the code" flow. Lands the buyer on Buy.tsx (/buy/:token), which
+  // owns the rest of the purchase (payment method, create the transaction).
+  const handleQrDecoded = (raw: string) => {
+    if (decodedToken) return; // already navigating — ignore any further decodes
+    const token = raw.startsWith(TRADE_CODE_PREFIX) ? raw.slice(TRADE_CODE_PREFIX.length) : raw;
+    if (!token) return;
+    setDecodedToken(token);
+    router.push(`/buy/${encodeURIComponent(token)}`, 'forward');
   };
 
   // GuidedCapture (G4c) already localized+perspective-corrected the card
@@ -427,11 +400,13 @@ const Tab2: React.FC = () => {
                         <p>{t('have_buyer_scan', { price: `$${price.toFixed(2)}` })}</p>
 
                         <div style={{ margin: '30px auto 10px', width: '250px', height: '250px', backgroundColor: '#fff', border: '4px solid #111', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <QRCode value={`${TRADE_CODE_PREFIX}${selectedCard.id}`} size={200} />
+                          {listingToken
+                            ? <QRCode value={`${TRADE_CODE_PREFIX}${listingToken}`} size={200} />
+                            : <IonSpinner name="crescent" />}
                         </div>
-                        <p style={{ fontSize: '0.75rem', fontFamily: 'monospace', wordBreak: 'break-all', opacity: 0.7, margin: '0 0 20px' }}>
-                          {t('trade_code_label')}: {TRADE_CODE_PREFIX}{selectedCard.id}
-                        </p>
+                        {listingTokenError && (
+                          <p style={{color: '#ff8080', fontSize: '0.85rem', margin: '0 0 20px'}}>{listingTokenError}</p>
+                        )}
 
                         <div style={{ marginBottom: '20px', padding: '10px', background: 'rgba(0,0,0,0.1)', borderRadius: '4px', fontSize: '0.9rem', fontStyle: 'italic' }}>
                           {t('listening_webhook')}
@@ -469,122 +444,33 @@ const Tab2: React.FC = () => {
 
             {role === 'buyer' && (
               <motion.div key="buyer-flow" variants={slideVariants} initial="hidden" animate="visible" exit="exit">
+                <div style={{ textAlign: 'center', marginTop: '10px' }}>
+                  <h2>{t('connect_merchant')}</h2>
+                  <p>{t('scan_merchant_qr_desc')}</p>
 
-                {buyerStep === 1 && (
-                  <div style={{ textAlign: 'center', marginTop: '10px' }}>
-                    <h2>{t('connect_merchant')}</h2>
-                    <p>{t('scan_merchant_qr_desc')}</p>
-
-                    <div style={{ margin: '20px 0', border: '1px solid rgba(0,0,0,0.2)', borderRadius: '4px', background: 'rgba(255,255,255,0.4)', padding: '15px' }}>
-                      <div style={{ height: '150px', backgroundColor: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', marginBottom: '15px' }}>
-                        <IonIcon icon={qrCodeOutline} style={{ fontSize: '60px', color: '#d4af37' }} />
-                      </div>
-
-                      <IonItem color="transparent" style={{'--border-color': 'rgba(139,0,0,0.3)'}}>
-                        <IonLabel position="stacked">{t('enter_trade_code')}</IonLabel>
-                        <IonInput
-                          value={tradeCodeInput}
-                          placeholder={`${TRADE_CODE_PREFIX}...`}
-                          onIonChange={e => setTradeCodeInput(e.detail.value ?? '')}
-                        />
-                      </IonItem>
-                      <p style={{fontSize: '0.75rem', fontStyle: 'italic', opacity: 0.7, margin: '10px 0 0'}}>{t('trade_code_manual_note')}</p>
-
-                      {lookupError && <p style={{color: '#ff8080', fontSize: '0.85rem', marginTop: '10px'}}>{lookupError}</p>}
+                  <div style={{ margin: '20px 0', border: '1px solid rgba(0,0,0,0.2)', borderRadius: '4px', background: 'rgba(255,255,255,0.4)', padding: '15px' }}>
+                    <div style={{ height: '280px', backgroundColor: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed rgba(255,255,255,0.5)', overflow: 'hidden', position: 'relative' }}>
+                      <video
+                        ref={camera.videoRef}
+                        playsInline
+                        muted
+                        style={{ width: '100%', height: '100%', objectFit: 'contain', display: camera.status === 'streaming' ? 'block' : 'none' }}
+                      />
+                      {camera.status === 'streaming' && (
+                        <QrScanner camera={camera} onDecoded={handleQrDecoded} paused={!!decodedToken} />
+                      )}
+                      {camera.status !== 'streaming' && (
+                        <p style={{color: '#aaa', padding: '0 10px', textAlign: 'center'}}>
+                          {camera.status === 'starting' && t('camera_starting')}
+                          {camera.status === 'denied' && t('camera_permission_denied')}
+                          {camera.status === 'unsupported' && t('camera_unsupported')}
+                          {camera.status === 'error' && (camera.errorMessage ?? t('camera_unsupported'))}
+                          {camera.status === 'idle' && t('camera_feed_placeholder')}
+                        </p>
+                      )}
                     </div>
-
-                    <IonButton expand="block" className="mtg-btn" onClick={handleLookup} disabled={isLookingUp || !tradeCodeInput.trim()}>
-                      <div className="mtg-btn-content">
-                        <IonIcon icon={cameraOutline} />
-                        <span>{isLookingUp ? t('looking_up') : t('scan_merchant_qr')}</span>
-                      </div>
-                    </IonButton>
                   </div>
-                )}
-
-                {buyerStep === 2 && lookedUpCard && (
-                  <div style={{ textAlign: 'center', marginTop: '10px' }}>
-                    <h2 style={{color: '#f2e3cd'}}>{t('confirm_trade')}</h2>
-
-                    <div style={{ margin: '20px 0', border: '1px solid rgba(139,0,0,0.3)', borderRadius: '8px', background: 'rgba(10,5,8,0.7)', padding: '20px' }}>
-                      <p style={{color: '#c2b5b5', margin: '0 0 10px 0'}}>{t('purchasing_from')} <strong style={{color: '#f2e3cd'}}>{sellerName ?? t('unknown_trader')}</strong></p>
-                      <h3 style={{ margin: '0', color: '#f2e3cd' }}>{lookedUpCard.title}</h3>
-                      <p style={{ margin: '5px 0 0', color: '#c2b5b5', fontSize: '0.9rem' }}>
-                        {[lookedUpCard.setName, lookedUpCard.rarity, `Condition: ${lookedUpCard.condition}`].filter(Boolean).join(' • ')}
-                      </p>
-
-                      <div style={{ fontSize: '3.5rem', color: 'var(--ion-color-tertiary-tint)', margin: '15px 0', fontFamily: 'Cinzel', fontWeight: 'bold' }}>
-                        ${lookedUpCard.guessedPrice.toFixed(2)}
-                      </div>
-
-                      <IonSegment
-                        value={paymentMethod}
-                        onIonChange={e => setPaymentMethod(e.detail.value as api.PaymentMethod)}
-                        style={{marginTop: '20px'}}
-                      >
-                        <IonSegmentButton value="MERCADOPAGO">
-                          <IonLabel>{t('payment_method_mercadopago')}</IonLabel>
-                        </IonSegmentButton>
-                        <IonSegmentButton value="CASH">
-                          <IonLabel>{t('payment_method_cash')}</IonLabel>
-                        </IonSegmentButton>
-                      </IonSegment>
-
-                      {payError && <p style={{color: '#ff8080', fontSize: '0.85rem', margin: '15px 0 0'}}>{payError}</p>}
-                    </div>
-
-                    <IonButton expand="block" onClick={handlePay} disabled={isPaying} style={{'--background': '#00733e', '--color': '#fff', marginTop: '20px'}}>
-                      <div className="mtg-btn-content">
-                        <IonIcon icon={checkmarkCircleOutline} />
-                        <span>
-                          {isPaying
-                            ? t('processing_payment')
-                            : paymentMethod === 'CASH' ? t('pay_cash') : t('pay_mercadopago')}
-                        </span>
-                      </div>
-                    </IonButton>
-
-                    <IonButton expand="block" fill="clear" style={{'--color': '#5c1b1b', marginTop: '10px'}} onClick={() => setBuyerStep(1)}>
-                      {t('cancel_trade')}
-                    </IonButton>
-                  </div>
-                )}
-
-                {buyerStep === 3 && (
-                  <div style={{ textAlign: 'center', marginTop: '40px' }}>
-                    <IonIcon icon={checkmarkCircleOutline} style={{ fontSize: '120px', color: '#00733e' }} />
-                    <h2 style={{marginTop: '20px'}}>{t('transaction_successful')}</h2>
-                    {/* Reflects how the payment actually settled — real status, not a
-                        blanket claim. CASH is PAID immediately (CashPaymentProvider).
-                        MERCADOPAGO with a checkoutUrl opened a real Checkout Pro tab —
-                        status flips once its webhook confirms. Without a checkoutUrl the
-                        backend has no MercadoPago provider configured (falls back to
-                        NoopPaymentProvider — ROADMAP.md F2), so it's genuinely recorded
-                        but stays PENDING and card ownership does not transfer yet either
-                        way (ROADMAP.md E5). */}
-                    <p>
-                      {createdTransaction?.status === 'PAID'
-                        ? t('trade_cash_success_notice')
-                        : createdTransaction?.checkoutUrl
-                          ? t('trade_mp_redirect_notice')
-                          : t('trade_pending_notice')}
-                    </p>
-
-                    {createdTransaction && (
-                      <IonButton
-                        expand="block"
-                        className="mtg-btn"
-                        onClick={() => router.push(`/transaction/${createdTransaction.id}`, 'forward')}
-                        style={{marginTop: '30px'}}
-                      >
-                        {t('view_trade_record')}
-                      </IonButton>
-                    )}
-                    <IonButton expand="block" fill="clear" style={{'--color': '#5c1b1b', marginTop: '10px'}} onClick={resetBuyerFlow}>
-                      {t('return_nexus')}
-                    </IonButton>
-                  </div>
-                )}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>

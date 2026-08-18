@@ -65,7 +65,10 @@ describe('Payments — CASH (e2e)', () => {
     return { id: registerBody.id, accessToken: loginBody.accessToken };
   }
 
-  async function createCard(title: string, guessedPrice: number): Promise<string> {
+  async function createCard(
+    title: string,
+    guessedPrice: number,
+  ): Promise<string> {
     const res = await request(app.getHttpServer())
       .post('/cards')
       .set('Authorization', `Bearer ${sellerToken}`)

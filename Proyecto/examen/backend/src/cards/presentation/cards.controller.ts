@@ -118,4 +118,22 @@ export class CardsController {
   getPhotoUrl(@Param('photoId') photoId: string) {
     return this.cards.getPhotoUrl(photoId);
   }
+
+  // ROADMAP.md J4 — seller-only, mints the token a generated QR encodes.
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/listing-token')
+  createListingToken(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.cards.createListingToken(id, user.id);
+  }
+
+  // Public — the Buy page (J5) resolves a scanned QR's token before
+  // rendering anything. Two segments (unlike the single-segment `:id`
+  // above), so no route-matching ambiguity between the two.
+  @Get('listing-token/:token')
+  resolveListingToken(@Param('token') token: string) {
+    return { cardId: this.cards.resolveListingToken(token) };
+  }
 }
