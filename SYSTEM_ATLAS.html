@@ -1,0 +1,864 @@
+<title>Atlas MTG Companion</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --paper: #f7f3ea;
+    --paper-raised: #fffdf8;
+    --ink: #221a2e;
+    --ink-soft: #5b5468;
+    --ink-faint: #8a8298;
+    --accent: #5b3e8c;
+    --accent-strong: #47316f;
+    --accent-soft: #ede6f5;
+    --accent-soft-2: #e2d7f0;
+    --rule: #ddd3c7;
+    --rule-soft: #e9e2d6;
+    --tie: #8a8298;
+    --pt: #b5502e;
+    --tf: #1c7a72;
+    --good: #2f7a4f;
+    --on-accent: #fffdf8;
+    --shadow: 0 1px 2px rgba(34, 26, 46, 0.06), 0 8px 24px rgba(34, 26, 46, 0.06);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #17131f;
+      --paper-raised: #1e1929;
+      --ink: #ece7f2;
+      --ink-soft: #b3aac2;
+      --ink-faint: #7c7391;
+      --accent: #b79cec;
+      --accent-strong: #d3bdff;
+      --accent-soft: #2c2440;
+      --accent-soft-2: #362c4d;
+      --rule: #362f47;
+      --rule-soft: #2a2436;
+      --tie: #93899f;
+      --pt: #e08a63;
+      --tf: #4fc9bd;
+      --good: #6cc98d;
+      --on-accent: #221a2e;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #17131f;
+    --paper-raised: #1e1929;
+    --ink: #ece7f2;
+    --ink-soft: #b3aac2;
+    --ink-faint: #7c7391;
+    --accent: #b79cec;
+    --accent-strong: #d3bdff;
+    --accent-soft: #2c2440;
+    --accent-soft-2: #362c4d;
+    --rule: #362f47;
+    --rule-soft: #2a2436;
+    --tie: #93899f;
+    --pt: #e08a63;
+    --tf: #4fc9bd;
+    --good: #6cc98d;
+    --on-accent: #221a2e;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+    font-size: 16.5px;
+    line-height: 1.65;
+    margin: 0;
+    padding: 0 0 6rem;
+  }
+
+  h1, h2, h3 {
+    font-family: "Fraunces", ui-serif, Georgia, serif;
+    font-weight: 600;
+    color: var(--ink);
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+
+  a { color: var(--accent-strong); }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  code, .mono {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---------- shell / layout ---------- */
+
+  .shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: grid;
+    grid-template-columns: 210px minmax(0, 1fr);
+    gap: 3.5rem;
+  }
+
+  @media (max-width: 920px) {
+    .shell { grid-template-columns: 1fr; gap: 0; padding: 0 1.25rem; }
+    .toc { display: none; }
+  }
+
+  .toc {
+    position: sticky;
+    top: 2.5rem;
+    align-self: start;
+    padding-top: 3.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+  .toc a {
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-size: 0.88rem;
+    border-left: 2px solid var(--rule);
+    padding-left: 0.85rem;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .toc a:hover { color: var(--accent); border-color: var(--accent); }
+
+  main { min-width: 0; }
+
+  section { padding-top: 3.5rem; scroll-margin-top: 1.5rem; }
+  section:first-of-type { padding-top: 0; }
+
+  .prose { max-width: 700px; }
+  .prose p { color: var(--ink-soft); }
+
+  .wide-scroll { overflow-x: auto; }
+
+  /* ---------- hero ---------- */
+
+  .hero {
+    padding: 4.5rem 2rem 0;
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  .hero .eyebrow { display: block; margin-bottom: 0.9rem; }
+  .hero h1 {
+    font-size: clamp(2.1rem, 4.5vw, 3.1rem);
+    margin: 0 0 1.1rem;
+    max-width: 16ch;
+  }
+  .hero p.lede {
+    font-size: 1.12rem;
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin: 0 0 1rem;
+  }
+  .hero .meta {
+    display: flex;
+    gap: 1.6rem;
+    flex-wrap: wrap;
+    margin-top: 1.8rem;
+    padding-top: 1.4rem;
+    border-top: 1px solid var(--rule);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+  }
+  .hero .meta b { color: var(--ink-soft); font-weight: 600; }
+
+  /* ---------- diagram ---------- */
+
+  figure { margin: 1.6rem 0; }
+  figcaption {
+    font-size: 0.86rem;
+    color: var(--ink-faint);
+    margin-top: 0.7rem;
+    max-width: 62ch;
+  }
+  .diagram-frame {
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 1.4rem 1.2rem;
+    box-shadow: var(--shadow);
+  }
+  svg text { font-family: "Source Sans 3", sans-serif; fill: currentColor; }
+  svg .lbl-mono { font-family: "IBM Plex Mono", monospace; }
+
+  /* ---------- piece cards ---------- */
+
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 1.6rem; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.6rem; }
+  @media (max-width: 760px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 1.4rem 1.5rem;
+  }
+  .card h3 {
+    font-size: 1.05rem;
+    margin: 0 0 0.5rem;
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+  .card p { margin: 0; color: var(--ink-soft); font-size: 0.94rem; }
+  .card .tag {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.68rem;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 999px;
+    padding: 0.18rem 0.6rem;
+    font-weight: 600;
+  }
+
+  /* ---------- stage cards ---------- */
+
+  .stage {
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    padding: 1.7rem 1.8rem;
+    margin-top: 1.4rem;
+    box-shadow: var(--shadow);
+  }
+  .stage-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--rule-soft);
+    padding-bottom: 0.9rem;
+    margin-bottom: 1rem;
+  }
+  .stage-head .n {
+    font-family: "Fraunces", serif;
+    font-size: 2.1rem;
+    color: var(--accent);
+    font-weight: 600;
+    line-height: 1;
+  }
+  .stage-head h3 { margin: 0; font-size: 1.28rem; }
+  .stage-head .kind {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .stage-body { display: grid; grid-template-columns: 1.15fr 1fr; gap: 1.8rem; }
+  @media (max-width: 760px) { .stage-body { grid-template-columns: 1fr; } }
+  .stage-body p { color: var(--ink-soft); font-size: 0.94rem; margin: 0 0 0.7rem; }
+  .stage-body ul { margin: 0 0 0.7rem; padding-left: 1.1rem; color: var(--ink-soft); font-size: 0.94rem; }
+  .stage-body li { margin-bottom: 0.3rem; }
+
+  .metric-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  .metric-table th, .metric-table td { text-align: right; padding: 0.42rem 0.5rem; }
+  .metric-table th:first-child, .metric-table td:first-child { text-align: left; }
+  .metric-table thead th {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-faint);
+    border-bottom: 1px solid var(--rule);
+    font-weight: 600;
+  }
+  .metric-table td { border-bottom: 1px solid var(--rule-soft); font-variant-numeric: tabular-nums; }
+  .metric-table tr:last-child td { border-bottom: none; }
+  .metric-table .pt-row td:first-child { color: var(--pt); font-weight: 600; }
+  .metric-table .tf-row td:first-child { color: var(--tf); font-weight: 600; }
+  .metric-table .winner { font-weight: 700; color: var(--good); }
+
+  .verdict-chip {
+    display: inline-block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    margin-top: 0.6rem;
+  }
+  .verdict-tie { background: var(--accent-soft-2); color: var(--tie); }
+  .verdict-win { background: var(--accent-soft); color: var(--good); }
+
+  /* summary table */
+  .summary-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; margin-top: 1.4rem; }
+  .summary-table th, .summary-table td { padding: 0.65rem 0.8rem; text-align: left; }
+  .summary-table thead th {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-faint);
+    border-bottom: 1px solid var(--rule);
+  }
+  .summary-table td { border-bottom: 1px solid var(--rule-soft); font-variant-numeric: tabular-nums; }
+  .summary-table td.num, .summary-table th.num { text-align: right; }
+  .summary-table tr:last-child td { border-bottom: none; }
+
+  /* ---------- glossary ---------- */
+
+  .glossary-group { margin-top: 2rem; }
+  .glossary-group > .eyebrow { display: block; margin-bottom: 0.9rem; }
+  .gloss-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+  @media (max-width: 760px) { .gloss-grid { grid-template-columns: 1fr; } }
+  .gloss-card {
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 1.1rem 1.3rem;
+  }
+  .gloss-card .term {
+    font-family: "Fraunces", serif;
+    font-weight: 600;
+    font-size: 1.02rem;
+    margin-bottom: 0.35rem;
+  }
+  .gloss-card .formula {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.78rem;
+    color: var(--accent);
+    background: var(--accent-soft);
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+  }
+  .gloss-card p { margin: 0 0 0.4rem; color: var(--ink-soft); font-size: 0.9rem; }
+  .gloss-card .why {
+    font-size: 0.87rem;
+    color: var(--ink);
+    background: var(--rule-soft);
+    border-radius: 5px;
+    padding: 0.5rem 0.65rem;
+    margin-top: 0.5rem;
+  }
+  .gloss-card .why b { color: var(--accent-strong); }
+
+  /* wubrg chips */
+  .wubrg { display: inline-flex; gap: 0.3rem; vertical-align: middle; }
+  .wubrg span {
+    width: 1.1rem; height: 1.1rem; border-radius: 50%;
+    display: inline-block; border: 1px solid rgba(0,0,0,0.15);
+  }
+
+  footer {
+    max-width: 1180px;
+    margin: 4rem auto 0;
+    padding: 1.8rem 2rem 0;
+    border-top: 1px solid var(--rule);
+  }
+  footer p { color: var(--ink-faint); font-size: 0.82rem; max-width: 62ch; }
+  footer .sources { font-family: "IBM Plex Mono", monospace; font-size: 0.76rem; color: var(--ink-soft); }
+</style>
+
+<div class="hero">
+  <span class="eyebrow">Referencia técnica &middot; MTG Companion</span>
+  <h1>Cómo funciona todo el sistema, de punta a punta</h1>
+  <p class="lede">
+    Un mapa de una sola pasada: qué le pasa a una foto de carta desde que la
+    cámara la captura hasta que queda guardada, tasada y lista para vender —
+    qué pieza de software hace cada parte, cómo compite PyTorch contra
+    TensorFlow en cada una de las 4 etapas de aprendizaje automático (con
+    números reales, no de ejemplo), y qué significa cada métrica citada acá
+    específicamente para este sistema.
+  </p>
+  <div class="meta">
+    <span><b>Curso</b> &nbsp;Framework/Fundamentos de IA — UDD</span>
+    <span><b>Piezas</b> &nbsp;certamen_1 · certamen_2 · examen/</span>
+    <span><b>Última actualización</b> &nbsp;18 ago 2026</span>
+  </div>
+</div>
+
+<div class="shell">
+  <nav class="toc" aria-label="Contenidos">
+    <a href="#flujo">El flujo end-to-end</a>
+    <a href="#piezas">Piezas del sistema</a>
+    <a href="#etapas">Las 4 etapas de ML</a>
+    <a href="#resumen">Tabla comparativa</a>
+    <a href="#glosario">Glosario de métricas</a>
+  </nav>
+
+  <main>
+
+    <section id="flujo">
+      <span class="eyebrow">01 &middot; El flujo</span>
+      <h2>De una foto en el bolsillo a una carta lista para vender</h2>
+      <div class="prose">
+        <p>
+          Ocho pasos encadenados, cada uno resuelto por una pieza distinta
+          del sistema. Si un paso falla o no está seguro, el pipeline nunca
+          se rompe silenciosamente — sigue con lo que tiene y lo marca como
+          incierto, en vez de fallar cerrado.
+        </p>
+      </div>
+
+      <figure>
+        <div class="diagram-frame wide-scroll">
+          <svg viewBox="0 0 1240 300" role="img" aria-label="Flujo de ocho pasos: foto de cámara, localizar y enderezar con OpenCV, OCR de nombre y texto de reglas con Tesseract, buscar en el catálogo por nombre y texto con coincidencia difusa, la Etapa 2 vuelve a ordenar los candidatos con el modelo entrenado, en paralelo la Etapa 3 estima el precio y la Etapa 4 evalúa la condición usando la carta ya identificada, y finalmente se guarda como carta en la Bóveda o lista para vender." style="width:100%;height:auto;min-width:920px;">
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"></path>
+              </marker>
+            </defs>
+
+            <!-- step 1: photo -->
+            <g transform="translate(20,90)">
+              <rect width="130" height="90" rx="8" fill="none" stroke="currentColor" stroke-width="1.4"></rect>
+              <text x="65" y="38" text-anchor="middle" font-size="12" font-weight="600">Foto de</text>
+              <text x="65" y="54" text-anchor="middle" font-size="12" font-weight="600">cámara</text>
+              <text x="65" y="74" text-anchor="middle" font-size="9.5" class="lbl-mono" fill="currentColor" opacity="0.6">getUserMedia</text>
+            </g>
+            <line x1="150" y1="135" x2="188" y2="135" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrow)"></line>
+
+            <!-- step 2: localize -->
+            <g transform="translate(190,75)">
+              <rect width="150" height="120" rx="8" fill="var(--accent-soft)" stroke="currentColor" stroke-width="1.4"></rect>
+              <text x="75" y="30" text-anchor="middle" font-size="12" font-weight="600">Localizar y</text>
+              <text x="75" y="46" text-anchor="middle" font-size="12" font-weight="600">enderezar</text>
+              <text x="75" y="68" text-anchor="middle" font-size="9.5" class="lbl-mono" opacity="0.65">cardLocalizer.ts</text>
+              <text x="75" y="82" text-anchor="middle" font-size="9.5" class="lbl-mono" opacity="0.65">(OpenCV.js)</text>
+              <text x="75" y="102" text-anchor="middle" font-size="9" opacity="0.7">122/122 fotos reales</text>
+            </g>
+            <line x1="340" y1="135" x2="378" y2="135" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrow)"></line>
+            <text x="359" y="122" text-anchor="middle" font-size="9" class="lbl-mono" opacity="0.6">rect 750×1050</text>
+
+            <!-- step 3: OCR -->
+            <g transform="translate(380,75)">
+              <rect width="150" height="120" rx="8" fill="none" stroke="currentColor" stroke-width="1.4"></rect>
+              <text x="75" y="30" text-anchor="middle" font-size="12" font-weight="600">OCR: nombre</text>
+              <text x="75" y="46" text-anchor="middle" font-size="12" font-weight="600">+ texto reglas</text>
+              <text x="75" y="68" text-anchor="middle" font-size="9.5" class="lbl-mono" opacity="0.65">ocrExtractor.ts</text>
+              <text x="75" y="82" text-anchor="middle" font-size="9.5" class="lbl-mono" opacity="0.65">(tesseract.js)</text>
+              <text x="75" y="102" text-anchor="middle" font-size="9" opacity="0.7">CLAHE + Otsu antes</text>
+            </g>
+            <line x1="530" y1="135" x2="568" y2="135" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrow)"></line>
+            <text x="549" y="122" text-anchor="middle" font-size="9" class="lbl-mono" opacity="0.6">2 strings</text>
+
+            <!-- step 4: catalog search -->
+            <g transform="translate(570,75)">
+              <rect width="150" height="120" rx="8" fill="var(--accent-soft)" stroke="currentColor" stroke-width="1.4"></rect>
+              <text x="75" y="30" text-anchor="middle" font-size="12" font-weight="600">Buscar en</text>
+              <text x="75" y="46" text-anchor="middle" font-size="12" font-weight="600">el catálogo</text>
+              <text x="75" y="68" text-anchor="middle" font-size="9.5" class="lbl-mono" opacity="0.65">GET /catalog/search</text>
+              <text x="75" y="82" text-anchor="middle" font-size="9.5" class="lbl-mono" opacity="0.65">(+ search-by-text)</text>
+              <text x="75" y="102" text-anchor="middle" font-size="9" opacity="0.7">pg_trgm difuso · 58,679</text>
+            </g>
+            <line x1="720" y1="135" x2="758" y2="135" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrow)"></line>
+            <text x="739" y="122" text-anchor="middle" font-size="9" class="lbl-mono" opacity="0.6">candidatos</text>
+
+            <!-- step 5: stage 2 rerank -->
+            <g transform="translate(760,75)">
+              <rect width="150" height="120" rx="8" fill="none" stroke="currentColor" stroke-width="2"></rect>
+              <text x="75" y="26" text-anchor="middle" font-size="10" class="lbl-mono" fill="var(--accent)" font-weight="600">ETAPA 2</text>
+              <text x="75" y="46" text-anchor="middle" font-size="12" font-weight="600">Re-ordenar</text>
+              <text x="75" y="62" text-anchor="middle" font-size="12" font-weight="600">candidatos</text>
+              <text x="75" y="84" text-anchor="middle" font-size="9.5" class="lbl-mono" opacity="0.65">TextMatcher (.onnx)</text>
+              <text x="75" y="102" text-anchor="middle" font-size="9" opacity="0.7">ROC-AUC 0.99</text>
+            </g>
+            <line x1="910" y1="135" x2="948" y2="135" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrow)"></line>
+            <text x="929" y="122" text-anchor="middle" font-size="9" class="lbl-mono" opacity="0.6">carta ganadora</text>
+
+            <!-- step 6+7: stage 3 + 4 stacked -->
+            <g transform="translate(950,20)">
+              <rect width="150" height="90" rx="8" fill="none" stroke="currentColor" stroke-width="2"></rect>
+              <text x="75" y="24" text-anchor="middle" font-size="10" class="lbl-mono" fill="var(--accent)" font-weight="600">ETAPA 3</text>
+              <text x="75" y="42" text-anchor="middle" font-size="12" font-weight="600">Estimar precio</text>
+              <text x="75" y="62" text-anchor="middle" font-size="9.5" class="lbl-mono" opacity="0.65">tabular + embedding</text>
+              <text x="75" y="78" text-anchor="middle" font-size="9" opacity="0.7">R²(log) 0.66</text>
+            </g>
+            <g transform="translate(950,150)">
+              <rect width="150" height="90" rx="8" fill="none" stroke="currentColor" stroke-width="2"></rect>
+              <text x="75" y="24" text-anchor="middle" font-size="10" class="lbl-mono" fill="var(--accent)" font-weight="600">ETAPA 4</text>
+              <text x="75" y="42" text-anchor="middle" font-size="12" font-weight="600">Evaluar condición</text>
+              <text x="75" y="62" text-anchor="middle" font-size="9.5" class="lbl-mono" opacity="0.65">CNN, foto directa</text>
+              <text x="75" y="78" text-anchor="middle" font-size="9" opacity="0.7">F1 macro 0.95</text>
+            </g>
+            <line x1="910" y1="115" x2="935" y2="65" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"></line>
+            <line x1="910" y1="155" x2="935" y2="195" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"></line>
+
+            <line x1="1100" y1="65" x2="1140" y2="130" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"></line>
+            <line x1="1100" y1="195" x2="1140" y2="140" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"></line>
+
+            <!-- step 8: save -->
+            <g transform="translate(1140,90)">
+              <rect width="90" height="90" rx="8" fill="var(--accent)" stroke="var(--accent)" stroke-width="1.4"></rect>
+              <text x="45" y="36" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--on-accent)">POST</text>
+              <text x="45" y="52" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--on-accent)">/cards</text>
+              <text x="45" y="72" text-anchor="middle" font-size="9" fill="var(--on-accent)" opacity="0.85">Bóveda / Bazar</text>
+            </g>
+          </svg>
+        </div>
+        <figcaption>
+          Los ocho pasos del escaneo, en orden. Las etapas 3 y 4 corren en
+          paralelo una vez identificada la carta — ninguna depende del
+          resultado de la otra. Todo esto corre <b>on-device</b> vía
+          ONNX Runtime + OpenCV.js + tesseract.js: la foto nunca sale del
+          teléfono hasta el <code>POST /cards</code> final.
+        </figcaption>
+      </figure>
+    </section>
+
+    <section id="piezas">
+      <span class="eyebrow">02 &middot; Arquitectura</span>
+      <h2>Las piezas del sistema, qué hace cada una</h2>
+      <div class="prose">
+        <p>
+          Dos entregables que comparten el mismo pipeline de datos: el
+          trabajo de ML en sí (<code>certamen_1</code>/<code>certamen_2</code>,
+          cada etapa entrenada dos veces — PyTorch y TensorFlow, para
+          comparar) y una app comercial construida encima
+          (<code>examen/</code>).
+        </p>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3>trading-app-ionic <span class="tag">cliente</span></h3>
+          <p>
+            Ionic + React + Capacitor, empaquetada como APK Android.
+            Corre los 4 modelos <b>on-device</b> vía <code>onnxruntime-web</code>
+            (WebAssembly) — ninguna foto se manda a un servidor para
+            identificar/tasar una carta. También hace OCR (tesseract.js) y
+            visión clásica (OpenCV.js compilado a WASM) enteramente en el
+            navegador/WebView.
+          </p>
+        </div>
+        <div class="card">
+          <h3>backend <span class="tag">API</span></h3>
+          <p>
+            NestJS + Prisma + PostgreSQL. Dueño de usuarios, cartas,
+            transacciones, el catálogo de solo-lectura (58,679 filas de
+            Scryfall) y los pagos (MercadoPago Checkout Pro o efectivo).
+            WebSockets (Socket.IO) para la subasta en vivo del flujo de
+            compra/venta.
+          </p>
+        </div>
+        <div class="card">
+          <h3>desktop-runner <span class="tag">herramienta</span></h3>
+          <p>
+            Electron con un NestJS embebido. La GUI que corre, compara y
+            exporta cada script de entrenamiento de ambos frameworks —
+            gestiona los venvs de Python, detecta GPU/CPU automáticamente,
+            transmite logs en vivo por WebSockets.
+          </p>
+        </div>
+        <div class="card">
+          <h3>infra AWS <span class="tag">despliegue</span></h3>
+          <p>
+            Terraform, 4 instancias EC2 de un solo propósito (backend,
+            Postgres, MinIO, MailHog), S3 para fotos, Secrets Manager para
+            credenciales — acceso administrativo solo vía SSM Session
+            Manager, sin puertos abiertos ni bastion.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="etapas">
+      <span class="eyebrow">03 &middot; El pipeline de ML</span>
+      <h2>Las 4 etapas — arquitectura y números reales</h2>
+      <div class="prose">
+        <p>
+          Cada etapa se entrenó dos veces sobre los mismos datos — una vez
+          en PyTorch, una vez en TensorFlow — para comparar directamente
+          qué framework rinde mejor en cada tarea. Regla de empate del
+          proyecto: si la diferencia en la métrica principal es menor a
+          <span class="mono">0.005</span>, se declara empate.
+        </p>
+      </div>
+
+      <div class="stage">
+        <div class="stage-head">
+          <div style="display:flex; align-items:baseline; gap:0.8rem;">
+            <span class="n">1</span>
+            <h3>Detector + Retrieval</h3>
+          </div>
+          <span class="kind">Clasificación binaria + retrieval por similitud</span>
+        </div>
+        <div class="stage-body">
+          <div>
+            <p>
+              Transfer learning (EfficientNet-B0 en PyTorch, MobileNetV3Small
+              en TensorFlow) responde primero "¿es esto una carta de Magic?",
+              y el mismo backbone produce un <i>embedding</i> visual usado
+              para buscar cuál de las 58,679 cartas del catálogo es
+              visualmente más parecida.
+            </p>
+            <ul>
+              <li>Negativos multi-fuente a propósito: Pokémon, Yu-Gi-Oh!,
+                Star Wars Unlimited, naipes — no solo "MTG vs. Pokémon".</li>
+              <li>El t-SNE de los embeddings muestra clusters difusos, no
+                separación nítida — el backbone nunca se afinó para
+                distinguir carta-por-carta, solo para "MTG sí/no".</li>
+            </ul>
+          </div>
+          <div>
+            <table class="metric-table">
+              <thead><tr><th>Modelo</th><th>Accuracy</th><th>Top-1</th><th>Top-5</th></tr></thead>
+              <tbody>
+                <tr class="pt-row"><td>PyTorch</td><td class="num">1.0000</td><td class="num">0.2528</td><td class="num">0.372</td></tr>
+                <tr class="tf-row"><td>TensorFlow</td><td class="num">1.0000</td><td class="num">0.2435</td><td class="num">0.388</td></tr>
+              </tbody>
+            </table>
+            <span class="verdict-chip verdict-tie">Binario: empate</span>
+            <span class="verdict-chip verdict-win">Retrieval: PyTorch (margen chico)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="stage-head">
+          <div style="display:flex; align-items:baseline; gap:0.8rem;">
+            <span class="n">2</span>
+            <h3>Validador de texto</h3>
+          </div>
+          <span class="kind">Clasificación binaria sobre un par de textos</span>
+        </div>
+        <div class="stage-body">
+          <div>
+            <p>
+              No clasifica una imagen — clasifica si el texto OCR de la foto
+              y el texto de referencia de una carta candidata describen la
+              misma carta. Arquitectura tipo "matching network":
+              <code>concat[v_ocr, v_ref, |diff|, producto]</code> sobre
+              vectores de <code>HashingVectorizer</code> (512-d cada uno).
+            </p>
+            <ul>
+              <li>Determinístico sin <code>.fit()</code> — PyTorch,
+                TensorFlow y hasta el cliente TypeScript vectorizan
+                independientemente y obtienen vectores idénticos.</li>
+              <li>Baseline sin red entrenada (solo OCR + <code>difflib</code>):
+                ROC-AUC 0.818 — ya sólido, cuantifica cuánto aporta la MLP.</li>
+            </ul>
+          </div>
+          <div>
+            <table class="metric-table">
+              <thead><tr><th>Modelo</th><th>ROC-AUC</th><th>F1 @ umbral</th></tr></thead>
+              <tbody>
+                <tr class="pt-row"><td>PyTorch</td><td class="num">0.9906</td><td class="num">0.9610</td></tr>
+                <tr class="tf-row"><td>TensorFlow</td><td class="num">0.9886</td><td class="num">0.9613</td></tr>
+              </tbody>
+            </table>
+            <span class="verdict-chip verdict-tie">Empate (diff 0.0020)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="stage-head">
+          <div style="display:flex; align-items:baseline; gap:0.8rem;">
+            <span class="n">3</span>
+            <h3>Estimador de precio</h3>
+          </div>
+          <span class="kind">Regresión sobre <code>log1p(precio)</code></span>
+        </div>
+        <div class="stage-body">
+          <div>
+            <p>
+              Tabular (50 dims: rareza/set/tipo/colores/CMC + popularidad)
+              concatenado con un embedding visual <b>congelado</b> del
+              backbone ya afinado de la Etapa 1 — no ImageNet crudo.
+            </p>
+            <ul>
+              <li><b>El hallazgo central</b>: con las 48 dims originales, el
+                R² se estancaba en ~0.43 sin importar los hiperparámetros —
+                un techo de <i>información</i>, no de tuning. Agregar
+                <code>edhrec_rank</code> (popularidad competitiva) lo llevó
+                a 0.65 — la mayor mejora medida en todo el proyecto por un
+                solo cambio de features.</li>
+              <li>R²(USD) queda cerca de 0 por el sesgo de precios (pocas
+                cartas carísimas dominan la varianza) — la Median AE en USD
+                ($0.12–0.16) es la métrica honesta de precisión típica.</li>
+            </ul>
+          </div>
+          <div>
+            <table class="metric-table">
+              <thead><tr><th>Modelo</th><th>R² (log)</th><th>Median AE (USD)</th></tr></thead>
+              <tbody>
+                <tr class="pt-row"><td>PyTorch</td><td class="num">0.6585</td><td class="num">$0.12</td></tr>
+                <tr class="tf-row"><td>TensorFlow</td><td class="num">0.6491</td><td class="num">$0.11</td></tr>
+              </tbody>
+            </table>
+            <span class="verdict-chip verdict-win">PyTorch (diff 0.0094)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="stage-head">
+          <div style="display:flex; align-items:baseline; gap:0.8rem;">
+            <span class="n">4</span>
+            <h3>Clasificador de condición</h3>
+          </div>
+          <span class="kind">Multiclase: NM / LP / MP / HP / DMG</span>
+        </div>
+        <div class="stage-body">
+          <div>
+            <p>
+              Mismo backbone estructural que la Etapa 1, cabeza a 5 salidas.
+              La historia real de esta etapa es sim-to-real, no arquitectura.
+            </p>
+            <ul>
+              <li>Sintético-only llegó a 95.25% accuracy en su propio split
+                — pero cayó a <b>38.7%</b> en fotos reales.</li>
+              <li>Agregar 1,184 fotos reales (vía Roboflow) a los datos
+                sintéticos subió el checkpoint real-photo a <b>72.2%</b> —
+                +33.5 puntos por incluir datos reales, aunque fueran muchos
+                menos que los sintéticos.</li>
+              <li>Los errores se concentran entre grados adyacentes (LP↔MP),
+                casi nunca entre extremos (NM↔DMG) — el modelo se equivoca
+                de forma "razonable".</li>
+            </ul>
+          </div>
+          <div>
+            <table class="metric-table">
+              <thead><tr><th>Modelo</th><th>F1 macro</th><th>Accuracy</th></tr></thead>
+              <tbody>
+                <tr class="pt-row"><td>PyTorch</td><td class="num">0.9523</td><td class="num">0.9525</td></tr>
+                <tr class="tf-row"><td>TensorFlow</td><td class="num">0.7546</td><td class="num">0.7575</td></tr>
+              </tbody>
+            </table>
+            <span class="verdict-chip verdict-win">PyTorch (margen grande, 0.198)</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="resumen">
+      <span class="eyebrow">04 &middot; Resultado global</span>
+      <h2>Las 5 métricas, una tabla</h2>
+      <div class="wide-scroll">
+        <table class="summary-table">
+          <thead>
+            <tr><th>Etapa</th><th>Métrica principal</th><th class="num">PyTorch</th><th class="num">TensorFlow</th><th class="num">Diferencia</th><th>Ganador</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>1 — Detector (binario)</td><td>Accuracy</td><td class="num">1.0000</td><td class="num">1.0000</td><td class="num">0.0000</td><td>Empate</td></tr>
+            <tr><td>1 — Retrieval (58,679 clases)</td><td>Top-1</td><td class="num">0.2528</td><td class="num">0.2435</td><td class="num">0.0093</td><td>PyTorch</td></tr>
+            <tr><td>2 — Validador de texto</td><td>ROC-AUC</td><td class="num">0.9906</td><td class="num">0.9886</td><td class="num">0.0020</td><td>Empate</td></tr>
+            <tr><td>3 — Estimador de precio</td><td>R² (log-USD)</td><td class="num">0.6585</td><td class="num">0.6491</td><td class="num">0.0094</td><td>PyTorch</td></tr>
+            <tr><td>4 — Clasificador de condición</td><td>F1 macro</td><td class="num">0.9523</td><td class="num">0.7546</td><td class="num">0.1977</td><td>PyTorch</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="prose" style="margin-top:1.3rem;">
+        <p>
+          PyTorch nunca pierde una etapa outright — empata en 2 (la tarea es
+          fácil, o ambos frameworks ya son muy buenos) y gana con margen
+          chico en regresión. La única brecha grande es la Etapa 4, que
+          también es la única con datos reales limitados mezclados con
+          sintéticos — sugiere que la implementación TensorFlow generaliza
+          peor con datasets chicos y heterogéneos en este proyecto puntual,
+          no que TensorFlow sea inferior como framework en general.
+        </p>
+      </div>
+    </section>
+
+    <section id="glosario">
+      <span class="eyebrow">05 &middot; Glosario</span>
+      <h2>Qué significa cada métrica, para este sistema</h2>
+
+      <div class="glossary-group">
+        <span class="eyebrow">Clasificación</span>
+        <div class="gloss-grid">
+          <div class="gloss-card">
+            <div class="term">Accuracy</div>
+            <div class="formula">(TP+TN) / total</div>
+            <p>Porcentaje de aciertos simple.</p>
+            <div class="why"><b>Acá:</b> engañosa en la Etapa 1 (dataset balanceado a propósito, así que un 1.0000 es real) pero inútil sola en la Etapa 4, donde las 5 clases no tienen igual cantidad de ejemplos.</div>
+          </div>
+          <div class="gloss-card">
+            <div class="term">F1 macro</div>
+            <div class="formula">promedio simple del F1 por clase</div>
+            <p>Rendimiento balanceado entre clases, sin que la mayoritaria domine el promedio.</p>
+            <div class="why"><b>Acá:</b> es la métrica principal de la Etapa 4 justamente porque NM/LP/MP/HP/DMG no están balanceadas — es donde se ve la brecha real de 0.20 puntos entre frameworks.</div>
+          </div>
+          <div class="gloss-card">
+            <div class="term">ROC-AUC</div>
+            <div class="formula">área bajo TPR vs. FPR</div>
+            <p>Qué tan bien el modelo ordena positivos por encima de negativos, en cualquier umbral.</p>
+            <div class="why"><b>Acá:</b> métrica principal de la Etapa 2 — la salida es un logit continuo, y el umbral final (Youden) recién se elige después de entrenar, distinto por modelo (0.12–0.53).</div>
+          </div>
+          <div class="gloss-card">
+            <div class="term">Top-k / MRR</div>
+            <div class="formula">¿la respuesta correcta está entre las k mejores?</div>
+            <p>MRR: promedio de <span class="mono">1/posición</span> de la respuesta correcta.</p>
+            <div class="why"><b>Acá:</b> Top-1 de solo ~25% en retrieval (58,679 clases) con MRR≈0.30 significa que la carta correcta aparece cerca del puesto #3 en promedio — suficiente para una UX de "elegí entre estos candidatos", no para auto-completar sin revisión.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="glossary-group">
+        <span class="eyebrow">Regresión (Etapa 3, precio)</span>
+        <div class="gloss-grid">
+          <div class="gloss-card">
+            <div class="term">R² (coeficiente de determinación)</div>
+            <div class="formula">1 − SS_residual / SS_total</div>
+            <p>Qué fracción de la varianza del precio explica el modelo, relativo a predecir siempre el promedio.</p>
+            <div class="why"><b>Acá:</b> R²(log) 0.65 pero R²(USD) 0.02–0.19 — <b>no es un bug</b>. Los precios de MTG son muy asimétricos (la mayoría vale centavos, pocas cartas valen cientos de dólares); en espacio USD crudo esos outliers dominan el cálculo.</div>
+          </div>
+          <div class="gloss-card">
+            <div class="term">MAE / Median AE</div>
+            <div class="formula">promedio / mediana de |predicho − real|</div>
+            <p>Error típico, en las unidades originales.</p>
+            <div class="why"><b>Acá:</b> la Median AE en USD ($0.11–$0.16) es la métrica más honesta de "qué tan bien acierta en la mayoría de las cartas comunes" — inmune a los outliers caros que arruinan el R²(USD).</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="glossary-group">
+        <span class="eyebrow">Ingeniería de features</span>
+        <div class="gloss-grid">
+          <div class="gloss-card">
+            <div class="term">HashingVectorizer</div>
+            <div class="formula">n-grama → hash → posición fija</div>
+            <p>Vectoriza texto sin vocabulario ajustado ni <code>.fit()</code> — determinístico entre lenguajes.</p>
+            <div class="why"><b>Acá:</b> por eso PyTorch, TensorFlow <i>y</i> el cliente TypeScript pueden vectorizar el mismo texto independientemente y obtener vectores bit-idénticos, sin sincronizar ningún artefacto entrenado.</div>
+          </div>
+          <div class="gloss-card">
+            <div class="term">Identidad de color (WUBRG)</div>
+            <div class="formula"><span class="wubrg"><span style="background:#f8f0da"></span><span style="background:#0e68ab"></span><span style="background:#2b2b2b"></span><span style="background:#d3202a"></span><span style="background:#00733e"></span></span></div>
+            <p>Los 5 colores de maná de Magic — Blanco, Azul, Negro, Rojo, Verde.</p>
+            <div class="why"><b>Acá:</b> 5 de las 50 dimensiones tabulares de la Etapa 3 son un one-hot fijo sobre estos colores — parte de por qué el vector de entrada es byte-idéntico entre frameworks.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  <p>
+    Todos los números de esta página vienen directamente de
+    <span class="sources">RESULTADOS.md</span> (raíz),
+    <span class="sources">certamen_1/RESULTADOS.md</span> y
+    <span class="sources">certamen_2/RESULTADOS.md</span> — ningún modelo se
+    re-entrenó para armar este documento. Ver también
+    <span class="sources">certamen_1/Testing/curated_vs_real_gap.md</span>
+    para la brecha entre datos curados y fotos reales, y
+    <span class="sources">ROADMAP.md</span> para el estado de cada
+    workstream.
+  </p>
+</footer>
