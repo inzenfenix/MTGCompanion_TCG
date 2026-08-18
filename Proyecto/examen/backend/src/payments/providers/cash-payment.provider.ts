@@ -7,16 +7,18 @@ import type {
 } from '../payment-provider.interface';
 
 /**
- * "Efectivo" — in-person cash. There is no external rail to call: the buyer
- * and seller are physically together, so the app trusts the buyer's own
- * "I paid" action and settles the transaction PAID immediately
- * (paidImmediately: true — see TransactionsService.create()). This is a
- * weaker guarantee than MercadoPago's third-party-confirmed webhook (a
- * malicious buyer could claim a cash payment that never happened), but it's
- * the same trust boundary any in-person cash sale has, and card ownership
- * doesn't transfer on a paid transaction yet either (see ROADMAP.md E5's
- * already-flagged gap) — low stakes today. Doubles as the fast,
- * no-credentials payment path for testing/demos.
+ * "Efectivo" — in-person cash. There is no external rail to call, so the
+ * transaction stays PENDING after creation (paidImmediately: false) until
+ * the seller — who actually receives the physical cash — explicitly
+ * confirms via POST /transactions/:id/confirm-cash-received
+ * (TransactionsService.confirmCashReceived(), ROADMAP.md J6). Earlier this
+ * settled PAID immediately on the buyer's own say-so; that was replaced
+ * because a malicious buyer could claim a cash payment that never happened
+ * with no seller-side check at all, and because card ownership now DOES
+ * transfer on PAID (J9) — auto-settling on a one-sided claim was fine when
+ * "PAID" was cosmetic, not once it moves a real card. Still doubles as the
+ * no-credentials payment path for testing/demos, just with an extra
+ * explicit confirm step.
  */
 @Injectable()
 export class CashPaymentProvider implements PaymentProvider {
@@ -24,11 +26,11 @@ export class CashPaymentProvider implements PaymentProvider {
 
   createPayment(input: CreatePaymentInput): Promise<CreatePaymentResult> {
     this.logger.log(
-      `CashPaymentProvider.createPayment(${input.transactionId}) — settling PAID immediately, no external rail`,
+      `CashPaymentProvider.createPayment(${input.transactionId}) — pending seller confirmation, no external rail`,
     );
     return Promise.resolve({
       paymentRef: `cash_${randomUUID()}`,
-      paidImmediately: true,
+      paidImmediately: false,
     });
   }
 

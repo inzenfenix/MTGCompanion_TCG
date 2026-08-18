@@ -69,6 +69,15 @@ export class PrismaCardRepository implements CardRepository {
     return this.toEntity(card);
   }
 
+  async transferOwnership(id: string, newOwnerId: string): Promise<CardEntity> {
+    const card = await this.prisma.card.update({
+      where: { id },
+      data: { owner: { connect: { id: newOwnerId } } },
+      include: { photos: true },
+    });
+    return this.toEntity(card);
+  }
+
   async delete(id: string): Promise<void> {
     await this.prisma.card.delete({ where: { id } });
   }

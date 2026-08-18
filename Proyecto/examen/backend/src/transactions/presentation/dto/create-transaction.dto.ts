@@ -11,8 +11,9 @@ export class CreateTransactionDto {
   // card's current owner inside TransactionsService.
 
   // Defaults to MERCADOPAGO in TransactionsService when omitted — preserves
-  // today's existing checkout path. CASH ("Efectivo") settles immediately,
-  // no external rail — see CashPaymentProvider.
+  // today's existing checkout path. CASH ("Efectivo") stays PENDING until
+  // the seller confirms receipt (ROADMAP.md J6) — see CashPaymentProvider
+  // and TransactionsService.confirmCashReceived().
   @IsOptional()
   @IsIn(['MERCADOPAGO', 'CASH'])
   paymentMethod?: PaymentMethod;

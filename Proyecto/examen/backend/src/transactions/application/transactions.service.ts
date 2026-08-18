@@ -1,12 +1,16 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { PaymentMethod } from '../../../generated/prisma';
 import { CardsService } from '../../cards/application/cards.service';
+import { OffersService } from '../../offers/application/offers.service';
+import { UsersService } from '../../users/application/users.service';
 import {
   PAYMENT_PROVIDERS,
   type PaymentProvider,
@@ -16,7 +20,12 @@ import {
   TRANSACTION_REPOSITORY,
   type TransactionRepository,
 } from '../domain/transaction.repository';
+import type { TransactionEntity } from '../domain/transaction.entity';
 import { computeIvaBreakdown, IVA_RATE } from '../domain/iva';
+import {
+  TRANSACTION_PAID_EVENT,
+  TransactionPaidEvent,
+} from '../../common/events/transaction-paid.event';
 import type { CreateTransactionDto } from '../presentation/dto/create-transaction.dto';
 
 @Injectable()
@@ -29,6 +38,9 @@ export class TransactionsService {
     @Inject(PAYMENT_PROVIDERS)
     private readonly paymentProviders: Record<PaymentMethod, PaymentProvider>,
     private readonly cards: CardsService,
+    private readonly offers: OffersService,
+    private readonly users: UsersService,
+    private readonly events: EventEmitter2,
   ) {}
 
   async create(buyerId: string, dto: CreateTransactionDto) {
@@ -40,6 +52,31 @@ export class TransactionsService {
       throw new BadRequestException('Cannot buy your own card');
     }
 
+    // ROADMAP.md J9 — a card with a resolved auction (wonOfferId set, see
+    // OffersService.resolveIfExpired) is priced off the winning offer, not
+    // the flat asking price, and only the winning bidder may complete the
+    // purchase. Consumed here (not deferred to PAID) so a second buyer
+    // can't also try to complete the same won auction concurrently.
+    let amount = card.guessedPrice;
+    if (card.wonOfferId) {
+      const winningOffer = await this.offers.findById(card.wonOfferId);
+      if (!winningOffer) {
+        // Shouldn't happen — wonOfferId only ever points at a real Offer
+        // row — but stay safe rather than silently mis-price a purchase.
+        throw new NotFoundException('Winning offer not found');
+      }
+      if (winningOffer.bidderId !== buyerId) {
+        throw new BadRequestException(
+          'Only the winning bidder can complete this purchase',
+        );
+      }
+      amount = winningOffer.amount;
+      await this.cards.setAuctionState(card.id, {
+        closesAt: null,
+        wonOfferId: null,
+      });
+    }
+
     const method: PaymentMethod = dto.paymentMethod ?? 'MERCADOPAGO';
     const provider = this.paymentProviders[method];
 
@@ -47,7 +84,7 @@ export class TransactionsService {
       cardId: card.id,
       buyerId,
       sellerId: card.ownerId,
-      amount: card.guessedPrice,
+      amount,
       paymentMethod: method,
     });
 
@@ -67,11 +104,13 @@ export class TransactionsService {
         payment.paymentRef,
       );
 
-      // Cash (and any future in-person method) settles synchronously —
-      // paidImmediately is the generic signal so this never has to branch
-      // on which concrete provider ran.
+      // paidImmediately is the generic signal a provider can settle
+      // synchronously at creation time (no concrete provider does today —
+      // CashPaymentProvider moved off this path per J6 — but the mechanism
+      // stays for whichever future one does) so this never has to branch on
+      // which concrete provider ran.
       const settled = payment.paidImmediately
-        ? await this.transactions.updateStatus(withPayment.id, 'PAID')
+        ? await this.markPaid(withPayment.id)
         : withPayment;
 
       // Surfaced once, at creation time only — not persisted. The frontend
@@ -141,9 +180,79 @@ export class TransactionsService {
         `Webhook referenced unknown transaction ${transactionId}`,
       );
     }
-    return this.transactions.updateStatus(
-      transactionId,
-      paid ? 'PAID' : 'FAILED',
-    );
+    return paid
+      ? this.markPaid(transactionId)
+      : this.transactions.updateStatus(transactionId, 'FAILED');
+  }
+
+  /**
+   * ROADMAP.md J6/J7 — the seller-only cash confirmation step. Cash no
+   * longer auto-settles PAID at creation (see CashPaymentProvider) since a
+   * completed purchase now actually moves the card (J9) — a one-sided
+   * buyer claim isn't enough for that.
+   */
+  async confirmCashReceived(transactionId: string, currentUserId: string) {
+    const transaction = await this.findOne(transactionId);
+    if (transaction.sellerId !== currentUserId) {
+      throw new ForbiddenException(
+        'Only the seller can confirm a cash payment',
+      );
+    }
+    if (transaction.paymentMethod !== 'CASH') {
+      throw new BadRequestException(
+        'Only CASH transactions are confirmed this way',
+      );
+    }
+    if (transaction.status !== 'PENDING') {
+      throw new BadRequestException(
+        `Transaction is ${transaction.status}, not PENDING`,
+      );
+    }
+    return this.markPaid(transactionId);
+  }
+
+  /**
+   * The single place a transaction actually becomes PAID (ROADMAP.md
+   * J6/J8/J9's shared trigger point) — called from the MercadoPago webhook,
+   * confirmCashReceived, and create()'s synchronous-settlement branch.
+   * Transfers card ownership to the buyer and emits transaction.paid for
+   * NotificationsModule's receipt-email listener, so neither concern has to
+   * be duplicated at each call site.
+   */
+  private async markPaid(transactionId: string): Promise<TransactionEntity> {
+    const updated = await this.transactions.updateStatus(transactionId, 'PAID');
+    const [card, buyer, seller] = await Promise.all([
+      this.cards.findOne(updated.cardId),
+      this.users.findById(updated.buyerId),
+      this.users.findById(updated.sellerId),
+    ]);
+
+    await this.cards.transferOwnership(updated.cardId, updated.buyerId);
+
+    if (buyer && seller) {
+      const { net, iva, total } = computeIvaBreakdown(updated.amount);
+      this.events.emit(
+        TRANSACTION_PAID_EVENT,
+        new TransactionPaidEvent(
+          updated.id,
+          buyer.email,
+          seller.email,
+          card.title,
+          updated.paymentMethod,
+          net,
+          iva,
+          total,
+        ),
+      );
+    } else {
+      // Shouldn't happen — buyerId/sellerId always point at real users —
+      // but a missing receipt email is far less bad than crashing a
+      // payment confirmation over it.
+      this.logger.warn(
+        `markPaid(${transactionId}): buyer or seller not found, skipping receipt email`,
+      );
+    }
+
+    return updated;
   }
 }

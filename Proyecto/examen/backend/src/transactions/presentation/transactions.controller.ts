@@ -39,6 +39,16 @@ export class TransactionsController {
   getReceipt(@Param('id') id: string) {
     return this.transactions.getReceipt(id);
   }
+
+  // ROADMAP.md J6/J7 — seller-only, flips a PENDING cash transaction to PAID.
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/confirm-cash-received')
+  confirmCashReceived(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.transactions.confirmCashReceived(id, user.id);
+  }
 }
 
 // Separate controller so the /payments/webhook path (called by MercadoPago,

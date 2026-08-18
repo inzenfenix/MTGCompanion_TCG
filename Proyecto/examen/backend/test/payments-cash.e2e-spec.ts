@@ -21,14 +21,14 @@ interface ReceiptResponse {
   disclaimer: string;
 }
 
-// ROADMAP.md G2 — e2e coverage for F2 (payments), CASH path. Mirrors the
-// manual verification F2's own ROADMAP row already did by hand (CASH
-// purchase -> immediate PAID, provider CashPaymentProvider, exact IVA
-// receipt math 119.00 -> net 100.00/iva 19.00/total 119.00 -> receipt on a
-// still-PENDING transaction 400s). MERCADOPAGO isn't covered here — no
-// sandbox/access token exists in this repo (see F2's own "not verifiable
-// here" note), so a MERCADOPAGO-method transaction is only used below to
-// exercise the "not paid yet" receipt guard, staying PENDING via
+// ROADMAP.md G2/J6/J7/J9 — e2e coverage for F2 (payments), CASH path.
+// Since ownership now actually transfers on PAID (J9), each scenario that
+// completes a purchase needs its own card — a card bought once is now
+// owned by the buyer, so re-buying the same id would 400 as a
+// self-purchase, not because of a test bug. MERCADOPAGO isn't covered here
+// — no sandbox/access token exists in this repo (see F2's own "not
+// verifiable here" note) — a MERCADOPAGO-method transaction is only used
+// below to exercise the "not paid yet" receipt guard, staying PENDING via
 // NoopPaymentProvider exactly as F2 already documented.
 describe('Payments — CASH (e2e)', () => {
   let app: INestApplication<App>;
@@ -43,9 +43,10 @@ describe('Payments — CASH (e2e)', () => {
     password: 'buyer-pass-123',
   };
   let sellerId: string;
+  let sellerToken: string;
+  let buyerId: string;
   let buyerToken: string;
-  let cardId: string; // sold via CASH
-  let pendingCardId: string; // sold via MERCADOPAGO (Noop), stays PENDING
+  const cardIds: string[] = [];
 
   async function registerAndLogin(
     user: { email: string; password: string },
@@ -62,6 +63,17 @@ describe('Payments — CASH (e2e)', () => {
     const registerBody = register.body as UserResponseDto;
     const loginBody = login.body as LoginResult;
     return { id: registerBody.id, accessToken: loginBody.accessToken };
+  }
+
+  async function createCard(title: string, guessedPrice: number): Promise<string> {
+    const res = await request(app.getHttpServer())
+      .post('/cards')
+      .set('Authorization', `Bearer ${sellerToken}`)
+      .send({ title, guessedPrice })
+      .expect(201);
+    const id = (res.body as CardEntity).id;
+    cardIds.push(id);
+    return id;
   }
 
   beforeAll(async () => {
@@ -82,30 +94,14 @@ describe('Payments — CASH (e2e)', () => {
 
     const sellerAuth = await registerAndLogin(seller, 'G2 Seller');
     sellerId = sellerAuth.id;
+    sellerToken = sellerAuth.accessToken;
     const buyerAuth = await registerAndLogin(buyer, 'G2 Buyer');
+    buyerId = buyerAuth.id;
     buyerToken = buyerAuth.accessToken;
-
-    const cashCard = await request(app.getHttpServer())
-      .post('/cards')
-      .set('Authorization', `Bearer ${sellerAuth.accessToken}`)
-      .send({ title: 'G2 Test Card (Cash)', guessedPrice: 119.0 })
-      .expect(201);
-    cardId = (cashCard.body as CardEntity).id;
-
-    const pendingCard = await request(app.getHttpServer())
-      .post('/cards')
-      .set('Authorization', `Bearer ${sellerAuth.accessToken}`)
-      .send({
-        title: 'G2 Test Card (MercadoPago, stays pending)',
-        guessedPrice: 50.0,
-      })
-      .expect(201);
-    pendingCardId = (pendingCard.body as CardEntity).id;
   });
 
   afterAll(async () => {
     // Clean up in FK-safe order: transactions -> cards -> refresh tokens -> users.
-    const cardIds = [cardId, pendingCardId].filter(Boolean);
     await prisma.transaction.deleteMany({ where: { cardId: { in: cardIds } } });
     await prisma.card.deleteMany({ where: { id: { in: cardIds } } });
     const users = await prisma.user.findMany({
@@ -119,27 +115,57 @@ describe('Payments — CASH (e2e)', () => {
     await app.close();
   });
 
-  it('a CASH purchase settles PAID immediately via CashPaymentProvider', async () => {
-    const res = await request(app.getHttpServer())
+  it('a CASH purchase stays PENDING until the seller confirms it, then transfers ownership', async () => {
+    const cardId = await createCard('G2 Test Card (Cash)', 119.0);
+
+    const created = await request(app.getHttpServer())
       .post('/transactions')
       .set('Authorization', `Bearer ${buyerToken}`)
       .send({ cardId, paymentMethod: 'CASH' })
       .expect(201);
-    const body = res.body as TransactionEntity;
+    const createdBody = created.body as TransactionEntity;
+    expect(createdBody.status).toBe('PENDING');
+    expect(createdBody.paymentProvider).toBe('CashPaymentProvider');
+    expect(createdBody.sellerId).toBe(sellerId);
+    expect(createdBody.amount).toBe(119);
 
-    expect(body.status).toBe('PAID');
-    expect(body.paymentProvider).toBe('CashPaymentProvider');
-    expect(body.sellerId).toBe(sellerId);
-    expect(body.amount).toBe(119);
+    // Buyer can't confirm their own purchase.
+    await request(app.getHttpServer())
+      .post(`/transactions/${createdBody.id}/confirm-cash-received`)
+      .set('Authorization', `Bearer ${buyerToken}`)
+      .expect(403);
+
+    const confirmed = await request(app.getHttpServer())
+      .post(`/transactions/${createdBody.id}/confirm-cash-received`)
+      .set('Authorization', `Bearer ${sellerToken}`)
+      .expect(201);
+    expect((confirmed.body as TransactionEntity).status).toBe('PAID');
+
+    // Confirming twice is rejected, not silently idempotent.
+    await request(app.getHttpServer())
+      .post(`/transactions/${createdBody.id}/confirm-cash-received`)
+      .set('Authorization', `Bearer ${sellerToken}`)
+      .expect(400);
+
+    const card = await request(app.getHttpServer())
+      .get(`/cards/${cardId}`)
+      .expect(200);
+    expect((card.body as CardEntity).ownerId).toBe(buyerId);
   });
 
   it('the receipt for a PAID transaction has exact IVA math (119.00 -> net 100.00 / iva 19.00 / total 119.00)', async () => {
+    const cardId = await createCard('G2 Test Card (Cash, receipt)', 119.0);
     const created = await request(app.getHttpServer())
       .post('/transactions')
       .set('Authorization', `Bearer ${buyerToken}`)
       .send({ cardId, paymentMethod: 'CASH' })
       .expect(201);
     const createdId = (created.body as TransactionEntity).id;
+
+    await request(app.getHttpServer())
+      .post(`/transactions/${createdId}/confirm-cash-received`)
+      .set('Authorization', `Bearer ${sellerToken}`)
+      .expect(201);
 
     const receipt = await request(app.getHttpServer())
       .get(`/transactions/${createdId}/receipt`)
@@ -155,12 +181,7 @@ describe('Payments — CASH (e2e)', () => {
   });
 
   it('rejects a self-purchase with 400', async () => {
-    // Re-login as the seller and try to buy their own card.
-    const login = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send(seller)
-      .expect(201);
-    const sellerToken = (login.body as LoginResult).accessToken;
+    const cardId = await createCard('G2 Test Card (self-purchase)', 10.0);
 
     await request(app.getHttpServer())
       .post('/transactions')
@@ -170,6 +191,10 @@ describe('Payments — CASH (e2e)', () => {
   });
 
   it('the receipt for a still-PENDING transaction 400s ("not paid yet")', async () => {
+    const pendingCardId = await createCard(
+      'G2 Test Card (MercadoPago, stays pending)',
+      50.0,
+    );
     const created = await request(app.getHttpServer())
       .post('/transactions')
       .set('Authorization', `Bearer ${buyerToken}`)

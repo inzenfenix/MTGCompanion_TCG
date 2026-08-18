@@ -104,6 +104,11 @@ export class CardsService {
     return this.cards.updateAuctionState(cardId, data);
   }
 
+  /** ROADMAP.md J9 — called by TransactionsService once a transaction reaches PAID. */
+  transferOwnership(cardId: string, newOwnerId: string) {
+    return this.cards.transferOwnership(cardId, newOwnerId);
+  }
+
   /** Same NotFoundException whether the card is missing or belongs to someone else — doesn't confirm a card id exists to a non-owner. */
   private async findOwned(id: string, currentUserId: string) {
     const card = await this.findOne(id);

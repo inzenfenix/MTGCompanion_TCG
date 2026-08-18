@@ -86,6 +86,11 @@ export class OffersService {
     };
   }
 
+  /** Used by TransactionsService.create() to price a purchase off the auction's winning offer (ROADMAP.md J9). */
+  findById(offerId: string) {
+    return this.offers.findById(offerId);
+  }
+
   private async resolveIfExpired(card: CardEntity): Promise<CardEntity> {
     if (!card.closesAt || card.wonOfferId) return card;
     if (Date.now() < card.closesAt.getTime()) return card;

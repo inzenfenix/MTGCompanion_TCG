@@ -6,6 +6,7 @@ import { SmtpEmailProvider } from './providers/smtp-email.provider';
 import { SesEmailProvider } from './providers/ses-email.provider';
 import { NotificationsService } from './notifications.service';
 import { UserCreatedListener } from './listeners/user-created.listener';
+import { TransactionPaidListener } from './listeners/transaction-paid.listener';
 
 @Module({
   providers: [
@@ -23,6 +24,7 @@ import { UserCreatedListener } from './listeners/user-created.listener';
     },
     NotificationsService,
     UserCreatedListener,
+    TransactionPaidListener,
   ],
   exports: [NotificationsService],
 })

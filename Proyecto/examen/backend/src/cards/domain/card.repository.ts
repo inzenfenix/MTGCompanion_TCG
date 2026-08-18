@@ -49,6 +49,8 @@ export interface CardRepository {
   findById(id: string): Promise<CardEntity | null>;
   update(id: string, data: UpdateCardData): Promise<CardEntity>;
   updateAuctionState(id: string, data: AuctionStateUpdate): Promise<CardEntity>;
+  /** ROADMAP.md J9 — moves a card to its buyer once a Transaction reaches PAID. Not part of UpdateCardData: a raw PATCH must never reassign ownership. */
+  transferOwnership(id: string, newOwnerId: string): Promise<CardEntity>;
   delete(id: string): Promise<void>;
 
   /** Global (not owner-scoped) search across every listed card, for the Bazaar. */
