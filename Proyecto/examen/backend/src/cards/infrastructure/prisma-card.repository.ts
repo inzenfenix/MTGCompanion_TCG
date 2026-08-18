@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import type {
+  AuctionStateUpdate,
   CardRepository,
   CreateCardData,
   SearchListingsParams,
@@ -11,7 +12,7 @@ import type {
   CardListingEntity,
   CardPhotoEntity,
 } from '../domain/card.entity';
-import type { Card, CardPhoto } from '../../../generated/prisma';
+import type { Card, CardOrigin, CardPhoto } from '../../../generated/prisma';
 
 type CardWithPhotos = Card & { photos: CardPhoto[] };
 
@@ -28,9 +29,12 @@ export class PrismaCardRepository implements CardRepository {
     return this.toEntity(card);
   }
 
-  async findAllByOwner(ownerId: string): Promise<CardEntity[]> {
+  async findAllByOwner(
+    ownerId: string,
+    origin?: CardOrigin,
+  ): Promise<CardEntity[]> {
     const cards = await this.prisma.card.findMany({
-      where: { ownerId },
+      where: { ownerId, ...(origin ? { origin } : {}) },
       include: { photos: true },
     });
     return cards.map((card) => this.toEntity(card));
@@ -48,6 +52,18 @@ export class PrismaCardRepository implements CardRepository {
     const card = await this.prisma.card.update({
       where: { id },
       data,
+      include: { photos: true },
+    });
+    return this.toEntity(card);
+  }
+
+  async updateAuctionState(
+    id: string,
+    data: AuctionStateUpdate,
+  ): Promise<CardEntity> {
+    const card = await this.prisma.card.update({
+      where: { id },
+      data: { closesAt: data.closesAt, wonOfferId: data.wonOfferId },
       include: { photos: true },
     });
     return this.toEntity(card);

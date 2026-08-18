@@ -5,9 +5,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { CardOrigin } from '../../../generated/prisma';
 import { StorageService } from '../../storage/storage.service';
 import {
   CARD_REPOSITORY,
+  type AuctionStateUpdate,
   type CardRepository,
 } from '../domain/card.repository';
 import type { CreateCardDto } from '../presentation/dto/create-card.dto';
@@ -54,8 +56,8 @@ export class CardsService {
     return this.cards.create({ ...dto, ownerId });
   }
 
-  findAllForOwner(ownerId: string) {
-    return this.cards.findAllByOwner(ownerId);
+  findAllForOwner(ownerId: string, origin?: CardOrigin) {
+    return this.cards.findAllByOwner(ownerId, origin);
   }
 
   /** Bazaar search (E6, ROADMAP.md) — global, not owner-scoped. Requires q or scryfallId so it can't degrade into "list every card ever listed". */
@@ -90,6 +92,16 @@ export class CardsService {
     const card = await this.cards.findById(id);
     if (!card) throw new NotFoundException('Card not found');
     return card;
+  }
+
+  /**
+   * Thin passthrough to the repository — kept here (not exposed as a raw
+   * PATCH field) so OffersModule never touches CARD_REPOSITORY directly,
+   * same "depend on the service, not the repository" pattern
+   * TransactionsService already follows for CardsService itself.
+   */
+  setAuctionState(cardId: string, data: AuctionStateUpdate) {
+    return this.cards.updateAuctionState(cardId, data);
   }
 
   /** Same NotFoundException whether the card is missing or belongs to someone else — doesn't confirm a card id exists to a non-owner. */

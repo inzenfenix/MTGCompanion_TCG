@@ -1,4 +1,4 @@
-import type { CardCondition } from '../../../generated/prisma';
+import type { CardCondition, CardOrigin } from '../../../generated/prisma';
 import type {
   CardEntity,
   CardListingEntity,
@@ -11,6 +11,8 @@ export interface CreateCardData {
   description?: string;
   guessedPrice: number;
   condition?: CardCondition;
+  /** Defaults to VAULT at the Prisma schema level when omitted. */
+  origin?: CardOrigin;
   scryfallId?: string;
   setName?: string;
   rarity?: string;
@@ -27,6 +29,14 @@ export interface SearchListingsParams {
   limit: number;
 }
 
+/** Auction state fields only — deliberately not part of UpdateCardData, so a
+ * raw PATCH /cards/:id can never touch bidding state; only OffersService
+ * (via CardsService.setAuctionState) writes these. */
+export interface AuctionStateUpdate {
+  closesAt: Date | null;
+  wonOfferId: string | null;
+}
+
 /**
  * Port for card persistence. CardsService (application layer) only knows
  * this interface — PrismaCardRepository is the sole implementation today,
@@ -34,9 +44,11 @@ export interface SearchListingsParams {
  */
 export interface CardRepository {
   create(data: CreateCardData): Promise<CardEntity>;
-  findAllByOwner(ownerId: string): Promise<CardEntity[]>;
+  /** origin omitted = every card regardless of origin; pass 'VAULT' for Tab3.tsx's collection view (J3). */
+  findAllByOwner(ownerId: string, origin?: CardOrigin): Promise<CardEntity[]>;
   findById(id: string): Promise<CardEntity | null>;
   update(id: string, data: UpdateCardData): Promise<CardEntity>;
+  updateAuctionState(id: string, data: AuctionStateUpdate): Promise<CardEntity>;
   delete(id: string): Promise<void>;
 
   /** Global (not owner-scoped) search across every listed card, for the Bazaar. */

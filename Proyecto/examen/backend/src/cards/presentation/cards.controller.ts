@@ -13,6 +13,7 @@ import {
 import { JwtAuthGuard } from '../../auth/presentation/jwt-auth.guard';
 import { CurrentUser } from '../../auth/presentation/current-user.decorator';
 import type { RequestUser } from '../../auth/presentation/jwt.strategy';
+import type { CardOrigin } from '../../../generated/prisma';
 import { CardsService } from '../application/cards.service';
 import { CreateCardDto } from './dto/create-card.dto';
 import { UpdateCardDto } from './dto/update-card.dto';
@@ -31,6 +32,9 @@ export class CardsController {
 
   // Two modes on one resource, picked by which query params are present:
   //   ?ownerId=...                 -> unchanged owner-scoped browse (Vault)
+  //                                    optionally ?origin=VAULT (Tab3.tsx's
+  //                                    collection view, ROADMAP.md J3) to
+  //                                    hide SCAN_LISTING-only rows
   //   ?q=...|scryfallId=...        -> global Bazaar search (E6), optionally
   //                                    ?lat=&lng= (searcher's own position,
   //                                    for distanceKm) and
@@ -40,6 +44,7 @@ export class CardsController {
   @Get()
   findAll(
     @Query('ownerId') ownerId?: string,
+    @Query('origin') origin?: CardOrigin,
     @Query('q') q?: string,
     @Query('scryfallId') scryfallId?: string,
     @Query('excludeOwnerId') excludeOwnerId?: string,
@@ -47,7 +52,7 @@ export class CardsController {
     @Query('lng') lng?: string,
     @Query('limit') limit?: string,
   ) {
-    if (ownerId) return this.cards.findAllForOwner(ownerId);
+    if (ownerId) return this.cards.findAllForOwner(ownerId, origin);
     if (!q && !scryfallId) {
       throw new BadRequestException('ownerId, q, or scryfallId is required');
     }

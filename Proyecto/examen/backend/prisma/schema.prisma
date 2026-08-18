@@ -34,6 +34,7 @@ model User {
   purchases     Transaction[]  @relation("BuyerTransactions")
   sales         Transaction[]  @relation("SellerTransactions")
   refreshTokens RefreshToken[]
+  offers        Offer[]
 
   @@map("users")
 }
@@ -102,6 +103,18 @@ enum CardCondition {
   @@map("card_condition")
 }
 
+// VAULT = a permanent collection entry (today's only behavior). SCAN_LISTING =
+// created purely to generate a sell QR from Smart Scan (ROADMAP.md J1) — a
+// row still needs to exist for Transaction's FK, but Tab3.tsx's Vault view
+// filters these out. Default VAULT keeps every existing row's behavior
+// unchanged.
+enum CardOrigin {
+  VAULT
+  SCAN_LISTING
+
+  @@map("card_origin")
+}
+
 model Card {
   id      String @id @default(uuid())
   ownerId String
@@ -111,6 +124,7 @@ model Card {
   description  String?
   guessedPrice Decimal       @db.Decimal(10, 2)
   condition    CardCondition @default(NM)
+  origin       CardOrigin    @default(VAULT)
 
   // Optional, filled in once a card is matched against the Scryfall-derived
   // catalog (Certamen 1/2 Stage 1 retrieval). Kept nullable/free-form here on
@@ -121,14 +135,44 @@ model Card {
   rarity     String?
   oracleText String?
 
+  // Auction state (ROADMAP.md J12) — every Offer extends closesAt to
+  // now+5s; OffersService.getAuctionState() lazily resolves once
+  // now > closesAt (no cron job), clearing closesAt and pointing
+  // wonOfferId at the latest Offer for this card. TransactionsService
+  // .create() consumes wonOfferId (as the amount source) and clears it
+  // back to null so a later re-auction of the same card starts clean. Both
+  // null = "not currently up for bidding," the same as every Card today.
+  closesAt   DateTime?
+  wonOfferId String?
+
   photos       CardPhoto[]
   transactions Transaction[]
+  offers       Offer[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([ownerId])
   @@map("cards")
+}
+
+// One row per bid in a card's live auction (ROADMAP.md J12). Never updated
+// or deleted — the "current" offer is always just the latest row for a
+// given cardId, found by createdAt, not a separate mutable pointer.
+model Offer {
+  id     String @id @default(uuid())
+  cardId String
+  card   Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  bidderId String
+  bidder   User   @relation(fields: [bidderId], references: [id], onDelete: Cascade)
+
+  amount Decimal @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([cardId, createdAt])
+  @@map("offers")
 }
 
 model CardPhoto {

@@ -28,6 +28,22 @@ learning (EfficientNet_b0 en PyTorch, MobileNetV3Small en TensorFlow).
 **Ganador (tuned, accuracy): empate exacto** (diff 0.0000) — ambos
 frameworks resuelven la tarea perfectamente en este split de validación.
 
+**Reentrenado 2026-08-17 con la fuente de negativos "Star Wars Unlimited"
+agregada** (ROADMAP.md I18 — un caso real de falso positivo en dispositivo:
+Stage 1 confundía cartas de Star Wars Unlimited con MTG). La tabla arriba
+ya refleja esta corrida (`output/{pytorch,tensorflow}/optuna/2026-08-17_*`)
+— accuracy/hiperparámetros salieron **idénticos** a la corrida anterior
+(1.0000 parejo, mismo `learning_rate`/`weight_decay`/etc. hasta el último
+dígito), lo cual no es un error de este documento: confirma el techo de
+"tarea proxy fácil" que ROADMAP.md I31 ya diagnostica — agregar una fuente
+de negativos más, por variada que sea, sigue siendo una foto de carta
+limpia y bien iluminada, no la distribución real de "cualquier cosa que la
+cámara del teléfono podría ver". **Sin confirmar todavía en foto real**: el
+eval de las 122 fotos reales (`Testing/real_photo_eval_report.md`) sigue
+fechado de *antes* de este reentrenamiento — el fix de Star Wars está
+inferido de los datos de entrenamiento, no confirmado contra una foto real
+(ROADMAP.md I18/I20, item 1).
+
 **Nota de calidad de datos — TensorFlow "plain" excluido de la tabla:**
 `tensorFlow/results/metrics_binary.json` (la corrida sin Optuna) tiene
 `n_val: 48`, no los 1,200 reales — es un dry-run de desarrollo viejo que
@@ -188,9 +204,54 @@ frameworks):**
 
 ---
 
-*Última actualización: 2026-08-16. Datos leídos directamente de
-`output/{pytorch,tensorflow}/{optuna,optuna_condition,condition_grader}/latest/`
-y del par de `metrics_p{t,f}.json` más reciente en `output/{pytorch,tensorflow}/latest/`
-(corrida de `04_evaluate.py`, 2026-08-13). Ningún modelo se re-entrenó para
-armar este documento — es agregación pura de resultados ya existentes
-(ROADMAP.md H1/H4).*
+## Stage 4 — Checkpoint combinado real+sintético (el que se exporta a Ionic)
+
+**Este es el checkpoint que de verdad ships al cliente** —
+`condition_grader_combined.{pth,keras}`, no el "plano" de la sección
+anterior. TensorFlow tuvo un equivalente de este checkpoint por primera vez
+recién el 2026-08-17 (`tensorFlow/11_condition_grader_combined.py`, nuevo —
+ROADMAP.md I20 item 2); PyTorch ya lo tenía desde el 15 ago. Mismo dataset
+para ambos: 1,984 fotos (1,184 reales de Roboflow + 800 sintéticas).
+
+| Modelo | n (val) | Accuracy | **F1 macro** | Precision macro | Recall macro |
+|---|---|---|---|---|---|
+| PyTorch — combinado | 1,076 | 0.8615 | **0.8535** | 0.8536 | 0.8544 |
+| TensorFlow — combinado | 1,076 | 0.6571 | **0.6368** | 0.6383 | 0.6416 |
+
+**Ganador (F1 macro): PyTorch, 0.8535 vs. TensorFlow 0.6368** — diferencia
+0.217, el margen más grande de las 4 stages, incluso mayor que el del
+checkpoint plano de arriba (0.198). El patrón ya visto en el checkpoint
+plano se repite acá: TensorFlow es consistentemente más débil en todos los
+grados, no solo en uno.
+
+**Desglose por grado (combinado):**
+
+| Grado | PyTorch F1 | TensorFlow F1 |
+|---|---|---|
+| NM | 0.948 | 0.806 |
+| LP | 0.870 | 0.639 |
+| MP | 0.794 | 0.607 |
+| HP | 0.794 | 0.413 |
+| DMG | 0.862 | 0.718 |
+
+TensorFlow's peor grado acá es HP (0.413, muy por debajo de su propio 0.673
+en el checkpoint plano) — el checkpoint combinado le cuesta más a
+TensorFlow que a PyTorch, no solo en el promedio sino en dónde se
+concentra el daño.
+
+**Nota honesta (ROADMAP.md I20, items 3/4):** ninguno de los dos
+frameworks vio datos aumentados con fundas/sleeves en este entrenamiento
+(`synthetic_sleeve.py` existe y está wireado vía `--con-fundas`, pero
+ninguna corrida real lo usó todavía) — ver `CLAUDE.md`'s nota sobre
+G4f/sleeve handling.
+
+---
+
+*Última actualización: 2026-08-17. Datos leídos directamente de
+`output/{pytorch,tensorflow}/{optuna,optuna_condition,condition_grader,condition_grader_combined}/latest/`
+(o la corrida fechada más reciente cuando `latest/` no aplica) y del par de
+`metrics_p{t,f}.json` más reciente en `output/{pytorch,tensorflow}/latest/`
+(corrida de `04_evaluate.py`, 2026-08-13, sin cambios desde la última
+actualización de este documento). Ningún modelo se re-entrenó para armar
+este documento — es agregación pura de resultados ya existentes
+(ROADMAP.md H1/H4/I18/I20).*

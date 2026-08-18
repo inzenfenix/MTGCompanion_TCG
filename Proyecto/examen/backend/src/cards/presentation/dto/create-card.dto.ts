@@ -6,7 +6,7 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import { CardCondition } from '../../../../generated/prisma';
+import { CardCondition, CardOrigin } from '../../../../generated/prisma';
 
 export class CreateCardDto {
   // ownerId is NOT here — it comes from the JWT (@CurrentUser() in
@@ -27,6 +27,13 @@ export class CreateCardDto {
   @IsOptional()
   @IsEnum(CardCondition)
   condition?: CardCondition;
+
+  // Omitted = VAULT (Prisma default) — Smart Scan's "just list this to
+  // sell" path (ROADMAP.md J1/J3) passes SCAN_LISTING explicitly so
+  // Tab3.tsx's Vault view can filter it out.
+  @IsOptional()
+  @IsEnum(CardOrigin)
+  origin?: CardOrigin;
 
   @IsOptional()
   @IsString()

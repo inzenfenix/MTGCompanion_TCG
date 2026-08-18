@@ -364,11 +364,21 @@ blocks everything else (provider auth). I4 is independent of I3 and can be
 done in parallel. I5 depends on I3+I4 existing (nothing to output before
 then). I6/I7/I8 are follow-ups once I3 is up and reachable. **Recommended
 order: I2 → I1 → I3 → I4 → I5, then I6/I7/I8 as time allows** — that's the
-minimum path to "APK can talk to a real server." **Status (16 ago): every
-row above is built (I6 half); nothing has been applied to real AWS** — see
-the status update paragraph earlier in this workstream for what's verified
-vs. what still needs a real `terraform apply` + a live credential paste
-into desktop-runner's new Deploy tab.
+minimum path to "APK can talk to a real server." **Status (17 ago,
+superseded — see I9-I41 above): the whole stack is live for real** —
+`terraform apply` ran against the user's actual AWS Academy Lab account
+(4 EC2 instances, both S3 buckets, all 4 Secrets Manager secrets, an
+Elastic IP on `backend`), `deploy-backend.sh`/the catalog import have both
+run against the live instances (I9-I11), and the app has been rebuilt,
+reinstalled, and debugged end-to-end on the user's real Android phone over
+several live sessions (I13-I41) — login, permissions, OpenCV/tesseract
+asset loading, Stage 1's NCHW/NHWC contract bug, the OCR-identify chain,
+and the localizer's warp/angle/background handling all had real bugs found
+and fixed this way, not just simulated. What's still open in this
+workstream: I6's real-TLS path (still documented-only, plain HTTP +
+cleartext exception), I18's real-photo re-eval confirmation, and I20's
+sleeve-retraining/doc-refresh items — see each row's own status, not
+re-summarized here to avoid the two texts drifting again.
 
 ---
 

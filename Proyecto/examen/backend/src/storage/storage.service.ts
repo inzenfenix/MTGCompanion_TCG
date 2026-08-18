@@ -36,7 +36,12 @@ export class StorageService {
       // credential chain (instance role) — same pattern SesEmailProvider
       // already uses, auto-refreshing, no manual rotation.
       ...(storage.accessKeyId
-        ? { credentials: { accessKeyId: storage.accessKeyId, secretAccessKey: storage.secretAccessKey } }
+        ? {
+            credentials: {
+              accessKeyId: storage.accessKeyId,
+              secretAccessKey: storage.secretAccessKey,
+            },
+          }
         : {}),
     });
   }

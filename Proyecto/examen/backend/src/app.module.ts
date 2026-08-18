@@ -13,6 +13,7 @@ import { AuthModule } from './auth/auth.module';
 import { CardsModule } from './cards/cards.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { OffersModule } from './offers/offers.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { CatalogModule } from './catalog/catalog.module';
     CardsModule,
     TransactionsModule,
     CatalogModule,
+    OffersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
