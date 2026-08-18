@@ -1,10 +1,15 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { CardEntity } from '../../cards/domain/card.entity';
 import { CardsService } from '../../cards/application/cards.service';
 import {
   OFFER_REPOSITORY,
   type OfferRepository,
 } from '../domain/offer.repository';
+import {
+  OFFER_PLACED_EVENT,
+  OfferPlacedEvent,
+} from '../../common/events/offer-placed.event';
 
 /**
  * Every new offer extends a card's auction by this much (ROADMAP.md J12,
@@ -20,6 +25,7 @@ export class OffersService {
   constructor(
     @Inject(OFFER_REPOSITORY) private readonly offers: OfferRepository,
     private readonly cards: CardsService,
+    private readonly events: EventEmitter2,
   ) {}
 
   /**
@@ -64,6 +70,17 @@ export class OffersService {
       closesAt,
       wonOfferId: null,
     });
+    // ROADMAP.md J13 — OffersGateway (a separate listener, not called
+    // directly) broadcasts this to every client watching this card's
+    // auction, so a competing bidder's countdown resets live without
+    // polling. The final "who won" once the countdown hits zero still
+    // comes from a REST read (getAuctionState's lazy resolution) — see
+    // OffersGateway's own header comment for why that split is deliberate,
+    // not a missing piece.
+    this.events.emit(
+      OFFER_PLACED_EVENT,
+      new OfferPlacedEvent(cardId, offer, closesAt),
+    );
     return { offer, closesAt };
   }
 
