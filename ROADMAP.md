@@ -384,14 +384,43 @@ re-summarized here to avoid the two texts drifting again.
 
 ## J. QR-based buyer/seller trading flow
 
-**Not implemented — planning only, logged per user request.** The user's
-own framing: "the qr page for the seller/buyer flow doesn't exist," and any
-user should be able to act as either buyer or seller (that's the whole
-point of a trading app). Confirmed by reading the actual code before
-writing this section — see the grounding notes on each row below, and the
-"What already exists vs. what's actually missing" summary right after this
-paragraph. **Restated flow, so no future implementer has to re-derive it
-from the one-paragraph ask**:
+**Update (18 ago): built and verified, J1-J14 all done.** Everything below
+this paragraph is the original planning writeup (kept intact — the
+restated flow and the "what's missing" table were accurate at the time and
+are still useful context for *why* each row exists) — see each row's own
+status for what actually shipped. Short version: a schema draft
+(`CardOrigin`, `Offer`, `Card.closesAt`/`wonOfferId`) was found already
+sitting uncommitted in the working tree from an earlier, unfinished pass —
+picked up and finished rather than redone from scratch (git blame/log
+showed no other session had it in flight). Built in order: J1/J2/J3
+(Card.origin, migration, ListCard.tsx toggle) → J12 (Offer model + lazy
+auction resolution) → J6/J7/J8/J9 (cash pending-confirm, receipt emails,
+real ownership transfer, auction-winner pricing wired into
+`TransactionsService.create()`) → J4/J5/J7 (signed listing tokens, real
+jsQR camera scanning, dedicated `/buy/:token` page) → J13 (Socket.IO
+real-time layer) → J14 (Buy.tsx becomes the live bidding view) → J10/J11
+(the remaining test gap, Bazaar/CardDetails routing through Buy.tsx too).
+**Verified for real, not just build-clean**: a throwaway script drove the
+exact full chain — mint a listing token, resolve it, connect a real
+socket, place a bid, receive the live broadcast, wait out the real 5s
+window, re-fetch and confirm the server-resolved winner, create the
+transaction (priced at the winning offer, not the original ask), confirm
+cash, and confirm the card's `ownerId` actually became the winning
+bidder's — against the real running dev server + Postgres, then cleaned
+up. Backend `build`/`lint` and frontend `tsc`/`eslint`/`build` all clean
+throughout; e2e 20/23 passing (the 3 failures are the same pre-existing
+catalog-search gap other workstreams already have — this local dev DB has
+never had the 58,679-row catalog import run, unrelated to J). **Real,
+stated gap**: no live browser click-through this session (no
+`claude-in-chrome` connected) — the API-level flow is genuinely verified
+end-to-end, the actual on-device UI render/interaction is not, same
+category of gap several `I#` rows already carry for other features.
+**Scope cut, stated plainly**: the "Efectivo timeout → auto-expire" design
+decision (a pending cash transaction auto-cancels after a timeout window)
+was NOT implemented — would need a scheduled job/cron, which nothing else
+in this backend uses yet; a `PENDING` cash transaction with no seller
+confirmation stays `PENDING` forever today. The original planning
+paragraph below still describes the ask accurately:
 
 1. **Seller starts a listing** either (a) via Smart Scan — reads a physical
    card with the camera, same pipeline `ListCard.tsx`'s existing Smart Scan
@@ -443,7 +472,11 @@ from the one-paragraph ask**:
 **What already exists vs. what's actually missing (read this before
 scoping any task below):**
 
-| Piece | Status |
+**All rows below are now ✅ done (18 ago) — table kept as the original
+planning snapshot, not updated cell-by-cell to avoid drifting from each
+row's own detailed status further down.**
+
+| Piece | Status (at planning time — see each `J#` row for what shipped) |
 |---|---|
 | Seller scans/picks a card, gets a suggested price, can edit it | ✅ exists (E3b Smart Scan, E5 price edit) |
 | QR **generation** on the seller's side | ✅ exists (`react-qr-code`, `Tab2.tsx`, `TRADE:<cardId>`) |
@@ -457,20 +490,20 @@ scoping any task below):**
 
 | # | Task | Priority | Complexity | Notes |
 |---|---|---|---|---|
-| J1 | **Design decision (do this first, blocks J2+):** does a Smart-Scan-created listing that the seller doesn't want in their permanent Vault need its own persistence model, or is "every listing is a Card row" fine as long as the UI hides non-Vault ones from `Tab3.tsx`? | P1 | S | Not a coding task — a decision to write down before touching schema. The user's own words draw a real distinction ("if they have it on the vault it shows it there... they can sell any card even if it's not on their vault"), implying a scanned-to-sell card should *not* necessarily join the permanent collection view. Recommended default (cheapest, reuses existing FK integrity `Transaction.cardId` already depends on): add a `Card.origin` enum (`VAULT` \| `SCAN_LISTING`), default `VAULT` for backward compatibility, set `SCAN_LISTING` when `ListCard.tsx`'s Smart Scan flow is used purely to generate a QR rather than "add to my collection" — `Tab3.tsx`'s Vault query filters `origin: VAULT` only. Rejected alternative worth recording: a fully ephemeral/signed-token listing with no DB row until purchase (avoids ever writing a throwaway `Card` row) — cleaner conceptually but a bigger change (QR payload would need to carry the card's identifying data + a signature instead of just an id, `Transaction.create()` would need to materialize the `Card` row lazily on purchase) — flagged as the "if we had more time" option, not the recommended path. |
-| J2 | Schema: `Card.origin` enum + migration (or whichever model J1 settles on) | P1 | S | Depends on J1. Additive, non-breaking — existing rows default to `VAULT`, same "never truncate, always additive" spirit CLAUDE.md rule 2 already applies elsewhere in this repo (different rule, same instinct). |
-| J3 | Backend + `ListCard.tsx`: Smart Scan flow gains an explicit "keep in my Vault" vs. "just list this to sell" choice, sets `Card.origin` accordingly; `Tab3.tsx`'s Vault list query filters on it | P1 | M | The actual wiring for J1/J2's decision. Manual mode (typed-in cards) stays `VAULT`-only, unaffected. |
-| J4 | **Real QR scanning**: new camera-based QR-decode step, replacing `Tab2.tsx`'s manual `tradeCodeInput` text field | P1 | L | The literal "the QR page doesn't exist" gap. Recommended approach, for consistency with an architecture note E3b already established ("`useLiveCamera.ts` deliberately uses raw `getUserMedia`+canvas rather than a native camera plugin specifically so it behaves identically inside Capacitor's Android WebView as in a desktop browser"): a pure-JS decoder (e.g. `jsQR`) run against frames from the *already-existing* `useLiveCamera`/canvas pipeline (`GuidedCapture.tsx`'s same sampling loop shape), not a native Capacitor barcode plugin — no new native dependency, no `npx cap sync` risk, reuses proven camera plumbing. `@capacitor-mlkit/barcode-scanning` is the native alternative, more robust in bad lighting but a heavier, plugin-based add — worth a real side-by-side if `jsQR`'s accuracy on-device turns out poor (see G4c/G4d/G4e's whole history of "cheap heuristic first, escalate only if measured insufficient" as the precedent to follow here too). Neither library is a current dependency — confirmed via `grep` on `package.json`, no `jsQR`/`@capacitor-mlkit` present. |
-| J5 | New dedicated "Buy" page (e.g. `/buy/:cardId` route in `App.tsx`, mirroring `CardDetails.tsx`'s existing `/card/:id` pattern) — card, suggested price, Buy button | P1 | M | Today's buying flow is one inline step inside `Tab2.tsx`, not a URL a QR scan can land on. A real route is needed for "scan → lands on the buy page" to be literally true, and it's also what makes a QR shareable/deep-linkable in general (e.g. pasted as a link, not just scanned). Reuses `CardDetails.tsx`'s existing card-rendering pieces where possible rather than duplicating markup. |
-| J6 | Backend: cash ("Efectivo") gets a real pending-confirmation state instead of auto-`PAID` | P1 | M | `CashPaymentProvider.createPayment()` currently returns `paidImmediately: true` unconditionally — remove that, leave the transaction `PENDING` after a cash pick, and add `POST /transactions/:id/confirm-cash-received` (seller-only, 403 if the caller isn't `transaction.sellerId`) that flips it to `PAID`. Mirrors the existing `TransactionsController`/`TransactionsService` shape (`getReceipt`'s 400-until-`PAID` guard is the closest existing precedent for a status-gated action on this same controller). |
-| J7 | Frontend: seller-side "Confirm cash received?" action on `TransactionDetails.tsx`, shown only when `paymentMethod === 'CASH' && status === 'PENDING' && viewer === seller` | P1 | S | Depends on J6. Reuses the page's existing status-driven rendering (`statusIcon`/`statusColor`/`statusLabel` already branch on `transaction.status`) and its existing manual-refresh pattern (buyer side already polls/refreshes for the MercadoPago async case) so the buyer sees the flip to `PAID` the same way they already do today. |
-| J8 | Backend: `transaction.paid` event + `TransactionPaidListener` (mirrors `user.created` → `UserCreatedListener` exactly) → emails both `transaction.buyer.email` and `transaction.seller.email` a receipt | P1 | M | Builds directly on existing, proven infrastructure — `NotificationsModule`'s `EmailProvider` (SMTP/MailHog in dev, SES in prod) and the event-decoupling pattern already used for welcome emails (`common/events/user-created.event.ts` → listener → `NotificationsService`). New `common/events/transaction-paid.event.ts`, emitted from `TransactionsService` wherever a transaction actually flips to `PAID` (both the MercadoPago webhook path and J6's new cash-confirm endpoint — two emit sites, one event). New email template (`templates/payment-receipt.ts`, mirrors `welcome-email.ts`'s shape) built on the same IVA breakdown `getReceipt()` already computes — don't recompute it, call the existing method. |
-| J9 | Card ownership transfer: `Card.ownerId` actually moves to the buyer once a transaction reaches `PAID` | P1 | M | Not new scope — this is the gap E5 and F2 already found and explicitly flagged ("a completed purchase doesn't move the card into the buyer's Vault today, only records a payment") — surfaced again here because the QR buy/sell flow's entire point is a card changing hands, so shipping J1-J8 without this closes the mechanics but not the actual outcome. Cross-reference: E5's row, F2's "Scope note, not done here." Same open question those rows already raised and didn't resolve: transfer immediately on `PENDING`→`PAID`, or only after some additional confirmation? This workstream's J6 (cash) and the existing MercadoPago webhook are the two natural trigger points — same `transaction.paid` event J8 introduces is also the natural transfer trigger, one listener each, don't couple them into one handler. |
-| J10 | Tests: unit test for the QR-decode wrapper (J4, mock frame → known payload), e2e for cash-confirm (J6 — only the seller can confirm, confirming twice is idempotent-or-rejected, confirms a `CASH`-method transaction only), e2e for the receipt-email trigger (J8 — assert `NotificationsService`/a fake `EmailProvider` was called with both addresses, mirroring `G2`'s existing e2e pattern of a throwaway-user + `afterAll` cleanup) | P1 | M | Same testing bar this file already holds every other workstream to (see G1/G2/G3) — not optional polish. |
-| J11 | Polish: Bazaar/CardDetails "Buy" entry point also routes through J5's new `/buy/:cardId` page (not just the QR path) — one buy page, two ways to reach it (scan a QR, or tap a listing in the Bazaar) | P2 | S | Keeps the QR flow and the existing browse-by-search flow (`TabSearch.tsx`, E6) from silently diverging into two different "how do I buy this" implementations. |
-| J12 | Schema + backend: `Offer` model (cardId, bidderId, amount, createdAt) + auction resolution logic — a listing's `closesAt` column resets to `now + 5s` on every new offer, resolves to whichever offer is newest once `now > closesAt` with nothing newer | P1 | L | New scope from the user's "auction style" decision (17 ago) — see the "Design decisions" note above for the full mechanic. Server-authoritative on purpose: the 5s countdown can't be trusted from any one client, since a competing bidder's own app "forgetting" to report an offer would otherwise be undetectable. Resolution can be a lazy check-on-read (a `GET` for the listing/auction state checks `now > closesAt` and finalizes if so) rather than needing a scheduled job — simpler, no new cron infra, and nothing depends on the auction resolving faster than the next time someone looks at it. |
-| J13 | Real-time layer: bidders + seller see each other's live offers as they happen | P1 | L | Confirmed via `grep` — this backend has zero WebSocket infrastructure today (no `@nestjs/websockets`/`socket.io` dependency, no `WebSocketGateway` anywhere in `backend/src/`). This is new capability, not extending something that exists. NestJS's own WebSocket gateway support (`@nestjs/websockets` + `socket.io`) is the natural fit given the rest of the stack; a polling fallback (short-interval `GET` on the auction state, matching the buyer-side MercadoPago-pending polling pattern F2 already established) is the cheaper, no-new-dependency alternative if a real-time push channel turns out to be more than this course project needs — worth a real side-by-side before committing, same "cheap first, escalate only if measured insufficient" precedent G4c/G4d/G4e already set for the CV pipeline. |
-| J14 | Frontend: J5's Buy page becomes a live bidding view — current highest/most-recent offer, a "make an offer" input, a visible countdown mirroring J12's server-side `closesAt`, and a clear "you won" / "someone outbid you" resolution state | P1 | M | Depends on J12/J13. The countdown shown here is a courtesy display only — J12's server-side `closesAt` is the actual source of truth, this view just reflects it, never decides it. |
+| J1 | **Design decision (do this first, blocks J2+):** does a Smart-Scan-created listing that the seller doesn't want in their permanent Vault need its own persistence model, or is "every listing is a Card row" fine as long as the UI hides non-Vault ones from `Tab3.tsx`? | P1 | S | ✅ **Done.** Resolved exactly per this row's own recommended default: `Card.origin` enum (`VAULT`/`SCAN_LISTING`), default `VAULT`. Found already drafted (schema-only, uncommitted, no migration/backend code) from an earlier unfinished pass — picked up rather than redone. |
+| J2 | Schema: `Card.origin` enum + migration (or whichever model J1 settles on) | P1 | S | ✅ **Done (18 ago).** Migration `20260818032308_add_card_origin_and_offers` generated and applied against the local dev Postgres (also adds `Offer` + `Card.closesAt`/`wonOfferId` for J12 in the same migration, since all three were drafted together). |
+| J3 | Backend + `ListCard.tsx`: Smart Scan flow gains an explicit "keep in my Vault" vs. "just list this to sell" choice, sets `Card.origin` accordingly; `Tab3.tsx`'s Vault list query filters on it | P1 | M | ✅ **Done (18 ago).** `ListCard.tsx` gained an origin `IonSelect` (defaults to VAULT, backward-compatible) with a dynamic submit label ("Add to Vault" vs. "Create Listing"); `GET /cards?ownerId=&origin=` backend support added (`CardsService.findAllForOwner`/`CardRepository.findAllByOwner` both origin-aware); `Tab3.tsx` now passes `origin=VAULT` explicitly. Manual mode unaffected, as planned. |
+| J4 | **Real QR scanning**: new camera-based QR-decode step, replacing `Tab2.tsx`'s manual `tradeCodeInput` text field | P1 | L | ✅ **Done (18 ago).** Built exactly as recommended — `jsQR` (not a native plugin) against `useLiveCamera.captureFrame()`, new pure `qrDecoder.ts` + thin `QrScanner.tsx` driver component (same split as `cardLocalizer.ts`/`GuidedCapture.tsx`). **Went further than originally scoped**: also added short-lived signed listing tokens (`CardsService.createListingToken`/`resolveListingToken`, JWT `typ:'listing'`, 15m TTL, `JwtStrategy` rejects it as a bearer token same as the 2FA challenge token) — the QR now encodes `TRADE:<token>` instead of a bare `TRADE:<cardId>`, closing a forgery gap the original plan didn't fully address. `jsQR`'s on-device accuracy was never side-by-side'd against `@capacitor-mlkit/barcode-scanning` (no live device test this session) — flagged, not escalated to, since nothing measured it as insufficient. |
+| J5 | New dedicated "Buy" page (e.g. `/buy/:cardId` route in `App.tsx`, mirroring `CardDetails.tsx`'s existing `/card/:id` pattern) — card, suggested price, Buy button | P1 | M | ✅ **Done (18 ago),** then superseded in shape by J14 (see that row — same page, now a live auction view instead of a flat price+button). Route is `/buy/:token` (J4's signed token) — `Tab2.tsx`'s buyer role is now just the QR-scan screen, which navigates here on decode instead of duplicating the purchase flow inline (the old inline `buyerStep 2/3` was deleted, not left as dead duplicate code). |
+| J6 | Backend: cash ("Efectivo") gets a real pending-confirmation state instead of auto-`PAID` | P1 | M | ✅ **Done (18 ago),** exactly as scoped — `CashPaymentProvider` now returns `paidImmediately: false`, new `POST /transactions/:id/confirm-cash-received` (seller-only via 403, 400 if not `CASH`/not `PENDING`). |
+| J7 | Frontend: seller-side "Confirm cash received?" action on `TransactionDetails.tsx`, shown only when `paymentMethod === 'CASH' && status === 'PENDING' && viewer === seller` | P1 | S | ✅ **Done (18 ago),** exactly as scoped, reusing the page's existing status-driven rendering. |
+| J8 | Backend: `transaction.paid` event + `TransactionPaidListener` (mirrors `user.created` → `UserCreatedListener` exactly) → emails both `transaction.buyer.email` and `transaction.seller.email` a receipt | P1 | M | ✅ **Done (18 ago),** exactly as scoped — new `common/events/transaction-paid.event.ts`, `TransactionPaidListener`, `templates/payment-receipt.ts` (reuses `computeIvaBreakdown()`, doesn't recompute). Both emit sites (MercadoPago webhook, J6's cash-confirm) funnel through one new private `TransactionsService.markPaid()` rather than duplicating the emit call — one source of truth for "a transaction just became PAID" that J9's ownership transfer also hangs off of. |
+| J9 | Card ownership transfer: `Card.ownerId` actually moves to the buyer once a transaction reaches `PAID` | P1 | M | ✅ **Done (18 ago).** `CardsService.transferOwnership()`, called from `markPaid()` (see J8) — lands alongside J6/J8 as this row itself anticipated. **Also wired the J9-adjacent piece the Card schema's own comment already promised**: `TransactionsService.create()` now checks `Card.wonOfferId` (J12) and, when set, prices the purchase off the winning offer instead of the flat `guessedPrice`, requires the buyer to be the winning bidder, and clears `wonOfferId`/`closesAt` at creation time (not deferred to PAID) so a second buyer can't race the same resolved auction. |
+| J10 | Tests: unit test for the QR-decode wrapper (J4, mock frame → known payload), e2e for cash-confirm (J6 — only the seller can confirm, confirming twice is idempotent-or-rejected, confirms a `CASH`-method transaction only), e2e for the receipt-email trigger (J8 — assert `NotificationsService`/a fake `EmailProvider` was called with both addresses, mirroring `G2`'s existing e2e pattern of a throwaway-user + `afterAll` cleanup) | P1 | M | ✅ **Done (18 ago).** `qrDecoder.test.ts` (2 cases — jsdom has no real 2D canvas backend, same tradeoff other CV modules already document, so this covers "no context" and "no crash on a non-QR frame," not a full encode/decode round-trip). `payments-cash.e2e-spec.ts` extended for the new confirm endpoint (seller-only, double-confirm rejected) — also had to be reworked since ownership now really transfers, so re-buying the same card twice in one test now correctly 400s as a self-purchase. New `payment-receipt-email.e2e-spec.ts` overrides `EMAIL_PROVIDER` with a fake that records calls (no MailHog needed) and confirms both parties get a matching receipt. |
+| J11 | Polish: Bazaar/CardDetails "Buy" entry point also routes through J5's new `/buy/:cardId` page (not just the QR path) — one buy page, two ways to reach it (scan a QR, or tap a listing in the Bazaar) | P2 | S | ✅ **Done (18 ago).** New route `/buy/card/:cardId` (plain, trusted cardId — no signed-token step needed since it comes from this app's own authenticated fetch, unlike the untrusted external-QR path) renders the same `Buy` component. `CardDetails.tsx` gained a real "Buy This Artifact" button for non-owned cards — previously there was no buy path there at all, only owner-only Edit/List-to-sell. |
+| J12 | Schema + backend: `Offer` model (cardId, bidderId, amount, createdAt) + auction resolution logic — a listing's `closesAt` column resets to `now + 5s` on every new offer, resolves to whichever offer is newest once `now > closesAt` with nothing newer | P1 | L | ✅ **Done (18 ago),** exactly as scoped, including the lazy check-on-read resolution (no cron). First bid must meet/beat `guessedPrice`; later bids must strictly exceed the current highest (an implementer's-call rule this row didn't specify, documented in `OffersService`). The single-bidder-instant-win question this row explicitly left open was **not** resolved either way — every bid, first or not, still waits out the full window, flagged not assumed. |
+| J13 | Real-time layer: bidders + seller see each other's live offers as they happen | P1 | L | ✅ **Done (18 ago),** the WebSocket path this row recommended (`@nestjs/websockets` + `socket.io`, not the polling fallback) — new `OffersGateway`, per-card rooms, broadcasts on a new `offer.placed` event (same `EventEmitter2` decoupling pattern as J8, not called directly from `OffersService`). **Deliberately scoped**: the gateway only pushes new offers, never a "resolved" event — there's no server timer to push one from (J12's resolution is lazy/read-triggered), so the client still makes one REST call once its countdown hits zero to get the real outcome; documented in the gateway's own header comment so this isn't mistaken for a missing piece later. Verified with a real `socket.io-client` connection against a really-listening server (`app.listen(0)`, not just supertest) in `offers-realtime.e2e-spec.ts` — confirms a joined client gets the broadcast and a client in a different card's room doesn't. |
+| J14 | Frontend: J5's Buy page becomes a live bidding view — current highest/most-recent offer, a "make an offer" input, a visible countdown mirroring J12's server-side `closesAt`, and a clear "you won" / "someone outbid you" resolution state | P1 | M | ✅ **Done (18 ago),** exactly as scoped. New `useAuctionSocket.ts` hook feeds live offers into `Buy.tsx`; three resolved states rendered (you won → payment picker, priced off the winning offer via J9; someone else won; seller-watching-their-own-auction). **Verified for real end-to-end**, not just build-clean: a throwaway script drove the actual sequence (mint token → resolve → seed state → connect socket → bid via REST → receive the live broadcast → wait the real 5s → re-fetch and confirm the resolved winner → purchase priced at the winning $20 offer, not the $12.50 starting ask → confirm cash → confirm the card's `ownerId` became the winner's) against the real running dev server, then cleaned up test data. No live browser click-through (no `claude-in-chrome` this session) — API-level flow genuinely verified, on-device UI render is not. |
 
 **Design decisions — resolved (17 ago), user's own answers, recorded so
 nobody re-litigates them:**
@@ -530,22 +563,18 @@ nobody re-litigates them:**
   emailed version must carry the same disclaimer in the email body
   itself, not just the app UI.
 
-**Dependency:** J1 blocks J2/J3 (schema decision must land first). J4
-(QR scanning) and J5 (Buy page) can be built in parallel with J6/J7 (cash
-confirm) and J8 (email receipts) — none of the four depend on each other,
-only on the existing F2/E5 groundwork already in place. J9 (ownership
-transfer) should land alongside J6/J8 since it shares their `PAID`-status
-trigger point, not before. J12 (auction schema/resolution) blocks J13
-(real-time layer) and J14 (bidding UI) — build the server-authoritative
-mechanic before anything renders it live. J14 supersedes J5's "suggested
-price, Buy button" description once built (J5 itself is still needed as
-the page/route shell J14 renders into — build J5's shell first, then
-J14 replaces its static content with the live auction view). J6's
-payment trigger and J8's receipt both move from "buyer taps Buy at the
-listed price" to "auction resolves to a winning offer" once J12 lands —
-sequence J12 before finishing J6/J8, not after. Independent of
-workstreams A-I entirely (no ML pipeline involvement) — can be picked up
-any time, doesn't block or get blocked by the graded coursework.
+**Dependency:** (historical — the order actually built, 18 ago, followed
+this shape closely: J1/J2/J3 → J12 → J6/J7/J8/J9 → J4/J5/J7 → J13 → J14 →
+J10/J11.) **Workstream J is now fully done** — J1 through J14 all ✅, see
+each row above. Independent of workstreams A-I entirely (no ML pipeline
+involvement) — didn't block or get blocked by the graded coursework.
+**What's left in this workstream**: nothing functional — the two honest
+gaps are (1) no live on-device/browser click-through this session (every
+row above was verified at the API/socket level against a real running
+server, not by driving the actual UI), and (2) the "Efectivo timeout →
+auto-expire" design decision was never implemented (needs a scheduled
+job/cron this backend doesn't have yet) — a `PENDING` cash transaction
+with no seller confirmation stays `PENDING` forever today.
 
 ---
 
