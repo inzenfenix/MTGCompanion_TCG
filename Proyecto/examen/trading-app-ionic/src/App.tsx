@@ -138,6 +138,9 @@ const App: React.FC = () => {
           <Route exact path="/list-card">
             <Suspense fallback={null}><ListCard /></Suspense>
           </Route>
+          <Route exact path="/buy/card/:cardId">
+            <Suspense fallback={null}><Buy /></Suspense>
+          </Route>
           <Route exact path="/buy/:token">
             <Suspense fallback={null}><Buy /></Suspense>
           </Route>

@@ -33,7 +33,13 @@ const COUNTDOWN_TICK_MS = 250;
 
 const Buy: React.FC = () => {
   const { t } = useTranslation();
-  const { token } = useParams<{ token: string }>();
+  // ROADMAP.md J11 — two ways to reach this page, one component: a scanned
+  // QR (route /buy/:token, needs J4's signed-token resolution since the
+  // payload came from an untrusted external QR) or tapping a listing in
+  // the Bazaar/CardDetails.tsx (route /buy/card/:cardId — the cardId is
+  // already trusted, it came from this app's own authenticated fetch, so
+  // no token/signature step is needed for that path).
+  const { token, cardId: routeCardId } = useParams<{ token?: string; cardId?: string }>();
   const { user } = useAuth();
 
   const [loadState, setLoadState] = useState<LoadState>('loading');
@@ -63,8 +69,12 @@ const Buy: React.FC = () => {
     setPayError(null);
     setAuction(null);
 
-    api.resolveListingToken(token)
-      .then(({ cardId }) => Promise.all([api.getCard(cardId), api.getAuctionState(cardId)]))
+    const cardIdPromise = routeCardId
+      ? Promise.resolve(routeCardId)
+      : api.resolveListingToken(token!).then(({ cardId }) => cardId);
+
+    cardIdPromise
+      .then((cardId) => Promise.all([api.getCard(cardId), api.getAuctionState(cardId)]))
       .then(([fetchedCard, auctionState]) => {
         if (cancelled) return;
         setCard(fetchedCard);
@@ -79,7 +89,7 @@ const Buy: React.FC = () => {
       });
 
     return () => { cancelled = true; };
-  }, [token]);
+  }, [token, routeCardId]);
 
   // ROADMAP.md J13 — live updates. hasCheckedResolutionRef resets on every
   // new offer, so a fresh countdown gets its own one-shot resolution check.

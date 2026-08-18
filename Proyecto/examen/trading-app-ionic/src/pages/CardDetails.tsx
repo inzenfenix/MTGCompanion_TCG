@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonButtons, IonBackButton, IonButton, IonIcon, IonSpinner } from '@ionic/react';
 import { useParams } from 'react-router';
-import { storefrontOutline, pencilOutline } from 'ionicons/icons';
+import { storefrontOutline, pencilOutline, cashOutline } from 'ionicons/icons';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../lib/auth/AuthContext';
@@ -111,20 +111,34 @@ const CardDetails: React.FC = () => {
                 )}
 
                 {card.ownerId === user?.id && (
-                  <IonButton expand="block" fill="outline" className="mtg-btn" routerLink={`/card/${card.id}/edit`} style={{ marginBottom: '10px' }}>
+                  <>
+                    <IonButton expand="block" fill="outline" className="mtg-btn" routerLink={`/card/${card.id}/edit`} style={{ marginBottom: '10px' }}>
+                      <div className="mtg-btn-content">
+                        <IonIcon icon={pencilOutline} />
+                        <span>{t('edit_card_button')}</span>
+                      </div>
+                    </IonButton>
+                    <IonButton expand="block" className="mtg-btn" routerLink="/tab2">
+                      <div className="mtg-btn-content">
+                        <IonIcon icon={storefrontOutline} />
+                        <span>{t('list_market_sell')}</span>
+                      </div>
+                    </IonButton>
+                  </>
+                )}
+
+                {/* ROADMAP.md J11 — one buy page (Buy.tsx), two ways to reach it: a
+                    scanned QR (Tab2.tsx) or tapping a listing here/in the Bazaar
+                    (TabSearch.tsx), same as this row's own "one buy page, two ways
+                    to reach it" goal. */}
+                {card.ownerId !== user?.id && (
+                  <IonButton expand="block" className="mtg-btn" routerLink={`/buy/card/${card.id}`}>
                     <div className="mtg-btn-content">
-                      <IonIcon icon={pencilOutline} />
-                      <span>{t('edit_card_button')}</span>
+                      <IonIcon icon={cashOutline} />
+                      <span>{t('buy_this_artifact')}</span>
                     </div>
                   </IonButton>
                 )}
-
-                <IonButton expand="block" className="mtg-btn" routerLink="/tab2">
-                  <div className="mtg-btn-content">
-                    <IonIcon icon={storefrontOutline} />
-                    <span>{t('list_market_sell')}</span>
-                  </div>
-                </IonButton>
               </div>
             </>
           )}

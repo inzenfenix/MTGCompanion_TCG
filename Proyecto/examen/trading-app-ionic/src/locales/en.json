@@ -129,6 +129,7 @@
   "current_market_value": "Current Market Value",
   "oracle_text": "Oracle Text",
   "list_market_sell": "List on Market (Sell)",
+  "buy_this_artifact": "Buy This Artifact",
   "loading_card": "Loading artifact...",
   "card_not_found": "This artifact could not be found in your Vault.",
   "price_estimate_note": "Price set when this card was listed. Live market estimation isn't available yet.",

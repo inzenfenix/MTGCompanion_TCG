@@ -129,6 +129,7 @@
   "current_market_value": "Valeur Marchande Actuelle",
   "oracle_text": "Texte de Règles",
   "list_market_sell": "Mettre en Vente (Vendre)",
+  "buy_this_artifact": "Acheter cet Artefact",
   "loading_card": "Chargement de l'artefact...",
   "card_not_found": "Cet artefact est introuvable dans votre Coffre.",
   "price_estimate_note": "Prix fixé lors de la mise en vente de cette carte. L'estimation de marché en direct n'est pas encore disponible.",
