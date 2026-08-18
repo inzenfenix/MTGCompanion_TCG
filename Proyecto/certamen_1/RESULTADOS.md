@@ -38,11 +38,25 @@ dígito), lo cual no es un error de este documento: confirma el techo de
 "tarea proxy fácil" que ROADMAP.md I31 ya diagnostica — agregar una fuente
 de negativos más, por variada que sea, sigue siendo una foto de carta
 limpia y bien iluminada, no la distribución real de "cualquier cosa que la
-cámara del teléfono podría ver". **Sin confirmar todavía en foto real**: el
-eval de las 122 fotos reales (`Testing/real_photo_eval_report.md`) sigue
-fechado de *antes* de este reentrenamiento — el fix de Star Wars está
-inferido de los datos de entrenamiento, no confirmado contra una foto real
-(ROADMAP.md I18/I20, item 1).
+cámara del teléfono podría ver". **Actualización (18 ago, verificación
+parcial en una segunda máquina, CPU-only sin GPU)**: el eval completo de
+las 122 fotos reales (`Testing/real_photo_eval_report.md`) sigue sin
+poder re-correrse acá — esta máquina solo tiene 5,000/58,174 imágenes del
+catálogo descargadas localmente, no las 58,679 completas que ese pipeline
+necesita para el retrieval. En cambio se hizo un reentrenamiento real más
+chico acá mismo (`n=800`/8 épocas, sin Optuna, mismas fuentes de negativos
+incl. Star Wars Unlimited) y se verificó el checkpoint resultante contra
+12 imágenes reales de Star Wars Unlimited **no usadas en este
+entrenamiento** (confirmado vía los conteos por fuente del log de
+entrenamiento) + 12 cartas MTG reales: **12/12 SWU rechazadas
+correctamente** (confianza 0.0000–0.0018) y **12/12 MTG aceptadas
+correctamente** (confianza ≥0.9999) — evidencia real de que la fuente SWU
+generaliza a imágenes que el modelo nunca vio, no solo memoriza ejemplos
+de entrenamiento. Sigue sin confirmarse contra una foto de teléfono real
+de una carta física de Star Wars Unlimited (el hallazgo original de I18
+fue en dispositivo, no hay una foto así en este repo para volver a
+probarla) — ver ROADMAP.md I20 item 1 para el detalle completo y los
+huecos honestos de esta verificación.
 
 **Nota de calidad de datos — TensorFlow "plain" excluido de la tabla:**
 `tensorFlow/results/metrics_binary.json` (la corrida sin Optuna) tiene
