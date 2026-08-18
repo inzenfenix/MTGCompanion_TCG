@@ -75,7 +75,10 @@ const Tab3: React.FC = () => {
     setIsLoading(true);
     setError(false);
     api
-      .listCards(user.id)
+      // ROADMAP.md J1/J3 — the Vault is the permanent collection view only;
+      // SCAN_LISTING cards (scanned purely to generate a sell QR) don't
+      // belong here even though they're real Card rows under the hood.
+      .listCards(user.id, 'VAULT')
       .then(setCards)
       .catch(() => setError(true))
       .finally(() => setIsLoading(false));

@@ -126,6 +126,12 @@ export function getUser(id: string): Promise<User> {
 
 export type CardCondition = 'NM' | 'LP' | 'MP' | 'HP' | 'DMG';
 
+// VAULT = a permanent collection entry (the only thing that existed before
+// ROADMAP.md J1/J3). SCAN_LISTING = created purely to generate a sell QR
+// from Smart Scan — still a real Card row (Transaction.cardId needs one),
+// but Tab3.tsx's Vault view filters these out.
+export type CardOrigin = 'VAULT' | 'SCAN_LISTING';
+
 export type CardPhoto = {
   id: string;
   cardId: string;
@@ -141,10 +147,14 @@ export type Card = {
   description: string | null;
   guessedPrice: number;
   condition: CardCondition;
+  origin: CardOrigin;
   scryfallId: string | null;
   setName: string | null;
   rarity: string | null;
   oracleText: string | null;
+  /** Auction state (J12) — both null = not currently up for bidding. */
+  closesAt: string | null;
+  wonOfferId: string | null;
   createdAt: string;
   updatedAt: string;
   photos: CardPhoto[];
@@ -158,6 +168,8 @@ export type CreateCardInput = {
   description?: string;
   guessedPrice: number;
   condition?: CardCondition;
+  /** Omitted = VAULT (backend default). Pass 'SCAN_LISTING' for a scan meant only to generate a sell QR (J1/J3). */
+  origin?: CardOrigin;
   scryfallId?: string;
   setName?: string;
   rarity?: string;
@@ -170,8 +182,41 @@ export function createCard(input: CreateCardInput): Promise<Card> {
   return request<Card>('/cards', { method: 'POST', body: JSON.stringify(input) });
 }
 
-export function listCards(ownerId: string): Promise<Card[]> {
-  return request<Card[]>(`/cards?ownerId=${encodeURIComponent(ownerId)}`);
+// origin omitted = every card regardless of origin. Tab3.tsx's Vault view
+// passes 'VAULT' so scan-to-sell listings don't clutter the collection.
+export function listCards(ownerId: string, origin?: CardOrigin): Promise<Card[]> {
+  const qs = new URLSearchParams({ ownerId });
+  if (origin) qs.set('origin', origin);
+  return request<Card[]>(`/cards?${qs.toString()}`);
+}
+
+// ── Offers / auction (J12, ROADMAP.md) ────────────────────────────────────
+
+export type Offer = {
+  id: string;
+  cardId: string;
+  bidderId: string;
+  amount: number;
+  createdAt: string;
+};
+
+export type AuctionState = {
+  cardId: string;
+  offers: Offer[];
+  currentOffer: Offer | null;
+  closesAt: string | null;
+  wonOfferId: string | null;
+};
+
+export function placeOffer(cardId: string, amount: number): Promise<{ offer: Offer; closesAt: string }> {
+  return request<{ offer: Offer; closesAt: string }>(`/cards/${encodeURIComponent(cardId)}/offers`, {
+    method: 'POST',
+    body: JSON.stringify({ amount }),
+  });
+}
+
+export function getAuctionState(cardId: string): Promise<AuctionState> {
+  return request<AuctionState>(`/cards/${encodeURIComponent(cardId)}/offers`);
 }
 
 // ── Bazaar search (E6/F6, ROADMAP.md) ─────────────────────────────────────

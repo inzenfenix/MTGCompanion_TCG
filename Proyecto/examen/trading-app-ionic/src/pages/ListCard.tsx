@@ -73,6 +73,10 @@ const ListCard: React.FC = () => {
   const [description, setDescription] = useState('');
   const [guessedPrice, setGuessedPrice] = useState<number | null>(null);
   const [condition, setCondition] = useState<api.CardCondition>('NM');
+  // ROADMAP.md J1/J3 — VAULT (default, backward-compatible with every card
+  // created before this existed) vs. SCAN_LISTING (Smart Scan used purely
+  // to generate a sell listing, kept out of Tab3.tsx's Vault view).
+  const [origin, setOrigin] = useState<api.CardOrigin>('VAULT');
   // ROADMAP.md G4e (sleeve follow-up, layer 3) — true when Stage 4 returned
   // 'likely-no-card-content' (opaque sleeve, its colored back facing the
   // camera, or a blank/miscropped photo): `condition` was NOT auto-set from
@@ -132,6 +136,7 @@ const ListCard: React.FC = () => {
     setDescription('');
     setGuessedPrice(null);
     setCondition('NM');
+    setOrigin('VAULT');
     setPhotoPreviewUrl(null);
     setPhotoBlob(null);
     setIsSubmitting(false);
@@ -316,6 +321,7 @@ const ListCard: React.FC = () => {
         description: description.trim() || undefined,
         guessedPrice,
         condition,
+        origin,
         scryfallId: scryfallId.trim() || undefined,
         setName: setName.trim() || undefined,
         rarity: rarity.trim() || undefined,
@@ -549,10 +555,33 @@ const ListCard: React.FC = () => {
             </IonText>
           )}
 
+          <IonItem className="mtg-list-item-row" style={{ marginBottom: '10px', borderRadius: '8px' }}>
+            <IonLabel position="stacked" style={{ color: '#c2b5b5' }}>{t('origin_toggle_label')}</IonLabel>
+            <IonSelect
+              value={origin}
+              onIonChange={(e) => setOrigin(e.detail.value as api.CardOrigin)}
+              interface="popover"
+              interfaceOptions={{ cssClass: 'mtg-popover' }}
+              style={{ color: '#f2e3cd' }}
+            >
+              <IonSelectOption value="VAULT">{t('origin_vault')}</IonSelectOption>
+              <IonSelectOption value="SCAN_LISTING">{t('origin_scan_listing')}</IonSelectOption>
+            </IonSelect>
+          </IonItem>
+          <IonText color="medium">
+            <p style={{ marginTop: '-12px', marginBottom: '16px', fontSize: '0.8rem' }}>
+              {origin === 'VAULT' ? t('origin_vault_hint') : t('origin_scan_listing_hint')}
+            </p>
+          </IonText>
+
           <IonButton expand="block" className="mtg-btn" disabled={!isValid || isSubmitting} onClick={handleSubmit}>
             <div className="mtg-btn-content">
               <IonIcon icon={saveOutline} />
-              <span>{isSubmitting ? t('listing_in_progress') : t('submit_list_card')}</span>
+              <span>
+                {isSubmitting
+                  ? t('listing_in_progress')
+                  : origin === 'VAULT' ? t('submit_list_card') : t('submit_list_card_sell')}
+              </span>
             </div>
           </IonButton>
 
