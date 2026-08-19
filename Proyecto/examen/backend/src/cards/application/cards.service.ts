@@ -9,10 +9,12 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import type { CardOrigin } from '../../../generated/prisma';
 import { StorageService } from '../../storage/storage.service';
+import { DecksService } from '../../decks/application/decks.service';
 import {
   CARD_REPOSITORY,
   type AuctionStateUpdate,
   type CardRepository,
+  type DeckFilter,
 } from '../domain/card.repository';
 import {
   LISTING_TOKEN_TTL,
@@ -57,14 +59,15 @@ export class CardsService {
     @Inject(CARD_REPOSITORY) private readonly cards: CardRepository,
     private readonly storage: StorageService,
     private readonly jwt: JwtService,
+    private readonly decks: DecksService,
   ) {}
 
   create(ownerId: string, dto: CreateCardDto) {
     return this.cards.create({ ...dto, ownerId });
   }
 
-  findAllForOwner(ownerId: string, origin?: CardOrigin) {
-    return this.cards.findAllByOwner(ownerId, origin);
+  findAllForOwner(ownerId: string, origin?: CardOrigin, deckId?: DeckFilter) {
+    return this.cards.findAllByOwner(ownerId, origin, deckId);
   }
 
   /** Bazaar search (E6, ROADMAP.md) — global, not owner-scoped. Requires q or scryfallId so it can't degrade into "list every card ever listed". */
@@ -152,8 +155,22 @@ export class CardsService {
     return card;
   }
 
+  /**
+   * ROADMAP.md K — `dto.deckId` set to a real id moves the card into that
+   * deck (reuses this existing generic update rather than a dedicated
+   * "move" endpoint, same "extend, don't fork" precedent J3's own
+   * origin-aware query set); `null` explicitly moves it back to Unsorted.
+   * `undefined` (the field simply absent) leaves the deck untouched, same
+   * as every other optional field here. A move target must belong to the
+   * same owner — findOwned() throws the same NotFoundException whether the
+   * deck id is missing or someone else's, so this can't be used to probe
+   * for another user's deck ids either.
+   */
   async update(id: string, currentUserId: string, dto: UpdateCardDto) {
     await this.findOwned(id, currentUserId);
+    if (dto.deckId) {
+      await this.decks.findOwned(dto.deckId, currentUserId);
+    }
     return this.cards.update(id, dto);
   }
 

@@ -47,4 +47,13 @@ export class UpdateCardDto {
   @IsOptional()
   @IsString()
   oracleText?: string;
+
+  // ROADMAP.md K — moves the card into a deck (a real id) or back to
+  // Unsorted (`null`, explicitly). `@IsOptional()` treats both `undefined`
+  // and `null` as "skip validation" in class-validator, so `null` reaches
+  // CardsService.update() untouched rather than being rejected as "not a
+  // string".
+  @IsOptional()
+  @IsString()
+  deckId?: string | null;
 }

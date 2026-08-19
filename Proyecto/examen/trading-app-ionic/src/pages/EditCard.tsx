@@ -59,6 +59,11 @@ const EditCard: React.FC = () => {
   const [setName, setSetName] = useState('');
   const [rarity, setRarity] = useState('');
   const [oracleText, setOracleText] = useState('');
+  // ROADMAP.md K4 — 'unsorted' is a real, selectable option (not just the
+  // absence of a choice), so the IonSelect always shows a definite value
+  // instead of an empty-looking field when the card has no deck.
+  const [deckId, setDeckId] = useState<'unsorted' | string>('unsorted');
+  const [decks, setDecks] = useState<api.Deck[]>([]);
 
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
@@ -89,6 +94,7 @@ const EditCard: React.FC = () => {
         setSetName(fetched.setName ?? '');
         setRarity(fetched.rarity ?? '');
         setOracleText(fetched.oracleText ?? '');
+        setDeckId(fetched.deckId ?? 'unsorted');
 
         const primaryPhoto = fetched.photos.find((p) => p.isPrimary) ?? fetched.photos[0];
         if (primaryPhoto) {
@@ -112,6 +118,23 @@ const EditCard: React.FC = () => {
       cancelled = true;
     };
   }, [id]);
+
+  // ROADMAP.md K4 — the owner's decks, for the move-to-deck select below.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    api
+      .listDecks(user.id)
+      .then((fetchedDecks) => {
+        if (!cancelled) setDecks(fetchedDecks);
+      })
+      .catch(() => {
+        /* non-critical — the select just falls back to Unsorted-only */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   // Camera only runs while the "auto" tab is actually selected — released
   // as soon as you switch to "manual" or leave the page.
@@ -174,6 +197,10 @@ const EditCard: React.FC = () => {
         setName: setName.trim() || undefined,
         rarity: rarity.trim() || undefined,
         oracleText: oracleText.trim() || undefined,
+        // ROADMAP.md K — 'unsorted' (the select's own placeholder value,
+        // never a real deck id) maps to an explicit null so the backend
+        // un-assigns the card rather than leaving deckId untouched.
+        deckId: deckId === 'unsorted' ? null : deckId,
       });
 
       if (photoBlob) {
@@ -371,6 +398,24 @@ const EditCard: React.FC = () => {
                   {CONDITIONS.map((c) => (
                     <IonSelectOption key={c} value={c}>
                       {t(`condition_${c.toLowerCase()}`)}
+                    </IonSelectOption>
+                  ))}
+                </IonSelect>
+              </IonItem>
+
+              <IonItem className="mtg-list-item-row" style={{ marginBottom: '10px', borderRadius: '8px' }}>
+                <IonLabel style={{ color: '#c2b5b5' }}>{t('field_deck')}</IonLabel>
+                <IonSelect
+                  value={deckId}
+                  onIonChange={(e) => setDeckId(e.detail.value)}
+                  interface="popover"
+                  interfaceOptions={{ cssClass: 'mtg-popover' }}
+                  style={{ color: '#f2e3cd' }}
+                >
+                  <IonSelectOption value="unsorted">{t('deck_filter_unsorted')}</IonSelectOption>
+                  {decks.map((deck) => (
+                    <IonSelectOption key={deck.id} value={deck.id}>
+                      {deck.name}
                     </IonSelectOption>
                   ))}
                 </IonSelect>

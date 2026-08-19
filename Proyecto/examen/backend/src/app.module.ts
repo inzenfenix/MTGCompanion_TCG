@@ -14,6 +14,7 @@ import { CardsModule } from './cards/cards.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { OffersModule } from './offers/offers.module';
+import { DecksModule } from './decks/decks.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { OffersModule } from './offers/offers.module';
     TransactionsModule,
     CatalogModule,
     OffersModule,
+    DecksModule,
   ],
   controllers: [AppController],
   providers: [AppService],

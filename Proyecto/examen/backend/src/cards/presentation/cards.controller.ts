@@ -34,7 +34,13 @@ export class CardsController {
   //   ?ownerId=...                 -> unchanged owner-scoped browse (Vault)
   //                                    optionally ?origin=VAULT (Tab3.tsx's
   //                                    collection view, ROADMAP.md J3) to
-  //                                    hide SCAN_LISTING-only rows
+  //                                    hide SCAN_LISTING-only rows, and
+  //                                    optionally ?deckId=<id>|unsorted
+  //                                    (ROADMAP.md K) to scope to one deck
+  //                                    or to cards with no deck at all —
+  //                                    omitted means every card regardless
+  //                                    of deck, same "omitted = no filter"
+  //                                    contract origin already has.
   //   ?q=...|scryfallId=...        -> global Bazaar search (E6), optionally
   //                                    ?lat=&lng= (searcher's own position,
   //                                    for distanceKm) and
@@ -45,6 +51,7 @@ export class CardsController {
   findAll(
     @Query('ownerId') ownerId?: string,
     @Query('origin') origin?: CardOrigin,
+    @Query('deckId') deckId?: string,
     @Query('q') q?: string,
     @Query('scryfallId') scryfallId?: string,
     @Query('excludeOwnerId') excludeOwnerId?: string,
@@ -52,7 +59,7 @@ export class CardsController {
     @Query('lng') lng?: string,
     @Query('limit') limit?: string,
   ) {
-    if (ownerId) return this.cards.findAllForOwner(ownerId, origin);
+    if (ownerId) return this.cards.findAllForOwner(ownerId, origin, deckId);
     if (!q && !scryfallId) {
       throw new BadRequestException('ownerId, q, or scryfallId is required');
     }

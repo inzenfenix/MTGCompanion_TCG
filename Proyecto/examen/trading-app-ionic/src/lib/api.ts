@@ -155,6 +155,8 @@ export type Card = {
   /** Auction state (J12) — both null = not currently up for bidding. */
   closesAt: string | null;
   wonOfferId: string | null;
+  /** ROADMAP.md K — null = Unsorted, the default. One deck per card (K1). */
+  deckId: string | null;
   createdAt: string;
   updatedAt: string;
   photos: CardPhoto[];
@@ -176,7 +178,12 @@ export type CreateCardInput = {
   oracleText?: string;
 };
 
-export type UpdateCardInput = Partial<CreateCardInput>;
+// deckId isn't part of CreateCardInput (a card is always created Unsorted,
+// moved into a deck afterward — ROADMAP.md K), so it's added here rather
+// than via Partial<CreateCardInput>. Pass a real deck id to move the card
+// into that deck, or `null` explicitly to move it back to Unsorted;
+// omitting the field entirely leaves the deck untouched.
+export type UpdateCardInput = Partial<CreateCardInput> & { deckId?: string | null };
 
 export function createCard(input: CreateCardInput): Promise<Card> {
   return request<Card>('/cards', { method: 'POST', body: JSON.stringify(input) });
@@ -184,10 +191,43 @@ export function createCard(input: CreateCardInput): Promise<Card> {
 
 // origin omitted = every card regardless of origin. Tab3.tsx's Vault view
 // passes 'VAULT' so scan-to-sell listings don't clutter the collection.
-export function listCards(ownerId: string, origin?: CardOrigin): Promise<Card[]> {
+// deckId omitted = every card regardless of deck; pass a real deck id to
+// scope to one deck, or 'unsorted' (ROADMAP.md K) to scope to cards with no
+// deck at all.
+export function listCards(ownerId: string, origin?: CardOrigin, deckId?: string): Promise<Card[]> {
   const qs = new URLSearchParams({ ownerId });
   if (origin) qs.set('origin', origin);
+  if (deckId) qs.set('deckId', deckId);
   return request<Card[]>(`/cards?${qs.toString()}`);
+}
+
+// ── Decks (K, ROADMAP.md) ──────────────────────────────────────────────
+
+export type Deck = {
+  id: string;
+  ownerId: string;
+  name: string;
+  createdAt: string;
+};
+
+export function listDecks(ownerId: string): Promise<Deck[]> {
+  const qs = new URLSearchParams({ ownerId });
+  return request<Deck[]>(`/decks?${qs.toString()}`);
+}
+
+export function createDeck(name: string): Promise<Deck> {
+  return request<Deck>('/decks', { method: 'POST', body: JSON.stringify({ name }) });
+}
+
+export function renameDeck(id: string, name: string): Promise<Deck> {
+  return request<Deck>(`/decks/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function deleteDeck(id: string): Promise<void> {
+  return request<void>(`/decks/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
 // ── Offers / auction (J12, ROADMAP.md) ────────────────────────────────────

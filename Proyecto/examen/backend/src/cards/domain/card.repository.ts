@@ -19,7 +19,27 @@ export interface CreateCardData {
   oracleText?: string;
 }
 
-export type UpdateCardData = Partial<Omit<CreateCardData, 'ownerId'>>;
+// deckId isn't part of CreateCardData (a card is always created Unsorted,
+// moved into a deck afterward — ROADMAP.md K) so it's added here rather
+// than via the Omit<CreateCardData,...> derivation. `null` explicitly
+// un-assigns back to Unsorted; `undefined` (the field simply absent from a
+// PATCH body) leaves it untouched, same "absent vs. explicit null" contract
+// every other optional PATCH field already has, just meaningful here since
+// null is itself a valid target value.
+export type UpdateCardData = Partial<Omit<CreateCardData, 'ownerId'>> & {
+  deckId?: string | null;
+};
+
+/**
+ * A real deck id, or the sentinel `'unsorted'` (not a value ever stored —
+ * checked for literally, see PrismaCardRepository.findAllByOwner) meaning
+ * "explicitly filter to deckId IS NULL". A bare `undefined` means "no deck
+ * filter, every card regardless of deck". Can't be typed as a real
+ * `string | 'unsorted'` union — the literal is already a subtype of
+ * `string`, so it collapses to plain `string` — see
+ * CardsController.findAll's own comment for the query-param contract.
+ */
+export type DeckFilter = string;
 
 /** Bazaar search params (E6) — at least one of `q`/`scryfallId` is required, enforced in CardsService. */
 export interface SearchListingsParams {
@@ -44,8 +64,17 @@ export interface AuctionStateUpdate {
  */
 export interface CardRepository {
   create(data: CreateCardData): Promise<CardEntity>;
-  /** origin omitted = every card regardless of origin; pass 'VAULT' for Tab3.tsx's collection view (J3). */
-  findAllByOwner(ownerId: string, origin?: CardOrigin): Promise<CardEntity[]>;
+  /**
+   * origin omitted = every card regardless of origin; pass 'VAULT' for
+   * Tab3.tsx's collection view (J3). deckId omitted = every card
+   * regardless of deck; pass a real deck id to scope to one deck, or
+   * `'unsorted'` to scope to cards with no deck (ROADMAP.md K).
+   */
+  findAllByOwner(
+    ownerId: string,
+    origin?: CardOrigin,
+    deckId?: DeckFilter,
+  ): Promise<CardEntity[]>;
   findById(id: string): Promise<CardEntity | null>;
   update(id: string, data: UpdateCardData): Promise<CardEntity>;
   updateAuctionState(id: string, data: AuctionStateUpdate): Promise<CardEntity>;

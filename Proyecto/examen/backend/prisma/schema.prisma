@@ -35,6 +35,7 @@ model User {
   sales         Transaction[]  @relation("SellerTransactions")
   refreshTokens RefreshToken[]
   offers        Offer[]
+  decks         Deck[]
 
   @@map("users")
 }
@@ -145,6 +146,21 @@ model Card {
   closesAt   DateTime?
   wonOfferId String?
 
+  // ROADMAP.md K — organizing a Vault into named decks/folders. One deck
+  // per card (K1's resolved design decision: matches the physical-binder
+  // mental model this app already uses, same reasoning as Card.origin's
+  // "physical card changing hands" framing — not a many-to-many
+  // deckbuilding-list model). Nullable = "Unsorted", the default and the
+  // only state every existing row had before this field existed.
+  // `onDelete: SetNull` is deliberate, not an oversight: deleting a deck
+  // un-assigns its cards back to Unsorted at the DB level, guaranteed
+  // regardless of which code path deletes the Deck row, rather than a
+  // cascade that would delete the cards themselves — a deck is an
+  // organizational label on a card the user owns, not a container that
+  // owns the card.
+  deckId String?
+  deck   Deck?   @relation(fields: [deckId], references: [id], onDelete: SetNull)
+
   photos       CardPhoto[]
   transactions Transaction[]
   offers       Offer[]
@@ -153,7 +169,28 @@ model Card {
   updatedAt DateTime @updatedAt
 
   @@index([ownerId])
+  @@index([deckId])
   @@map("cards")
+}
+
+// ROADMAP.md K2 — a named grouping of a user's own cards (e.g. "Modern
+// deck", "Commander binder", "Bulk"). Deliberately no card-count/value
+// aggregate stored here (K6, not built) — Tab3.tsx/DecksController compute
+// that on read from the real Card rows, same "don't cache what's cheap to
+// recompute and easy to let drift" posture as everywhere else in this schema.
+model Deck {
+  id      String @id @default(uuid())
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  name String
+
+  cards Card[]
+
+  createdAt DateTime @default(now())
+
+  @@index([ownerId])
+  @@map("decks")
 }
 
 // One row per bid in a card's live auction (ROADMAP.md J12). Never updated

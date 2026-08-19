@@ -37,6 +37,8 @@ export interface CardEntity {
    */
   closesAt: Date | null;
   wonOfferId: string | null;
+  /** ROADMAP.md K — null = Unsorted, the default. One deck per card (K1). */
+  deckId: string | null;
   createdAt: Date;
   updatedAt: Date;
   photos: CardPhotoEntity[];

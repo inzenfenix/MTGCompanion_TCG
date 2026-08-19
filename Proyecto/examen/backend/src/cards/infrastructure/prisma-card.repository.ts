@@ -4,6 +4,7 @@ import type {
   AuctionStateUpdate,
   CardRepository,
   CreateCardData,
+  DeckFilter,
   SearchListingsParams,
   UpdateCardData,
 } from '../domain/card.repository';
@@ -32,9 +33,14 @@ export class PrismaCardRepository implements CardRepository {
   async findAllByOwner(
     ownerId: string,
     origin?: CardOrigin,
+    deckId?: DeckFilter,
   ): Promise<CardEntity[]> {
+    const deckWhere =
+      deckId === undefined
+        ? {}
+        : { deckId: deckId === 'unsorted' ? null : deckId };
     const cards = await this.prisma.card.findMany({
-      where: { ownerId, ...(origin ? { origin } : {}) },
+      where: { ownerId, ...(origin ? { origin } : {}), ...deckWhere },
       include: { photos: true },
     });
     return cards.map((card) => this.toEntity(card));
