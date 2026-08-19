@@ -96,6 +96,23 @@ item, a refactor):
    it for `✅` with a real note, or revert it if abandoned) once the task's
    own commit(s) land, per rule 2 above and the standing "always update
    ROADMAP.md" convention.
+4. **Push a claim immediately, and fetch origin frequently while actively
+   working.** A 🚧 claim (rule 3) only prevents collisions if other sessions
+   can actually see it — commit it, then `git push` right away, don't leave
+   it sitting local. Symmetrically, while actively working (not just right
+   before claiming something), run `git fetch origin` on a short, jittered
+   cadence — roughly every 30s of active work is a reasonable target,
+   jittered (not exactly 30.0s every time) so multiple concurrent agents
+   polling GitHub don't all land on it in the same instant — and check `git
+   log main..origin/main --oneline` after each fetch. This is a cadence to
+   hold *during* active work, not a literal background timer (an agent
+   between prompts isn't running anything, so it can't poll while idle) —
+   but interleaving it that often during any non-trivial task is cheap and
+   catches a competing claim or a just-shipped overlapping feature before
+   more work gets built on stale state. This isn't hypothetical: a real
+   divergence this size already happened once (two sessions independently
+   built J4/J7 before either had pushed) — see that recovery in this repo's
+   own git history for what it costs to reconcile after the fact.
 
 ## Hard rules established this project — read before touching training scripts
 
