@@ -578,6 +578,59 @@ with no seller confirmation stays `PENDING` forever today.
 
 ---
 
+## K. Vault decks/folders
+
+`Tab3.tsx`'s Vault is a single flat grid today — confirmed directly against
+`prisma/schema.prisma`'s `Card` model: no grouping field of any kind exists
+(only `origin`, added for J1-J3's Vault-vs-scan-listing split, which is a
+visibility filter, not user-organizable grouping). This workstream is about
+letting a user organize their Vault into named decks/folders (e.g. "Modern
+deck", "Commander binder", "Bulk").
+
+| # | Task | Priority | Complexity | Notes |
+|---|---|---|---|---|
+| K1 | **Design decision (do this first, blocks K2+):** one deck per card (simple, matches a physical binder — a card lives in exactly one place) vs. many-to-many (a card can appear in multiple decks, closer to real deckbuilding where the same physical card gets proxied/counted across lists) | P1 | S | Not a coding task. Recommended default given this app already models *physical* owned cards (one `Card` row = one real card someone owns, per `Card.origin`'s own "physical card changing hands" framing established in J9): **one deck per card**, via a nullable `Card.deckId` FK — matches the physical-binder mental model and is the cheaper schema (no join table). A many-to-many join table (`CardDeck`) is the real alternative if the actual ask turns out to be deckbuilding-style lists rather than physical organization — worth confirming with the user before building, same as J1 did for origin. |
+| K2 | Schema: `Deck` model (id, ownerId, name, createdAt) + `Card.deckId` (or the join table K1 settles on) + migration | P1 | S | Depends on K1. Additive, non-breaking — existing cards default to no deck (shows in an "Unsorted" bucket), same "never truncate, always additive" spirit CLAUDE.md rule 2 already applies elsewhere in this repo. |
+| K3 | Backend: `DecksModule` (CRUD — create/rename/delete a deck, list a user's decks) + `CardsService`/`Controller` gains deck-aware queries (`GET /cards?ownerId=&deckId=`, mirrors J3's `origin`-aware query pattern exactly) + an endpoint to move a card into/out of a deck | P1 | M | Mirrors `OffersModule`'s layering (domain/infrastructure/application/presentation) and J3's precedent for extending `CardsService`'s owner query with a new optional filter param, not a new endpoint per filter. Deleting a non-empty deck should un-assign its cards back to "Unsorted" rather than cascade-deleting the cards themselves — a deck is an organizational label on a card the user owns, not a container that owns the card. |
+| K4 | Frontend: `Tab3.tsx` gains a deck picker/tab strip (or a folder-style drill-down) above the existing grid, a "create deck" action, and a per-card "move to deck" control (long-press menu or a dropdown on `ListCard.tsx`'s edit flow) | P1 | M | Depends on K2/K3. Keep the existing flat grid as the "Unsorted"/"All cards" default view so this is additive to the current UX, not a breaking redesign — same posture J3 took keeping Manual mode untouched alongside Smart Scan. |
+| K5 | Tests: backend unit + e2e for `DecksModule` (create/rename/delete, move-card, delete-non-empty-deck un-assigns rather than cascades), frontend component test for the deck picker | P1 | M | Same testing bar this file already holds every other workstream to (see G1/G2/G3/J10). |
+| K6 | Polish (P2, optional): deck-level stats (total estimated value via `guessedPrice` sum, card count) shown on the deck picker, reusing Stage 3's already-computed per-card prices rather than re-estimating anything | P2 | S | Nice-to-have once K1-K5 land; not needed for the core organizing feature to be useful. |
+
+**Dependency:** K1 blocks K2/K3 (schema decision must land first, same shape
+as J1→J2/J3). K4 depends on K2/K3 existing. Independent of every other
+workstream — no ML pipeline involvement, doesn't touch J's QR/auction work
+even though both live in the Ionic Vault/trading surface, can be picked up
+any time. **Logged (18 ago), not started.**
+
+---
+
+## L. Spin-the-wheel coupon system
+
+New user-requested feature (18 ago, log-only): a spin-the-wheel mechanic
+(e.g. on app open, or after some qualifying action) that rewards the user
+with a coupon usable on card purchases. Confirmed via `grep` on
+`prisma/schema.prisma` — no `Coupon`/discount model or field exists
+anywhere today (`User`/`UserSettings`/`RefreshToken`/`Card`/`Offer`/
+`CardPhoto`/`CatalogCard`/`Transaction` is the full model list), and
+`TransactionsService.create()`/`markPaid()` price a purchase strictly off
+`Card.guessedPrice` (or J12's winning `Offer.amount`) with no discount hook
+anywhere in that path — this is new capability, not extending something
+that exists, same honest framing K's intro gave the deck feature.
+
+| # | Task | Priority | Complexity | Notes |
+|---|---|---|---|---|
+| L1 | **Design decision (do this first, blocks L2+):** what triggers a spin (once per day? once per account, ever? after a completed sale?), what a coupon actually discounts (flat $ off, % off, capped at some amount?), single-use vs. stackable, and whether it expires | P2 | S | Not a coding task. Needs the user's own call before any schema gets written — same posture J1/K1 already established for this file. Worth deciding alongside: does redeeming a coupon happen at `POST /transactions` time (discount baked into `amount` before the buyer pays) or is it a separate `Card`-level "price adjustment" the seller/buyer see before checkout? |
+| L2 | Schema: `Coupon` model (code/id, discount shape per L1, `issuedToUserId`, `redeemedAt`, `expiresAt`) + migration | P2 | S | Depends on L1. Additive — mirrors `Offer`'s precedent as the most recent new model added to this schema (J12). |
+| L3 | Backend: server-authoritative "spin" endpoint (RNG happens server-side, never trust a client-reported win — same reasoning J12's auction resolution is server-authoritative, not client-timed) that issues a `Coupon` row, + a redemption path wired into `TransactionsService` so a coupon actually discounts a real purchase, not just a cosmetic balance | P2 | M | Mirrors `OffersModule`'s layering (domain/infrastructure/application/presentation). The redemption half touches the same `markPaid()`/`create()` code J6/J8/J9 already share one trigger point through — extend, don't fork, that path. |
+| L4 | Frontend: the actual spin-the-wheel UI (an animated wheel component, a "you won X" reveal state) + a coupon picker at checkout in `Tab2.tsx`'s buyer flow (J5's Buy page once it exists is probably the more natural home) | P2 | M | Depends on L2/L3. No spin/wheel animation library is a current dependency — confirmed via `grep` on `package.json`, same "check before assuming" precedent J4's own row set. A pure-CSS/framer-motion rotation (already a dependency, used throughout this app) is likely enough — worth confirming before reaching for a new animation library. |
+| L5 | Tests: backend unit + e2e for the spin endpoint (server-side RNG can't be gamed by repeated calls, a redeemed/expired coupon is rejected, discount math is exact) + frontend component test for the wheel/redeem flow | P2 | M | Same testing bar this file already holds every other workstream to (see G1/G2/G3/J10/K5). |
+
+**Dependency:** L1 blocks L2/L3 (design decision must land first, same shape
+as J1/K1). L4 depends on L2/L3. Independent of every other workstream — no
+ML pipeline involvement. **Logged (18 ago), not started.**
+
+---
+
 ## Suggested parallel assignment (4 people)
 
 - **Person 1 — ML/Stage 2:** workstream A end-to-end.
