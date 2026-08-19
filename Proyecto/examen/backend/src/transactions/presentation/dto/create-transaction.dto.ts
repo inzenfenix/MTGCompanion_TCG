@@ -17,4 +17,13 @@ export class CreateTransactionDto {
   @IsOptional()
   @IsIn(['MERCADOPAGO', 'CASH'])
   paymentMethod?: PaymentMethod;
+
+  // ROADMAP.md L3 — optional, a buyer's own coupon to redeem on this
+  // purchase (L1: redemption is baked into the computed amount here, not a
+  // separate pre-checkout price adjustment). Ownership/redeemed/expired are
+  // all validated server-side in TransactionsService — this is just "which
+  // one", never trusted as a discount amount itself.
+  @IsOptional()
+  @IsUUID()
+  couponId?: string;
 }

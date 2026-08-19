@@ -11,6 +11,7 @@ import type { PaymentMethod } from '../../../generated/prisma';
 import { CardsService } from '../../cards/application/cards.service';
 import { OffersService } from '../../offers/application/offers.service';
 import { UsersService } from '../../users/application/users.service';
+import { CouponsService } from '../../coupons/application/coupons.service';
 import {
   PAYMENT_PROVIDERS,
   type PaymentProvider,
@@ -40,6 +41,7 @@ export class TransactionsService {
     private readonly cards: CardsService,
     private readonly offers: OffersService,
     private readonly users: UsersService,
+    private readonly coupons: CouponsService,
     private readonly events: EventEmitter2,
   ) {}
 
@@ -77,6 +79,22 @@ export class TransactionsService {
       });
     }
 
+    // ROADMAP.md L1/L3 — a coupon discounts amount right here, before the
+    // Transaction row is created, so amount already reflects it everywhere
+    // downstream (payment provider charge, IVA receipt breakdown) — no
+    // separate "discount line item" concept needed. validateAndPrice()
+    // checks ownership/redeemed/expired but does NOT mark it redeemed yet;
+    // that happens below once a real transactionId exists to redeem
+    // against (mirrors this method's own existing non-atomic style, e.g.
+    // markPaid()'s sequential card-transfer-then-event-emit).
+    if (dto.couponId) {
+      ({ discountedAmount: amount } = await this.coupons.validateAndPrice(
+        dto.couponId,
+        buyerId,
+        amount,
+      ));
+    }
+
     const method: PaymentMethod = dto.paymentMethod ?? 'MERCADOPAGO';
     const provider = this.paymentProviders[method];
 
@@ -87,6 +105,10 @@ export class TransactionsService {
       amount,
       paymentMethod: method,
     });
+
+    if (dto.couponId) {
+      await this.coupons.markRedeemed(dto.couponId, transaction.id);
+    }
 
     // Failure here shouldn't lose the transaction record; it just stays
     // PENDING with no paymentRef until retried.
