@@ -82,6 +82,20 @@ item, a refactor):
    execution, checking output files) — don't rely on the code merely
    compiling or "looking right." State plainly what was and wasn't verified
    if something couldn't be tested (e.g. no GPU, missing dependency).
+3. **Claim a ROADMAP.md item before starting it, in its own commit.** The
+   moment you pick up a non-trivial ROADMAP.md row to work on, mark that row
+   — and any other row it blocks or is blocked by (its `Dependency:` note or
+   cross-references) — with an in-progress marker (`🚧 IN PROGRESS (started
+   <date>)`, prefixed the same place `✅` normally goes) and commit that as
+   its own ROADMAP.md-only commit, before writing any other code. This file
+   exists specifically so multiple people/sessions can work in parallel
+   without stepping on each other (see its own header) — a row with no
+   marker is fair game, one already marked 🚧 isn't, and a blocked/blocking
+   row being marked too stops someone from picking up dependent work that
+   would just collide once the in-progress row lands. Clear the marker (swap
+   it for `✅` with a real note, or revert it if abandoned) once the task's
+   own commit(s) land, per rule 2 above and the standing "always update
+   ROADMAP.md" convention.
 
 ## Hard rules established this project — read before touching training scripts
 
