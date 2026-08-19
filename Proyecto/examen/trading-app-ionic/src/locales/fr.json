@@ -156,6 +156,7 @@
   "deck_create_error": "Impossible de créer le deck. Veuillez réessayer.",
   "deck_rename_error": "Impossible de renommer le deck. Veuillez réessayer.",
   "deck_delete_error": "Impossible de supprimer le deck. Veuillez réessayer.",
+  "deck_stats": "{{count}} cartes · ${{value}} valeur totale",
   "field_deck": "Deck",
   "vault_error": "Impossible d'ouvrir le Coffre pour le moment. Veuillez réessayer.",
   "retry": "Réessayer",

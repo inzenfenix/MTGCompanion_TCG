@@ -156,6 +156,7 @@
   "deck_create_error": "Could not create the deck. Please try again.",
   "deck_rename_error": "Could not rename the deck. Please try again.",
   "deck_delete_error": "Could not delete the deck. Please try again.",
+  "deck_stats": "{{count}} cards · ${{value}} total value",
   "field_deck": "Deck",
   "vault_error": "Could not open the Vault right now. Please try again.",
   "retry": "Retry",

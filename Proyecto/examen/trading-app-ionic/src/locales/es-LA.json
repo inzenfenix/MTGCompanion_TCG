@@ -156,6 +156,7 @@
   "deck_create_error": "No se pudo crear el mazo. Intenta de nuevo.",
   "deck_rename_error": "No se pudo renombrar el mazo. Intenta de nuevo.",
   "deck_delete_error": "No se pudo eliminar el mazo. Intenta de nuevo.",
+  "deck_stats": "{{count}} cartas · ${{value}} valor total",
   "field_deck": "Mazo",
   "vault_error": "No se pudo abrir la Bóveda ahora. Intenta de nuevo.",
   "retry": "Reintentar",

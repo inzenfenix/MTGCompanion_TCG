@@ -128,6 +128,14 @@ const Tab3: React.FC = () => {
 
   const selectedDeckEntity = decks.find((d) => d.id === selectedDeck) ?? null;
 
+  // ROADMAP.md K6 — deck-level stats. Deliberately summed over `cards` (the
+  // full server-fetched, deck-scoped list) rather than `filteredCards`, so
+  // an incidental Vault search doesn't make the deck itself look smaller
+  // than it really is. Reuses each card's already-computed guessedPrice
+  // (Stage 3) — no new estimation, no backend endpoint needed.
+  const deckCardCount = cards.length;
+  const deckTotalValue = cards.reduce((sum, card) => sum + card.guessedPrice, 0);
+
   const handleCreateDeck = async (name: string) => {
     const trimmed = name.trim();
     if (!trimmed) return;
@@ -256,6 +264,12 @@ const Tab3: React.FC = () => {
               </>
             )}
           </div>
+
+          {!isLoading && !error && (
+            <p style={{ color: '#c2b5b5', fontSize: '0.85rem', margin: '0 0 10px' }}>
+              {t('deck_stats', { count: deckCardCount, value: deckTotalValue.toFixed(2) })}
+            </p>
+          )}
 
           {deckError && (
             <p style={{ color: '#ff8080', fontSize: '0.85rem', margin: '0 0 10px' }}>{deckError}</p>
