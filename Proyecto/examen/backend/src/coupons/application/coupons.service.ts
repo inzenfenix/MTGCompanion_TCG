@@ -109,6 +109,11 @@ export class CouponsService {
   markRedeemed(couponId: string, transactionId: string): Promise<CouponEntity> {
     return this.coupons.markRedeemed(couponId, transactionId);
   }
+
+  /** ROADMAP.md L6 — dev-only reset, gated at the controller by DevOnlyGuard, not here. */
+  devResetAll(): Promise<number> {
+    return this.coupons.deleteAll();
+  }
 }
 
 function pickTier() {

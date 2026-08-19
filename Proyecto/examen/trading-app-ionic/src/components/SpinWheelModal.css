@@ -1,0 +1,116 @@
+/* ROADMAP.md L4 — spin-the-wheel popup. Colors reuse the app's existing
+   dark-red/gold MTG theme (see theme/mtg-theme.css's .mtg-btn) rather than
+   inventing a new palette. */
+
+.spin-wheel-modal {
+  --width: min(360px, 92vw);
+  --height: auto;
+  --border-radius: 16px;
+  --background: linear-gradient(160deg, #1a0a0d, #2b0f14);
+  --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+
+.spin-wheel-content {
+  position: relative;
+  padding: 28px 24px 24px;
+  text-align: center;
+  color: #f2e3cd;
+}
+
+.spin-wheel-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  --color: #c2b5b5;
+}
+
+.spin-wheel-title {
+  font-family: 'Cinzel', serif;
+  font-size: 1.4rem;
+  margin: 0 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.spin-wheel-subtitle {
+  color: #c2b5b5;
+  font-size: 0.9rem;
+  margin: 0 0 20px;
+}
+
+.spin-wheel-wrapper {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  margin: 0 auto 24px;
+}
+
+.spin-wheel-pointer {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-top: 18px solid #d4af37;
+  z-index: 2;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+}
+
+.spin-wheel-disc {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 4px solid #d4af37;
+  box-shadow: 0 0 20px rgba(139, 0, 0, 0.5), inset 0 0 15px rgba(0, 0, 0, 0.4);
+  position: relative;
+}
+
+.spin-wheel-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: 0 0;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #f2e3cd;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  /* Rotate to the wedge's center angle (inline style), then push out along
+     that ray so the label sits mid-wedge rather than at the disc's center. */
+  padding-top: 38px;
+  margin-left: -14px;
+}
+
+.spin-wheel-reveal {
+  padding: 10px 0;
+}
+
+.spin-wheel-reveal-icon {
+  font-size: 3rem;
+  color: #d4af37;
+  margin-bottom: 8px;
+}
+
+.spin-wheel-reveal h2 {
+  font-family: 'Cinzel', serif;
+  margin: 0 0 10px;
+  color: var(--ion-color-success, #00733e);
+}
+
+.spin-wheel-prize {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #d4af37;
+  margin: 0 0 8px;
+}
+
+.spin-wheel-note {
+  color: #c2b5b5;
+  font-size: 0.85rem;
+  margin: 0 0 18px;
+}

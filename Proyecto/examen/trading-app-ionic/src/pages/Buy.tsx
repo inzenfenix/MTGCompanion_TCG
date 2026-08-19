@@ -18,7 +18,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonButtons,
   IonBackButton, IonButton, IonIcon, IonSegment, IonSegmentButton,
-  IonLabel, IonSpinner, IonInput, IonItem,
+  IonLabel, IonSpinner, IonInput, IonItem, IonSelect, IonSelectOption,
 } from '@ionic/react';
 import { useParams } from 'react-router';
 import { checkmarkCircleOutline, timeOutline } from 'ionicons/icons';
@@ -49,6 +49,17 @@ const Buy: React.FC = () => {
   const [isPaying, setIsPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
   const [createdTransaction, setCreatedTransaction] = useState<api.CreateTransactionResult | null>(null);
+
+  // ROADMAP.md L4 — checkout coupon picker. Fetched once on mount (this
+  // buyer's own available coupons, unredeemed+unexpired — see
+  // api.listMyCoupons()'s own comment), independent of which card is being
+  // bought; failing silently here just means no picker shows, not a
+  // blocking error on the purchase flow itself.
+  const [coupons, setCoupons] = useState<api.Coupon[]>([]);
+  const [selectedCouponId, setSelectedCouponId] = useState<string | null>(null);
+  useEffect(() => {
+    api.listMyCoupons().then(setCoupons).catch(() => { /* no picker, not fatal */ });
+  }, []);
 
   // Auction state (J12/J14) — seeded via REST, kept live via the socket,
   // and re-fetched once the client-side countdown hits zero to get the
@@ -132,6 +143,19 @@ const Buy: React.FC = () => {
     : null;
   const didIWin = !!(resolvedOffer && user && resolvedOffer.bidderId === user.id);
 
+  // Preview only — matches CouponsService.validateAndPrice()'s own math
+  // (min of the raw %, the flat cap, and the price itself) so what the
+  // buyer sees here matches what they're actually charged, but the real
+  // amount always comes from the backend's own computation at POST
+  // /transactions time, not this client-side number.
+  const selectedCoupon = coupons.find((c) => c.id === selectedCouponId) ?? null;
+  const discountedAmount = selectedCoupon && resolvedOffer
+    ? Math.max(0, Math.round((resolvedOffer.amount - Math.min(
+        (resolvedOffer.amount * selectedCoupon.discountPercent) / 100,
+        selectedCoupon.maxDiscount,
+      )) * 100) / 100)
+    : null;
+
   const handlePlaceOffer = async () => {
     if (!card || bidAmount === null) return;
     setIsBidding(true);
@@ -152,7 +176,11 @@ const Buy: React.FC = () => {
     setIsPaying(true);
     setPayError(null);
     try {
-      const tx = await api.createTransaction({ cardId: card.id, paymentMethod });
+      const tx = await api.createTransaction({
+        cardId: card.id,
+        paymentMethod,
+        couponId: selectedCouponId ?? undefined,
+      });
       setCreatedTransaction(tx);
       // MercadoPago Checkout Pro is a redirect-based flow — send the buyer
       // there in a new tab (checkoutUrl is only present when the backend
@@ -219,6 +247,29 @@ const Buy: React.FC = () => {
                   {didIWin && (
                     <>
                       <p style={{ color: 'var(--ion-color-success)', fontWeight: 'bold' }}>{t('buy_page_you_won', { amount: resolvedOffer.amount.toFixed(2) })}</p>
+                      {coupons.length > 0 && (
+                        <IonItem color="transparent" style={{ '--border-color': 'rgba(139,0,0,0.3)', marginBottom: '10px' }}>
+                          <IonLabel position="stacked">{t('buy_page_coupon_label')}</IonLabel>
+                          <IonSelect
+                            value={selectedCouponId}
+                            interface="popover"
+                            placeholder={t('buy_page_coupon_none')}
+                            onIonChange={(e) => setSelectedCouponId(e.detail.value as string | null)}
+                          >
+                            <IonSelectOption value={null}>{t('buy_page_coupon_none')}</IonSelectOption>
+                            {coupons.map((c) => (
+                              <IonSelectOption key={c.id} value={c.id}>
+                                {t('buy_page_coupon_option', { percent: c.discountPercent, cap: c.maxDiscount })}
+                              </IonSelectOption>
+                            ))}
+                          </IonSelect>
+                        </IonItem>
+                      )}
+                      {discountedAmount !== null && (
+                        <p style={{ color: '#d4af37', marginBottom: '10px' }}>
+                          {t('buy_page_coupon_discounted_total', { amount: discountedAmount.toFixed(2) })}
+                        </p>
+                      )}
                       <IonSegment
                         value={paymentMethod}
                         onIonChange={(e) => setPaymentMethod(e.detail.value as api.PaymentMethod)}

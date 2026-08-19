@@ -463,10 +463,13 @@ export type Transaction = {
 
 // No buyerId here — same reasoning as CreateCardInput.ownerId: derived from
 // the JWT, sending one would 400. paymentMethod defaults to MERCADOPAGO on
-// the backend when omitted.
+// the backend when omitted. couponId (ROADMAP.md L4) is optional — the
+// backend prices the discount itself (validateAndPrice()), this is just
+// which of the buyer's own available coupons to apply.
 export type CreateTransactionInput = {
   cardId: string;
   paymentMethod?: PaymentMethod;
+  couponId?: string;
 };
 
 // checkoutUrl is surfaced once, at creation time only (not persisted, not
@@ -512,4 +515,35 @@ export function getTransactionReceipt(id: string): Promise<ReceiptBreakdown> {
 // ROADMAP.md J6/J7 — seller-only, flips a PENDING cash transaction to PAID.
 export function confirmCashReceived(id: string): Promise<Transaction> {
   return request<Transaction>(`/transactions/${id}/confirm-cash-received`, { method: 'POST' });
+}
+
+// ── Coupons / spin-the-wheel (ROADMAP.md L) ────────────────────────────────
+// discountPercent/maxDiscount are frozen at issuance (backend CouponEntity's
+// own comment) — a future prize-tier rebalance never retroactively changes
+// a coupon a user already won. redeemedAt/redeemedInTransactionId are both
+// null (unredeemed) or both set (redeemed) together.
+export type Coupon = {
+  id: string;
+  issuedToUserId: string;
+  discountPercent: number;
+  maxDiscount: number;
+  redeemedAt: string | null;
+  redeemedInTransactionId: string | null;
+  expiresAt: string;
+  createdAt: string;
+};
+
+// Server-authoritative — the RNG happens on the backend (CouponsService's
+// own comment), this just triggers it. 400s if the caller already spun
+// inside the 24h cooldown; the ApiError's message names it but callers
+// should treat any 400 here as "come back later" rather than parse it.
+export function spinCoupon(): Promise<Coupon> {
+  return request<Coupon>('/coupons/spin', { method: 'POST' });
+}
+
+// Unredeemed + unexpired only, strictly "mine" via the JWT (no ?ownerId=
+// param — see CouponsController's own comment on why this differs from
+// GET /decks). Feeds L4's checkout coupon picker.
+export function listMyCoupons(): Promise<Coupon[]> {
+  return request<Coupon[]>('/coupons');
 }

@@ -56,6 +56,11 @@ export class PrismaCouponRepository implements CouponRepository {
     return this.toEntity(coupon);
   }
 
+  async deleteAll(): Promise<number> {
+    const { count } = await this.prisma.coupon.deleteMany({});
+    return count;
+  }
+
   private toEntity(coupon: Coupon): CouponEntity {
     return { ...coupon, maxDiscount: Number(coupon.maxDiscount) };
   }

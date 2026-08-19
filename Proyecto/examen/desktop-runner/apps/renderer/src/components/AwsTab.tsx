@@ -5,6 +5,7 @@ import { AwsCredentialsBox } from './AwsCredentialsBox';
 import { AwsServicesChecklist } from './AwsServicesChecklist';
 import { TerraformActionCard } from './TerraformActionCard';
 import { SsmAccessCard } from './SsmAccessCard';
+import { LocalDevToolsCard } from './LocalDevToolsCard';
 import { LogConsole } from './LogConsole';
 import { useRunLogs } from '@/lib/useRunLogs';
 import { api } from '@/lib/api';
@@ -43,6 +44,7 @@ export function AwsTab() {
       <TerraformActionCard credentialsRefreshToken={credentialsRefreshToken} />
       <SsmAccessCard />
       <OutputsCard outputs={outputs} loading={loadingOutputs} onReload={loadOutputs} />
+      <LocalDevToolsCard />
     </div>
   );
 }

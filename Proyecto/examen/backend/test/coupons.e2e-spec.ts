@@ -267,4 +267,30 @@ describe('Coupons (e2e)', () => {
       .expect(201);
     expect((purchase.body as TransactionEntity).amount).toBe(42.5);
   });
+
+  // ROADMAP.md L6 — dev-only reset. No other e2e file touches the Coupon
+  // table (confirmed via grep before adding this), so this test's global
+  // deleteMany({}) can't race a parallel jest worker running another spec.
+  // Placed last in this file for the same reason.
+  it('L6: dev-reset-all deletes every coupon, no JWT required, gated to non-production only', async () => {
+    const freshToken = await freshSpinner();
+    const spin = await request(app.getHttpServer())
+      .post('/coupons/spin')
+      .set('Authorization', `Bearer ${freshToken}`)
+      .expect(201);
+    const coupon = spin.body as CouponEntity;
+
+    const reset = await request(app.getHttpServer())
+      .delete('/coupons/dev-reset-all')
+      .expect(200);
+    expect((reset.body as { deleted: number }).deleted).toBeGreaterThan(0);
+
+    const list = await request(app.getHttpServer())
+      .get('/coupons')
+      .set('Authorization', `Bearer ${freshToken}`)
+      .expect(200);
+    expect(
+      (list.body as CouponEntity[]).some((c) => c.id === coupon.id),
+    ).toBe(false);
+  });
 });

@@ -15,6 +15,8 @@ export interface CouponRepository {
   /** Unredeemed, unexpired coupons for a user — what a checkout coupon picker (L4) offers. */
   findAvailableForUser(userId: string): Promise<CouponEntity[]>;
   markRedeemed(id: string, transactionId: string): Promise<CouponEntity>;
+  /** ROADMAP.md L6 — dev-only, wipes every Coupon row (all accounts) so a local test session can re-spin without waiting out the 24h cooldown. Returns the number of rows deleted. */
+  deleteAll(): Promise<number>;
 }
 
 export const COUPON_REPOSITORY = Symbol('COUPON_REPOSITORY');

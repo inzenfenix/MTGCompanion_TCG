@@ -1,20 +1,44 @@
-import { 
-  IonContent, 
-  IonHeader, 
-  IonPage, 
-  IonTitle, 
-  IonToolbar, 
-  IonIcon, 
+import {
+  IonContent,
+  IonHeader,
+  IonPage,
+  IonTitle,
+  IonToolbar,
+  IonIcon,
   useIonRouter,
-  IonButton
+  IonButton,
+  IonButtons
 } from '@ionic/react';
-import { timeOutline, scanOutline, libraryOutline } from 'ionicons/icons';
+import { useEffect, useState } from 'react';
+import { timeOutline, scanOutline, libraryOutline, giftOutline } from 'ionicons/icons';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../lib/auth/AuthContext';
+import { SpinWheelModal } from '../components/SpinWheelModal';
+
+// ROADMAP.md L4 — one auto-popup per calendar day per account, tracked
+// locally so it doesn't need its own "have I been shown this" endpoint.
+// This is independent of (and looser than) the backend's own rolling 24h
+// spin cooldown (CouponsService.spin()) — a mismatch just means the modal
+// opens but the actual spin 400s, which SpinWheelModal already shows as its
+// 'cooldown' state, not a bug.
+const SPIN_WHEEL_SHOWN_KEY_PREFIX = 'mtg_spin_wheel_last_shown_';
 
 const Tab1: React.FC = () => {
   const router = useIonRouter();
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const [wheelOpen, setWheelOpen] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    const key = `${SPIN_WHEEL_SHOWN_KEY_PREFIX}${user.id}`;
+    const today = new Date().toDateString();
+    if (localStorage.getItem(key) !== today) {
+      localStorage.setItem(key, today);
+      setWheelOpen(true);
+    }
+  }, [user]);
 
   // This transaction list is still mock data — GET /transactions?userId=...
   // doesn't include card titles/images, so rendering the real ledger here
@@ -47,8 +71,14 @@ const Tab1: React.FC = () => {
       <IonHeader>
         <IonToolbar>
           <IonTitle>{t('keep_title')}</IonTitle>
+          <IonButtons slot="end">
+            <IonButton onClick={() => setWheelOpen(true)} aria-label={t('spin_wheel_open')}>
+              <IonIcon icon={giftOutline} slot="icon-only" />
+            </IonButton>
+          </IonButtons>
         </IonToolbar>
       </IonHeader>
+      <SpinWheelModal isOpen={wheelOpen} onClose={() => setWheelOpen(false)} />
       <IonContent fullscreen>
         <motion.div 
           className="mtg-container"
