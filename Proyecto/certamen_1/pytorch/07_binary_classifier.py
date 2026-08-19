@@ -3,12 +3,15 @@ MTG Card Scanner — Certamen 1
 07_binary_classifier.py: Clasificador binario "¿Es una carta MTG?"
 
 Pipeline:
-    1. Descarga metadatos e imágenes de varias fuentes como negativos: dos
-       TCGs — Pokémon (pokemontcg.io) + Yu-Gi-Oh! (YGOPRODeck) — y dos mazos
-       de naipes fuera del mundo TCG — inglés/francés y español (Wikimedia
-       Commons, dominio público). Más de una fuente, y de tipos distintos de
-       "no-MTG", evita que el clasificador aprenda un atajo específico de
-       una sola fuente en vez de "MTG vs cualquier otra cosa".
+    1. Descarga metadatos e imágenes de varias fuentes como negativos: tres
+       TCGs — Pokémon (pokemontcg.io), Yu-Gi-Oh! (YGOPRODeck), Star Wars:
+       Unlimited (api.swu-db.com) —, dos mazos de naipes fuera del mundo
+       TCG — inglés/francés y español —, y fotos genéricas "no hay ninguna
+       carta acá" — cuartos, manos, pantallas, multitudes, exteriores — las
+       últimas tres desde Wikimedia Commons (dominio público). Más de una
+       fuente, y de tipos distintos de "no-MTG", evita que el clasificador
+       aprenda un atajo específico de una sola fuente en vez de "MTG vs
+       cualquier otra cosa".
     2. Construye dataset balanceado: N cartas MTG + N cartas no-MTG (clases iguales).
     3. Fine-tune EfficientNet_b0 con cabeza binaria (BCEWithLogitsLoss).
     4. Evalúa: confusion matrix, F1-score, ROC-AUC.
@@ -329,6 +332,60 @@ def obtener_metadata_playing_cards_en(n_target: int) -> list:
     return cartas[:n_target]
 
 
+GENERIC_SCENE_CATEGORIES = [
+    "Living rooms", "Bedrooms", "Classrooms", "Kitchens", "Human hands",
+    "Laptops", "Television sets", "Computer monitors", "Crowds", "Parks",
+]
+
+
+def obtener_metadata_generic_scenes(n_target: int) -> list:
+    """
+    Descarga metadatos de fotos genéricas "no hay ninguna carta acá" desde
+    Wikimedia Commons — cuartos, manos, pantallas/laptops/TVs, multitudes,
+    exteriores — sumadas como quinta fuente de negativos porque un reporte
+    real en dispositivo (Smart Scan) encontró a Stage 1 aceptando un video
+    reproduciéndose en la pantalla de un laptop, con poca luz, como si fuera
+    una carta MTG (ver ROADMAP.md, ítem I31). Ninguna fuente de negativos
+    existente hasta ahora (Pokémon/Yu-Gi-Oh!/Star Wars: Unlimited/naipes) es
+    "no hay carta en cuadro" — todas son fotos limpias y bien iluminadas de
+    OTRA carta coleccionable — así que la tarea que entrenan (MTG vs. otro
+    TCG) es más fácil que la tarea real desplegada (MTG vs. cualquier cosa
+    que vea una cámara de celular). Se reparte parejo entre varias categorías
+    amplias de Commons en vez de una sola, para cubrir varios tipos de
+    "no-carta" a la vez — mismo espíritu que el comentario al inicio de esta
+    sección sobre usar varias fuentes de TCG en vez de una sola.
+    Retorna lista de dicts {id, name, image_url}.
+    """
+    print(f"  Descargando metadatos de escenas genéricas (objetivo: {n_target:,} fotos, "
+          f"{len(GENERIC_SCENE_CATEGORIES)} categorías Commons)...")
+    cartas: list = []
+    vistos: set = set()
+    rng = random.Random(SEED)
+    por_categoria = max(n_target // len(GENERIC_SCENE_CATEGORIES), 20)
+
+    for cat in GENERIC_SCENE_CATEGORIES:
+        try:
+            titles = _commons_category_files(cat)
+        except requests.exceptions.RequestException as e:
+            print(f"    ✗ Categoría {cat!r} falló tras reintentos ({e}); saltando.")
+            continue
+        rng.shuffle(titles)
+        titles = titles[:por_categoria]
+        urls = _commons_resolve_urls(titles)
+        prefijo = re.sub(r"[^a-z0-9]+", "_", cat.lower()).strip("_")
+        nuevos = 0
+        for t, u in urls.items():
+            if t in vistos:
+                continue
+            vistos.add(t)
+            cartas.append({"id": _commons_id(t, prefijo), "name": t, "image_url": u})
+            nuevos += 1
+        print(f"    {cat}: +{nuevos} fotos  ({len(cartas)}/{n_target} acumuladas)")
+
+    rng.shuffle(cartas)
+    return cartas[:n_target]
+
+
 def obtener_metadata_playing_cards_es(n_target: int) -> list:
     """
     Baraja española (40 cartas, patrón Fournier, dominio público) desde
@@ -363,6 +420,9 @@ NEG_SOURCES = {
     # Star Wars: Unlimited — ver docstring de obtener_metadata_star_wars() para
     # por qué se sumó (confusión real con MTG encontrada en dispositivo, ROADMAP I18).
     "star_wars_unlimited":{"fetch": obtener_metadata_star_wars,        "scalable": True},
+    # Escenas genéricas "no hay carta acá" — ver docstring de
+    # obtener_metadata_generic_scenes() para el porqué (ROADMAP I31).
+    "generic_scenes":     {"fetch": obtener_metadata_generic_scenes,   "scalable": True, **_COMMONS_DL},
     # Wikimedia Commons (upload.wikimedia.org) devuelve 429 "Too many requests"
     # incluso en serie con el delay/backoff por defecto — ver _descargar_fuente.
     "playing_cards_en":   {"fetch": obtener_metadata_playing_cards_en, "scalable": False, **_COMMONS_DL},

@@ -3,8 +3,9 @@ MTG Card Scanner — Certamen 1
 07_binary_classifier.py: Clasificador binario "¿Es una carta MTG?" (TensorFlow)
 
 Pipeline:
-    1. Descarga metadatos e imágenes de cartas Pokémon (pokemontcg.io) y
-       Star Wars: Unlimited (api.swu-db.com) como negativos.
+    1. Descarga metadatos e imágenes de cartas Pokémon (pokemontcg.io),
+       Star Wars: Unlimited (api.swu-db.com), y fotos genéricas "no hay
+       ninguna carta acá" (Wikimedia Commons) como negativos.
     2. Construye dataset balanceado: N cartas MTG + N cartas no-MTG (clases iguales).
     3. Fine-tune MobileNetV3Small con cabeza binaria (binary_crossentropy).
     4. Evalúa: confusion matrix, F1-score, ROC-AUC.
@@ -21,6 +22,7 @@ import argparse
 import json
 import pathlib
 import random
+import re
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -63,6 +65,7 @@ POKEMON_HDR   = {"User-Agent": "MTG-Scanner-Academic/1.0 (UDD Frameworks de IA)"
 POKEMON_DELAY = 0.06  # 60 ms entre descargas de imagen
 
 SWU_API = "https://api.swu-db.com"  # Star Wars: Unlimited — ver obtener_metadata_star_wars()
+COMMONS_API = "https://commons.wikimedia.org/w/api.php"  # ver obtener_metadata_generic_scenes()
 
 random.seed(SEED)
 np.random.seed(SEED)
@@ -186,25 +189,138 @@ def obtener_metadata_star_wars(n_target: int) -> list:
     return cartas[:n_target]
 
 
-def _descargar_una(card: dict, dest_dir: pathlib.Path) -> bool:
+def _commons_category_files(category: str) -> list[str]:
+    """Lista todos los títulos de archivo de una categoría de Wikimedia Commons
+    (con paginación vía cmcontinue). Ver certamen_1/pytorch/07_binary_classifier.py,
+    misma función — duplicada acá porque este script no importa de pytorch/."""
+    titles: list[str] = []
+    params = {
+        "action": "query", "list": "categorymembers", "cmtitle": f"Category:{category}",
+        "cmlimit": 100, "cmtype": "file", "format": "json",
+    }
+    while True:
+        resp = _get_con_reintentos(COMMONS_API, params=params, headers=POKEMON_HDR, timeout=30)
+        data = resp.json()
+        titles += [m["title"] for m in data.get("query", {}).get("categorymembers", [])]
+        cont = data.get("continue")
+        if not cont:
+            break
+        params = {**params, **cont}
+    return titles
+
+
+def _commons_resolve_urls(titles: list[str], width: int = 800) -> dict[str, str]:
+    """Resuelve títulos de archivo de Commons a una URL de imagen directa
+    (thumburl, con fallback a la URL original). La API acepta hasta 50
+    títulos por request."""
+    urls: dict[str, str] = {}
+    for i in range(0, len(titles), 50):
+        batch = titles[i:i + 50]
+        resp = _get_con_reintentos(
+            COMMONS_API,
+            params={
+                "action": "query", "titles": "|".join(batch),
+                "prop": "imageinfo", "iiprop": "url", "iiurlwidth": width,
+                "format": "json",
+            },
+            headers=POKEMON_HDR, timeout=30,
+        )
+        data = resp.json()
+        for page in data.get("query", {}).get("pages", {}).values():
+            info = (page.get("imageinfo") or [{}])[0]
+            url = info.get("thumburl") or info.get("url")
+            if url and page.get("title"):
+                urls[page["title"]] = url
+        time.sleep(0.2)  # ser educados con la API de Commons
+    return urls
+
+
+def _commons_id(title: str, prefix: str) -> str:
+    """'File:Some room.jpg' → 'prefix_Some_room'."""
+    stem = title.split(":", 1)[-1].rsplit(".", 1)[0]
+    return f"{prefix}_{stem.replace(' ', '_')}"
+
+
+GENERIC_SCENE_CATEGORIES = [
+    "Living rooms", "Bedrooms", "Classrooms", "Kitchens", "Human hands",
+    "Laptops", "Television sets", "Computer monitors", "Crowds", "Parks",
+]
+
+
+def obtener_metadata_generic_scenes(n_target: int) -> list:
+    """
+    Descarga metadatos de fotos genéricas "no hay ninguna carta acá" desde
+    Wikimedia Commons — cuartos, manos, pantallas/laptops/TVs, multitudes,
+    exteriores — sumadas como tercera fuente de negativos porque un reporte
+    real en dispositivo (Smart Scan) encontró a Stage 1 aceptando un video
+    reproduciéndose en la pantalla de un laptop, con poca luz, como si fuera
+    una carta MTG (ver ROADMAP.md, ítem I31). Ni Pokémon ni Star Wars:
+    Unlimited son "no hay carta en cuadro" — ambas son fotos limpias y bien
+    iluminadas de OTRA carta coleccionable — así que la tarea que entrenan
+    (MTG vs. otro TCG) es más fácil que la tarea real desplegada (MTG vs.
+    cualquier cosa que vea una cámara de celular). Mismo patrón que
+    `pytorch/07_binary_classifier.py`'s versión de esta función — ver ahí
+    para el detalle completo, duplicado acá byte-a-byte donde el código lo
+    permite porque este script no importa de pytorch/.
+    Retorna lista de dicts {id, name, image_url}.
+    """
+    print(f"  Descargando metadatos de escenas genéricas (objetivo: {n_target:,} fotos, "
+          f"{len(GENERIC_SCENE_CATEGORIES)} categorías Commons)...")
+    cartas: list = []
+    vistos: set = set()
+    rng = random.Random(SEED)
+    por_categoria = max(n_target // len(GENERIC_SCENE_CATEGORIES), 20)
+
+    for cat in GENERIC_SCENE_CATEGORIES:
+        try:
+            titles = _commons_category_files(cat)
+        except requests.exceptions.RequestException as e:
+            print(f"    ✗ Categoría {cat!r} falló tras reintentos ({e}); saltando.")
+            continue
+        rng.shuffle(titles)
+        titles = titles[:por_categoria]
+        urls = _commons_resolve_urls(titles)
+        prefijo = re.sub(r"[^a-z0-9]+", "_", cat.lower()).strip("_")
+        nuevos = 0
+        for t, u in urls.items():
+            if t in vistos:
+                continue
+            vistos.add(t)
+            cartas.append({"id": _commons_id(t, prefijo), "name": t, "image_url": u})
+            nuevos += 1
+        print(f"    {cat}: +{nuevos} fotos  ({len(cartas)}/{n_target} acumuladas)")
+
+    rng.shuffle(cartas)
+    return cartas[:n_target]
+
+
+def _descargar_una(card: dict, dest_dir: pathlib.Path, delay: float = POKEMON_DELAY,
+                    max_reintentos: int = 3, backoff: float = 2.0) -> bool:
     dest = dest_dir / f"{card['id']}.jpg"
     if dest.exists():
         return True
     try:
         resp = _get_con_reintentos(
-            card["image_url"], max_reintentos=3, headers=POKEMON_HDR, timeout=30,
+            card["image_url"], max_reintentos=max_reintentos, backoff=backoff, headers=POKEMON_HDR, timeout=30,
         )
         dest.write_bytes(resp.content)
-        time.sleep(POKEMON_DELAY)
+        time.sleep(delay)
         return True
     except Exception:
         return False
 
 
-def _descargar_fuente(nombre: str, fetch_meta, n_target: int, skip: bool) -> list:
+# Wikimedia Commons (upload.wikimedia.org) devuelve 429 "Too many requests"
+# incluso en serie con el delay/backoff por defecto — mismas fuentes lentas
+# que en el lado PyTorch (ver ese script's `_COMMONS_DL`).
+_COMMONS_DL = {"workers": 1, "delay": 1.5, "max_reintentos": 6, "backoff": 3.0}
+
+
+def _descargar_fuente(nombre: str, fetch_meta, n_target: int, skip: bool, workers: int = 4,
+                       delay: float = POKEMON_DELAY, max_reintentos: int = 3, backoff: float = 2.0) -> list:
     """Descarga (con caché) las imágenes de UNA fuente de negativos —
     factorizado de descargar_negativos() para no duplicar la lógica de
-    caché/descarga al sumar Star Wars: Unlimited como segunda fuente."""
+    caché/descarga entre fuentes."""
     dir_ = IMAGES_NEG / nombre
     dir_.mkdir(parents=True, exist_ok=True)
 
@@ -228,9 +344,12 @@ def _descargar_fuente(nombre: str, fetch_meta, n_target: int, skip: bool) -> lis
         ya_ok = len(cartas) - len(pendientes)
         print(f"  Ya descargadas: {ya_ok:,}  |  Pendientes: {len(pendientes):,}")
         if pendientes:
-            print(f"  Descargando imágenes {nombre} (4 hilos, ~{len(pendientes)*100//1024} MB estimado)...")
-            with ThreadPoolExecutor(max_workers=4) as pool:
-                futures = {pool.submit(_descargar_una, c, dir_): c for c in pendientes}
+            print(f"  Descargando imágenes {nombre} ({workers} hilo{'s' if workers != 1 else ''}, ~{len(pendientes)*100//1024} MB estimado)...")
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                futures = {
+                    pool.submit(_descargar_una, c, dir_, delay, max_reintentos, backoff): c
+                    for c in pendientes
+                }
                 ok = sum(1 for f in tqdm(as_completed(futures), total=len(pendientes), desc=f"    {nombre}") if f.result())
             print(f"  Descargadas: {ok:,} nuevas")
 
@@ -239,19 +358,24 @@ def _descargar_fuente(nombre: str, fetch_meta, n_target: int, skip: bool) -> lis
 
 def descargar_negativos(n_target: int, skip: bool = False) -> list:
     """
-    Descarga imágenes de dos fuentes como ejemplos negativos — Pokémon TCG
-    y Star Wars: Unlimited (ver obtener_metadata_star_wars() para el porqué
-    de la segunda fuente) — repartiendo el presupuesto n_target parejo
-    entre ambas. Retorna lista de rutas a archivos descargados existentes.
+    Descarga imágenes de tres fuentes como ejemplos negativos — Pokémon TCG,
+    Star Wars: Unlimited (ver obtener_metadata_star_wars()), y escenas
+    genéricas "no hay carta acá" (ver obtener_metadata_generic_scenes(),
+    ROADMAP I31) — repartiendo el presupuesto n_target parejo entre las
+    tres. Retorna lista de rutas a archivos descargados existentes.
     """
-    n_poke = n_target // 2
-    n_sw   = n_target - n_poke
+    n_poke = n_target // 3
+    n_sw   = n_target // 3
+    n_gen  = n_target - n_poke - n_sw
 
     print(f"  ── Fuente de negativos: pokemon (objetivo: {n_poke:,} cartas) ──")
     rutas = _descargar_fuente("pokemon", obtener_metadata_pokemon, n_poke, skip)
 
     print(f"  ── Fuente de negativos: star_wars_unlimited (objetivo: {n_sw:,} cartas) ──")
     rutas += _descargar_fuente("star_wars_unlimited", obtener_metadata_star_wars, n_sw, skip)
+
+    print(f"  ── Fuente de negativos: generic_scenes (objetivo: {n_gen:,} fotos) ──")
+    rutas += _descargar_fuente("generic_scenes", obtener_metadata_generic_scenes, n_gen, skip, **_COMMONS_DL)
 
     return rutas
 
