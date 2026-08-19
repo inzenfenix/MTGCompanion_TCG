@@ -36,6 +36,7 @@ model User {
   refreshTokens RefreshToken[]
   offers        Offer[]
   decks         Deck[]
+  coupons       Coupon[]
 
   @@map("users")
 }
@@ -324,6 +325,12 @@ model Transaction {
   paymentProvider String?
   paymentRef      String? @unique
 
+  // Nullable, no FK owned here — the FK (and its @@unique) lives on Coupon
+  // (ROADMAP.md L2/L3), same "FK on the many/optional side" shape as every
+  // other relation in this file. A transaction can redeem at most one
+  // coupon (L1's design decision: single-use, not stackable).
+  coupon Coupon?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -331,4 +338,47 @@ model Transaction {
   @@index([sellerId])
   @@index([cardId])
   @@map("transactions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Spin-the-wheel coupons (ROADMAP.md L). Design decisions resolved with the
+// user (L1, 19 ago): daily spin (one per user per 24h, enforced by the L3
+// spin endpoint reading the latest Coupon.createdAt for that user — no
+// separate "last spin" timestamp needed, this table already records every
+// spin), % off the card's price capped at a flat $ amount (never an
+// uncapped % or a flat $ alone), 3 weighted prize tiers (5%/$5, 10%/$10,
+// 20%/$25), single-use (never stackable — enforced by Transaction's 1-1
+// optional relation above, not just application logic), expires 7 days
+// after being won. Redemption is baked into Transaction.amount at purchase
+// time (L3), not a separate pre-checkout price adjustment — so this model
+// deliberately has no relation to Card.
+// ─────────────────────────────────────────────────────────────────────────
+
+model Coupon {
+  id String @id @default(uuid())
+
+  issuedToUserId String
+  issuedToUser   User   @relation(fields: [issuedToUserId], references: [id], onDelete: Cascade)
+
+  // The wheel's prize tier at issuance time (L1: 5/10/20), stored as plain
+  // numbers rather than an enum — L3's redemption math is just
+  // `min(card.guessedPrice * discountPercent / 100, maxDiscount)`, no
+  // lookup table needed at redemption time, and a future tier
+  // rebalance never has to touch coupons already issued under the old one.
+  discountPercent Int
+  maxDiscount     Decimal @db.Decimal(10, 2)
+
+  // Both null = unredeemed. Set together, in the same L3 transaction, the
+  // moment a purchase actually applies this coupon — never independently,
+  // so a coupon can't end up "redeemed" without a Transaction to point at
+  // or vice versa.
+  redeemedAt              DateTime?
+  redeemedInTransactionId String?      @unique
+  redeemedInTransaction   Transaction? @relation(fields: [redeemedInTransactionId], references: [id])
+
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([issuedToUserId])
+  @@map("coupons")
 }
