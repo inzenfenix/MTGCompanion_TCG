@@ -24,12 +24,17 @@ export interface EnvDef {
   /**
    * Binarios de Python a probar, en orden, al CREAR el venv (no al correrlo
    * después — ahí siempre se usa el python de adentro del venv ya creado).
-   * El primero que responda a "--version" gana; si ninguno está, cae al
-   * python genérico del sistema (ver systemPython() en scripts.service.ts).
+   * El primero que responda a "--version" gana; si ninguno está como
+   * comando suelto en PATH (típico en Arch/CachyOS — pacman solo empaqueta
+   * UN python3 del sistema, a diferencia de Debian/Fedora que dan
+   * python3.12/3.11/etc. como paquetes separados), se prueba resolverlo vía
+   * pyenv (ver resolvePyenvPython() en scripts.service.ts — matchea contra
+   * las versiones que pyenv ya tenga instaladas). Si eso tampoco encuentra
+   * nada, cae al python genérico del sistema (ver systemPython()).
    * Existe por paquetes como TensorFlow, que no publican wheel para la
-   * versión de Python más nueva del sistema apenas sale (ej. no hay
-   * tensorflow para 3.14 todavía) — sin esto, "python3" resuelve a esa
-   * versión nueva y la instalación falla con "no matching distribution".
+   * versión de Python más nueva apenas sale (ej. no hay tensorflow para
+   * 3.14 todavía) — sin esto, "python3" resuelve a esa versión nueva y la
+   * instalación falla con "no matching distribution" (ver ROADMAP.md C11).
    */
   preferredPythonBins?: string[];
 }

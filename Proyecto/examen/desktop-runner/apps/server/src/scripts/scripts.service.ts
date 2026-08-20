@@ -371,15 +371,94 @@ export class ScriptsService {
     });
   }
 
+  /** Corre `cmd args` y devuelve su stdout (trimmed), o null si falló/salió con código != 0. */
+  private runCaptureStdout(cmd: string, args: string[]): Promise<string | null> {
+    return new Promise((resolve) => {
+      let child;
+      try {
+        child = spawn(cmd, args);
+      } catch {
+        resolve(null);
+        return;
+      }
+      let out = '';
+      child.stdout?.on('data', (d) => (out += d.toString()));
+      let settled = false;
+      const done = (ok: boolean) => {
+        if (settled) return;
+        settled = true;
+        resolve(ok ? out.trim() : null);
+      };
+      child.on('error', () => done(false));
+      child.on('exit', (code) => done(code === 0));
+    });
+  }
+
+  /**
+   * Fallback para cuando ningún candidato de preferredPythonBins existe como
+   * comando suelto en PATH — el caso en distros que solo empaquetan UN
+   * python3 del sistema (Arch/CachyOS: pacman da python3.14 y nada más, a
+   * diferencia de Debian/Fedora que empaquetan python3.12/3.11/etc. por
+   * separado). Ahí la forma real de tener un Python más viejo sin sudo es
+   * pyenv — y en Arch/CachyOS viene empaquetado en /usr/bin/pyenv, no hace
+   * falta ni el shell-init habitual (sus shims en PATH) para invocarlo.
+   *
+   * Busca, entre las versiones que pyenv ya tiene instaladas (`pyenv
+   * versions --bare`), la más alta que matchee alguno de los candidatos
+   * (ej. "python3.12" -> prefijo "3.12."), en el mismo orden de preferencia,
+   * y devuelve la ruta absoluta a su binario (`<pyenv root>/versions/<v>/bin/python`).
+   * null si pyenv no está instalado o no tiene ninguna versión que sirva —
+   * en ese caso el llamador cae al python del sistema, mismo comportamiento
+   * que antes de que existiera este fallback.
+   */
+  private async resolvePyenvPython(candidates: string[]): Promise<string | null> {
+    if (!(await this.probeCommand('pyenv'))) return null;
+
+    const root = await this.runCaptureStdout('pyenv', ['root']);
+    const rawVersions = await this.runCaptureStdout('pyenv', ['versions', '--bare']);
+    if (!root || !rawVersions) return null;
+
+    // "--bare" también lista virtualenvs (ej. "3.12.9/envs/tf-env") y sus
+    // alias sin versión (ej. "tf-env") — nos quedamos solo con instalaciones
+    // reales "X.Y.Z" (Pythons de verdad, no un venv armado adentro de uno).
+    const installed = rawVersions
+      .split('\n')
+      .map((v) => v.trim())
+      .filter((v) => /^\d+\.\d+\.\d+$/.test(v));
+
+    for (const candidate of candidates) {
+      const minorPrefix = candidate.replace(/^python/, ''); // "python3.12" -> "3.12"
+      const matches = installed
+        .filter((v) => v.startsWith(`${minorPrefix}.`))
+        .sort((a, b) => (a < b ? 1 : a > b ? -1 : 0)); // el patch más alto primero
+      if (matches.length > 0) {
+        return path.join(root, 'versions', matches[0], 'bin', 'python');
+      }
+    }
+    return null;
+  }
+
   /**
    * Python a usar para CREAR el venv de un env (no para correrlo después —
    * una vez creado, siempre se usa el intérprete de adentro del venv). Prueba
    * env.preferredPythonBins en orden (ver el comentario en scripts.config.ts)
-   * y cae al python genérico del sistema si ninguno está instalado.
+   * como comando suelto en PATH primero (Debian/Fedora: cada versión es su
+   * propio paquete, ej. "python3.12" ya está en PATH). Si ninguno existe así,
+   * prueba el fallback de pyenv (resolvePyenvPython, ver ahí — cubre
+   * Arch/CachyOS y cualquier otra distro que solo dé un python3 del sistema).
+   * Si tampoco, cae al python genérico del sistema.
    */
-  private async resolveCreationPython(env: EnvDef): Promise<string> {
-    for (const candidate of env.preferredPythonBins ?? []) {
+  private async resolveCreationPython(env: EnvDef, envId?: EnvId): Promise<string> {
+    const candidates = env.preferredPythonBins ?? [];
+    for (const candidate of candidates) {
       if (await this.probeCommand(candidate)) return candidate;
+    }
+    if (candidates.length > 0) {
+      const viaPyenv = await this.resolvePyenvPython(candidates);
+      if (viaPyenv) {
+        if (envId) this.gateway.emitVenvProgress(envId, `Ninguno de ${candidates.join('/')} está en PATH — usando ${viaPyenv} (vía pyenv).`);
+        return viaPyenv;
+      }
     }
     return this.systemPython();
   }
@@ -429,7 +508,7 @@ export class ScriptsService {
         fs.rmSync(venvDir, { recursive: true, force: true });
       }
 
-      const creationPython = await this.resolveCreationPython(env);
+      const creationPython = await this.resolveCreationPython(env, envId);
       this.gateway.emitVenvProgress(envId, `Creando venv en ${venvDir} (${creationPython}) ...`);
       await this.execAndStream(runId, creationPython, ['-m', 'venv', venvDir], env.dir);
 
