@@ -152,6 +152,17 @@ export class ScriptsController {
     return { runId };
   }
 
+  // Republica las 3 repo Variables + 3 Secrets que build-apk.yml necesita
+  // (terraform output + credenciales AWS ya guardadas) en vez de correr los
+  // 6 comandos de gh a mano — también el botón a usar cuando las
+  // credenciales AWS Academy expiran.
+  @Post('github/configure')
+  @HttpCode(202)
+  async configureGithubWorkflow() {
+    const { runId } = await this.scriptsService.configureGithubWorkflow();
+    return { runId };
+  }
+
   // Acceso SSM a las instancias que terraform ya creó (no crea/destruye
   // nada — eso lo hacen las rutas terraform/* de arriba).
   @Get('ssm/instances')

@@ -26,7 +26,7 @@ import { getScraperCardCount, ScraperCardCountResult } from './scryfall-card-cou
 import { readSettings, writeSettings, RunnerSettings, AwsCredentials, AwsServicesChecklist } from './settings';
 import { buildAwsCliEnv, getTerraformEligibility, TERRAFORM_DIR, TerraformAction, TerraformEligibility } from './terraform';
 import { installTool as installToolBinary, pathEnvWithToolBin, ToolInstallTarget } from './tool-install';
-import { dispatchApkWorkflow, getApkRelease, getGithubEligibility, GithubEligibility, listWorkflowRuns } from './github';
+import { dispatchApkWorkflow, getApkRelease, getGithubEligibility, GithubEligibility, listWorkflowRuns, setRepoSecret, setRepoVariable } from './github';
 import {
   buildPortForwardArgs,
   buildStartSessionArgs,
@@ -1211,6 +1211,84 @@ export class ScriptsService {
 
   getGithubStatus(): Promise<GithubEligibility> {
     return getGithubEligibility();
+  }
+
+  /**
+   * ROADMAP.md M3 (follow-up, 20 ago) — el botón "Configurar variables y
+   * secrets" que reemplaza los 6 comandos de `gh` que `build-apk.yml`'s
+   * propio header documenta correr a mano. No pide nada nuevo: las 3
+   * Variables salen de `terraform output` (mismos valores que
+   * uploadModelsToS3()/PublishModelsCard ya leen) y los 3 Secrets salen de
+   * `settings.awsCredentials` (las mismas credenciales AWS Academy que la
+   * pestaña Deploy ya tiene guardadas) — solo las republica en el repo de
+   * GitHub. Útil también para cuando esas credenciales expiran (AWS
+   * Academy, ~4h) y hay que re-subirlas: guardar credenciales nuevas acá
+   * arriba + apretar este botón de nuevo es más rápido que volver a la
+   * terminal.
+   */
+  async configureGithubWorkflow(): Promise<{ runId: string }> {
+    const eligibility = await getGithubEligibility();
+    if (!eligibility.ghInstalled) throw new BadRequestException('GitHub CLI (gh) no está instalado — usa el botón "Instalar" primero.');
+    if (!eligibility.ghAuthenticated) throw new BadRequestException('gh no tiene una sesión activa — corré "gh auth login" primero (ver arriba).');
+    if (!eligibility.repo) throw new BadRequestException('No se pudo resolver el repo de GitHub de este checkout.');
+    const repo = eligibility.repo;
+
+    const settings = readSettings();
+    if (!settings.awsCredentials) {
+      throw new BadRequestException('No hay credenciales AWS configuradas — pegalas arriba en esta misma pestaña primero.');
+    }
+    const creds = settings.awsCredentials;
+
+    const outputs = await this.getTerraformOutputs();
+    const region = outputs?.aws_region;
+    const bucket = outputs?.deploy_artifacts_bucket_name;
+    const backendUrl = outputs?.backend_url;
+    if (typeof region !== 'string' || typeof bucket !== 'string' || typeof backendUrl !== 'string') {
+      throw new BadRequestException('Faltan outputs de Terraform (aws_region/deploy_artifacts_bucket_name/backend_url) — corré "apply" primero.');
+    }
+
+    const runId = randomUUID();
+    const startedAt = Date.now();
+    this.runs.set(runId, { id: runId, scriptId: 'github:configure', status: 'running', startedAt });
+    this.gateway.emitStatus(runId, 'running');
+    const log = (message: string) => this.gateway.emitLog(runId, 'stdout', `${message}\n`);
+    const env = pathEnvWithToolBin();
+
+    (async () => {
+      log(`$ gh variable set AWS_REGION --repo ${repo} --body ${region}`);
+      await setRepoVariable(repo, env, 'AWS_REGION', region);
+      log(`$ gh variable set DEPLOY_ARTIFACTS_BUCKET --repo ${repo} --body ${bucket}`);
+      await setRepoVariable(repo, env, 'DEPLOY_ARTIFACTS_BUCKET', bucket);
+      log(`$ gh variable set BACKEND_URL --repo ${repo} --body ${backendUrl}`);
+      await setRepoVariable(repo, env, 'BACKEND_URL', backendUrl);
+      log(`$ gh secret set AWS_ACCESS_KEY_ID --repo ${repo} (valor por stdin, no se muestra)`);
+      await setRepoSecret(repo, env, 'AWS_ACCESS_KEY_ID', creds.accessKeyId);
+      log(`$ gh secret set AWS_SECRET_ACCESS_KEY --repo ${repo} (valor por stdin, no se muestra)`);
+      await setRepoSecret(repo, env, 'AWS_SECRET_ACCESS_KEY', creds.secretAccessKey);
+      log(`$ gh secret set AWS_SESSION_TOKEN --repo ${repo} (valor por stdin, no se muestra)`);
+      await setRepoSecret(repo, env, 'AWS_SESSION_TOKEN', creds.sessionToken ?? '');
+      log('Listo — 3 variables + 3 secrets configurados en el repo.');
+    })()
+      .then(() => {
+        const record = this.runs.get(runId);
+        if (record) {
+          record.status = 'success';
+          record.endedAt = Date.now();
+        }
+        this.gateway.emitStatus(runId, 'success');
+      })
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : String(err);
+        this.gateway.emitLog(runId, 'stderr', `\nFalló: ${message}\n`);
+        const record = this.runs.get(runId);
+        if (record) {
+          record.status = 'error';
+          record.endedAt = Date.now();
+        }
+        this.gateway.emitStatus(runId, 'error');
+      });
+
+    return { runId };
   }
 
   /**

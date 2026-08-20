@@ -111,6 +111,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ backendUrl }),
     }).then((r) => json<{ runId: string }>(r)),
+  configureGithubWorkflow: () => fetch(`${API_BASE}/github/configure`, { method: 'POST' }).then((r) => json<{ runId: string }>(r)),
   ssmInstances: () => fetch(`${API_BASE}/ssm/instances`).then((r) => json<SsmInstanceDef[]>(r)),
   ssmStatus: () => fetch(`${API_BASE}/ssm/status`).then((r) => json<SsmStatus>(r)),
   ssmOpenTerminal: (instance: SsmInstanceKey) =>

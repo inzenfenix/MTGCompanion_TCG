@@ -125,6 +125,7 @@ function GithubActionsCard({ productionBackendUrl }: { productionBackendUrl: str
   const [runId, setRunId] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [installing, setInstalling] = useState(false);
+  const [configuring, setConfiguring] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [backendUrlOverride, setBackendUrlOverride] = useState('');
   const logs = useRunLogs(runId);
@@ -175,6 +176,23 @@ function GithubActionsCard({ productionBackendUrl }: { productionBackendUrl: str
     }
   };
 
+  // Republica en el repo las 3 Variables + 3 Secrets que build-apk.yml
+  // necesita, leídas de lo que esta app ya tiene guardado (terraform output
+  // + credenciales AWS) — mismo botón a usar cuando esas credenciales AWS
+  // Academy expiran, sin volver a la terminal a correr los 6 gh a mano.
+  const startConfigure = async () => {
+    setError(null);
+    setConfiguring(true);
+    try {
+      const { runId: id } = await api.configureGithubWorkflow();
+      setRunId(id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setConfiguring(false);
+    }
+  };
+
   const running = logs.status === 'running';
   const canRun = Boolean(status?.ghInstalled && status?.ghAuthenticated);
 
@@ -222,9 +240,20 @@ function GithubActionsCard({ productionBackendUrl }: { productionBackendUrl: str
         )}
 
         {status?.ghInstalled && status.ghAuthenticated && (
-          <p className="text-xs text-muted-foreground">
-            Repo detectado: <span className="font-mono">{status.repo ?? '—'}</span>
-          </p>
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                Repo detectado: <span className="font-mono">{status.repo ?? '—'}</span>
+              </p>
+              <Button size="sm" variant="outline" disabled={configuring || running} onClick={startConfigure}>
+                {configuring ? 'Configurando…' : 'Configurar variables y secrets'}
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Sube AWS_REGION/DEPLOY_ARTIFACTS_BUCKET/BACKEND_URL ("Outputs" arriba) y las 3 credenciales AWS de esta
+              pestaña como repo Variables/Secrets — usalo también cada vez que las credenciales AWS Academy expiren.
+            </p>
+          </div>
         )}
 
         <div className="space-y-1">

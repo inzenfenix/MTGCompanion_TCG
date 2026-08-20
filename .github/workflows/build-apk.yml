@@ -46,7 +46,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # 24, not 20 — matches this dev machine's actual local Node
+          # (`node --version` → v24.18.0), no .nvmrc/engines field pins this
+          # project to anything else, so there's no reason to build in CI
+          # under a version nobody actually tests locally.
+          node-version: 24
           cache: npm
           cache-dependency-path: ${{ env.TRADING_APP_DIR }}/package-lock.json
 

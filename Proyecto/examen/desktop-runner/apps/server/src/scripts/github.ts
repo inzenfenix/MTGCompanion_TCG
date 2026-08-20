@@ -102,3 +102,50 @@ export async function getApkRelease(repo: string, env: NodeJS.ProcessEnv, runNum
   const apkAsset = parsed.assets.find((a) => a.name.endsWith('.apk'));
   return { tag, releaseUrl: parsed.url, apkAssetUrl: apkAsset?.url ?? null };
 }
+
+/**
+ * `cmd args` con `input` escrito a stdin en vez de pasado como arg — para
+ * `gh secret set`, cuyo valor NUNCA debe ir en el array de args (quedaría
+ * visible en la lista de procesos del SO). Mismo `runCapture` de arriba,
+ * solo que además alimenta stdin antes de esperar el cierre.
+ */
+function runCaptureWithStdin(cmd: string, args: string[], opts: { cwd?: string; env?: NodeJS.ProcessEnv; input: string }): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let child;
+    try {
+      child = spawn(cmd, args, { cwd: opts.cwd ?? REPO_ROOT, env: opts.env ?? pathEnvWithToolBin() });
+    } catch (err) {
+      reject(err instanceof Error ? err : new Error(String(err)));
+      return;
+    }
+    let out = '';
+    let errOut = '';
+    child.stdout?.on('data', (d) => (out += d.toString()));
+    child.stderr?.on('data', (d) => (errOut += d.toString()));
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) resolve(out);
+      else reject(new Error(`"${cmd} ${args.join(' ')}" terminó con código ${code}${errOut.trim() ? `: ${errOut.trim()}` : ''}`));
+    });
+    child.stdin.write(opts.input);
+    child.stdin.end();
+  });
+}
+
+/**
+ * ROADMAP.md M3 (follow-up) — configura las 3 repo Variables + 3 Secrets
+ * que `build-apk.yml` necesita (ver el header de ese workflow), en vez de
+ * que alguien tenga que correr 6 comandos de `gh` a mano cada vez que las
+ * credenciales AWS Academy expiran. Los valores de las Variables (no
+ * sensibles: región, nombre de bucket, URL) sí van como arg de `gh
+ * variable set` — mismo criterio que el resto de esta app, que ya los
+ * muestra en la UI sin problema. Los 3 Secrets van por stdin, nunca como
+ * arg.
+ */
+export async function setRepoVariable(repo: string, env: NodeJS.ProcessEnv, name: string, value: string): Promise<void> {
+  await runCapture('gh', ['variable', 'set', name, '--repo', repo, '--body', value], { env });
+}
+
+export async function setRepoSecret(repo: string, env: NodeJS.ProcessEnv, name: string, value: string): Promise<void> {
+  await runCaptureWithStdin('gh', ['secret', 'set', name, '--repo', repo], { env, input: value });
+}
