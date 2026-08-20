@@ -80,11 +80,28 @@ def main():
               "Editor fuerza inicio de sesión incluso para lectura anónima, Viewer no.")
         sys.exit(1)
 
-    pendientes = [f for f in archivos if not pathlib.Path(f.local_path).exists()]
-    ya_ok = len(archivos) - len(pendientes)
+    # Fotos subidas dos veces desde el teléfono (mismo nombre, dos IDs de Drive
+    # distintos) generan una entrada por ID en `archivos` — sin deduplicar acá,
+    # cada duplicado consume igual un intento de descarga anónima (aunque
+    # termine pisando el mismo archivo en disco), así que gastan presupuesto
+    # del rate-limit de Drive al doble de velocidad de la necesaria. Se
+    # queda con el primer ID de cada nombre y avisa cuántos se descartaron.
+    vistos = set()
+    duplicados = 0
+    unicos = []
+    for archivo in archivos:
+        if archivo.path in vistos:
+            duplicados += 1
+            continue
+        vistos.add(archivo.path)
+        unicos.append(archivo)
 
-    print(f"Total en la carpeta remota : {len(archivos):,}")
-    print(f"Ya descargados             : {ya_ok:,}")
+    pendientes = [f for f in unicos if not pathlib.Path(f.local_path).exists()]
+    ya_ok = len(unicos) - len(pendientes)
+
+    print(f"Total en la carpeta remota : {len(archivos):,} ({duplicados:,} duplicados por nombre, ignorados)")
+    print(f"Fotos únicas               : {len(unicos):,}")
+    print(f"Ya descargadas             : {ya_ok:,}")
     print(f"Por descargar              : {len(pendientes):,}")
 
     if not pendientes:
