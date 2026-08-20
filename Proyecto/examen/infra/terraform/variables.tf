@@ -1,28 +1,19 @@
 # ── AWS credentials ──────────────────────────────────────────────────────
-# Two separate credential paths exist in this workstream — don't conflate
-# them: THESE variables are for Terraform itself (run locally, e.g. via
-# TF_VAR_aws_access_key_id env vars or desktop-runner's Deploy tab).
-# Anything running ON an EC2 instance (backend's S3 calls, any instance's
-# Secrets Manager fetch) instead uses the attached LabInstanceProfile via
-# the SDK's default credential chain — see storage.service.ts.
-variable "aws_access_key_id" {
-  description = "AWS access key id (AWS Academy Lab 'AWS Details' panel, or a normal IAM user's key)."
-  type        = string
-  sensitive   = true
-}
-
-variable "aws_secret_access_key" {
-  description = "AWS secret access key, paired with aws_access_key_id."
-  type        = string
-  sensitive   = true
-}
-
-variable "aws_session_token" {
-  description = "AWS session token — REQUIRED for AWS Academy Learner Lab credentials (they're temporary, expire ~4h). Leave null for a normal long-lived IAM user."
-  type        = string
-  default     = null
-  sensitive   = true
-}
+# No aws_access_key_id/aws_secret_access_key/aws_session_token variables
+# here on purpose (removed 19 ago) — providers.tf no longer wires any
+# variable into the AWS provider block, it relies on the default credential
+# chain (ambient AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/AWS_SESSION_TOKEN
+# env vars) instead, same as every other AWS-touching command in this
+# project. See providers.tf's own header comment for why: a Terraform
+# variable here meant a *.tfvars file could set one too, and *.tfvars
+# silently outranks TF_VAR_* env-var injection — a real footgun that was
+# hit in practice, not just theoretical. Terraform itself is still run
+# locally (desktop-runner's Deploy tab, or by hand with AWS_* exported in
+# your shell) — anything running ON an EC2 instance (backend's S3 calls,
+# any instance's Secrets Manager fetch) instead uses the attached
+# LabInstanceProfile via the SDK's default credential chain — see
+# storage.service.ts. That split is unchanged, only how Terraform itself
+# gets credentials changed.
 
 variable "aws_region" {
   description = "AWS region to deploy into."

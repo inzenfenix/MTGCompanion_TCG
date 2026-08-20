@@ -261,6 +261,34 @@ desktop-runner's Deploy tab) — a stale tfvars credential set masquerades as
 an AWS-side AccessDenied. `postgres`/`mailhog`/`minio` stay without an EIP
 (SSM-only access, targets by instance ID not IP, so their ephemeral IPs
 changing is a non-issue).
+**Update (19 ago) — that footgun actually fired, and is now fixed at the
+root instead of re-documented.** Hit live while testing M1 (workstream M
+below): the user pasted fresh AWS Academy credentials into the Deploy tab,
+`terraform apply` still failed with `ExpiredToken` from a 3-day-old
+`terraform.tfvars` nobody remembered still had hardcoded credential lines
+in it (dated 16 ago, from before the Deploy tab existed) — confirmed by
+testing the freshly-pasted credentials directly against STS (valid) while
+the ones baked into `terraform.tfvars` were a different, stale access key.
+Root cause fully eliminated rather than papered over again: removed the
+`aws_access_key_id`/`aws_secret_access_key`/`aws_session_token` Terraform
+variables entirely (`variables.tf`) and stopped wiring them into `provider
+"aws"` (`providers.tf` now uses the AWS provider's default credential
+chain — ambient `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`/
+`AWS_SESSION_TOKEN` env vars, same names `buildAwsCliEnv()` already used
+for `aws` CLI calls). `runTerraform()` (`scripts.service.ts`) now spawns
+`terraform` with `buildAwsCliEnv()` instead of the old, now-deleted
+`buildTerraformEnv()` (`TF_VAR_*`-based) — one credential-env-building
+function for every AWS-touching local process (`aws` CLI *and* `terraform`
+alike), not two paths that could silently diverge. `terraform.tfvars`'s own
+stale credential lines removed too (`terraform.tfvars.example` and
+README.md updated to match — no AWS credential lines belong in that file
+anymore, only `postgres_password`/`jwt_secret`/etc.). **Verified**: `npm
+run build:server` clean; `terraform validate`/`fmt -check` clean; **a real
+`terraform plan` triggered through the live running desktop-runner server**
+(`POST /terraform/plan`, the exact code path that produced the user's
+`ExpiredToken` screenshot) finished `success`/exit 0 against the real AWS
+Academy account, using the same freshly-pasted credentials that `terraform
+.tfvars`'s stale ones had been shadowing.
 
 **Full implementation plan (16 ago)**: see
 [`Proyecto/examen/infra/PLAN.md`](Proyecto/examen/infra/PLAN.md) — written

@@ -37,33 +37,27 @@ export async function getTerraformEligibility(): Promise<TerraformEligibility> {
 }
 
 /**
- * Dos rutas de credenciales separadas, no las mezcles (ver infra/PLAN.md):
- * esto es para Terraform CORRIENDO LOCALMENTE — se pasan como env vars al
- * proceso spawneado (mismo precedente que ROBOFLOW_API_KEY en
- * scripts.service.ts), nunca se escriben a terraform.tfvars ni a ningún
- * archivo. Lo que corre DENTRO de una instancia EC2 (llamadas S3 del
- * backend, fetch de Secrets Manager) usa en cambio LabInstanceProfile vía
- * la cadena de credenciales default del SDK — no pasa por acá.
- */
-export function buildTerraformEnv(creds: AwsCredentials | null): Record<string, string> {
-  if (!creds) return {};
-  const env: Record<string, string> = {
-    TF_VAR_aws_access_key_id: creds.accessKeyId,
-    TF_VAR_aws_secret_access_key: creds.secretAccessKey,
-  };
-  if (creds.sessionToken) env.TF_VAR_aws_session_token = creds.sessionToken;
-  return env;
-}
-
-/**
- * Mismas credenciales que buildTerraformEnv() de arriba, pero con los
- * nombres de variable que el `aws` CLI mismo espera (`AWS_ACCESS_KEY_ID`/
- * etc.), no los `TF_VAR_*` que solo terraform entiende — `ssm.ts`/
- * scripts.service.ts's SSM helpers (terminal/túnel/Run Command) llaman a
- * `aws` directamente, nunca a `terraform`, así que necesitan esta versión,
- * no la otra. Confirmado en vivo que hacía falta: sin esto, `aws ssm ...`
- * fallaba con `NoCredentials` real (probado contra la cuenta real antes de
- * este fix).
+ * Credenciales AWS para cualquier proceso spawneado localmente — `aws` CLI
+ * directo (S3 sync, SSM terminal/túnel/Run Command, ver ssm.ts/
+ * scripts.service.ts) y, desde 19 ago, `terraform` mismo también (ver
+ * providers.tf: el provider ya no lee `var.aws_access_key_id`, usa la
+ * cadena de credenciales default de AWS, que son justamente estos mismos
+ * nombres de env var). Antes había un `buildTerraformEnv()` separado que
+ * exportaba las mismas credenciales bajo nombres `TF_VAR_*` en vez de
+ * `AWS_*` — eliminado (19 ago) junto con las variables Terraform que
+ * consumía: ese doble camino era exactamente lo que dejaba a Terraform
+ * expuesto al footgun de `*.tfvars` (un `terraform.tfvars` con
+ * credenciales viejas hardcodeadas silenciosamente pisa un `TF_VAR_*` de
+ * env — precedence de Terraform, no un bug de este proyecto — mientras que
+ * nada podía pisar un `AWS_ACCESS_KEY_ID` de env porque no había ninguna
+ * variable Terraform correspondiente a la que un `.tfvars` le ganara).
+ * Encontrado y solo *documentado* como riesgo conocido el 16 ago (ver
+ * README.md/ROADMAP.md), efectivamente disparado en la práctica el 19 ago
+ * pese a haber repegado credenciales frescas en la pestaña Deploy — este
+ * cambio lo elimina de raíz en vez de seguir pidiendo mantenerlo
+ * sincronizado a mano. Lo que corre DENTRO de una instancia EC2 (llamadas
+ * S3 del backend, fetch de Secrets Manager) sigue sin pasar por acá — usa
+ * LabInstanceProfile vía la cadena de credenciales default del SDK.
  */
 export function buildAwsCliEnv(creds: AwsCredentials | null): Record<string, string> {
   if (!creds) return {};

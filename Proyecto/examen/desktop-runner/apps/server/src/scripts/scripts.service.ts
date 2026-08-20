@@ -23,7 +23,7 @@ import { LogsGateway } from './logs.gateway';
 import { detectGpu, GpuDetectionResult } from './gpu-detect';
 import { getScraperCardCount, ScraperCardCountResult } from './scryfall-card-count';
 import { readSettings, writeSettings, RunnerSettings, AwsCredentials, AwsServicesChecklist } from './settings';
-import { buildAwsCliEnv, buildTerraformEnv, getTerraformEligibility, TERRAFORM_DIR, TerraformAction, TerraformEligibility } from './terraform';
+import { buildAwsCliEnv, getTerraformEligibility, TERRAFORM_DIR, TerraformAction, TerraformEligibility } from './terraform';
 import { installTool as installToolBinary, pathEnvWithToolBin, ToolInstallTarget } from './tool-install';
 import {
   buildPortForwardArgs,
@@ -888,7 +888,13 @@ export class ScriptsService {
 
     const child: ChildProcessWithoutNullStreams = spawn('terraform', args, {
       cwd: TERRAFORM_DIR,
-      env: { ...pathEnvWithToolBin(), ...buildTerraformEnv(settings.awsCredentials) },
+      // buildAwsCliEnv(), no un buildTerraformEnv() TF_VAR_*-based separado
+      // (existía, eliminado 19 ago) — ver el comentario junto a
+      // buildAwsCliEnv() en terraform.ts para el porqué: ese doble camino
+      // era justo lo que dejaba a `terraform` expuesto al footgun de
+      // `*.tfvars` pisando silenciosamente las credenciales frescas de esta
+      // misma pestaña.
+      env: { ...pathEnvWithToolBin(), ...buildAwsCliEnv(settings.awsCredentials) },
       // Mismo motivo que runScript(): apply/destroy pueden colgarse, y
       // stopRun() necesita poder matar el árbol de procesos completo en
       // POSIX (ver ese comentario más abajo).
@@ -959,11 +965,10 @@ export class ScriptsService {
    * Manager, y hace `docker build`+`docker run` en la instancia real vía
    * SSM Run Command (sin SSH — ver el propio header del script para el
    * porqué). Necesita terraform (para leer outputs) + aws cli + python3 en
-   * PATH. `buildAwsCliEnv()`, no `buildTerraformEnv()`: el script llama a
-   * `aws` directo (s3 cp, secretsmanager, ssm send-command), no a
-   * `terraform apply`, así que necesita las variables `AWS_*` estándar que
-   * el aws cli entiende, no las `TF_VAR_*` que solo terraform lee — mismo
-   * razonamiento que `awsCliEnv()` ya documenta para los helpers de SSM.
+   * PATH. `buildAwsCliEnv()`: el script llama a `aws` directo (s3 cp,
+   * secretsmanager, ssm send-command), no a `terraform apply` — mismo
+   * `AWS_*` env shape que `runTerraform()` también usa ahora (ver
+   * buildAwsCliEnv()'s propio comentario en terraform.ts).
    */
   async deployBackend(): Promise<{ runId: string }> {
     const settings = readSettings();
@@ -1102,11 +1107,11 @@ export class ScriptsService {
    * PATH aumentado + credenciales AWS, para cualquier `aws ssm ...` que
    * lance este servicio — sin esto, `aws` no tiene forma de autenticarse
    * (confirmado en vivo: `NoCredentials` real al probar `runSsmCommand()`
-   * sin esto, mismo error que tendría cualquier usuario real). `buildAwsCliEnv()`,
-   * no `buildTerraformEnv()` — esa usa nombres `TF_VAR_*` que solo terraform
-   * entiende, `aws` necesita las variables estándar (`AWS_ACCESS_KEY_ID`/...).
-   * Dos rutas de credenciales del proyecto (ver terraform.ts), esto es la de
-   * "corre localmente", no la del rol de la instancia.
+   * sin esto, mismo error que tendría cualquier usuario real). `buildAwsCliEnv()`
+   * — mismas variables `AWS_ACCESS_KEY_ID`/etc. que `runTerraform()` también
+   * usa ahora (ver ese comentario en terraform.ts). Dos rutas de
+   * credenciales del proyecto (ver terraform.ts), esto es la de "corre
+   * localmente", no la del rol de la instancia.
    */
   private awsCliEnv(): NodeJS.ProcessEnv {
     const settings = readSettings();

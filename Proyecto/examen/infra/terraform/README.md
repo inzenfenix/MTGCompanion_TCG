@@ -14,27 +14,32 @@ references — never open CIDRs between them, except the backend's port 3000
 
 - Terraform >= 1.5, AWS CLI v2 — both already installed on this dev machine
   (`terraform version` / `aws --version`).
-- Real AWS credentials. If this targets an **AWS Academy Learner Lab**
-  account: open the lab, click "AWS Details", copy the Access key ID,
-  Secret access key, and **Session Token** (all three — Academy Lab
+- Real AWS credentials, **exported as env vars** (`AWS_ACCESS_KEY_ID`/
+  `AWS_SECRET_ACCESS_KEY`/`AWS_SESSION_TOKEN`) — not pasted into
+  `terraform.tfvars` (see below for why). If this targets an **AWS Academy
+  Learner Lab** account: open the lab, click "AWS Details", copy the Access
+  key ID, Secret access key, and **Session Token** (all three — Academy Lab
   credentials are temporary and need the session token; they expire every
-  ~4 hours, so you'll re-copy these periodically).
+  ~4 hours, so you'll re-export these periodically). desktop-runner's
+  Deploy tab does this exporting for you when it spawns `terraform` — by
+  hand, `export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=...
+  AWS_SESSION_TOKEN=...` in the same shell before running any command below.
 
 ## First-time setup
 
 ```bash
 cp terraform.tfvars.example terraform.tfvars
-# edit terraform.tfvars: paste your credentials, set real
-# postgres_password/jwt_secret.
+# edit terraform.tfvars: set real postgres_password/jwt_secret (NOT AWS
+# credentials — see the file's own header comment for why).
 terraform init
 terraform validate
 terraform plan
 ```
 
-`terraform.tfvars` is gitignored — it holds live credentials/secrets, never
-commit it. `plan` needs valid credentials (it resolves the default
-VPC/AMI) but makes no changes; it's safe to run freely. **`apply` is not**
-— it creates real, billable, outward-facing resources. Run it deliberately:
+`terraform.tfvars` is gitignored — it holds live secrets, never commit it.
+`plan` needs valid credentials (it resolves the default VPC/AMI) but makes
+no changes; it's safe to run freely. **`apply` is not** — it creates real,
+billable, outward-facing resources. Run it deliberately:
 
 ```bash
 terraform apply
@@ -156,16 +161,20 @@ this deliberately, and only if you're done with the deployed environment.
 - `terraform.tfvars`'s state file (`terraform.tfstate`, gitignored) can
   contain secrets in plaintext once resources exist — don't share it, don't
   commit it, treat it like a credentials file.
-- `terraform.tfvars`'s AWS credential lines silently take precedence over
-  `TF_VAR_*` env vars (Terraform's `.tfvars` > env var precedence) — if
-  you've edited `terraform.tfvars` by hand in the past, a stale credential
-  set in that file will shadow fresh ones injected via env vars (including
-  desktop-runner's Deploy tab, which only injects via env vars, never
-  writes the file) with a confusing "AccessDenied"-style error that looks
-  AWS-side. Fix: keep `terraform.tfvars`'s credential lines in sync with
-  whatever's current, or don't hand-edit that file for credentials at all
-  once you're driving `terraform` through the Deploy tab (16 ago, found
-  live while debugging this).
+- ~~`terraform.tfvars`'s AWS credential lines silently take precedence over
+  `TF_VAR_*` env vars~~ — **fixed at the root, 19 ago**, not just documented.
+  This used to be a real footgun (found live 16 ago, then actually hit again
+  19 ago despite fresh credentials being pasted into the Deploy tab): a
+  stale hand-edited credential set in `terraform.tfvars` would shadow
+  fresh `TF_VAR_*` env-var injection (Terraform's `*.tfvars` > env var
+  precedence) with a confusing `ExpiredToken`/`AccessDenied`-style error
+  that looked AWS-side. Fixed by removing the `aws_access_key_id`/
+  `aws_secret_access_key`/`aws_session_token` Terraform variables entirely
+  (`variables.tf`) and no longer wiring them into the `aws` provider block
+  (`providers.tf` now relies on the provider's default credential chain —
+  the ambient `AWS_*` env vars) — there is no Terraform variable left for a
+  `*.tfvars` file to shadow, so this class of bug can't recur regardless of
+  what anyone hand-edits into `terraform.tfvars`.
 
 ## Elastic IP (backend)
 

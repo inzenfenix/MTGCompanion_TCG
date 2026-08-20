@@ -1,10 +1,17 @@
 # Copy this to terraform.tfvars (gitignored) and fill in real values.
 # Never commit terraform.tfvars — it holds live credentials/secrets.
+#
+# No aws_access_key_id/aws_secret_access_key/aws_session_token here —
+# Terraform gets AWS credentials from the ambient AWS_ACCESS_KEY_ID/
+# AWS_SECRET_ACCESS_KEY/AWS_SESSION_TOKEN env vars instead (desktop-runner's
+# Deploy tab sets these when it spawns `terraform`; running by hand, export
+# them yourself from the AWS Academy Lab "AWS Details" panel). Do NOT add
+# those 3 as tfvars lines here — a hardcoded credential set in this file
+# would silently shadow fresh ones from the env (Terraform's *.tfvars >
+# env var precedence), which is exactly the bug this comment exists to
+# prevent (found in practice, 19 ago).
 
-aws_region            = "us-east-1"
-aws_access_key_id     = "ASIA..." # AWS Academy Lab "AWS Details" panel
-aws_secret_access_key = "..."     # same panel
-aws_session_token     = "..."     # same panel — REQUIRED for Academy Lab, expires ~4h
+aws_region = "us-east-1"
 
 instance_profile_name = "LabInstanceProfile"
 
