@@ -202,9 +202,21 @@ function GithubActionsCard({ productionBackendUrl }: { productionBackendUrl: str
         {status?.ghInstalled && !status.ghAuthenticated && (
           <Alert variant="warning">
             <AlertTitle>gh no tiene una sesión activa</AlertTitle>
-            <AlertDescription>
-              Corré <code className="font-mono">gh auth login</code> en una terminal (flujo interactivo de GitHub —
-              no se puede automatizar desde acá) y volvé a esta pestaña.
+            <AlertDescription className="space-y-1.5">
+              <p>
+                Corré esto en una terminal (flujo interactivo de GitHub — no se puede automatizar desde acá) y volvé
+                a esta pestaña:
+              </p>
+              {/* gh se instaló en TOOL_BIN_DIR (~/.mtg-desktop-runner/bin), NO en el PATH del sistema a
+                  propósito (mismo aislamiento que terraform/aws cli, ver tool-install.ts) — un simple
+                  "gh auth login" en la terminal del usuario da "command not found" porque esa carpeta
+                  solo está en el PATH de los procesos que ESTA app lanza, no en el shell del usuario.
+                  Se muestra la ruta completa para que el comando funcione tal cual, sin depender de
+                  que el usuario edite su PATH primero. */}
+              <code className="block rounded bg-black/5 px-2 py-1 font-mono">~/.mtg-desktop-runner/bin/gh auth login</code>
+              <p className="text-[11px]">
+                (Windows: <code className="font-mono">%USERPROFILE%\.mtg-desktop-runner\bin\gh.exe auth login</code>)
+              </p>
             </AlertDescription>
           </Alert>
         )}
