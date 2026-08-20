@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import type { ResultEvent } from '@/lib/api';
 import { RocCurveChart, type RocCurveData } from './charts/RocCurveChart';
 import { MetricsBarChart, type MetricBarDatum } from './charts/MetricsBarChart';
@@ -304,6 +305,38 @@ function ClassifierMetricsResult({ data, label }: { data: ClassifierMetricsData;
   );
 }
 
+interface GithubReleaseData {
+  tag: string;
+  releaseUrl: string;
+  apkAssetUrl: string | null;
+  runUrl: string;
+}
+
+/** ROADMAP.md M3 — el resultado que emite runGithubApkWorkflow() al terminar (GithubActionsCard.tsx, Deploy tab). */
+function GithubReleaseResult({ data, label }: { data: GithubReleaseData; label: string }) {
+  return (
+    <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-medium">{label}</p>
+        <Badge variant="success">{data.tag}</Badge>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {data.apkAssetUrl && (
+          <Button size="sm" onClick={() => window.open(data.apkAssetUrl!, '_blank', 'noreferrer')}>
+            Descargar APK
+          </Button>
+        )}
+        <Button size="sm" variant="outline" onClick={() => window.open(data.releaseUrl, '_blank', 'noreferrer')}>
+          Ver Release en GitHub
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => window.open(data.runUrl, '_blank', 'noreferrer')}>
+          Ver run
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function ResultsView({ results }: { results: ResultEvent['results'] }) {
   if (!results.length) return null;
   return (
@@ -313,6 +346,7 @@ export function ResultsView({ results }: { results: ResultEvent['results'] }) {
         if (r.kind === 'metrics') return <MetricsResult key={i} data={r.data} label={r.label} />;
         if (r.kind === 'optuna') return <OptunaResult key={i} data={r.data} label={r.label} />;
         if (r.kind === 'classifier-metrics') return <ClassifierMetricsResult key={i} data={r.data} label={r.label} />;
+        if (r.kind === 'github-release') return <GithubReleaseResult key={i} data={r.data} label={r.label} />;
         return null;
       })}
     </div>

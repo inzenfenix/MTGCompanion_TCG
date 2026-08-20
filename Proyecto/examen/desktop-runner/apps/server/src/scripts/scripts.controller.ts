@@ -126,16 +126,29 @@ export class ScriptsController {
     return { runId };
   }
 
-  // Instala terraform/aws cli automáticamente (tool-install.ts) — mismo
+  // Instala terraform/aws cli/gh automáticamente (tool-install.ts) — mismo
   // mecanismo de runId que arriba, no hace falta confirmación (nunca toca
   // sudo ni crea infraestructura, solo baja/copia binarios).
   @Post('terraform/install/:tool')
   @HttpCode(202)
-  async installTool(@Param('tool') tool: 'terraform' | 'aws-cli' | 'session-manager-plugin') {
-    if (!['terraform', 'aws-cli', 'session-manager-plugin'].includes(tool)) {
+  async installTool(@Param('tool') tool: 'terraform' | 'aws-cli' | 'session-manager-plugin' | 'gh') {
+    if (!['terraform', 'aws-cli', 'session-manager-plugin', 'gh'].includes(tool)) {
       throw new BadRequestException(`Herramienta desconocida: "${tool}"`);
     }
     const { runId } = await this.scriptsService.installTool(tool);
+    return { runId };
+  }
+
+  // ROADMAP.md M3 — dispara/sigue build-apk.yml (M2) desde el Deploy tab.
+  @Get('github/status')
+  getGithubStatus() {
+    return this.scriptsService.getGithubStatus();
+  }
+
+  @Post('github/workflow/run')
+  @HttpCode(202)
+  async runGithubApkWorkflow(@Body() body: { backendUrl?: string }) {
+    const { runId } = await this.scriptsService.runGithubApkWorkflow(body?.backendUrl || undefined);
     return { runId };
   }
 

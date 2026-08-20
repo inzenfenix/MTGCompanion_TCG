@@ -1,15 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { AwsCredentialsBox } from './AwsCredentialsBox';
 import { AwsServicesChecklist } from './AwsServicesChecklist';
 import { TerraformActionCard } from './TerraformActionCard';
 import { SsmAccessCard } from './SsmAccessCard';
 import { LocalDevToolsCard } from './LocalDevToolsCard';
 import { LogConsole } from './LogConsole';
+import { ResultsView } from './ResultsView';
 import { useRunLogs } from '@/lib/useRunLogs';
 import { api } from '@/lib/api';
-import type { ApplyBackendUrlResult } from '@/lib/types';
+import type { ApplyBackendUrlResult, GithubStatus } from '@/lib/types';
 
 /**
  * Pestaña "Deploy" (ROADMAP.md workstream I) — infraestructura AWS real vía
@@ -45,6 +47,7 @@ export function AwsTab() {
       <SsmAccessCard />
       <OutputsCard outputs={outputs} loading={loadingOutputs} onReload={loadOutputs} />
       <PublishModelsCard />
+      <GithubActionsCard productionBackendUrl={typeof outputs?.backend_url === 'string' ? outputs.backend_url : null} />
       <LocalDevToolsCard productionBackendUrl={typeof outputs?.backend_url === 'string' ? outputs.backend_url : null} />
     </div>
   );
@@ -100,6 +103,140 @@ function PublishModelsCard() {
       <CardFooter>
         <Button size="sm" variant="outline" disabled={starting || logs.status === 'running'} onClick={upload}>
           {logs.status === 'running' ? 'Subiendo…' : 'Subir modelos ONNX a S3'}
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+}
+
+/**
+ * ROADMAP.md M3 — dispara/sigue `.github/workflows/build-apk.yml` (M2)
+ * desde acá en vez de tener que usar `gh` a mano. Mismo shape
+ * streamed-runId/LogConsole que el resto de esta pestaña (PublishModelsCard
+ * arriba, TerraformActionCard); el botón "Instalar" de gh CLI reusa el
+ * mismo mecanismo/endpoint que ya instala terraform/aws cli
+ * (tool-install.ts, `POST /terraform/install/:tool`, ver TerraformActionCard).
+ * `gh auth login` es un flujo OAuth interactivo que este server no puede
+ * automatizar — cuando falta, esta tarjeta solo muestra el comando exacto
+ * para correrlo a mano, no intenta simularlo.
+ */
+function GithubActionsCard({ productionBackendUrl }: { productionBackendUrl: string | null }) {
+  const [status, setStatus] = useState<GithubStatus | null>(null);
+  const [runId, setRunId] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [installing, setInstalling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [backendUrlOverride, setBackendUrlOverride] = useState('');
+  const logs = useRunLogs(runId);
+
+  const load = () => {
+    api.githubStatus().then(setStatus).catch(() => undefined);
+  };
+  useEffect(load, []);
+
+  // Mismo problema/solución que TerraformActionCard's install buttons: el
+  // primer render después de setRunId todavía trae el `status` VIEJO (de
+  // una corrida anterior), así que solo se cuenta como "instalación
+  // terminada" una vez que este runId puntual ya se vio en "running".
+  const sawRunningForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (runId && logs.status === 'running') sawRunningForRef.current = runId;
+  }, [runId, logs.status]);
+  useEffect(() => {
+    if (installing && runId && sawRunningForRef.current === runId && logs.status !== 'running') {
+      setInstalling(false);
+      load();
+    }
+  }, [logs.status, runId, installing]);
+
+  const startInstall = async () => {
+    setError(null);
+    setInstalling(true);
+    sawRunningForRef.current = null;
+    try {
+      const { runId: id } = await api.installTool('gh');
+      setRunId(id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setInstalling(false);
+    }
+  };
+
+  const startWorkflow = async () => {
+    setError(null);
+    setStarting(true);
+    try {
+      const { runId: id } = await api.runGithubApkWorkflow(backendUrlOverride.trim() || undefined);
+      setRunId(id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const running = logs.status === 'running';
+  const canRun = Boolean(status?.ghInstalled && status?.ghAuthenticated);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Compilar APK (GitHub Actions)</CardTitle>
+        <CardDescription>
+          Dispara <code className="font-mono">build-apk.yml</code> (ROADMAP.md M2) — arma el APK en GitHub Actions
+          usando los modelos publicados en S3 (tarjeta de arriba), sin usar esta máquina para el build.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {!status && <p className="text-xs text-muted-foreground">Verificando gh CLI…</p>}
+
+        {status && !status.ghInstalled && (
+          <div className="flex items-center justify-between rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <span>GitHub CLI (gh) no está instalado en esta máquina.</span>
+            <Button size="sm" variant="outline" disabled={installing} onClick={startInstall}>
+              {installing ? 'Instalando…' : 'Instalar'}
+            </Button>
+          </div>
+        )}
+
+        {status?.ghInstalled && !status.ghAuthenticated && (
+          <Alert variant="warning">
+            <AlertTitle>gh no tiene una sesión activa</AlertTitle>
+            <AlertDescription>
+              Corré <code className="font-mono">gh auth login</code> en una terminal (flujo interactivo de GitHub —
+              no se puede automatizar desde acá) y volvé a esta pestaña.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {status?.ghInstalled && status.ghAuthenticated && (
+          <p className="text-xs text-muted-foreground">
+            Repo detectado: <span className="font-mono">{status.repo ?? '—'}</span>
+          </p>
+        )}
+
+        <div className="space-y-1">
+          <label className="block text-xs text-muted-foreground" htmlFor="gh-backend-url">
+            Backend URL (opcional — vacío usa la variable BACKEND_URL del repo)
+          </label>
+          <input
+            id="gh-backend-url"
+            className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs"
+            placeholder={productionBackendUrl ?? 'http://1.2.3.4:3000'}
+            value={backendUrlOverride}
+            onChange={(e) => setBackendUrlOverride(e.target.value)}
+            disabled={running}
+          />
+        </div>
+
+        {error && <p className="text-xs text-destructive">{error}</p>}
+
+        {runId && <LogConsole lines={logs.lines} currentLine={logs.currentLine} status={logs.status} lastActivityAt={logs.lastActivityAt} />}
+        {logs.results.length > 0 && <ResultsView results={logs.results} />}
+      </CardContent>
+      <CardFooter>
+        <Button size="sm" disabled={!canRun || starting || running} onClick={startWorkflow}>
+          {running ? 'Corriendo…' : 'Compilar APK'}
         </Button>
       </CardFooter>
     </Card>

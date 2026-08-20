@@ -27,7 +27,7 @@ import AdmZip from 'adm-zip';
 
 export const TOOL_BIN_DIR = path.join(os.homedir(), '.mtg-desktop-runner', 'bin');
 
-export type ToolInstallTarget = 'terraform' | 'aws-cli' | 'session-manager-plugin';
+export type ToolInstallTarget = 'terraform' | 'aws-cli' | 'session-manager-plugin' | 'gh';
 
 export type InstallLogger = (message: string) => void;
 
@@ -109,10 +109,11 @@ function verifyBinaryOrThrow(binPath: string, versionArgs: string[], log: Instal
   });
 }
 
-function fetchJson<T>(url: string): Promise<T> {
+/** `headers` opcional — la API de GitHub (api.github.com) rechaza con 403 cualquier request sin User-Agent, a diferencia de checkpoint-api.hashicorp.com (terraform) que no lo exige. */
+function fetchJson<T>(url: string, headers?: Record<string, string>): Promise<T> {
   return new Promise((resolve, reject) => {
     https
-      .get(url, (res) => {
+      .get(url, { headers }, (res) => {
         if (res.statusCode !== 200) {
           reject(new Error(`GET ${url} → HTTP ${res.statusCode}`));
           return;
@@ -393,9 +394,88 @@ export async function installSessionManagerPlugin(log: InstallLogger): Promise<v
   await installSessionManagerPluginLinux(log);
 }
 
-/** Dispatcher único — scripts.service.ts lo llama sin tener que conocer las 3 funciones de arriba una por una. */
+/**
+ * GitHub CLI (`gh`) — ROADMAP.md M3, hace falta para disparar/seguir el
+ * workflow de M2 desde el botón del Deploy tab. Igual que terraform/aws
+ * cli: versión resuelta en vivo (API de GitHub, no hardcodeada), sin sudo,
+ * directo a TOOL_BIN_DIR.
+ *
+ * Linux: el release oficial es un `.tar.gz` (no un `.zip` como
+ * terraform/aws) — se extrae con el `tar` del sistema (`spawn`, no
+ * AdmZip, que solo entiende zip) en vez de sumar una dependencia npm nueva
+ * solo para esto; tanto Ubuntu/Fedora como Windows 10+ (bsdtar bundleado)
+ * lo tienen, pero acá solo se usa en la rama Linux — Windows prioriza
+ * winget y cae a un `.msi` oficial (mismo patrón que AWS CLI).
+ */
+async function installGithubCliLinux(log: InstallLogger): Promise<void> {
+  const { terraformArch: arch } = archNames(); // gh usa la misma convención amd64/arm64 que terraform, no x86_64/aarch64 como aws cli
+
+  log('Resolviendo la última versión de GitHub CLI (api.github.com/repos/cli/cli/releases/latest) ...');
+  const { tag_name: tagName } = await fetchJson<{ tag_name: string }>(
+    'https://api.github.com/repos/cli/cli/releases/latest',
+    { 'User-Agent': 'mtg-desktop-runner' },
+  );
+  const version = tagName.replace(/^v/, '');
+  log(`Última versión: ${version}`);
+
+  const assetBase = `gh_${version}_linux_${arch}`;
+  const tarUrl = `https://github.com/cli/cli/releases/download/${tagName}/${assetBase}.tar.gz`;
+
+  const stageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gh-cli-install-'));
+  try {
+    const tarPath = path.join(stageDir, 'gh.tar.gz');
+    await download(tarUrl, tarPath, log);
+
+    log(`Descomprimiendo en ${stageDir} ...`);
+    await runAndStream('tar', ['-xzf', tarPath, '-C', stageDir], stageDir, log);
+
+    fs.mkdirSync(TOOL_BIN_DIR, { recursive: true });
+    const extractedBinary = path.join(stageDir, assetBase, 'bin', 'gh');
+    const destBinary = path.join(TOOL_BIN_DIR, 'gh');
+    fs.copyFileSync(extractedBinary, destBinary);
+    fs.chmodSync(destBinary, 0o755);
+  } finally {
+    fs.rmSync(stageDir, { recursive: true, force: true });
+  }
+  await verifyBinaryOrThrow(path.join(TOOL_BIN_DIR, 'gh'), ['--version'], log);
+  log(`GitHub CLI ${version} instalado en ${TOOL_BIN_DIR}.`);
+}
+
+/** Fallback de GitHub CLI en Windows sin winget: el .msi oficial, en modo silencioso — puede pedir UAC (escribe en Program Files), permitido explícitamente por el usuario, mismo patrón que installAwsCliWindowsMsi(). */
+async function installGithubCliWindowsMsi(log: InstallLogger): Promise<void> {
+  log('Resolviendo la última versión de GitHub CLI (api.github.com/repos/cli/cli/releases/latest) ...');
+  const { tag_name: tagName } = await fetchJson<{ tag_name: string }>(
+    'https://api.github.com/repos/cli/cli/releases/latest',
+    { 'User-Agent': 'mtg-desktop-runner' },
+  );
+  const version = tagName.replace(/^v/, '');
+  const msiPath = path.join(os.tmpdir(), `gh_${version}_windows_amd64_${Date.now()}.msi`);
+  try {
+    await download(`https://github.com/cli/cli/releases/download/${tagName}/gh_${version}_windows_amd64.msi`, msiPath, log);
+    log('Instalando GitHub CLI (instalador oficial .msi, silencioso) — puede aparecer el diálogo de permiso de administrador de Windows ...');
+    await runAndStream('msiexec', ['/i', msiPath, '/qn', '/norestart'], os.tmpdir(), log);
+  } finally {
+    fs.rmSync(msiPath, { force: true });
+  }
+  log('GitHub CLI instalado. Puede hacer falta reabrir esta app para que tome el PATH actualizado.');
+}
+
+export async function installGithubCli(log: InstallLogger): Promise<void> {
+  if (process.platform === 'win32') {
+    if (await commandExists('winget')) {
+      await installViaWinget('GitHub.cli', log);
+      return;
+    }
+    await installGithubCliWindowsMsi(log);
+    return;
+  }
+  await installGithubCliLinux(log);
+}
+
+/** Dispatcher único — scripts.service.ts lo llama sin tener que conocer las 4 funciones de arriba una por una. */
 export async function installTool(target: ToolInstallTarget, log: InstallLogger): Promise<void> {
   if (target === 'terraform') return installTerraform(log);
   if (target === 'aws-cli') return installAwsCli(log);
+  if (target === 'gh') return installGithubCli(log);
   return installSessionManagerPlugin(log);
 }

@@ -79,13 +79,20 @@ export interface RunnerSettings {
 export type TerraformAction = 'init' | 'validate' | 'plan' | 'apply' | 'destroy';
 
 /** Mismo id que ToolInstallTarget del server (tool-install.ts). */
-export type ToolInstallTarget = 'terraform' | 'aws-cli' | 'session-manager-plugin';
+export type ToolInstallTarget = 'terraform' | 'aws-cli' | 'session-manager-plugin' | 'gh';
 
 /** Mismo shape que TerraformEligibility del server (terraform.ts). */
 export interface TerraformStatus {
   terraformInstalled: boolean;
   awsCliInstalled: boolean;
   eligible: boolean;
+}
+
+/** Mismo shape que GithubEligibility del server (github.ts) — ROADMAP.md M3. */
+export interface GithubStatus {
+  ghInstalled: boolean;
+  ghAuthenticated: boolean;
+  repo: string | null;
 }
 
 /** Mismo id que SsmInstanceKey del server (ssm.ts). */

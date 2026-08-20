@@ -26,6 +26,7 @@ import { getScraperCardCount, ScraperCardCountResult } from './scryfall-card-cou
 import { readSettings, writeSettings, RunnerSettings, AwsCredentials, AwsServicesChecklist } from './settings';
 import { buildAwsCliEnv, getTerraformEligibility, TERRAFORM_DIR, TerraformAction, TerraformEligibility } from './terraform';
 import { installTool as installToolBinary, pathEnvWithToolBin, ToolInstallTarget } from './tool-install';
+import { dispatchApkWorkflow, getApkRelease, getGithubEligibility, GithubEligibility, listWorkflowRuns } from './github';
 import {
   buildPortForwardArgs,
   buildStartSessionArgs,
@@ -1203,6 +1204,129 @@ export class ScriptsService {
       });
 
     return { runId };
+  }
+
+  // ── GitHub Actions (Deploy tab — disparar M2 desde acá) ─────────────────
+  // ROADMAP.md M3.
+
+  getGithubStatus(): Promise<GithubEligibility> {
+    return getGithubEligibility();
+  }
+
+  /**
+   * Dispara `.github/workflows/build-apk.yml` (M2) y lo sigue hasta que
+   * termina, streameando todo al mismo runId/LogConsole que el resto del
+   * Deploy tab. `gh auth login` es un flujo OAuth interactivo que este
+   * server no puede automatizar (ver M3 en ROADMAP.md) — si no hay sesión
+   * de `gh` activa, esto tira un 400 con el comando exacto para correr a
+   * mano, en vez de intentar simularlo.
+   *
+   * No hay un "id de run" disponible apenas se dispara (`gh workflow run`
+   * no lo devuelve) — se resuelve comparando la lista de runs antes/después
+   * del dispatch (mismo problema que cualquier integración con
+   * workflow_dispatch sin usar un input propio para correlacionar).
+   */
+  async runGithubApkWorkflow(backendUrl?: string): Promise<{ runId: string }> {
+    const eligibility = await getGithubEligibility();
+    if (!eligibility.ghInstalled) {
+      throw new BadRequestException('GitHub CLI (gh) no está instalado — usa el botón "Instalar" de esta tarjeta primero.');
+    }
+    if (!eligibility.ghAuthenticated) {
+      throw new BadRequestException('gh no tiene una sesión activa — corré "gh auth login" en una terminal (flujo interactivo, no automatizable desde acá) y volvé a intentar.');
+    }
+    if (!eligibility.repo) {
+      throw new BadRequestException('No se pudo resolver el repo de GitHub de este checkout (gh repo view falló) — confirmá que el remote "origin" apunta a GitHub.');
+    }
+    const repo = eligibility.repo;
+
+    const runId = randomUUID();
+    const startedAt = Date.now();
+    this.runs.set(runId, { id: runId, scriptId: 'github:build-apk', status: 'running', startedAt });
+    this.gateway.emitStatus(runId, 'running');
+    const log = (message: string) => this.gateway.emitLog(runId, 'stdout', `${message}\n`);
+    log(`$ gh workflow run build-apk.yml --repo ${repo}${backendUrl ? ` -f backend_url=${backendUrl}` : ''}`);
+
+    const env = pathEnvWithToolBin();
+
+    this.driveGithubApkWorkflow(runId, repo, env, backendUrl, log)
+      .then(() => {
+        const record = this.runs.get(runId);
+        if (record) {
+          record.status = 'success';
+          record.endedAt = Date.now();
+        }
+        this.gateway.emitStatus(runId, 'success');
+      })
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : String(err);
+        this.gateway.emitLog(runId, 'stderr', `\nFalló: ${message}\n`);
+        const record = this.runs.get(runId);
+        if (record) {
+          record.status = 'error';
+          record.endedAt = Date.now();
+        }
+        this.gateway.emitStatus(runId, 'error');
+      })
+      .finally(() => this.children.delete(runId));
+
+    return { runId };
+  }
+
+  private async driveGithubApkWorkflow(
+    runId: string,
+    repo: string,
+    env: NodeJS.ProcessEnv,
+    backendUrl: string | undefined,
+    log: (message: string) => void,
+  ): Promise<void> {
+    log('Buscando el último run existente (para reconocer cuál es el nuevo una vez disparado) ...');
+    const before = await listWorkflowRuns(repo, env, 1);
+    const baselineId = before[0]?.databaseId;
+
+    await dispatchApkWorkflow(repo, env, backendUrl);
+    log('Workflow disparado — esperando que GitHub Actions lo registre ...');
+
+    // gh workflow run no devuelve un id — se espera a que aparezca un run
+    // nuevo (databaseId distinto al que había antes del dispatch) en la
+    // lista. Hasta 2 minutos, cada 3s — GitHub normalmente tarda pocos
+    // segundos en encolarlo, pero un runner ocupado puede demorar más.
+    let newRun: Awaited<ReturnType<typeof listWorkflowRuns>>[number] | undefined;
+    for (let attempt = 0; attempt < 40 && !newRun; attempt++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      if (this.stopRequested.has(runId)) throw new Error('detenido por el usuario');
+      const runs = await listWorkflowRuns(repo, env, 5);
+      newRun = runs.find((r) => r.databaseId !== baselineId);
+    }
+    if (!newRun) throw new Error('No apareció un run nuevo en GitHub Actions después de 2 minutos — revisá el repo manualmente.');
+
+    log(`Run #${newRun.number} — ${newRun.url}`);
+    log('Siguiendo el run (gh run watch) ...');
+
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn('gh', ['run', 'watch', String(newRun!.databaseId), '--repo', repo, '--exit-status'], {
+        cwd: REPO_ROOT,
+        env,
+        detached: process.platform !== 'win32',
+      });
+      this.children.set(runId, child);
+      child.stdout.on('data', (d) => this.gateway.emitLog(runId, 'stdout', d.toString()));
+      child.stderr.on('data', (d) => this.gateway.emitLog(runId, 'stderr', d.toString()));
+      child.on('error', reject);
+      child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`El run de GitHub Actions terminó con error (código ${code}) — ${newRun!.url}`))));
+    });
+
+    log('Resolviendo la Release publicada ...');
+    const release = await getApkRelease(repo, env, newRun.number);
+    if (!release.apkAssetUrl) {
+      log(`Advertencia: la release ${release.tag} no tiene ningún asset .apk todavía — ${release.releaseUrl}`);
+    }
+    this.gateway.emitResult(runId, [
+      {
+        kind: 'github-release',
+        label: 'APK publicado',
+        data: { tag: release.tag, releaseUrl: release.releaseUrl, apkAssetUrl: release.apkAssetUrl, runUrl: newRun.url },
+      },
+    ]);
   }
 
   // ── SSM (pestaña Deploy — conectarse a lo que terraform ya creó) ────────

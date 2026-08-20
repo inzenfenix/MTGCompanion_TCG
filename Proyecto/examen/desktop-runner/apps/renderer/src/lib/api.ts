@@ -2,6 +2,7 @@ import { io, Socket } from 'socket.io-client';
 import type {
   EnvInfo,
   ExportComparisonStage,
+  GithubStatus,
   GpuInfo,
   RunAllStepResult,
   RunnerSettings,
@@ -103,6 +104,13 @@ export const api = {
   deployBackend: () => fetch(`${API_BASE}/deploy/backend`, { method: 'POST' }).then((r) => json<{ runId: string }>(r)),
   installTool: (tool: ToolInstallTarget) =>
     fetch(`${API_BASE}/terraform/install/${tool}`, { method: 'POST' }).then((r) => json<{ runId: string }>(r)),
+  githubStatus: () => fetch(`${API_BASE}/github/status`).then((r) => json<GithubStatus>(r)),
+  runGithubApkWorkflow: (backendUrl?: string) =>
+    fetch(`${API_BASE}/github/workflow/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ backendUrl }),
+    }).then((r) => json<{ runId: string }>(r)),
   ssmInstances: () => fetch(`${API_BASE}/ssm/instances`).then((r) => json<SsmInstanceDef[]>(r)),
   ssmStatus: () => fetch(`${API_BASE}/ssm/status`).then((r) => json<SsmStatus>(r)),
   ssmOpenTerminal: (instance: SsmInstanceKey) =>
