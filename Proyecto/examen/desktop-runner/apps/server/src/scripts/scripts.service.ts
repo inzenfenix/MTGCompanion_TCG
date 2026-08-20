@@ -989,6 +989,61 @@ export class ScriptsService {
   }
 
   /**
+   * ROADMAP.md M1 — `aws s3 sync` de `trading-app-ionic/public/models/` (los
+   * `.onnx` exportados + `stage3-tabular-scaler.json`, gitignored — ver ese
+   * `.gitignore`, nunca se versionan porque son artefactos generados, no
+   * fuente) hacia `s3://{deploy_artifacts_bucket}/models/`. El eslabón que
+   * faltaba para que cualquier otra máquina (o, más adelante, un runner de
+   * CI sin GPU/datos de entrenamiento — ver M2/M3) pueda armar el APK sin
+   * tener que re-entrenar/re-exportar nada localmente: quien sea que corra
+   * "Correr todo" acá y después este botón deja los últimos modelos en un
+   * único lugar canónico, sin importar en qué PC se hayan generado.
+   *
+   * Mismo bucket que ya usa `deploy-backend.sh` (`deploy_artifacts`), prefijo
+   * separado a propósito (`models/`, no `deploys/`) — ese bucket tiene una
+   * lifecycle rule que borra objetos a los 7 días, ahora scopeada solo a
+   * `deploys/` (ver s3.tf) para que esto no se autodestruya. `sync --delete`,
+   * no `cp` uno por uno, para que un archivo que ya no se genera (p.ej. un
+   * stage renombrado) también desaparezca del lado de S3 en vez de quedar
+   * huérfano ahí para siempre — mismo motivo que deployBackend() reusa este
+   * bucket en vez de crear uno nuevo, mismo shape (`buildAwsCliEnv` +
+   * `pathEnvWithToolBin`) que ese método ya establece para hablarle a `aws`
+   * directo con las credenciales AWS propias de esta máquina, no las de
+   * Terraform.
+   */
+  async uploadModelsToS3(): Promise<{ runId: string }> {
+    const settings = readSettings();
+    if (!settings.awsCredentials) {
+      throw new BadRequestException('No hay credenciales AWS configuradas — pegalas en la pestaña "Deploy" primero.');
+    }
+
+    const modelsDir = path.join(TRADING_APP_DIR, 'public', 'models');
+    if (!fs.existsSync(modelsDir)) {
+      throw new BadRequestException(`No existe ${modelsDir} todavía — corré la exportación ONNX primero ("Correr todo" en esta pestaña).`);
+    }
+
+    const outputs = await this.getTerraformOutputs();
+    const bucket = outputs?.deploy_artifacts_bucket_name;
+    const region = outputs?.aws_region;
+    if (typeof bucket !== 'string' || typeof region !== 'string') {
+      throw new BadRequestException('No hay outputs de Terraform todavía — corré "apply" en la pestaña Deploy primero.');
+    }
+
+    const dest = `s3://${bucket}/models/`;
+    const runId = randomUUID();
+    this.gateway.emitLog(runId, 'stdout', `$ aws s3 sync ${modelsDir} ${dest} --region ${region} --delete\n`);
+
+    const child: ChildProcessWithoutNullStreams = spawn(
+      'aws',
+      ['s3', 'sync', modelsDir, dest, '--region', region, '--delete'],
+      { cwd: TRADING_APP_DIR, env: { ...pathEnvWithToolBin(), ...buildAwsCliEnv(settings.awsCredentials) } },
+    );
+    this.trackStreamedProcess(runId, child, 'aws:upload-models', Date.now());
+
+    return { runId };
+  }
+
+  /**
    * Instala `terraform`/`aws` automáticamente (tool-install.ts) — mismo
    * shape de streaming que runTerraform() (runId + this.runs/gateway), pero
    * sin proceso hijo único: es una secuencia de pasos (resolver

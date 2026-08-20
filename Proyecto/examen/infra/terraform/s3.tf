@@ -40,10 +40,16 @@ resource "aws_s3_bucket_public_access_block" "deploy_artifacts" {
 resource "aws_s3_bucket_lifecycle_configuration" "deploy_artifacts" {
   bucket = aws_s3_bucket.deploy_artifacts.id
 
+  # Scoped to deploys/ only (ROADMAP.md M1) — this bucket also now holds
+  # models/ (desktop-runner's "Subir modelos ONNX a S3" button, ExportPanel),
+  # the canonical latest-ONNX-export location any machine/CI can pull from
+  # instead of re-training locally. That prefix deliberately has NO
+  # expiration rule: it's meant to persist indefinitely as "whatever was
+  # last exported", not get swept the same way transient deploy tarballs do.
   rule {
     id     = "expire-old-deploys"
     status = "Enabled"
-    filter {}
+    filter { prefix = "deploys/" }
     expiration {
       days = 7
     }

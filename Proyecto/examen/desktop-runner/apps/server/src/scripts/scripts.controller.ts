@@ -56,6 +56,17 @@ export class ScriptsController {
     return this.scriptsService.getExportComparison();
   }
 
+  // ROADMAP.md M1 — publica trading-app-ionic/public/models/ al bucket
+  // deploy_artifacts (mismo mecanismo/credenciales que POST deploy/backend,
+  // ver el comentario junto a uploadModelsToS3()) para que cualquier otra
+  // máquina (o, más adelante, CI) pueda armar el APK sin re-entrenar nada.
+  @Post('export/upload-s3')
+  @HttpCode(202)
+  async uploadModelsToS3() {
+    const { runId } = await this.scriptsService.uploadModelsToS3();
+    return { runId };
+  }
+
   // Expone RUN_ALL_SEQUENCES (scripts.config.ts) para que el renderer pueda
   // armar botones "Correr todo" por subpestaña de stage (FrameworkTab.tsx)
   // sin duplicar la curación de "qué scripts son seguros de auto-correr" —

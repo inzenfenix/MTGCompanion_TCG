@@ -87,6 +87,7 @@ export const api = {
       body: JSON.stringify({ label, scriptIds }),
     }).then((r) => json<{ started: boolean }>(r)),
   exportComparison: () => fetch(`${API_BASE}/export/comparison`).then((r) => json<ExportComparisonStage[]>(r)),
+  uploadModelsToS3: () => fetch(`${API_BASE}/export/upload-s3`, { method: 'POST' }).then((r) => json<{ runId: string }>(r)),
   scraperCardCount: () =>
     fetch(`${API_BASE}/scripts/shared-scraper/card-count`).then((r) => json<ScraperCardCountResult>(r)),
   terraformStatus: () => fetch(`${API_BASE}/terraform/status`).then((r) => json<TerraformStatus>(r)),

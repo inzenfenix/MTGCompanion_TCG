@@ -44,8 +44,65 @@ export function AwsTab() {
       <TerraformActionCard credentialsRefreshToken={credentialsRefreshToken} />
       <SsmAccessCard />
       <OutputsCard outputs={outputs} loading={loadingOutputs} onReload={loadOutputs} />
-      <LocalDevToolsCard />
+      <PublishModelsCard />
+      <LocalDevToolsCard productionBackendUrl={typeof outputs?.backend_url === 'string' ? outputs.backend_url : null} />
     </div>
+  );
+}
+
+/**
+ * ROADMAP.md M1 — publica trading-app-ionic/public/models/ (los .onnx que
+ * la pestaña Exportar deja localmente) a s3://{deploy_artifacts}/models/,
+ * mismo bucket que ya usa el paso "0. Desplegar backend" de OutputsCard de
+ * arriba, prefijo separado. Vive acá en Deploy, no en Exportar — es parte
+ * del mismo hand-off "esto ya está listo para publicarse", no del proceso
+ * de entrenar/exportar en sí. El "endpoint único" al que M2/M3 (planeados,
+ * no construidos todavía — ver ROADMAP.md) apuntarán para armar el APK sin
+ * re-entrenar nada, sin importar en qué PC se haya corrido el export.
+ * Requiere credenciales AWS + un `apply` de Terraform ya corridos (ambos ya
+ * cubiertos más arriba en esta misma pestaña) — el server devuelve un 400
+ * con el motivo puntual si falta alguno de los dos, en vez de precondicionar
+ * el botón acá y duplicar esa lógica.
+ */
+function PublishModelsCard() {
+  const [runId, setRunId] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const logs = useRunLogs(runId);
+
+  const upload = async () => {
+    setError(null);
+    setStarting(true);
+    try {
+      const { runId: id } = await api.uploadModelsToS3();
+      setRunId(id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Publicar modelos (S3)</CardTitle>
+        <CardDescription>
+          Sube los <code className="font-mono">.onnx</code> exportados (pestaña "Exportar") a un bucket S3 compartido
+          — así cualquier otra PC (o, más adelante, un pipeline de CI, ver ROADMAP.md workstream M) puede armar el
+          APK con los últimos modelos sin tener que re-entrenar/re-exportar nada localmente.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {error && <p className="text-xs text-destructive">{error}</p>}
+        {runId && <LogConsole lines={logs.lines} currentLine={logs.currentLine} status={logs.status} lastActivityAt={logs.lastActivityAt} />}
+      </CardContent>
+      <CardFooter>
+        <Button size="sm" variant="outline" disabled={starting || logs.status === 'running'} onClick={upload}>
+          {logs.status === 'running' ? 'Subiendo…' : 'Subir modelos ONNX a S3'}
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }
 
