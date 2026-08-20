@@ -73,23 +73,29 @@ export const SpinWheelModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [rotation, setRotation] = useState(0);
   const [wonCoupon, setWonCoupon] = useState<api.Coupon | null>(null);
 
+  // Shared by handleSpin and handleTestSpin below — both end up with a real
+  // (or fake) Coupon and need the exact same wedge-lookup + rotation logic.
+  const resolveSpin = useCallback((coupon: api.Coupon) => {
+    const tierIndex = WHEEL_TIERS.findIndex(
+      (tier) =>
+        tier.discountPercent === coupon.discountPercent &&
+        tier.maxDiscount === coupon.maxDiscount,
+    );
+    // Unknown tier shape (shouldn't happen — WHEEL_TIERS mirrors the
+    // backend by hand, see this file's header) — land on wedge 0 rather
+    // than crash on a -1 index; the reveal text still shows the real
+    // coupon values regardless of which wedge visually stops.
+    setRotation((prev) => computeTargetRotation(prev, tierIndex >= 0 ? tierIndex : 0));
+    setWonCoupon(coupon);
+    // Reveal happens in onAnimationComplete below, once the wheel
+    // actually finishes moving — not the instant the response arrives.
+  }, []);
+
   const handleSpin = useCallback(async () => {
     setPhase('spinning');
     try {
       const coupon = await api.spinCoupon();
-      const tierIndex = WHEEL_TIERS.findIndex(
-        (tier) =>
-          tier.discountPercent === coupon.discountPercent &&
-          tier.maxDiscount === coupon.maxDiscount,
-      );
-      // Unknown tier shape (shouldn't happen — WHEEL_TIERS mirrors the
-      // backend by hand, see this file's header) — land on wedge 0 rather
-      // than crash on a -1 index; the reveal text still shows the real
-      // coupon values regardless of which wedge visually stops.
-      setRotation((prev) => computeTargetRotation(prev, tierIndex >= 0 ? tierIndex : 0));
-      setWonCoupon(coupon);
-      // Reveal happens in onAnimationComplete below, once the wheel
-      // actually finishes moving — not the instant the response arrives.
+      resolveSpin(coupon);
     } catch (err) {
       if (err instanceof api.ApiError && err.status === 400) {
         setPhase('cooldown');
@@ -97,7 +103,42 @@ export const SpinWheelModal: React.FC<Props> = ({ isOpen, onClose }) => {
         setPhase('error');
       }
     }
-  }, []);
+  }, [resolveSpin]);
+
+  // Debug affordance (20 ago 2026, at the user's own request) — real spins
+  // are gated by CouponsService's real 24h-per-account cooldown, so once
+  // you've actually spun for real there is no way to re-trigger the wheel's
+  // OWN animation code (rotation math, onAnimationComplete, the reveal
+  // transition — the part that was actually crashing, unrelated to the
+  // network call) without waiting out that cooldown. This never touches
+  // api.spinCoupon() at all: it picks a tier with the exact same weighted
+  // roll CouponsService.pickWeightedTier() uses server-side, builds a fake
+  // Coupon, and feeds it through the SAME resolveSpin()/animation path a
+  // real spin uses — a faithful reproduction of the crash-prone code path,
+  // just without spending the account's real daily spin.
+  // TODO: pull this button once the wheel is confirmed stable on-device —
+  // it has no place in front of a real user.
+  const handleTestSpin = useCallback(() => {
+    setPhase('spinning');
+    const totalWeight = WHEEL_TIERS.reduce((sum, t) => sum + t.weight, 0);
+    let roll = Math.random() * totalWeight;
+    const tier =
+      WHEEL_TIERS.find((t) => {
+        if (roll < t.weight) return true;
+        roll -= t.weight;
+        return false;
+      }) ?? WHEEL_TIERS[WHEEL_TIERS.length - 1];
+    resolveSpin({
+      id: 'test-spin',
+      issuedToUserId: 'test',
+      discountPercent: tier.discountPercent,
+      maxDiscount: tier.maxDiscount,
+      redeemedAt: null,
+      redeemedInTransactionId: null,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date().toISOString(),
+    });
+  }, [resolveSpin]);
 
   const handleAnimationComplete = useCallback(() => {
     // Only the winning spin animates the wheel — an error/cooldown result
@@ -150,22 +191,36 @@ export const SpinWheelModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 ))}
               </motion.div>
             </div>
-            <IonButton
-              expand="block"
-              className="mtg-btn"
-              disabled={phase === 'spinning'}
-              onClick={handleSpin}
-            >
-              <div className="mtg-btn-content">
-                {phase === 'spinning' ? (
-                  <>
-                    <IonSpinner name="crescent" /> <span>{t('spin_wheel_spinning')}</span>
-                  </>
-                ) : (
-                  <span>{t('spin_wheel_spin_button')}</span>
-                )}
-              </div>
-            </IonButton>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <IonButton
+                expand="block"
+                className="mtg-btn"
+                style={{ flex: 1 }}
+                disabled={phase === 'spinning'}
+                onClick={handleSpin}
+              >
+                <div className="mtg-btn-content">
+                  {phase === 'spinning' ? (
+                    <>
+                      <IonSpinner name="crescent" /> <span>{t('spin_wheel_spinning')}</span>
+                    </>
+                  ) : (
+                    <span>{t('spin_wheel_spin_button')}</span>
+                  )}
+                </div>
+              </IonButton>
+              {/* Debug-only — see handleTestSpin's comment. */}
+              <IonButton
+                fill="outline"
+                className="mtg-btn"
+                disabled={phase === 'spinning'}
+                onClick={handleTestSpin}
+              >
+                <div className="mtg-btn-content">
+                  <span>{t('spin_wheel_test_button')}</span>
+                </div>
+              </IonButton>
+            </div>
           </>
         )}
 

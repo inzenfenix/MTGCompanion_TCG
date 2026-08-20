@@ -117,6 +117,15 @@ const App: React.FC = () => {
           <Route exact path="/tab2">
             <Suspense fallback={null}><Tab2 /></Suspense>
           </Route>
+          {/* ROADMAP.md J15 — CardDetails.tsx's "Vender" button needs to hand
+              off a SPECIFIC card, not just dump the seller at Tab2's camera
+              step (the old routerLink="/tab2" lost which card entirely).
+              Same component, same shape as /buy/card/:cardId + /buy/:token
+              above — Tab2 reads the param via useParams and jumps straight
+              to the price/QR step for that card. */}
+          <Route exact path="/tab2/sell/:cardId">
+            <Suspense fallback={null}><Tab2 /></Suspense>
+          </Route>
           <Route exact path="/tab3">
             <Suspense fallback={null}><Tab3 /></Suspense>
           </Route>

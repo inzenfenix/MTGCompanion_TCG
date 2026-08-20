@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router';
 import {
   IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonButton,
   IonIcon, IonInput, IonItem, IonLabel, IonSegment, IonSegmentButton,
@@ -7,25 +8,41 @@ import {
 } from '@ionic/react';
 import {
   qrCodeOutline, cameraOutline, checkmarkCircleOutline,
-  storefrontOutline, walletOutline
+  storefrontOutline, walletOutline, archiveOutline
 } from 'ionicons/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import QRCode from 'react-qr-code';
 import { useTranslation } from 'react-i18next';
 import { useLiveCamera } from '../lib/camera/useLiveCamera';
 import { runStage1Detection, type Stage1Status } from '../lib/ml/stage1Detector';
+import { runStage3PriceEstimation } from '../lib/ml/stage3PriceEstimator';
+import { runStage4ConditionGrading } from '../lib/ml/stage4ConditionGrader';
+import { identifyCard, toScryfallFields, type IdentifyCandidate } from '../lib/scan/identifyCard';
+import { withTimeout, SCAN_PIPELINE_TIMEOUT_MS } from '../lib/async/withTimeout';
 import { useAuth } from '../lib/auth/AuthContext';
 import * as api from '../lib/api';
 import { GuidedCapture } from '../components/GuidedCapture';
 import { QrScanner } from '../components/QrScanner';
 
 const TRADE_CODE_PREFIX = 'TRADE:';
+/** Real card, price/condition unknown yet — same fallback ListCard.tsx's runScanPipeline implicitly relies on (guessedPrice stays editable in step 2/the review form either way). */
+const FALLBACK_SCAN_PRICE = 1;
+type ScanIdentifyPhase = 'idle' | 'identifying' | 'matched' | 'no-match' | 'error';
 
 const Tab2: React.FC = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const router = useIonRouter();
+  // ROADMAP.md J15 — set only when arrived via /tab2/sell/:cardId
+  // (CardDetails.tsx's "Vender" button), never via the plain /tab2 tab
+  // route (that param simply doesn't exist there, matching /buy/:token vs
+  // /buy/card/:cardId's own dual-route precedent).
+  const { cardId: sellCardId } = useParams<{ cardId?: string }>();
   const [role, setRole] = useState<'merchant' | 'buyer'>('merchant');
+  // Bumped on every real useIonViewWillEnter — see the camera start/stop
+  // effect below for why this exists (real bug, live-reported: Trade's
+  // camera not restarting after navigating away and back).
+  const [viewEntryTick, setViewEntryTick] = useState(0);
 
   // Merchant state
   const [merchantStep, setMerchantStep] = useState<1 | 2 | 3>(1);
@@ -59,16 +76,54 @@ const Tab2: React.FC = () => {
   // @capacitor-community/camera-preview) feeding onnxruntime-web. The
   // capture itself is now guided (ROADMAP.md G4c, `GuidedCapture.tsx`) —
   // OpenCV.js localizes+perspective-corrects the card client-side before
-  // Stage 1 ever sees it, instead of a blind full-frame shot. Stage 2
-  // (OCR) and Stage 3 (price) are still explicitly out of scope here — see
-  // src/lib/ml/stage1Detector.ts.
+  // Stage 1 ever sees it, instead of a blind full-frame shot. Past this
+  // gate, the FULL identify pipeline (Stage 2 OCR+catalog via
+  // identifyCard.ts, Stage 3 price, Stage 4 condition) now runs too —
+  // ROADMAP.md J15: this used to stop at Stage 1, so a successful scan did
+  // nothing beyond "yes that's a card", real user complaint.
   const camera = useLiveCamera();
   const [stage1Status, setStage1Status] = useState<Stage1Status | null>(null);
   const [isDetecting, setIsDetecting] = useState(false);
 
+  // ROADMAP.md J15 — the actual "what did we find, what do you want to do
+  // with it" state, driven by runScanIdentify() below. Independent of
+  // stage1Status/isDetecting above (that's purely the content-gate verdict);
+  // this is what actually surfaces to the merchant once a real card-shaped
+  // capture clears that gate.
+  const [scanIdentifyPhase, setScanIdentifyPhase] = useState<ScanIdentifyPhase>('idle');
+  const [scanCandidate, setScanCandidate] = useState<IdentifyCandidate | null>(null);
+  const [scanGuessedPrice, setScanGuessedPrice] = useState<number>(FALLBACK_SCAN_PRICE);
+  const [scanCondition, setScanCondition] = useState<api.CardCondition>('NM');
+  const [scanPhotoBlob, setScanPhotoBlob] = useState<Blob | null>(null);
+  const [scanIdentifyError, setScanIdentifyError] = useState<string | null>(null);
+  // Set when the identified card's scryfallId matches one already in the
+  // merchant's own inventory — selling it should reuse THAT card, not
+  // create a duplicate Vault entry every time they scan something they
+  // already own.
+  const [existingOwnedCard, setExistingOwnedCard] = useState<api.Card | null>(null);
+  const [isSavingScan, setIsSavingScan] = useState(false);
+
   // Camera runs while the merchant is on the capture step, OR while the
   // buyer is on the QR-scan screen (J4) — released as soon as either moves
   // on or the role switches.
+  //
+  // `viewEntryTick` is in the dependency array purely to force this effect
+  // to re-run on every real (re-)entry to the tab, even when
+  // role/merchantStep/decodedToken all come back to exactly the values they
+  // already had (the overwhelmingly common case: leaving from the default
+  // merchant/step-1 screen and returning to it). Real bug this closes:
+  // useIonViewWillEnter's resetMerchantFlow()/resetBuyerFlow() below call
+  // setMerchantStep(1)/setRole('merchant'), but React treats a setState to
+  // an UNCHANGED value as a no-op — it does NOT re-run effects keyed on
+  // that state. So on a plain "leave Tab2 while on step 1, come back",
+  // nothing in [role, merchantStep, decodedToken] actually changes, this
+  // effect never re-fires, and the camera (already stopped by
+  // useIonViewWillLeave) never restarts — a permanently black/frozen feed
+  // that only "worked" if you happened to leave from step 2/3 or the buyer
+  // role, where the reset IS a real value change. ListCard.tsx's Smart Scan
+  // camera never hit this because it starts on an explicit user action
+  // (toggling into scan mode), never on a state reset that can coincide
+  // with the current value.
   useEffect(() => {
     if ((role === 'merchant' && merchantStep === 1) || (role === 'buyer' && !decodedToken)) {
       camera.start();
@@ -76,7 +131,7 @@ const Tab2: React.FC = () => {
       camera.stop();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- start/stop are stable refs from useLiveCamera
-  }, [role, merchantStep, decodedToken]);
+  }, [role, merchantStep, decodedToken, viewEntryTick]);
 
   // Fetch the merchant's real inventory once they reach the appraisal step.
   useEffect(() => {
@@ -86,10 +141,18 @@ const Tab2: React.FC = () => {
       .then(cards => {
         if (cancelled) return;
         setMyCards(cards);
-        if (cards.length > 0) {
-          setSelectedCardId(cards[0].id);
-          setPrice(cards[0].guessedPrice);
-        }
+        // ROADMAP.md J15 — prefer an explicitly-requested card (the
+        // /tab2/sell/:cardId route param, or the one a Trade-tab scan just
+        // created/matched) over defaulting to cards[0]. Without this, a
+        // specific card handed off from CardDetails.tsx or a fresh scan got
+        // silently overridden by whatever the FIRST card in the list
+        // happened to be.
+        setSelectedCardId(prevId => {
+          const requested = prevId ? cards.find(c => c.id === prevId) : undefined;
+          const chosen = requested ?? cards[0];
+          if (chosen) setPrice(chosen.guessedPrice);
+          return chosen?.id ?? null;
+        });
       })
       .catch(() => {
         if (!cancelled) setMyCards([]);
@@ -164,6 +227,17 @@ const Tab2: React.FC = () => {
     setListingTokenError(null);
   };
 
+  const resetScanState = () => {
+    setScanIdentifyPhase('idle');
+    setScanCandidate(null);
+    setScanGuessedPrice(FALLBACK_SCAN_PRICE);
+    setScanCondition('NM');
+    setScanPhotoBlob(null);
+    setScanIdentifyError(null);
+    setExistingOwnedCard(null);
+    setIsSavingScan(false);
+  };
+
   const resetBuyerFlow = () => {
     setDecodedToken(null);
   };
@@ -186,10 +260,23 @@ const Tab2: React.FC = () => {
     setRole('merchant');
     resetMerchantFlow();
     resetBuyerFlow();
+    resetScanState();
     setPrice(45.00);
     setIsSavingPrice(false);
     setStage1Status(null);
     setIsDetecting(false);
+    // See the camera effect's comment above — this is what actually
+    // guarantees the camera restarts on every real re-entry.
+    setViewEntryTick(t => t + 1);
+    // ROADMAP.md J15 — arrived via /tab2/sell/:cardId (CardDetails.tsx's
+    // "Vender" button): skip the camera step entirely, jump straight to
+    // price/QR with THIS card. Runs AFTER resetMerchantFlow() above, in the
+    // same batch, so its own setMerchantStep(1)/setSelectedCardId(null)
+    // don't win — React applies same-state setters in call order.
+    if (sellCardId) {
+      setSelectedCardId(sellCardId);
+      setMerchantStep(2);
+    }
   });
 
   useIonViewWillLeave(() => {
@@ -248,7 +335,133 @@ const Tab2: React.FC = () => {
         : result.status === 'error' ? `error: ${result.message}` : result.status
     }`);
     if (result.status === 'ok' && !result.result.isMtgCard) return false;
+    void runScanIdentify(canvas);
     return true;
+  };
+
+  // ROADMAP.md J15 — this is the piece that was actually missing: past
+  // Stage 1's gate, run the SAME identify pipeline ListCard.tsx's Smart
+  // Scan already uses (OCR+catalog+Stage 2 rerank via identifyCard.ts) plus
+  // Stage 3 (price) and Stage 4 (condition), instead of just discarding a
+  // successful capture. Mirrors runScanPipeline() there closely (same
+  // withTimeout guard, same reasoning — ROADMAP.md I17: a hung OCR worker
+  // promise needs a hard ceiling, try/catch alone won't see it) — kept as
+  // Tab2's own copy rather than a shared hook since the two screens do
+  // different things with the result (ListCard prefills an editable
+  // creation form; this decides "sell" vs "save" and drives step 2/3
+  // directly), not because the fetch logic itself needs to differ.
+  const runScanIdentify = async (canvas: HTMLCanvasElement) => {
+    setScanIdentifyPhase('identifying');
+    setScanIdentifyError(null);
+    canvas.toBlob((blob) => { if (blob) setScanPhotoBlob(blob); }, 'image/jpeg', 0.9);
+
+    try {
+      const [identifyResult, stage4] = await withTimeout(
+        Promise.all([identifyCard(canvas), runStage4ConditionGrading(canvas)]),
+        SCAN_PIPELINE_TIMEOUT_MS,
+        'identifyCard()/runStage4ConditionGrading()',
+      );
+      setScanCondition(stage4.status === 'ok' ? stage4.result.condition : 'NM');
+
+      if (identifyResult.status !== 'ok' || identifyResult.result.candidates.length === 0) {
+        setScanCandidate(null);
+        setScanIdentifyPhase(identifyResult.status === 'error' ? 'error' : 'no-match');
+        if (identifyResult.status === 'error') setScanIdentifyError(identifyResult.message);
+        return;
+      }
+
+      const top = identifyResult.result.candidates[0];
+      setScanCandidate(top);
+
+      const stage3 = await withTimeout(
+        runStage3PriceEstimation(canvas, toScryfallFields(top.card)),
+        SCAN_PIPELINE_TIMEOUT_MS,
+        'runStage3PriceEstimation()',
+      );
+      setScanGuessedPrice(stage3.status === 'ok' ? Math.round(stage3.result.priceUsd * 100) / 100 : FALLBACK_SCAN_PRICE);
+
+      // Don't sell a duplicate of a card the merchant already has in their
+      // Vault — check by scryfallId against their real inventory (a fresh
+      // fetch, not the `myCards` state above, since that's only ever
+      // populated once step 2 is actually reached).
+      const owned = user ? await api.listCards(user.id) : [];
+      const match = owned.find((c) => c.scryfallId === top.card.id) ?? null;
+      setExistingOwnedCard(match);
+
+      setScanIdentifyPhase('matched');
+    } catch (err) {
+      console.error('[Tab2] runScanIdentify() failed:', err);
+      setScanIdentifyError(err instanceof Error ? err.message : String(err));
+      setScanIdentifyPhase('error');
+    }
+  };
+
+  /** "Vender" from the scan result — an already-owned match jumps straight to step 2 with that card; a new one is created (origin SCAN_LISTING, kept out of Tab3.tsx's Vault view) first. */
+  const handleSellFromScan = async () => {
+    if (existingOwnedCard) {
+      setSelectedCardId(existingOwnedCard.id);
+      setPrice(existingOwnedCard.guessedPrice);
+      setMyCards(null); // re-fetched by step 2's own effect, cheap and keeps this the single source of truth for the dropdown
+      resetScanState();
+      setMerchantStep(2);
+      return;
+    }
+    if (!scanCandidate) return;
+    setIsSavingScan(true);
+    try {
+      const card = await api.createCard({
+        title: scanCandidate.card.name,
+        guessedPrice: scanGuessedPrice,
+        condition: scanCondition,
+        origin: 'SCAN_LISTING',
+        scryfallId: scanCandidate.card.id,
+        setName: scanCandidate.card.setName,
+        rarity: scanCandidate.card.rarity ?? undefined,
+        oracleText: scanCandidate.card.oracleText ?? undefined,
+      });
+      if (scanPhotoBlob) {
+        const filename = `card-${card.id}.jpg`;
+        await api.uploadCardPhoto(card.id, scanPhotoBlob, filename, 'image/jpeg');
+      }
+      setSelectedCardId(card.id);
+      setPrice(card.guessedPrice);
+      setMyCards(null);
+      resetScanState();
+      setMerchantStep(2);
+    } catch (err) {
+      setScanIdentifyError(err instanceof api.ApiError ? err.message : t('listing_error'));
+      setScanIdentifyPhase('error');
+    } finally {
+      setIsSavingScan(false);
+    }
+  };
+
+  /** "Guardar en Vault" — only offered when the scan found a genuinely new card (an already-owned match has nothing to save, it's already there). Same origin: 'VAULT' shape as ListCard.tsx's own manual/Smart Scan save. */
+  const handleSaveToVaultFromScan = async () => {
+    if (!scanCandidate) return;
+    setIsSavingScan(true);
+    try {
+      const card = await api.createCard({
+        title: scanCandidate.card.name,
+        guessedPrice: scanGuessedPrice,
+        condition: scanCondition,
+        origin: 'VAULT',
+        scryfallId: scanCandidate.card.id,
+        setName: scanCandidate.card.setName,
+        rarity: scanCandidate.card.rarity ?? undefined,
+        oracleText: scanCandidate.card.oracleText ?? undefined,
+      });
+      if (scanPhotoBlob) {
+        const filename = `card-${card.id}.jpg`;
+        await api.uploadCardPhoto(card.id, scanPhotoBlob, filename, 'image/jpeg');
+      }
+      router.push(`/card/${card.id}`, 'forward');
+    } catch (err) {
+      setScanIdentifyError(err instanceof api.ApiError ? err.message : t('listing_error'));
+      setScanIdentifyPhase('error');
+    } finally {
+      setIsSavingScan(false);
+    }
   };
 
   const slideVariants = {
@@ -338,12 +551,82 @@ const Tab2: React.FC = () => {
                           {' — '}{t('detection_confidence', { value: Math.round(stage1Status.result.confidence * 100) })}
                         </h3>
                       )}
+
+                      {/* ROADMAP.md J15 — the actual "what did we find, what
+                          do you want to do with it" panel. Separate from
+                          stage1Status above (that's just the content gate). */}
+                      {scanIdentifyPhase === 'identifying' && (
+                        <h3 style={{fontSize: '0.9rem', marginTop: '10px', fontStyle: 'italic', textAlign: 'center'}}>{t('scan_status_identifying')}</h3>
+                      )}
+
+                      {scanIdentifyPhase === 'no-match' && (
+                        <p style={{fontSize: '0.85rem', marginTop: '10px', color: '#c2b5b5'}}>{t('scan_no_match_banner')}</p>
+                      )}
+
+                      {scanIdentifyPhase === 'error' && scanIdentifyError && (
+                        <p style={{fontSize: '0.85rem', marginTop: '10px', color: '#ff8080'}}>{t('trade_scan_error', { message: scanIdentifyError })}</p>
+                      )}
+
+                      {scanIdentifyPhase === 'matched' && scanCandidate && (
+                        <div style={{ marginTop: '15px', padding: '15px', border: '1px solid rgba(212,175,55,0.4)', borderRadius: '8px', background: 'rgba(10,5,8,0.6)', textAlign: 'left' }}>
+                          <h3 style={{ margin: '0 0 6px', color: '#f2e3cd' }}>{t('trade_scan_matched_title')}</h3>
+                          <p style={{ margin: '0 0 10px', color: '#c2b5b5', fontSize: '0.9rem' }}>
+                            {t('trade_scan_matched_detail', {
+                              name: scanCandidate.card.name,
+                              set: scanCandidate.card.setName,
+                              rarity: scanCandidate.card.rarity ?? '—',
+                              confidence: Math.round(scanCandidate.confidence * 100),
+                            })}
+                          </p>
+                          <p style={{ margin: '0 0 12px', color: 'var(--ion-color-tertiary-tint)', fontWeight: 'bold' }}>
+                            ${scanGuessedPrice.toFixed(2)} · {scanCondition}
+                          </p>
+
+                          {existingOwnedCard && (
+                            <p style={{ margin: '0 0 12px', fontSize: '0.85rem', fontStyle: 'italic', color: '#c2b5b5' }}>{t('trade_scan_already_owned')}</p>
+                          )}
+
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <IonButton
+                              expand="block"
+                              className="mtg-btn"
+                              style={{ flex: 1 }}
+                              disabled={isSavingScan}
+                              onClick={handleSellFromScan}
+                            >
+                              <div className="mtg-btn-content">
+                                {isSavingScan ? <IonSpinner name="crescent" /> : <IonIcon icon={storefrontOutline} />}
+                                <span>{t('trade_scan_sell_button')}</span>
+                              </div>
+                            </IonButton>
+                            {!existingOwnedCard && (
+                              <IonButton
+                                expand="block"
+                                fill="outline"
+                                className="mtg-btn"
+                                style={{ flex: 1 }}
+                                disabled={isSavingScan}
+                                onClick={handleSaveToVaultFromScan}
+                              >
+                                <div className="mtg-btn-content">
+                                  <IonIcon icon={archiveOutline} />
+                                  <span>{t('trade_scan_save_vault_button')}</span>
+                                </div>
+                              </IonButton>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    <IonButton expand="block" className="mtg-btn" onClick={() => setMerchantStep(2)}>
+                    {/* Manual fallback — always available, not gated on a
+                        successful scan (never was: this button unconditionally
+                        advanced to step 2 even before J15). Relabeled so it no
+                        longer implies it depends on/replaces the scan above. */}
+                    <IonButton expand="block" fill="clear" className="mtg-btn" onClick={() => setMerchantStep(2)}>
                       <div className="mtg-btn-content">
                         <IonIcon icon={cameraOutline} />
-                        <span>{t('scan_appraise')}</span>
+                        <span>{t('trade_manual_select_button')}</span>
                       </div>
                     </IonButton>
                   </div>

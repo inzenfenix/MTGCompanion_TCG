@@ -6,7 +6,20 @@
     
     <base href="/" />
     
-    <meta name="color-scheme" content="light dark" />
+    <!-- theme/variables.css's "Force Dark Mode / Medieval Mode Everywhere"
+         block hardcodes every color unconditionally — there is no
+         @media (prefers-color-scheme: light) branch anywhere, the app is
+         ALWAYS dark. Declaring "light dark" here (the unmodified Ionic
+         starter default) tells the browser/WebView both schemes are
+         genuinely supported, which on Android invites the WebView's own
+         algorithmic "force dark" pass on anything it doesn't recognize as
+         already-dark — a CSS conic-gradient like SpinWheelModal's prize
+         wheel is exactly that kind of custom-drawn content. Live-reported:
+         the wheel's colors rendered inverted, and animating (rotating) that
+         algorithmically-recolored layer crashed the app — a real, documented
+         instability class in Chromium's forceDark + compositor path.
+         Declaring "dark" only opts the page fully out of that pass. -->
+    <meta name="color-scheme" content="dark" />
     <meta
       name="viewport"
       content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"

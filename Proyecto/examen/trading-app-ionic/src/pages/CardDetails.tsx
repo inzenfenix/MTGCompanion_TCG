@@ -118,7 +118,12 @@ const CardDetails: React.FC = () => {
                         <span>{t('edit_card_button')}</span>
                       </div>
                     </IonButton>
-                    <IonButton expand="block" className="mtg-btn" routerLink="/tab2">
+                    {/* ROADMAP.md J15 — used to be routerLink="/tab2", which
+                        dumped the seller at Tab2's camera step with no idea
+                        WHICH card they meant to sell (they'd have to re-scan
+                        or find it again in step 2's dropdown). This card is
+                        already known — hand it off directly. */}
+                    <IonButton expand="block" className="mtg-btn" routerLink={`/tab2/sell/${card.id}`}>
                       <div className="mtg-btn-content">
                         <IonIcon icon={storefrontOutline} />
                         <span>{t('list_market_sell')}</span>

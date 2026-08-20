@@ -13,4 +13,9 @@ export interface ListingTokenPayload {
   typ: 'listing';
 }
 
-export const LISTING_TOKEN_TTL = '15m';
+// ROADMAP.md J15 — lowered from 15m to 3m, user's own ask: a stale QR left
+// on a table shouldn't stay scannable that long. Independent of J12's
+// AUCTION_WINDOW_MS (5s, resets per new offer) — that governs how long an
+// already-JOINED auction stays open for counter-bids; this only governs how
+// long the QR itself is valid to be scanned/entered at all.
+export const LISTING_TOKEN_TTL = '3m';

@@ -34,6 +34,7 @@ import { runStage1Detection } from '../lib/ml/stage1Detector';
 import { runStage3PriceEstimation } from '../lib/ml/stage3PriceEstimator';
 import { runStage4ConditionGrading } from '../lib/ml/stage4ConditionGrader';
 import { identifyCard, toScryfallFields, type IdentifyCandidate, type IdentifyStatus } from '../lib/scan/identifyCard';
+import { withTimeout, SCAN_PIPELINE_TIMEOUT_MS } from '../lib/async/withTimeout';
 
 // Two capture paths, matching Proyecto/examen/README.md's documented split:
 // - "Manual" is the original single-shot @capacitor/camera photo, typed-in
@@ -48,18 +49,6 @@ import { identifyCard, toScryfallFields, type IdentifyCandidate, type IdentifySt
 //   prefilled fields stay fully editable, same "review before you commit"
 //   shape the rest of the app already uses (E5's price-edit-before-QR step).
 const CONDITIONS: api.CardCondition[] = ['NM', 'LP', 'MP', 'HP', 'DMG'];
-
-// ROADMAP.md I17 — safety net for runScanPipeline() below: a promise that
-// hangs (neither resolves nor rejects — the actual failure mode hit live,
-// tesseract.js's worker never settling after an init-time asset error)
-// can't be caught by any try/catch, only raced against a timeout.
-const SCAN_PIPELINE_TIMEOUT_MS = 30000;
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${label} tardó más de ${ms / 1000}s — timeout.`)), ms)),
-  ]);
-}
 
 type CaptureMode = 'manual' | 'scan';
 type ScanPhase = 'idle' | 'identifying' | 'estimating' | 'matched' | 'no-match' | 'error';

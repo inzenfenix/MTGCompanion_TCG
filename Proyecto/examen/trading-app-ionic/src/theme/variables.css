@@ -143,11 +143,32 @@
   --ion-tab-bar-color-selected: #ff4444;
   --ion-item-background: rgba(10, 5, 8, 0.8);
   --ion-background-color: transparent !important;
-  
+
+  /* Every Ionic overlay (alert/action-sheet/loading/picker/popover/toast)
+     defaults its own --background to var(--ion-overlay-background-color,
+     var(--ion-background-color, #fff)) — the EARLIER attempt at this fix
+     relied on that second fallback, but --ion-background-color is forced
+     transparent right above (intentional, for ion-content), so every
+     overlay silently inherited transparent too. --ion-overlay-background-color
+     is Ionic's own dedicated variable for exactly this case — set it once
+     here instead of chasing each overlay component's internal class with a
+     hand-specificity-matched selector. */
+  --ion-overlay-background-color: #1a0a0d;
+
   --ion-font-family: 'Inter', sans-serif;
 }
 
 /* Global Styles */
+
+html {
+  /* Belt-and-suspenders alongside index.html's <meta name="color-scheme">
+     — the meta tag sets the page's initial value before any CSS loads, this
+     is the same signal expressed as an actual CSS property so it's
+     authoritative for computed style too (some engines check one, some the
+     other, some both). See MainActivity.java for the real, native-level fix
+     this pair backs up. */
+  color-scheme: dark;
+}
 
 html, body, ion-app, ion-router-outlet, ion-tabs {
   background: transparent !important;
@@ -184,6 +205,18 @@ ion-tab-bar {
   padding-bottom: env(safe-area-inset-bottom);
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
+}
+
+/* Real background fix is --ion-overlay-background-color above (every
+   overlay's --background falls back to it, piercing shadow DOM the way a
+   plain descendant selector can't). border-radius/border aren't exposed as
+   a --custom-property by ion-alert, so those still need the actual
+   .alert-wrapper selector — !important because Ionic's own compiled rule
+   (`.alert-wrapper.sc-ion-alert-md`, two classes) otherwise outranks this
+   plain one-class-one-element selector on specificity alone. */
+ion-alert .alert-wrapper {
+  border: 1px solid rgba(212, 175, 55, 0.4) !important;
+  border-radius: 15px !important;
 }
 
 /* 

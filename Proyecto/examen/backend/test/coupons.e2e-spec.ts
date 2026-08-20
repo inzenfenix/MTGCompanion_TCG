@@ -289,8 +289,8 @@ describe('Coupons (e2e)', () => {
       .get('/coupons')
       .set('Authorization', `Bearer ${freshToken}`)
       .expect(200);
-    expect(
-      (list.body as CouponEntity[]).some((c) => c.id === coupon.id),
-    ).toBe(false);
+    expect((list.body as CouponEntity[]).some((c) => c.id === coupon.id)).toBe(
+      false,
+    );
   });
 });

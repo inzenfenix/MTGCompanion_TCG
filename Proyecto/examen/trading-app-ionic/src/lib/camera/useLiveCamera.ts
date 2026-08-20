@@ -33,8 +33,24 @@ export function useLiveCamera() {
   // value inside a stable useCallback without re-creating it (and therefore
   // GuidedCapture.tsx's effects that depend on it) every time the camera changes.
   const activeDeviceIdRef = useRef<string | null>(null);
+  // Bumped on every start() call, real bug fix — two callers racing to start
+  // the camera (e.g. Tab2.tsx's mount-time effect firing once for the
+  // initial render and again a moment later off useIonViewWillEnter's
+  // viewEntryTick bump) used to leave TWO concurrent getUserMedia() calls in
+  // flight. Neither stopped the other's stream first, so the second request
+  // fought the first for the same physical camera and Android's WebView
+  // returned a real `NotReadableError` ("Could not start video source"); and
+  // since either promise could resolve/reject last, `status` could end up
+  // set by the STALE call, visibly stuck on 'starting' after the real
+  // in-flight one had already failed or succeeded. Every start() call now
+  // takes this token, and only the call that still holds the latest token
+  // when its promise settles is allowed to write `status`/`streamRef` — a
+  // stale result is discarded (and its stream, if it actually opened, is
+  // immediately stopped rather than left as an orphaned hardware lock).
+  const startTokenRef = useRef(0);
 
   const stop = useCallback(() => {
+    startTokenRef.current += 1; // invalidate any in-flight start()
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     setStatus('idle');
@@ -66,6 +82,16 @@ export function useLiveCamera() {
         setStatus('unsupported');
         return;
       }
+      // Claim this call's token FIRST, and release any stream a previous
+      // call is still holding — see startTokenRef's comment above. Without
+      // this, calling start() while already streaming (two callers racing,
+      // or a plain re-entrant call) left the OLD stream's tracks alive while
+      // requesting a new one, and Android's camera HAL only allows one
+      // active client per physical camera — the new request would fail with
+      // a real NotReadableError instead of just replacing the old stream.
+      const token = ++startTokenRef.current;
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
       setStatus('starting');
       setErrorMessage(null);
       const targetId = deviceId ?? activeDeviceIdRef.current;
@@ -78,6 +104,14 @@ export function useLiveCamera() {
           video: targetId ? { deviceId: { exact: targetId } } : { facingMode: 'environment' },
           audio: false,
         });
+        if (token !== startTokenRef.current) {
+          // A newer start()/stop() already ran while we were awaiting
+          // permission/hardware — this stream is stale, don't let it
+          // clobber whatever the latest call already set up. Release it
+          // immediately instead of leaking an orphaned camera lock.
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -89,6 +123,7 @@ export function useLiveCamera() {
         setStatus('streaming');
         void refreshDevices();
       } catch (err) {
+        if (token !== startTokenRef.current) return; // superseded — stay quiet, the newer call owns status now
         setErrorMessage(err instanceof Error ? err.message : String(err));
         setStatus(err instanceof DOMException && err.name === 'NotAllowedError' ? 'denied' : 'error');
       }
@@ -96,11 +131,9 @@ export function useLiveCamera() {
     [refreshDevices],
   );
 
-  /** Detiene el stream actual y arranca de nuevo pidiendo puntualmente `deviceId` — no hay forma de "recablear" un MediaStream existente a otro dispositivo físico, hay que pedir uno nuevo. */
+  /** Pide el stream de `deviceId` — `start()` ya se encarga de soltar cualquier stream previo primero (ver su comentario), así que esto es solo un alias semántico para "cambiar de cámara puntual" en vez de un mecanismo aparte. */
   const switchCamera = useCallback(
     async (deviceId: string) => {
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
       await start(deviceId);
     },
     [start],
