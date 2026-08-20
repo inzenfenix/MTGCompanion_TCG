@@ -152,3 +152,31 @@ prueba del seed del backend (`test@example.com` / `password123` — ver
 | `VITE_STAGE1_MODEL_URL` | `/models/stage1-detector.onnx` | Dónde servir el modelo ONNX de Stage 1 (ver sección de ML arriba) |
 
 Ver `.env.example` en esta carpeta para el detalle comentado.
+
+### CI: compilar el APK sin usar una laptop (ROADMAP.md M2)
+
+`.github/workflows/build-apk.yml` (raíz del repo) arma el APK debug —
+`npm ci` → baja los `.onnx` publicados por M1 desde S3 → escribe
+`VITE_API_BASE_URL`/`network_security_config.xml` con el `backend_url`
+real → los mismos pasos que corre localmente el botón "Reconstruir APK"
+de `desktop-runner` (`setup:opencv` → `build` → `cap sync android` →
+`gradlew assembleDebug`) → publica el `.apk` como GitHub Release. Se
+dispara a mano desde la pestaña Actions (`workflow_dispatch`) — todavía no
+hay botón en `desktop-runner` para esto (ROADMAP.md M3, bloqueado en tener
+`gh` CLI + un mecanismo para refrescar credenciales AWS que vencen).
+
+Antes de la primera corrida, configurar en GitHub (Settings → Secrets and
+variables → Actions), una sola vez:
+
+| Tipo | Nombre | Valor |
+|---|---|---|
+| Secret | `AWS_ACCESS_KEY_ID` | Credenciales temporales de AWS Academy (las mismas que la pestaña Deploy de `desktop-runner`) |
+| Secret | `AWS_SECRET_ACCESS_KEY` | ídem |
+| Secret | `AWS_SESSION_TOKEN` | ídem — **vencen**; si una corrida falla en el paso de S3 con un error de auth, son las primeras sospechosas |
+| Variable | `AWS_REGION` | `terraform output aws_region` |
+| Variable | `DEPLOY_ARTIFACTS_BUCKET` | `terraform output deploy_artifacts_bucket_name` |
+| Variable | `BACKEND_URL` | `terraform output backend_url` (se puede pisar por corrida con el input `backend_url` del workflow) |
+
+Debug-signed únicamente por ahora — no hay keystore de release todavía
+(ver el punto abierto al final de la asignación de la persona 3 en
+ROADMAP.md).

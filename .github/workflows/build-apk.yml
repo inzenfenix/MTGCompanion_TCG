@@ -1,0 +1,140 @@
+name: Build Android APK (debug)
+
+# ROADMAP.md M2 — builds the "MTG Companion" debug APK without anyone's
+# laptop involved, using M1's shared S3 model store instead of a local
+# re-train/re-export. Manual trigger only (workflow_dispatch) — this is a
+# course-project convenience, not a release pipeline: no keystore/signing
+# exists yet (see workstream C's "release signing" follow-up), so this only
+# ever produces a debug-signed APK, same as desktop-runner's local
+# "Reconstruir APK" button (scripts.service.ts::rebuildApk()), whose exact
+# build steps this mirrors.
+#
+# Requires, set once by hand (gh CLI/GitHub UI — no automation writes these
+# yet, that's M3's still-open credential-refresh problem, see its own
+# ROADMAP row):
+#   Secrets  (Settings → Secrets and variables → Actions → Secrets)
+#     AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_SESSION_TOKEN
+#       — AWS Academy Learner Lab temp credentials (same ones desktop-runner's
+#         Deploy tab uses). These EXPIRE — re-paste them before dispatching
+#         this workflow if a run fails on the S3 sync step with an auth error.
+#   Variables (Settings → Secrets and variables → Actions → Variables)
+#     AWS_REGION               — e.g. us-east-1 (terraform output aws_region)
+#     DEPLOY_ARTIFACTS_BUCKET  — terraform output deploy_artifacts_bucket_name
+#     BACKEND_URL              — terraform output backend_url (default; can be
+#                                 overridden per-run via the workflow_dispatch
+#                                 input below)
+
+on:
+  workflow_dispatch:
+    inputs:
+      backend_url:
+        description: 'Backend base URL (e.g. http://1.2.3.4:3000) — overrides the BACKEND_URL repo variable for this run only'
+        required: false
+        type: string
+
+permissions:
+  contents: write # to publish the GitHub Release at the end
+
+env:
+  TRADING_APP_DIR: Proyecto/examen/trading-app-ionic
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ${{ env.TRADING_APP_DIR }}/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: ${{ env.TRADING_APP_DIR }}
+        run: npm ci
+
+      # Same distribution E3d installed by hand on the dev machine
+      # (Eclipse Temurin) — gradlew needs a real JDK.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # GitHub-hosted ubuntu-latest ships an Android SDK with cmdline-tools
+      # on PATH already — just make sure the exact platform/build-tools
+      # variables.gradle asks for are installed (mirrors E3d's own manual
+      # `sdkmanager` install on the dev machine).
+      - name: Install Android SDK platform/build-tools
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Configure AWS credentials (AWS Academy temp creds)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # ROADMAP.md M1 — the exported .onnx files are gitignored generated
+      # artifacts, never committed. Pull whatever's currently canonical
+      # instead of requiring a local re-train/re-export.
+      - name: Pull exported ONNX models from S3 (M1)
+        working-directory: ${{ env.TRADING_APP_DIR }}
+        run: |
+          if [ -z "${{ vars.DEPLOY_ARTIFACTS_BUCKET }}" ]; then
+            echo "::error::DEPLOY_ARTIFACTS_BUCKET repo variable isn't set — see this workflow's own header comment."
+            exit 1
+          fi
+          mkdir -p public/models
+          aws s3 sync "s3://${{ vars.DEPLOY_ARTIFACTS_BUCKET }}/models/" public/models/ --delete
+
+      # Same two files desktop-runner's applyAndroidBackendUrl()
+      # (android-deploy.ts::applyBackendUrl()) writes locally after a real
+      # `terraform apply` — a plain .env var and the cleartext-exception
+      # host in network_security_config.xml (ROADMAP.md I6/E3d).
+      - name: Point the app at the deployed backend
+        working-directory: ${{ env.TRADING_APP_DIR }}
+        env:
+          BACKEND_URL: ${{ inputs.backend_url || vars.BACKEND_URL }}
+        run: |
+          if [ -z "$BACKEND_URL" ]; then
+            echo "::error::No backend URL given — set the BACKEND_URL repo variable, or pass one via this workflow's 'backend_url' input."
+            exit 1
+          fi
+          echo "VITE_API_BASE_URL=$BACKEND_URL" > .env
+          HOST=$(echo "$BACKEND_URL" | sed -E 's#^[a-zA-Z]+://##; s#[:/].*$##')
+          XML=android/app/src/main/res/xml/network_security_config.xml
+          sed -i -E "s#(<domain includeSubdomains=\"false\">)[^<]*(</domain>)#\1${HOST}\2#" "$XML"
+          echo "Backend: $BACKEND_URL (cleartext host: $HOST)"
+
+      # Same sequence, same order, as desktop-runner's rebuildApk() runs
+      # locally — setup:opencv first (public/opencv.js is a gitignored
+      # generated asset, ROADMAP.md I15), then build, then Capacitor sync.
+      - name: Build web assets + sync Capacitor
+        working-directory: ${{ env.TRADING_APP_DIR }}
+        run: |
+          npm run setup:opencv
+          npm run build
+          npx cap sync android
+
+      - name: Build debug APK
+        working-directory: ${{ env.TRADING_APP_DIR }}/android
+        run: ./gradlew assembleDebug
+
+      - name: Publish debug APK as a GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-${{ github.run_number }}
+          name: 'MTG Companion — debug APK (run #${{ github.run_number }})'
+          body: |
+            Debug-signed APK (no release keystore yet — see ROADMAP.md
+            workstream C's "release signing" follow-up), built from
+            `${{ github.sha }}` by workflow_dispatch.
+
+            Backend: `${{ inputs.backend_url || vars.BACKEND_URL }}`
+          draft: false
+          prerelease: true
+          files: ${{ env.TRADING_APP_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk
