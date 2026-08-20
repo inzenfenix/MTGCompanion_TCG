@@ -696,13 +696,15 @@ and adds a new `gh` CLI prerequisite not yet covered by `tool-install.ts`.
 User-requested (20 ago, log-only): a dedicated read-only "Charts" tab that
 visualizes the PyTorch vs TensorFlow comparison across all 4 stages, instead
 of that comparison only existing as text/numbers in the "Exportar" tab
-(`ExportPanel.tsx`, backed by `GET /export/comparison`). No new backend data
-— reuses that same endpoint (`getExportComparison()` in `scripts.service.ts`,
-reads each stage's `final_metrics.json`), so this is a renderer-only feature.
+(`ExportPanel.tsx`, backed by `GET /export/comparison`). Started as
+renderer-only (reusing that endpoint as-is); grew one small additive
+backend endpoint (`GET /charts/extras`) once the user asked for per-epoch
+loss and ROC curves too, not just the one bar chart per stage — see N1's
+own note for exactly what that endpoint does and does not cover.
 
 | # | Task | Priority | Complexity | Notes |
 |---|---|---|---|---|
-| N1 | 🚧 IN PROGRESS (started 20 ago) New top-level "Charts" tab (`ChartsTab.tsx`): one grouped bar chart per stage (PyTorch vs TensorFlow, primary metric + percent-scale secondary metrics), reusing `GET /export/comparison`. Extract the metric-formatting helpers (`getMetric`/`pct`/`decimal`/`formatMetric`/`SECONDARY_METRICS`) out of `ExportPanel.tsx` into a shared `lib/exportMetrics.ts` so both tabs share one source of truth instead of duplicating it. | P3 | S | Purely additive/renderer-only — no backend change, no `ROADMAP` dependency on any other open row. |
+| N1 | ✅ New top-level "Charts" tab (`ChartsTab.tsx`): a subpestaña per stage (1–4, same pattern as `FrameworkTab.tsx`'s stage subtabs), each showing a grouped PyTorch-vs-TensorFlow bar chart (primary metric + percent-scale secondary metrics, reusing `GET /export/comparison`) plus per-epoch loss curves and ROC curves side by side per framework. | P3 | S | **Done (20 ago).** Extracted the metric-formatting helpers (`getMetric`/`pct`/`decimal`/`formatMetric`/`SECONDARY_METRICS`) out of `ExportPanel.tsx` into shared `lib/exportMetrics.ts` so "Exportar" and "Charts" share one source of truth instead of duplicating it. New `FrameworkComparisonChart` (grouped two-series bar, `charts/`) alongside the existing `MetricsBarChart`/`LossCurveChart`/`RocCurveChart` — the loss/ROC charts are the same existing single-framework components, just rendered twice (PT column, TF column) rather than a new merged-series chart type. Loss/ROC data is **not** in `final_metrics.json` (Optuna doesn't persist either) — new `StageComparisonDef.extras` field (`scripts.config.ts`) + `getChartsExtras()`/`GET /charts/extras` (additive, doesn't touch `export/comparison`'s existing shape) read `training_history.json`/`metrics_binary.json`, which **only Stage 1's plain (non-Optuna) `07_binary_classifier.py`/TF equivalent write today** — Stage 2/3/4 honestly show "no persisted yet" instead of a fabricated or empty chart, since no other training script in this repo writes those files. Same available:false-not-an-error degradation as `getExportComparison()`. **Verified**: `npm run build:server`/`build:renderer` both clean; both endpoints (`/export/comparison`, `/charts/extras`) hit live against the user's own already-running dev instance and cross-checked field-by-field against real `final_metrics.json`/`training_history.json`/`metrics_binary.json` on disk for all 4 stages — all keys line up. **Not verified**: no visual screenshot of the rendered tab — the Chrome extension wasn't connected in this environment and no local headless browser was available; the user was actively using the same live dev instance at the time (adding AWS credentials), so a fresh screenshot pass wasn't attempted to avoid disrupting that session. |
 
 ---
 

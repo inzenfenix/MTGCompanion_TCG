@@ -17,6 +17,7 @@ import {
   RUN_ALL_SEQUENCES,
   ScriptDef,
   SCRIPTS,
+  StageExtraFrameworkData,
   findScript,
 } from './scripts.config';
 import { LogsGateway } from './logs.gateway';
@@ -283,6 +284,48 @@ export class ScriptsService {
         };
       }),
     );
+  }
+
+  /**
+   * Curva de pérdida por época + curva ROC persistidas en disco, por etapa
+   * (solo las que declaran `extras` en EXPORT_STAGES — hoy únicamente
+   * Stage 1, ver el comentario de ese campo en scripts.config.ts) — pestaña
+   * "Charts" (ROADMAP.md N1). Mismo criterio de degradación gradual que
+   * getExportComparison(): un framework sin ese archivo en esta máquina se
+   * reporta `available: false`, nunca un error.
+   */
+  async getChartsExtras(): Promise<
+    { stage: string; pytorch: StageExtraFrameworkData; tensorflow: StageExtraFrameworkData }[]
+  > {
+    const frameworks: ComparableFramework[] = ['pytorch', 'tensorflow'];
+    const out: { stage: string; pytorch: StageExtraFrameworkData; tensorflow: StageExtraFrameworkData }[] = [];
+
+    for (const stageDef of EXPORT_STAGES) {
+      if (!stageDef.extras) continue;
+      const byFramework = {} as Record<ComparableFramework, StageExtraFrameworkData>;
+
+      for (const fw of frameworks) {
+        let lossHistory: StageExtraFrameworkData['lossHistory'];
+        let rocCurve: StageExtraFrameworkData['rocCurve'];
+        try {
+          lossHistory = JSON.parse(await fs.promises.readFile(stageDef.extras.lossHistoryPath(fw), 'utf-8'));
+        } catch {
+          // Sin training_history.json todavía para este framework en esta
+          // máquina (nunca se corrió el entrenamiento simple) — no es error.
+        }
+        try {
+          const metrics = JSON.parse(await fs.promises.readFile(stageDef.extras.rocCurveMetricsPath(fw), 'utf-8'));
+          rocCurve = metrics.roc_curve;
+        } catch {
+          // Idem — sin metrics_binary.json todavía, o esa corrida no llegó a generarlo.
+        }
+        byFramework[fw] = { available: Boolean(lossHistory || rocCurve), lossHistory, rocCurve };
+      }
+
+      out.push({ stage: stageDef.stage, pytorch: byFramework.pytorch, tensorflow: byFramework.tensorflow });
+    }
+
+    return out;
   }
 
   /**

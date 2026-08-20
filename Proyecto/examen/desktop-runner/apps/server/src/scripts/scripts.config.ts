@@ -1116,6 +1116,13 @@ export function findScript(id: string): ScriptDef | undefined {
 
 export type ComparableFramework = 'pytorch' | 'tensorflow';
 
+/** Un framework's worth de datos de `extras` (ver StageComparisonDef.extras) — pestaña "Charts" (ROADMAP.md N1). */
+export interface StageExtraFrameworkData {
+  available: boolean;
+  lossHistory?: { epoch: number; train_loss: number; val_loss: number }[];
+  rocCurve?: { fpr: number[]; tpr: number[] };
+}
+
 export interface StageComparisonDef {
   /** Identificador estable de la etapa (no es el nombre del script). */
   stage: 'stage1' | 'stage2' | 'stage3' | 'stage4';
@@ -1139,6 +1146,22 @@ export interface StageComparisonDef {
   format?: 'percent' | 'decimal';
   metricsPath: (fw: ComparableFramework) => string;
   exportScriptId: (fw: ComparableFramework) => string;
+  /**
+   * Curva de pérdida por época + curva ROC persistidas en disco — para la
+   * pestaña "Charts" (ROADMAP.md N1). A propósito NO vienen de
+   * final_metrics.json (la búsqueda de Optuna no guarda ninguna de las
+   * dos) sino del script de entrenamiento simple (07_binary_classifier.py
+   * y su equivalente TF son los únicos que hoy las escriben — ver
+   * `liveFile`/`resultFiles` de pt-binary-classifier/tf-binary-classifier
+   * más abajo en este mismo archivo). Stage 2/3/4 no persisten ninguna de
+   * las dos todavía, así que se deja `extras` undefined ahí a propósito en
+   * vez de apuntar a un path que no existe.
+   */
+  extras?: {
+    lossHistoryPath: (fw: ComparableFramework) => string;
+    /** Métricas del clasificador (metrics_binary.json) — el campo `roc_curve` se extrae de ahí, no es un archivo dedicado. */
+    rocCurveMetricsPath: (fw: ComparableFramework) => string;
+  };
 }
 
 /**
@@ -1157,6 +1180,10 @@ export const EXPORT_STAGES: StageComparisonDef[] = [
     metricLabel: 'Accuracy',
     metricsPath: (fw) => path.join(CERTAMEN_DIR, 'output', fw, 'optuna', 'latest', 'final_metrics.json'),
     exportScriptId: (fw) => (fw === 'pytorch' ? 'pt-export-onnx' : 'tf-export-onnx'),
+    extras: {
+      lossHistoryPath: (fw) => path.join(fw === 'pytorch' ? PT_DIR : TF_DIR, 'results', 'training_history.json'),
+      rocCurveMetricsPath: (fw) => path.join(fw === 'pytorch' ? PT_DIR : TF_DIR, 'results', 'metrics_binary.json'),
+    },
   },
   {
     stage: 'stage2',

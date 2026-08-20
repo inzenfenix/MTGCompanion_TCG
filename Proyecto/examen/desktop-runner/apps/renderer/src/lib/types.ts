@@ -166,6 +166,19 @@ export interface ExportComparisonStage {
   recommendation: 'pytorch' | 'tensorflow' | 'tie' | null;
 }
 
+/** Mismo shape que StageExtraFrameworkData del server (scripts.config.ts) — pestaña "Charts" (ROADMAP.md N1). */
+export interface StageExtraFrameworkData {
+  available: boolean;
+  lossHistory?: { epoch: number; train_loss: number; val_loss: number }[];
+  rocCurve?: { fpr: number[]; tpr: number[] };
+}
+
+export interface StageExtras {
+  stage: string;
+  pytorch: StageExtraFrameworkData;
+  tensorflow: StageExtraFrameworkData;
+}
+
 /** Mismo shape que ScraperCardCountResult del server (scryfall-card-count.ts). */
 export interface ScraperCardCountResult {
   namesTotal: number;

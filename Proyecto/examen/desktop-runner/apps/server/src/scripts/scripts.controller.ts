@@ -56,6 +56,16 @@ export class ScriptsController {
     return this.scriptsService.getExportComparison();
   }
 
+  // Pestaña "Charts" (ROADMAP.md N1) — curva de pérdida por época + curva
+  // ROC persistidas en disco, por etapa (solo Stage 1 tiene estos archivos
+  // hoy, ver el comentario de StageComparisonDef.extras en
+  // scripts.config.ts). Endpoint separado de export/comparison a propósito:
+  // no toca el shape que ya consume ExportPanel.tsx.
+  @Get('charts/extras')
+  getChartsExtras() {
+    return this.scriptsService.getChartsExtras();
+  }
+
   // ROADMAP.md M1 — publica trading-app-ionic/public/models/ al bucket
   // deploy_artifacts (mismo mecanismo/credenciales que POST deploy/backend,
   // ver el comentario junto a uploadModelsToS3()) para que cualquier otra
