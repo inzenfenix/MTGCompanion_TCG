@@ -371,7 +371,14 @@ def obtener_metadata_generic_scenes(n_target: int) -> list:
             continue
         rng.shuffle(titles)
         titles = titles[:por_categoria]
-        urls = _commons_resolve_urls(titles)
+        try:
+            urls = _commons_resolve_urls(titles)
+        except requests.exceptions.RequestException as e:
+            # Igual que el listado de categoría arriba: un 429 persistente acá
+            # no debe tirar toda la corrida (antes lo hacía, ver ROADMAP I31) —
+            # se salta esta categoría y se sigue con las demás.
+            print(f"    ✗ Resolución de URLs para {cat!r} falló tras reintentos ({e}); saltando.")
+            continue
         prefijo = re.sub(r"[^a-z0-9]+", "_", cat.lower()).strip("_")
         nuevos = 0
         for t, u in urls.items():
@@ -447,7 +454,8 @@ def _descargar_una(card: dict, dest_dir: pathlib.Path, delay: float = NEG_DELAY,
 
 
 def _descargar_fuente(nombre: str, fetch_meta, n_target: int, skip: bool, workers: int = 4,
-                       delay: float = NEG_DELAY, max_reintentos: int = 3, backoff: float = 2.0) -> list:
+                       delay: float = NEG_DELAY, max_reintentos: int = 3, backoff: float = 2.0,
+                       scalable: bool = True) -> list:
     """Descarga (con caché) las imágenes de UNA fuente de negativos. Misma
     lógica que antes tenía descargar_negativos(), ahora parametrizada por
     fuente para no duplicarla por cada juego nuevo que se agregue.
@@ -459,6 +467,17 @@ def _descargar_fuente(nombre: str, fetch_meta, n_target: int, skip: bool, worker
     más largo entre descargas y más reintentos con backoff más generoso. El
     volumen ahí es chico (52+40 cartas), así que ir más lento no cuesta nada
     en tiempo real.
+
+    scalable=False (mazos fijos, p.ej. naipes): un mazo fijo nunca "crece" —
+    su metadata cacheada YA es el mazo completo apenas se descargó una vez,
+    sin importar cuánto diga n_target (que es el presupuesto GLOBAL del
+    dataset, no el tamaño real de este mazo). Comparar `len(cartas) <
+    n_target` para estas fuentes es casi siempre cierto (52/40 < 3000) y
+    antes disparaba un refetch a la API de Commons EN CADA corrida — un
+    llamado innecesario que además puede tirar toda una corrida de Optuna de
+    varias horas por un 429 transitorio en datos que ya estaban completos en
+    disco (visto en vivo, ROADMAP I31). Con scalable=False, cualquier caché
+    no vacía se trata como completa.
     """
     dir_ = IMAGES_NEG / nombre
     dir_.mkdir(parents=True, exist_ok=True)
@@ -468,7 +487,7 @@ def _descargar_fuente(nombre: str, fetch_meta, n_target: int, skip: bool, worker
         with open(meta_path) as f:
             cartas = json.load(f)
         print(f"  Metadatos en caché ({nombre}): {len(cartas):,} cartas")
-        if len(cartas) < n_target:
+        if len(cartas) < n_target and (scalable or not cartas):
             print(f"  Caché insuficiente ({len(cartas)} < {n_target}), expandiendo...")
             cartas = fetch_meta(n_target)
             with open(meta_path, "w") as f:
@@ -517,7 +536,7 @@ def descargar_negativos(n_target: int, skip: bool = False) -> list:
     rutas = []
     for nombre, cfg in fijas.items():
         print(f"  ── Fuente de negativos: {nombre} (mazo fijo, se usa completo) ──")
-        rutas += _descargar_fuente(nombre, cfg["fetch"], n_target, skip, **_dl_kwargs(cfg))
+        rutas += _descargar_fuente(nombre, cfg["fetch"], n_target, skip, scalable=False, **_dl_kwargs(cfg))
 
     resto = max(n_target - len(rutas), 0)
     base, sobra = divmod(resto, len(escalables))
