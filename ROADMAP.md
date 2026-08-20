@@ -691,6 +691,21 @@ and adds a new `gh` CLI prerequisite not yet covered by `tool-install.ts`.
 
 ---
 
+## N. Charts tab in desktop-runner
+
+User-requested (20 ago, log-only): a dedicated read-only "Charts" tab that
+visualizes the PyTorch vs TensorFlow comparison across all 4 stages, instead
+of that comparison only existing as text/numbers in the "Exportar" tab
+(`ExportPanel.tsx`, backed by `GET /export/comparison`). No new backend data
+— reuses that same endpoint (`getExportComparison()` in `scripts.service.ts`,
+reads each stage's `final_metrics.json`), so this is a renderer-only feature.
+
+| # | Task | Priority | Complexity | Notes |
+|---|---|---|---|---|
+| N1 | 🚧 IN PROGRESS (started 20 ago) New top-level "Charts" tab (`ChartsTab.tsx`): one grouped bar chart per stage (PyTorch vs TensorFlow, primary metric + percent-scale secondary metrics), reusing `GET /export/comparison`. Extract the metric-formatting helpers (`getMetric`/`pct`/`decimal`/`formatMetric`/`SECONDARY_METRICS`) out of `ExportPanel.tsx` into a shared `lib/exportMetrics.ts` so both tabs share one source of truth instead of duplicating it. | P3 | S | Purely additive/renderer-only — no backend change, no `ROADMAP` dependency on any other open row. |
+
+---
+
 ## Suggested parallel assignment (4 people)
 
 - **Person 1 — ML/Stage 2:** workstream A end-to-end.
