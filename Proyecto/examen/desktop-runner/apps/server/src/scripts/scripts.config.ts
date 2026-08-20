@@ -263,9 +263,9 @@ export const SCRIPTS: ScriptDef[] = [
   {
     id: 'shared-download-negatives',
     group: 'shared',
-    label: 'Descargar cartas negativas (Pokémon + otras fuentes)',
+    label: 'Descargar cartas negativas (Pokémon + otras fuentes + escenas genéricas)',
     description:
-      'Descarga (o completa) las imágenes no-MTG usadas como negativos por el detector Stage 1 — Pokémon TCG, Yu-Gi-Oh!, Star Wars: Unlimited (sumada por ROADMAP.md I18 — confusión real encontrada en dispositivo, layout de carta parecido a MTG) y dos mazos de naipes. Idempotente: reutiliza lo que ya existe en disco y solo descarga lo que falta. Usa el venv de pytorch/ (compartida con TensorFlow: misma carpeta en disco).',
+      'Descarga (o completa) las imágenes no-MTG usadas como negativos por el detector Stage 1 — Pokémon TCG, Yu-Gi-Oh!, Star Wars: Unlimited (sumada por ROADMAP.md I18 — confusión real encontrada en dispositivo, layout de carta parecido a MTG), "escenas genéricas" reales de Wikimedia Commons (cuartos, pantallas, TVs — sumada por ROADMAP.md I31, el caso real de un video en una pantalla detectado como carta; Commons rate-limita fuerte, puede tardar) y dos mazos de naipes. Idempotente: reutiliza lo que ya existe en disco y solo descarga lo que falta. Usa el venv de pytorch/ (compartida con TensorFlow: misma carpeta en disco).',
     cwd: PT_DIR,
     script: '07_binary_classifier.py',
     env: 'pytorch',
