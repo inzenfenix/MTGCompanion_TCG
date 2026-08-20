@@ -1578,6 +1578,22 @@ export class ScriptsService {
         this.gateway.emitLog(runId, 'stdout', '$ npm run setup:opencv\n');
         await this.execAndStream(runId, 'npm', ['run', 'setup:opencv'], TRADING_APP_DIR, extraEnv);
 
+        // ROADMAP.md M2 — the comment right above already called out
+        // public/tesseract/ as "the same kind of gitignored generated asset
+        // as opencv.js" but never actually got its own setup step here,
+        // same real gap found live in build-apk.yml's CI copy of this exact
+        // sequence: a checkout that never ran "npm run setup:tesseract" by
+        // hand has no public/tesseract/worker.min.js or public/tessdata/
+        // eng.traineddata, so tesseract.js's worker fails to load
+        // ("importScripts... failed to load") at OCR time, not build time —
+        // this dev machine's own local rebuilds were only ever "working" by
+        // accident, because a past manual `npm run setup:tesseract` run had
+        // already left those files on disk from before this automated path
+        // existed. Idempotent (copies + a download skipped if already
+        // present), same as setup:opencv above.
+        this.gateway.emitLog(runId, 'stdout', '$ npm run setup:tesseract\n');
+        await this.execAndStream(runId, 'npm', ['run', 'setup:tesseract'], TRADING_APP_DIR, extraEnv);
+
         this.gateway.emitLog(runId, 'stdout', '$ npm run build\n');
         await this.execAndStream(runId, 'npm', ['run', 'build'], TRADING_APP_DIR, extraEnv);
 

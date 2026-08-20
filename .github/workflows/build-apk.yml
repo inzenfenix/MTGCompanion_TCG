@@ -121,7 +121,17 @@ jobs:
 
       # Same sequence, same order, as desktop-runner's rebuildApk() runs
       # locally — setup:opencv first (public/opencv.js is a gitignored
-      # generated asset, ROADMAP.md I15), then build, then Capacitor sync.
+      # generated asset, ROADMAP.md I15), then setup:tesseract (same deal,
+      # ROADMAP.md M2/E3c — public/tesseract/worker.min.js + the LSTM wasm
+      # cores + public/tessdata/eng.traineddata are ALSO gitignored generated
+      # assets, copied from node_modules/downloaded once by that script, not
+      # committed), then build, then Capacitor sync. Real bug found live:
+      # this step used to run setup:opencv only, so every CI-built APK
+      # shipped with NO public/tesseract/ at all — OCR failed at runtime
+      # with "Uncaught NetworkError: Failed to execute 'importScripts' ...
+      # the script at 'http://localhost/tesseract/worker.min.js' failed to
+      # load", never caught by any build-time check since the missing files
+      # only matter once tesseract.js's worker actually tries to load them.
       - name: Build web assets + sync Capacitor
         working-directory: ${{ env.TRADING_APP_DIR }}
         run: |
@@ -133,6 +143,7 @@ jobs:
           # not inferred from which later command happened to fail first.
           echo "node: $(node --version), npm: $(npm --version)"
           npm run setup:opencv
+          npm run setup:tesseract
           npm run build
           npx cap sync android
 
