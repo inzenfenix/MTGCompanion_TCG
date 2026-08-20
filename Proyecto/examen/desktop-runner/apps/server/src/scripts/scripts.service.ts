@@ -549,15 +549,29 @@ export class ScriptsService {
   /**
    * Detecta GPU (NVIDIA/AMD/ninguna) e instala el wheel de torch/tensorflow
    * que corresponda ANTES del resto de requirements.txt:
-   *  - NVIDIA: nada especial — el wheel default de PyPI ya trae soporte CUDA.
+   *  - NVIDIA + pytorch: nada especial — el wheel default de PyPI ya trae
+   *    soporte CUDA.
+   *  - NVIDIA + tensorflow: SÍ hace falta algo especial (ROADMAP.md D7,
+   *    encontrado 19 ago) — el `tensorflow` plano de PyPI NO trae los
+   *    paquetes `nvidia-*` (cuDNN/cuBLAS/etc.) que necesita en runtime, a
+   *    pesar de que `requirements.txt` solo pide `tensorflow>=2.16` sin
+   *    aclararlo — hace falta pedir explícitamente el extra
+   *    `tensorflow[and-cuda]`. Confirmado en vivo: sin esto,
+   *    `tf.config.list_physical_devices('GPU')` da `[]` con "Could not find
+   *    cuda drivers" aunque `nvidia-smi` vea la placa perfecto (no es un
+   *    problema de driver). Además, aun con los paquetes `nvidia-*`
+   *    instalados, TF no los encuentra en runtime a menos que sus
+   *    `lib/`s estén en `LD_LIBRARY_PATH` — eso se inyecta en cada corrida
+   *    de un script TensorFlow, no acá (ver `tfCudaLdLibraryPath()` /
+   *    `runScript()`, esto solo instala los paquetes).
    *  - AMD (ROCm, solo Linux): prueba los canales de gpu-detect.ts en orden
    *    (rocm7.1 → rocm6.4 → rocm6.2) hasta que uno instale sin error.
    *    TensorFlow no tiene wheel ROCm mantenido para las versiones que pide
    *    este proyecto (>=2.16) — solo aplica a "pytorch"; para "tensorflow"
    *    con AMD detectado, solo se loguea y se sigue con CPU.
-   *  - Ninguna GPU / falló la instalación ROCm: wheels CPU explícitos para
-   *    pytorch (más chicos que el default con CUDA sin uso); tensorflow no
-   *    tiene índice "cpu" separado, así que ahí no hace falta nada especial.
+   *  - Ninguna GPU / falló la instalación ROCm o CUDA: wheels CPU explícitos
+   *    para pytorch (más chicos que el default con CUDA sin uso); tensorflow
+   *    cae directo al `tensorflow>=2.16` plano de requirements.txt (CPU).
    * Nunca tira: si todo falla, deja que el requirements.txt de después
    * instale lo que pueda — siempre termina en algo funcional en CPU.
    */
@@ -571,8 +585,18 @@ export class ScriptsService {
           envId,
           'TensorFlow no tiene wheel ROCm mantenido para tensorflow>=2.16 vía pip (solo Docker) — se instala en modo CPU.',
         );
+      } else if (gpu.backend === 'cuda') {
+        this.gateway.emitVenvProgress(envId, 'Instalando TensorFlow con soporte CUDA (tensorflow[and-cuda]) ...');
+        try {
+          await this.execAndStream(runId, pip, ['install', 'tensorflow[and-cuda]'], cwd);
+        } catch {
+          this.gateway.emitVenvProgress(
+            envId,
+            'No se pudo instalar tensorflow[and-cuda] — sigue con el tensorflow plano de requirements.txt (CPU).',
+          );
+        }
       }
-      return; // TF no tiene índice especial que elegir en ningún caso — lo resuelve requirements.txt.
+      return; // el resto (o el CPU-only) lo resuelve requirements.txt.
     }
 
     // A partir de acá, envId === 'pytorch'.
@@ -677,6 +701,38 @@ export class ScriptsService {
       this.gateway.emitStatus(runId, 'error');
       throw new BadRequestException(`No se pudo preparar la imagen Docker de TensorFlow: ${message}`);
     }
+  }
+
+  /**
+   * Recorre `<tensorFlow venv>/lib/`, cada subcarpeta `pythonX.Y` que
+   * encuentre, y adentro `site-packages/nvidia/<paquete>/lib` — arma un
+   * LD_LIBRARY_PATH con todos los que existan (ver ROADMAP.md D7 / el
+   * comentario en runScript() sobre por qué hace falta). No asume una
+   * versión de Python fija — recorre lo que haya en vez de hardcodear
+   * "python3.12", así sigue funcionando si `preferredPythonBins`/pyenv
+   * termina creando el venv con otra versión. `{}` si no hay nada que
+   * agregar (venv sin `tensorflow[and-cuda]` instalado, por ejemplo un venv
+   * viejo de antes de D7, o `ENVS.tensorflow.dir` no configurado).
+   */
+  private tfCudaLdLibraryPath(): Record<string, string> {
+    const tfDir = ENVS.tensorflow.dir;
+    if (!tfDir) return {};
+    const libRoot = path.join(tfDir, '.venv', 'lib');
+    if (!fs.existsSync(libRoot)) return {};
+
+    const dirs: string[] = [];
+    for (const pyDir of fs.readdirSync(libRoot)) {
+      const nvidiaRoot = path.join(libRoot, pyDir, 'site-packages', 'nvidia');
+      if (!fs.existsSync(nvidiaRoot)) continue;
+      for (const pkg of fs.readdirSync(nvidiaRoot)) {
+        const pkgLibDir = path.join(nvidiaRoot, pkg, 'lib');
+        if (fs.existsSync(pkgLibDir)) dirs.push(pkgLibDir);
+      }
+    }
+    if (dirs.length === 0) return {};
+
+    const existing = process.env.LD_LIBRARY_PATH;
+    return { LD_LIBRARY_PATH: existing ? `${dirs.join(':')}:${existing}` : dirs.join(':') };
   }
 
   /** Corre un comando y streamea su output por el gateway bajo un runId, esperando a que termine. */
@@ -785,6 +841,17 @@ export class ScriptsService {
       commandPreview = `${path.basename(cmd)} ${script.script} ${argv.join(' ')}`;
     }
 
+    // NVIDIA + tensorflow, venv (no Docker) (ROADMAP.md D7): `tensorflow[and-cuda]`
+    // (instalado por installGpuAwarePackage()) trae los paquetes nvidia-*/lib,
+    // pero TF no los encuentra en runtime a menos que estén en LD_LIBRARY_PATH —
+    // su .so no trae RPATH apuntando ahí. Confirmado en vivo: sin esto,
+    // tf.config.list_physical_devices('GPU') da [] con "Cannot dlopen some GPU
+    // libraries" aunque los paquetes SÍ estén instalados (cada .so individual
+    // carga bien standalone vía ctypes — el problema es solo que TF no sabe
+    // dónde buscarlos). No-op si no es un script de TensorFlow, no hay CUDA
+    // detectado, o corre en Docker (la imagen ya trae CUDA del sistema).
+    const tfCudaEnv = !useDocker && script.env === 'tensorflow' && gpu.backend === 'cuda' ? this.tfCudaLdLibraryPath() : {};
+
     this.runs.set(runId, { id: runId, scriptId, status: 'running', startedAt });
     this.gateway.emitStatus(runId, 'running');
     this.gateway.emitLog(runId, 'stdout', `$ ${commandPreview}\n`);
@@ -795,7 +862,14 @@ export class ScriptsService {
     // "docker" en sí (no es Python), pero no molesta dejarlo en el entorno.
     const child: ChildProcessWithoutNullStreams = spawn(cmd, args, {
       cwd,
-      env: { ...process.env, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8', ...(useDocker ? {} : gpuEnv), ...roboflowEnv },
+      env: {
+        ...process.env,
+        PYTHONUNBUFFERED: '1',
+        PYTHONIOENCODING: 'utf-8',
+        ...(useDocker ? {} : gpuEnv),
+        ...(useDocker ? {} : tfCudaEnv),
+        ...roboflowEnv,
+      },
       // detached: true en POSIX pone al proceso como líder de un nuevo
       // grupo de procesos (setpgid), no lo desconecta del server — hace
       // falta para poder matar el árbol entero en stopRun() (ver ahí):

@@ -356,20 +356,48 @@ def _descargar_fuente(nombre: str, fetch_meta, n_target: int, skip: bool, worker
     return [str(dir_ / f"{c['id']}.jpg") for c in cartas if (dir_ / f"{c['id']}.jpg").exists()]
 
 
+# Fuentes "estáticas": ya viven en disco, no se scrapean acá — la carpeta
+# local ES la fuente de verdad, sin fetch_meta/caché de metadata como las de
+# arriba. real_negatives: fotos reales de teléfono de cartas físicas no-MTG
+# en escenas reales, descargadas por ../real_negatives_downloader.py
+# (ROADMAP I31/I33) — a diferencia de todo lo de arriba (scrapeado de
+# catálogos o Wikimedia Commons), esto tiene la fidelidad de captura real
+# (cámara/luz/ruido del teléfono) que ninguna otra fuente tiene. Se suma
+# completa, sin presupuesto de n_target: si no está en disco todavía,
+# simplemente no aporta nada esta corrida.
+FUENTES_ESTATICAS_LOCALES = ["real_negatives"]
+
+
+def _cargar_fuente_estatica(nombre: str) -> list:
+    dir_ = IMAGES_NEG / nombre
+    if not dir_.exists():
+        return []
+    return sorted(str(p) for p in dir_.iterdir() if p.suffix.lower() in (".jpg", ".jpeg", ".png"))
+
+
 def descargar_negativos(n_target: int, skip: bool = False) -> list:
     """
     Descarga imágenes de tres fuentes como ejemplos negativos — Pokémon TCG,
     Star Wars: Unlimited (ver obtener_metadata_star_wars()), y escenas
     genéricas "no hay carta acá" (ver obtener_metadata_generic_scenes(),
     ROADMAP I31) — repartiendo el presupuesto n_target parejo entre las
-    tres. Retorna lista de rutas a archivos descargados existentes.
+    tres. También suma lo que haya en FUENTES_ESTATICAS_LOCALES
+    (real_negatives), completo y sin presupuesto de n_target. Retorna lista
+    de rutas a archivos descargados existentes.
     """
+    rutas = []
+    for nombre in FUENTES_ESTATICAS_LOCALES:
+        locales = _cargar_fuente_estatica(nombre)
+        if locales:
+            print(f"  ── Fuente de negativos: {nombre} (estática local, {len(locales):,} en disco) ──")
+            rutas += locales
+
     n_poke = n_target // 3
     n_sw   = n_target // 3
     n_gen  = n_target - n_poke - n_sw
 
     print(f"  ── Fuente de negativos: pokemon (objetivo: {n_poke:,} cartas) ──")
-    rutas = _descargar_fuente("pokemon", obtener_metadata_pokemon, n_poke, skip)
+    rutas += _descargar_fuente("pokemon", obtener_metadata_pokemon, n_poke, skip)
 
     print(f"  ── Fuente de negativos: star_wars_unlimited (objetivo: {n_sw:,} cartas) ──")
     rutas += _descargar_fuente("star_wars_unlimited", obtener_metadata_star_wars, n_sw, skip)

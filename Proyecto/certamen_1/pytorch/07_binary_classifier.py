@@ -436,6 +436,25 @@ NEG_SOURCES = {
     "playing_cards_es":   {"fetch": obtener_metadata_playing_cards_es, "scalable": False, **_COMMONS_DL},
 }
 
+# Fuentes "estáticas": ya viven en disco, no se scrapean acá — la carpeta
+# local ES la fuente de verdad, sin fetch_meta/caché de metadata como
+# NEG_SOURCES. real_negatives: fotos reales de teléfono de cartas físicas
+# no-MTG en escenas reales, descargadas por real_negatives_downloader.py
+# (ROADMAP I31/I33) — a diferencia de todo lo de arriba (scrapeado de
+# catálogos o Wikimedia Commons), esto tiene la fidelidad de captura real
+# (cámara/luz/ruido del teléfono) que ninguna otra fuente de NEG_SOURCES
+# tiene. Se suma completa, sin presupuesto de n_target, mismo espíritu que
+# las fuentes fijas (mazos de naipes) pero sin paso de descarga: si no está
+# en disco todavía, simplemente no aporta nada esta corrida.
+FUENTES_ESTATICAS_LOCALES = ["real_negatives"]
+
+
+def _cargar_fuente_estatica(nombre: str) -> list:
+    dir_ = IMAGES_NEG / nombre
+    if not dir_.exists():
+        return []
+    return sorted(str(p) for p in dir_.iterdir() if p.suffix.lower() in (".jpg", ".jpeg", ".png"))
+
 
 def _descargar_una(card: dict, dest_dir: pathlib.Path, delay: float = NEG_DELAY,
                     max_reintentos: int = 3, backoff: float = 2.0) -> bool:
@@ -519,7 +538,9 @@ def descargar_negativos(n_target: int, skip: bool = False) -> list:
     Descarga imágenes de varias fuentes como ejemplos negativos — dos TCGs
     (Pokémon, Yu-Gi-Oh!) y dos mazos de naipes fuera del mundo TCG (inglés,
     español) — ver el comentario al inicio de esta sección sobre por qué
-    varias fuentes en vez de una sola.
+    varias fuentes en vez de una sola. También suma lo que haya en
+    FUENTES_ESTATICAS_LOCALES (real_negatives — fotos reales de teléfono,
+    ROADMAP I31/I33), completo y sin presupuesto de n_target.
 
     Las fuentes fijas (naipes) se bajan primero, enteras — no tiene sentido
     pedirles "n_target/4" cuando el mazo entero son 40-52 cartas. El resto
@@ -534,6 +555,12 @@ def descargar_negativos(n_target: int, skip: bool = False) -> list:
         return {k: cfg[k] for k in ("workers", "delay", "max_reintentos", "backoff") if k in cfg}
 
     rutas = []
+    for nombre in FUENTES_ESTATICAS_LOCALES:
+        locales = _cargar_fuente_estatica(nombre)
+        if locales:
+            print(f"  ── Fuente de negativos: {nombre} (estática local, {len(locales):,} en disco) ──")
+            rutas += locales
+
     for nombre, cfg in fijas.items():
         print(f"  ── Fuente de negativos: {nombre} (mazo fijo, se usa completo) ──")
         rutas += _descargar_fuente(nombre, cfg["fetch"], n_target, skip, scalable=False, **_dl_kwargs(cfg))
