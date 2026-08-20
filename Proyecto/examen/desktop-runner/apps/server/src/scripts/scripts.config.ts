@@ -431,6 +431,15 @@ export const SCRIPTS: ScriptDef[] = [
     args: [
       { flag: '--n', name: 'n', kind: 'number', label: 'Cartas por clase', default: 3000 },
       { flag: '--epochs', name: 'epochs', kind: 'number', label: 'Épocas', default: 15 },
+      {
+        flag: '--skip-download',
+        name: 'skip_download',
+        kind: 'boolean',
+        label: 'No descargar negativos nuevos (usar solo lo que ya hay en disco)',
+        default: false,
+        help:
+          'Evita nuevas descargas de negativos escalables (Pokémon/Yu-Gi-Oh!/Star Wars/escenas genéricas) — usa solo lo que ya está en caché. Recomendado si "escenas genéricas" viene tirando 429 de Wikimedia Commons y no querés esperar (ver ROADMAP.md I31): esto evita el paso lento de descarga de imágenes, aunque igual puede refrescar el listado de metadata si el caché tiene menos de lo pedido.',
+      },
     ],
     resultFiles: () => [
       { kind: 'classifier-metrics', label: 'Clasificador MTG/no-MTG — PyTorch', path: path.join(PT_DIR, 'results', 'metrics_binary.json') },
@@ -749,6 +758,15 @@ export const SCRIPTS: ScriptDef[] = [
     args: [
       { flag: '--n', name: 'n', kind: 'number', label: 'Cartas por clase', default: 3000 },
       { flag: '--epochs', name: 'epochs', kind: 'number', label: 'Épocas', default: 15 },
+      {
+        flag: '--skip-download',
+        name: 'skip_download',
+        kind: 'boolean',
+        label: 'No descargar negativos nuevos (usar solo lo que ya hay en disco)',
+        default: false,
+        help:
+          'Evita nuevas descargas de negativos escalables (Pokémon/Star Wars/escenas genéricas) — usa solo lo que ya está en caché. Recomendado si "escenas genéricas" viene tirando 429 de Wikimedia Commons y no querés esperar (ver ROADMAP.md I31): esto evita el paso lento de descarga de imágenes, aunque igual puede refrescar el listado de metadata si el caché tiene menos de lo pedido.',
+      },
     ],
     resultFiles: () => [
       { kind: 'classifier-metrics', label: 'Clasificador MTG/no-MTG — TensorFlow', path: path.join(TF_DIR, 'results', 'metrics_binary.json') },
