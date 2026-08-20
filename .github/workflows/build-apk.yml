@@ -140,6 +140,14 @@ jobs:
         working-directory: ${{ env.TRADING_APP_DIR }}/android
         run: ./gradlew assembleDebug
 
+      # Gradle's own default output name (module "app" + build type
+      # "debug") — renamed just for the published asset, not the Gradle
+      # config itself, so this doesn't touch desktop-runner's local
+      # rebuildApk() naming or android/build.gradle.
+      - name: Rename APK for the release asset
+        working-directory: ${{ env.TRADING_APP_DIR }}/android/app/build/outputs/apk/debug
+        run: mv app-debug.apk MTG-Companion-debug.apk
+
       - name: Publish debug APK as a GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -153,4 +161,4 @@ jobs:
             Backend: `${{ inputs.backend_url || vars.BACKEND_URL }}`
           draft: false
           prerelease: true
-          files: ${{ env.TRADING_APP_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk
+          files: ${{ env.TRADING_APP_DIR }}/android/app/build/outputs/apk/debug/MTG-Companion-debug.apk
