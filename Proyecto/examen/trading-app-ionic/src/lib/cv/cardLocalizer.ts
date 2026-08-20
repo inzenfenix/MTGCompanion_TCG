@@ -194,6 +194,23 @@ export const AREA_MAXIMA_FRACCION = 0.75;
 // synthetic probe — AREA_MAXIMA_FRACCION/CANDIDATO_TEXTURA_STD_MIN below
 // already guard against an over-merge swallowing the whole frame, so the
 // downside of erring wide is bounded, not unbounded.
+//
+// ROADMAP.md I33 — DELIBERATELY diverges from `card_preprocessing.py`'s
+// own OPEN/CLOSE fractions (0.02/0.04) despite this file's usual "same
+// constants as the Python source of truth" convention. Tried copying
+// Python's values here first — they broke this exact file's own trapezoid
+// precision test right above (worst-corner error landed at exactly 5px,
+// failing the `<5` bound). Root cause isn't a JS-port bug: Python's values
+// were tuned against real standalone-camera-app photos at 3000-8000px
+// (`real_negatives`/`real_photos`, see `localizer_eval.py` under
+// certamen_1/Testing), while THIS file's actual native operating range is
+// 400-1920px (`GuidedCapture.tsx`'s live tracking + capture path, see the
+// comment above) — a fraction-of-resolution kernel is inherently
+// regime-dependent, so "same fraction" does NOT mean "same behavior" across
+// a 10-20x resolution gap. Each side is tuned against real data for its own
+// actual resolution range instead of forcing a literal constant match that
+// would regress one side or the other — same algorithm design (fractional
+// kernel scaling), different calibration per real operating regime.
 export const OPEN_KERNEL_FRACCION = 0.0375;
 export const CLOSE_KERNEL_FRACCION = 0.08;
 

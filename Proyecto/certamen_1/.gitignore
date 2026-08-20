@@ -1,3 +1,9 @@
 # Dataset compartido (cards.json, raw_cards.json, imágenes) generado por
 # 01_scraper.py y 02_downloader.py — no se versiona por tamaño.
 data/
+
+# I33 — localizer_eval.py --dump-crops output (warped card images, local
+# visual-debugging aid only). The script's own report/raw-json ARE meant to
+# be committed (same precedent as real_photo_eval_report.md/_raw.json,
+# small text files) — only this image dump is excluded.
+Testing/localizer_eval_crops/

@@ -42,6 +42,61 @@ AREA_MINIMA_FRACCION = 0.15  # el contorno candidato debe cubrir >= 15% del fram
 ANCHO_CANONICO = 750
 ALTO_CANONICO = 1050
 
+# ROADMAP.md I33/I41 — kernel de apertura/cierre morfológico como FRACCIÓN
+# de la resolución de la máscara, no un conteo de píxeles fijo. Puerto tardío
+# a este archivo (fuente de la verdad) de un fix que I41 solo aplicó a
+# `cardLocalizer.ts` — encontrado en vivo el 20 ago diagnosticando por qué
+# `localizar_carta()` fallaba en el 59% de las fotos reales de
+# `real_negatives` (81 fotos, cámara de celular real, 4000x3000+ px):
+# `_mascara_saturacion`/`_mascara_brillo` usaban un cierre de 25px fijo —
+# a esa resolución eso es un gap casi nulo, así que cualquier fondo con
+# textura (escritorio, teclado, ropa) fragmenta la máscara en decenas de
+# blobs pequeños en vez de un blob limpio de "toda la carta" (confirmado
+# directamente: 23/48 fallos medidos no tenían NINGÚN contorno que llegara
+# siquiera al piso de área mínima del 15% del frame). Exactamente el mismo
+# mecanismo que I41 ya diagnosticó y arregló para el caso de close-up en
+# `cardLocalizer.ts` — solo que ese fix nunca se portó de vuelta acá, contra
+# la convención de "Python es la fuente de la verdad" que el resto de este
+# archivo sigue.
+#
+# `cardLocalizer.ts`'s propios valores (OPEN=0.0375, CLOSE=0.08, medidos
+# ahí contra un trapezoide SINTÉTICO de ~400px en `cardLocalizer.test.ts`)
+# NO se copiaron acá tal cual — probados primero contra datos reales,
+# empeoraron el find-rate (40.7% -> 38.3% sobre `real_negatives`) Y
+# rompieron una foto que antes pasaba en el propio set de 122 fotos
+# (`real_photos/20260815_164401.jpg`, confirmado aislando la causa: no fue
+# CLOSE, fue OPEN). A la resolución real de estas fotos (3000-8000px de
+# lado corto), 0.0375 de OPEN es un kernel de 100px+ — mucho más agresivo
+# que el 15px fijo original — y erosiona la máscara de la carta lo bastante
+# como para perderla en esa foto específica, mientras que CLOSE=0.08 (240px+)
+# sobre-fusiona carta+fondo en un blob que supera `AREA_MAXIMA_FRACCION`.
+# Ambos son artefactos de escalar linealmente una fracción calibrada a
+# ~400px hasta resoluciones 10-20x mayores, no un problema del enfoque
+# fraccional en sí.
+#
+# Valores finales, elegidos por barrido real (`i33_sweep*.py`, scratch, no
+# comiteados) contra el dataset COMPLETO — 81 fotos de `real_negatives` +
+# las 122 de `real_photos` (fondo uniforme, sirve de chequeo de regresión
+# duro: CERO tolerancia a bajar de 122/122 ahí). El paisaje no es monótono
+# (kernels de pocos píxeles en resoluciones distintas producen saltos
+# discretos, no una curva suave) — candidatos con OPEN alto (0.025-0.0375)
+# rondan 44-48% pero SIEMPRE a costa de esa foto de `real_photos`; bajar
+# OPEN a 0.02 es el punto donde el find-rate de `real_negatives` (46.9%,
+# 38/81) ya no cuesta esa regresión (122/122 se mantiene intacto en TODOS
+# los CLOSE probados con OPEN=0.02). CLOSE=0.04 es el mejor punto en ese
+# eje (0.03->45.7%, 0.04->46.9%, 0.05->24.7%, 0.06->19.8%, 0.08->21.0% —
+# de nuevo no monótono, 0.04 es un óptimo local real, no un valor de en
+# medio elegido a ojo). Resultado neto: +6.2 puntos reales de find-rate
+# sobre el kernel fijo original (25px), sin perder ni una sola foto del
+# set de regresión de 122. Ver `localizer_eval.py` / la fila I33 en
+# ROADMAP.md para las corridas completas y el caveat de que `real_negatives`
+# incluye un puñado de fotos deliberadamente difíciles (ángulos extremos,
+# carta cortada por el borde del cuadro) tomadas a propósito para estresar
+# el localizador — no todo el 53.1% que sigue sin encontrarse es
+# necesariamente "arreglable" con este tipo de fix.
+OPEN_KERNEL_FRACCION = 0.02
+CLOSE_KERNEL_FRACCION = 0.04
+
 # ROADMAP.md G4e (sleeve follow-up) — umbral de "punto de brillo especular":
 # value muy alto (casi blanco/sobreexpuesto) + saturación muy baja (casi sin
 # color) es la firma clásica de un reflejo de luz sobre una superficie
@@ -261,6 +316,20 @@ def _ordenar_esquinas(pts: np.ndarray) -> np.ndarray:
     return np.array([tl, tr, br, bl], dtype="float32")
 
 
+def _morph_open_close(mascara: np.ndarray) -> np.ndarray:
+    """Apertura + cierre morfológico con kernels dimensionados como fracción
+    del lado corto de la máscara (ROADMAP.md I33/I41) — no un tamaño de
+    píxeles fijo, que en fotos de celular reales (4000px+ de lado) equivale
+    a casi nada. Ver el comentario junto a `OPEN_KERNEL_FRACCION`/
+    `CLOSE_KERNEL_FRACCION` para la medición real detrás de estos valores."""
+    lado_corto = min(mascara.shape[:2])
+    tam_apertura = max(3, round(lado_corto * OPEN_KERNEL_FRACCION))
+    tam_cierre = max(3, round(lado_corto * CLOSE_KERNEL_FRACCION))
+    mascara = cv2.morphologyEx(mascara, cv2.MORPH_OPEN, np.ones((tam_apertura, tam_apertura), np.uint8))
+    mascara = cv2.morphologyEx(mascara, cv2.MORPH_CLOSE, np.ones((tam_cierre, tam_cierre), np.uint8))
+    return mascara
+
+
 def _mascara_saturacion(img_bgr: np.ndarray) -> np.ndarray:
     """Segmentación por saturación (HSV), invertida: la carta (impresión con
     zonas grises/blancas/negras — bordes, cajas de texto) suele tener MENOS
@@ -274,9 +343,7 @@ def _mascara_saturacion(img_bgr: np.ndarray) -> np.ndarray:
     sat = hsv[:, :, 1]
     blur = cv2.GaussianBlur(sat, (9, 9), 0)
     _, mascara = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-    mascara = cv2.morphologyEx(mascara, cv2.MORPH_OPEN, np.ones((15, 15), np.uint8))
-    mascara = cv2.morphologyEx(mascara, cv2.MORPH_CLOSE, np.ones((25, 25), np.uint8))
-    return mascara
+    return _morph_open_close(mascara)
 
 
 def _mascara_brillo(img_bgr: np.ndarray) -> np.ndarray:
@@ -292,9 +359,7 @@ def _mascara_brillo(img_bgr: np.ndarray) -> np.ndarray:
     gris = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gris, (9, 9), 0)
     _, mascara = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    mascara = cv2.morphologyEx(mascara, cv2.MORPH_OPEN, np.ones((15, 15), np.uint8))
-    mascara = cv2.morphologyEx(mascara, cv2.MORPH_CLOSE, np.ones((25, 25), np.uint8))
-    return mascara
+    return _morph_open_close(mascara)
 
 
 def _mascara_piel(img_bgr: np.ndarray) -> np.ndarray:

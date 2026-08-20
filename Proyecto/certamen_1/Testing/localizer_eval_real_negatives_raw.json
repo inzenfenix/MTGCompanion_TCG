@@ -1,0 +1,483 @@
+[
+  {
+    "archivo": "20260819_224239.jpg",
+    "encontrado": false,
+    "duracion_ms": 294.9
+  },
+  {
+    "archivo": "20260819_224245.jpg",
+    "encontrado": false,
+    "duracion_ms": 282.0
+  },
+  {
+    "archivo": "20260819_224247.jpg",
+    "encontrado": false,
+    "duracion_ms": 283.5
+  },
+  {
+    "archivo": "20260819_224250.jpg",
+    "encontrado": false,
+    "duracion_ms": 283.0
+  },
+  {
+    "archivo": "20260819_224258.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.6426,
+    "diff_aspect_ratio_ideal": 0.0733,
+    "duracion_ms": 236.3
+  },
+  {
+    "archivo": "20260819_224308.jpg",
+    "encontrado": false,
+    "duracion_ms": 221.6
+  },
+  {
+    "archivo": "20260819_224317.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.7292,
+    "diff_aspect_ratio_ideal": 0.0133,
+    "duracion_ms": 274.4
+  },
+  {
+    "archivo": "20260819_224326.jpg",
+    "encontrado": false,
+    "duracion_ms": 223.1
+  },
+  {
+    "archivo": "20260819_224421.jpg",
+    "encontrado": false,
+    "duracion_ms": 211.7
+  },
+  {
+    "archivo": "20260819_224432.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.6119,
+    "diff_aspect_ratio_ideal": 0.104,
+    "duracion_ms": 227.2
+  },
+  {
+    "archivo": "20260819_224437.jpg",
+    "encontrado": false,
+    "duracion_ms": 273.8
+  },
+  {
+    "archivo": "20260819_224448.jpg",
+    "encontrado": false,
+    "duracion_ms": 269.0
+  },
+  {
+    "archivo": "20260819_224503.jpg",
+    "encontrado": false,
+    "duracion_ms": 279.3
+  },
+  {
+    "archivo": "20260819_224517.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.5394,
+    "diff_aspect_ratio_ideal": 0.1765,
+    "duracion_ms": 318.8
+  },
+  {
+    "archivo": "20260819_224530.jpg",
+    "encontrado": false,
+    "duracion_ms": 270.8
+  },
+  {
+    "archivo": "20260819_224536.jpg",
+    "encontrado": false,
+    "duracion_ms": 208.6
+  },
+  {
+    "archivo": "20260819_224542.jpg",
+    "encontrado": false,
+    "duracion_ms": 218.4
+  },
+  {
+    "archivo": "20260819_224549.jpg",
+    "encontrado": false,
+    "duracion_ms": 225.9
+  },
+  {
+    "archivo": "20260819_224552.jpg",
+    "encontrado": false,
+    "duracion_ms": 244.9
+  },
+  {
+    "archivo": "20260819_224559.jpg",
+    "encontrado": false,
+    "duracion_ms": 222.1
+  },
+  {
+    "archivo": "20260819_224604.jpg",
+    "encontrado": false,
+    "duracion_ms": 186.7
+  },
+  {
+    "archivo": "20260819_224636.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.5965,
+    "diff_aspect_ratio_ideal": 0.1194,
+    "duracion_ms": 192.2
+  },
+  {
+    "archivo": "IMG-20260819-WA0019.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.5714,
+    "diff_aspect_ratio_ideal": 0.1445,
+    "duracion_ms": 22.0
+  },
+  {
+    "archivo": "IMG-20260819-WA0020.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.5569,
+    "diff_aspect_ratio_ideal": 0.159,
+    "duracion_ms": 20.6
+  },
+  {
+    "archivo": "IMG-20260819-WA0021.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.8493,
+    "diff_aspect_ratio_ideal": 0.1334,
+    "duracion_ms": 21.3
+  },
+  {
+    "archivo": "IMG-20260819-WA0022.jpg",
+    "encontrado": false,
+    "duracion_ms": 17.5
+  },
+  {
+    "archivo": "IMG-20260819-WA0023.jpg",
+    "encontrado": false,
+    "duracion_ms": 16.8
+  },
+  {
+    "archivo": "IMG-20260819-WA0024.jpg",
+    "encontrado": false,
+    "duracion_ms": 16.4
+  },
+  {
+    "archivo": "IMG-20260819-WA0025.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.7064,
+    "diff_aspect_ratio_ideal": 0.0095,
+    "duracion_ms": 20.8
+  },
+  {
+    "archivo": "IMG-20260819-WA0026.jpg",
+    "encontrado": false,
+    "duracion_ms": 16.6
+  },
+  {
+    "archivo": "IMG-20260819-WA0027.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.8722,
+    "diff_aspect_ratio_ideal": 0.1563,
+    "duracion_ms": 21.6
+  },
+  {
+    "archivo": "IMG-20260819-WA0028.jpg",
+    "encontrado": false,
+    "duracion_ms": 17.2
+  },
+  {
+    "archivo": "IMG-20260819-WA0029.jpg",
+    "encontrado": false,
+    "duracion_ms": 18.3
+  },
+  {
+    "archivo": "IMG-20260819-WA0030.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.8089,
+    "diff_aspect_ratio_ideal": 0.093,
+    "duracion_ms": 17.8
+  },
+  {
+    "archivo": "IMG-20260819-WA0031.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.6681,
+    "diff_aspect_ratio_ideal": 0.0479,
+    "duracion_ms": 18.2
+  },
+  {
+    "archivo": "IMG-20260819-WA0032.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.8927,
+    "diff_aspect_ratio_ideal": 0.1768,
+    "duracion_ms": 19.2
+  },
+  {
+    "archivo": "IMG-20260819-WA0033.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.7892,
+    "diff_aspect_ratio_ideal": 0.0733,
+    "duracion_ms": 25.4
+  },
+  {
+    "archivo": "IMG-20260819-WA0034.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.8645,
+    "diff_aspect_ratio_ideal": 0.1486,
+    "duracion_ms": 20.7
+  },
+  {
+    "archivo": "IMG-20260819-WA0035.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.7444,
+    "diff_aspect_ratio_ideal": 0.0285,
+    "duracion_ms": 20.5
+  },
+  {
+    "archivo": "IMG-20260819-WA0036.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.8197,
+    "diff_aspect_ratio_ideal": 0.1038,
+    "duracion_ms": 18.2
+  },
+  {
+    "archivo": "IMG-20260819-WA0037.jpg",
+    "encontrado": false,
+    "duracion_ms": 18.2
+  },
+  {
+    "archivo": "IMG-20260819-WA0038.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.8573,
+    "diff_aspect_ratio_ideal": 0.1414,
+    "duracion_ms": 19.8
+  },
+  {
+    "archivo": "IMG-20260819-WA0039.jpg",
+    "encontrado": false,
+    "duracion_ms": 16.8
+  },
+  {
+    "archivo": "IMG-20260819-WA0040.jpg",
+    "encontrado": false,
+    "duracion_ms": 17.3
+  },
+  {
+    "archivo": "IMG-20260819-WA0041.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.7137,
+    "diff_aspect_ratio_ideal": 0.0023,
+    "duracion_ms": 16.9
+  },
+  {
+    "archivo": "IMG-20260819-WA0042.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.8327,
+    "diff_aspect_ratio_ideal": 0.1168,
+    "duracion_ms": 20.1
+  },
+  {
+    "archivo": "IMG-20260819-WA0043.jpg",
+    "encontrado": false,
+    "duracion_ms": 14.9
+  },
+  {
+    "archivo": "IMG-20260819-WA0044.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.6317,
+    "diff_aspect_ratio_ideal": 0.0842,
+    "duracion_ms": 22.3
+  },
+  {
+    "archivo": "IMG-20260819-WA0045.jpg",
+    "encontrado": false,
+    "duracion_ms": 17.7
+  },
+  {
+    "archivo": "IMG-20260819-WA0046.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.8343,
+    "diff_aspect_ratio_ideal": 0.1184,
+    "duracion_ms": 20.0
+  },
+  {
+    "archivo": "IMG-20260819-WA0047.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.7678,
+    "diff_aspect_ratio_ideal": 0.0519,
+    "duracion_ms": 21.4
+  },
+  {
+    "archivo": "IMG-20260819-WA0048.jpg",
+    "encontrado": false,
+    "duracion_ms": 18.1
+  },
+  {
+    "archivo": "IMG-20260819-WA0049.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.8048,
+    "diff_aspect_ratio_ideal": 0.0889,
+    "duracion_ms": 19.0
+  },
+  {
+    "archivo": "IMG-20260819-WA0050.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.8882,
+    "diff_aspect_ratio_ideal": 0.1722,
+    "duracion_ms": 21.5
+  },
+  {
+    "archivo": "IMG-20260819-WA0051.jpg",
+    "encontrado": false,
+    "duracion_ms": 17.4
+  },
+  {
+    "archivo": "IMG-20260819-WA0052.jpg",
+    "encontrado": false,
+    "duracion_ms": 18.7
+  },
+  {
+    "archivo": "IMG-20260819-WA0053.jpg",
+    "encontrado": false,
+    "duracion_ms": 17.3
+  },
+  {
+    "archivo": "IMG-20260819-WA0054.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.8424,
+    "diff_aspect_ratio_ideal": 0.1265,
+    "duracion_ms": 18.1
+  },
+  {
+    "archivo": "IMG-20260819-WA0055.jpg",
+    "encontrado": false,
+    "duracion_ms": 16.7
+  },
+  {
+    "archivo": "IMG-20260819-WA0056.jpg",
+    "encontrado": false,
+    "duracion_ms": 16.6
+  },
+  {
+    "archivo": "IMG-20260819-WA0057.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.7364,
+    "diff_aspect_ratio_ideal": 0.0205,
+    "duracion_ms": 20.0
+  },
+  {
+    "archivo": "IMG-20260819-WA0058.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.8622,
+    "diff_aspect_ratio_ideal": 0.1463,
+    "duracion_ms": 20.1
+  },
+  {
+    "archivo": "IMG-20260819-WA0059.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.8144,
+    "diff_aspect_ratio_ideal": 0.0985,
+    "duracion_ms": 20.4
+  },
+  {
+    "archivo": "IMG-20260819-WA0060.jpg",
+    "encontrado": false,
+    "duracion_ms": 17.4
+  },
+  {
+    "archivo": "IMG-20260819-WA0061.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.8798,
+    "diff_aspect_ratio_ideal": 0.1638,
+    "duracion_ms": 20.7
+  },
+  {
+    "archivo": "IMG-20260819-WA0062.jpg",
+    "encontrado": false,
+    "duracion_ms": 17.1
+  },
+  {
+    "archivo": "IMG-20260819-WA0063.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.8958,
+    "diff_aspect_ratio_ideal": 0.1799,
+    "duracion_ms": 21.2
+  },
+  {
+    "archivo": "IMG-20260819-WA0064.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.6194,
+    "diff_aspect_ratio_ideal": 0.0965,
+    "duracion_ms": 17.7
+  },
+  {
+    "archivo": "IMG-20260819-WA0065.jpg",
+    "encontrado": false,
+    "duracion_ms": 15.5
+  },
+  {
+    "archivo": "IMG-20260819-WA0066.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.6721,
+    "diff_aspect_ratio_ideal": 0.0438,
+    "duracion_ms": 19.0
+  },
+  {
+    "archivo": "IMG-20260819-WA0067.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.7121,
+    "diff_aspect_ratio_ideal": 0.0038,
+    "duracion_ms": 21.9
+  },
+  {
+    "archivo": "IMG-20260819-WA0068.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.536,
+    "diff_aspect_ratio_ideal": 0.1799,
+    "duracion_ms": 20.0
+  },
+  {
+    "archivo": "IMG-20260819-WA0069.jpg",
+    "encontrado": false,
+    "duracion_ms": 16.1
+  },
+  {
+    "archivo": "IMG-20260819-WA0070.jpg",
+    "encontrado": false,
+    "duracion_ms": 16.7
+  },
+  {
+    "archivo": "IMG-20260819-WA0071.jpg",
+    "encontrado": false,
+    "duracion_ms": 18.4
+  },
+  {
+    "archivo": "IMG-20260819-WA0072.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.5563,
+    "diff_aspect_ratio_ideal": 0.1596,
+    "duracion_ms": 20.1
+  },
+  {
+    "archivo": "IMG-20260819-WA0073.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.5418,
+    "diff_aspect_ratio_ideal": 0.1741,
+    "duracion_ms": 18.4
+  },
+  {
+    "archivo": "IMG-20260819-WA0074.jpg",
+    "encontrado": false,
+    "duracion_ms": 19.8
+  },
+  {
+    "archivo": "IMG-20260819-WA0075.jpg",
+    "encontrado": false,
+    "duracion_ms": 17.2
+  },
+  {
+    "archivo": "IMG-20260819-WA0076.jpg",
+    "encontrado": true,
+    "aspect_ratio": 0.7807,
+    "diff_aspect_ratio_ideal": 0.0647,
+    "duracion_ms": 19.3
+  },
+  {
+    "archivo": "IMG-20260819-WA0077.jpg",
+    "encontrado": false,
+    "duracion_ms": 14.9
+  }
+]

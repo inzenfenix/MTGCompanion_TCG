@@ -170,8 +170,10 @@ item, a refactor):
   this card (mobile RDNA2, no official precompiled kernels) — already
   handled automatically by `desktop-runner`'s GPU detection.
 - `tesseract` (system OCR binary, needed by `certamen_2`'s Stage 2 pipeline)
-  is **not installed** on this machine and installing it needs `sudo`
-  (password-protected, not attempted without asking). Blocks live
-  OCR/dataset-prep runs here until installed (`sudo dnf install tesseract`).
+  **is installed** on this machine (`tesseract 5.5.2`, confirmed 20 ago) —
+  this note used to say otherwise; ROADMAP.md's G4a already flagged that as
+  stale (15 ago) but this file never got corrected until now. If a future
+  session hits a genuine "not found" here, it regressed — re-run
+  `sudo dnf install tesseract`.
 - `certamen_2/.venv` was created ad hoc for dry-run testing during
   development — it is not yet a `desktop-runner`-registered environment.
