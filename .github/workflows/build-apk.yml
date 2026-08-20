@@ -61,10 +61,15 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      # GitHub-hosted ubuntu-latest ships an Android SDK with cmdline-tools
-      # on PATH already — just make sure the exact platform/build-tools
-      # variables.gradle asks for are installed (mirrors E3d's own manual
-      # `sdkmanager` install on the dev machine).
+      # M2's original assumption here was wrong — confirmed by a real run
+      # (ROADMAP.md M3, 20 ago): ubuntu-latest does NOT have `sdkmanager` on
+      # PATH out of the box ("sdkmanager: command not found", exit 127).
+      # android-actions/setup-android installs the cmdline-tools and puts
+      # them on PATH/sets ANDROID_HOME — then sdkmanager can actually
+      # install the exact platform/build-tools variables.gradle asks for
+      # (mirrors E3d's own manual `sdkmanager` install on the dev machine).
+      - uses: android-actions/setup-android@v3
+
       - name: Install Android SDK platform/build-tools
         run: |
           yes | sdkmanager --licenses > /dev/null || true
