@@ -125,6 +125,13 @@ jobs:
       - name: Build web assets + sync Capacitor
         working-directory: ${{ env.TRADING_APP_DIR }}
         run: |
+          # @capacitor/cli 8.x hard-requires Node >=22 (its own engines
+          # check, not this project's) — print what actually landed on
+          # PATH so a mismatch with setup-node's `node-version` input above
+          # (ROADMAP.md M3 hit this once from GitHub Actions' dispatch-cache
+          # lag on a workflow-file push) is obvious from the log directly,
+          # not inferred from which later command happened to fail first.
+          echo "node: $(node --version), npm: $(npm --version)"
           npm run setup:opencv
           npm run build
           npx cap sync android
