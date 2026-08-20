@@ -40,6 +40,7 @@ const SCRAPER_TAB_SCRIPTS = [
   'shared-scraper',
   'shared-downloader',
   'shared-real-photos',
+  'shared-real-negatives',
   'shared-download-roboflow',
   'shared-download-negatives',
 ];

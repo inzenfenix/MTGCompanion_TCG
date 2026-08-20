@@ -250,6 +250,25 @@ export const SCRIPTS: ScriptDef[] = [
     ],
   },
   {
+    id: 'shared-real-negatives',
+    group: 'shared',
+    label: 'Fotos reales de cartas negativas (Google Drive) — Stage 1',
+    description:
+      'Descarga un set de fotos reales (no scrapeadas, no sintéticas) de cartas NO-MTG en escenas reales, subidas manualmente (ROADMAP.md I31/I33) — a diferencia de "Descargar cartas negativas" (catálogos/Wikimedia Commons scrapeados), estas tienen la misma fidelidad de captura real que "Fotos reales" de arriba, pero con contenido negativo: sirven tanto para Stage 1 (negativos reales) como para poner a prueba el localizador geométrico con una carta real en una escena real. Idempotente: reutiliza lo que ya existe en disco. Usa el venv de pytorch/ (incluye gdown).',
+    cwd: CERTAMEN_DIR,
+    script: 'real_negatives_downloader.py',
+    env: 'pytorch',
+    args: [
+      {
+        flag: '--folder-id',
+        name: 'folder_id',
+        kind: 'string',
+        label: 'ID de carpeta de Google Drive',
+        default: '1P-x_DoXAxkdN4x5f8lZfFCuOgdEEO6RE',
+      },
+    ],
+  },
+  {
     id: 'shared-download-roboflow',
     group: 'shared',
     label: 'Fotos reales de daño (Roboflow) — Stage 4',
