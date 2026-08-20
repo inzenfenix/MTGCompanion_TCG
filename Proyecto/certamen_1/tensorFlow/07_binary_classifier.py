@@ -279,7 +279,16 @@ def obtener_metadata_generic_scenes(n_target: int) -> list:
             continue
         rng.shuffle(titles)
         titles = titles[:por_categoria]
-        urls = _commons_resolve_urls(titles)
+        try:
+            urls = _commons_resolve_urls(titles)
+        except requests.exceptions.RequestException as e:
+            # Igual que el listado de categoría arriba: un 429 persistente acá
+            # no debe tirar toda la corrida (antes lo hacía, ver ROADMAP I31) —
+            # se salta esta categoría y se sigue con las demás. Este try/except
+            # se había perdido en el port desde pytorch/ pese al docstring
+            # decir "byte-a-byte" (encontrado en vivo, 20 ago).
+            print(f"    ✗ Resolución de URLs para {cat!r} falló tras reintentos ({e}); saltando.")
+            continue
         prefijo = re.sub(r"[^a-z0-9]+", "_", cat.lower()).strip("_")
         nuevos = 0
         for t, u in urls.items():
