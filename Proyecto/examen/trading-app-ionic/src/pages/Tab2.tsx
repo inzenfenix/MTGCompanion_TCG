@@ -3,6 +3,7 @@ import {
   IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonButton,
   IonIcon, IonInput, IonItem, IonLabel, IonSegment, IonSegmentButton,
   IonSelect, IonSelectOption, IonSpinner, useIonRouter,
+  useIonViewWillEnter, useIonViewWillLeave,
 } from '@ionic/react';
 import {
   qrCodeOutline, cameraOutline, checkmarkCircleOutline,
@@ -166,6 +167,34 @@ const Tab2: React.FC = () => {
   const resetBuyerFlow = () => {
     setDecodedToken(null);
   };
+
+  // Ionic's IonRouterOutlet keeps page components mounted across navigation
+  // (same reasoning ListCard.tsx's own useIonViewWillEnter comment
+  // documents, and Tab3.tsx's before that) — this page never had the fix,
+  // unlike ListCard's Smart Scan camera which shares the exact same
+  // useLiveCamera/GuidedCapture stack. Two real, live-reported symptoms this
+  // closes: (1) leaving Tab2 mid-scan (e.g. the buyer navigating to
+  // /buy/:token, or just switching tabs) left getUserMedia streaming in the
+  // background indefinitely, since the start/stop effect below only reacts
+  // to [role, merchantStep, decodedToken] — none of which change on a tab
+  // switch; (2) returning to Tab2 later resumed with whatever
+  // role/merchantStep/soldTransaction/decodedToken the PREVIOUS visit left
+  // behind (a stale QR, a stale "sale complete" screen, a stale buyer token)
+  // instead of a fresh Trade Nexus. Reset on every real (re-)entry, stop on
+  // every real exit — identical shape to ListCard.tsx's fix.
+  useIonViewWillEnter(() => {
+    setRole('merchant');
+    resetMerchantFlow();
+    resetBuyerFlow();
+    setPrice(45.00);
+    setIsSavingPrice(false);
+    setStage1Status(null);
+    setIsDetecting(false);
+  });
+
+  useIonViewWillLeave(() => {
+    camera.stop();
+  });
 
   // ROADMAP.md J4 — a real camera QR decode, replacing the old manual
   // "paste the code" flow. Lands the buyer on Buy.tsx (/buy/:token), which

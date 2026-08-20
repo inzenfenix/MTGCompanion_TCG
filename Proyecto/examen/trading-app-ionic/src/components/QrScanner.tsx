@@ -15,6 +15,8 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { IonButton, IonIcon } from '@ionic/react';
+import { cameraReverseOutline } from 'ionicons/icons';
 import type { useLiveCamera } from '../lib/camera/useLiveCamera';
 import { decodeQrFromCanvas } from '../lib/scan/qrDecoder';
 
@@ -52,14 +54,33 @@ export const QrScanner: React.FC<QrScannerProps> = ({ camera, onDecoded, paused 
   if (camera.status !== 'streaming') return null;
 
   return (
-    <div
-      style={{
-        position: 'absolute', bottom: 12, left: 0, right: 0,
-        textAlign: 'center', color: '#f2e3cd', fontSize: '0.85rem',
-        textShadow: '0 1px 3px rgba(0,0,0,0.8)', pointerEvents: 'none',
-      }}
-    >
-      {notFoundYet ? t('qr_scan_searching') : t('qr_scan_found')}
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+      <div
+        style={{
+          position: 'absolute', bottom: 12, left: 0, right: 0,
+          textAlign: 'center', color: '#f2e3cd', fontSize: '0.85rem',
+          textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+        }}
+      >
+        {notFoundYet ? t('qr_scan_searching') : t('qr_scan_found')}
+      </div>
+      {/* Same real fix as GuidedCapture.tsx's switch-camera button (I16) —
+          on a multi-lens phone facingMode:'environment' can silently resolve
+          to the ultra-wide lens, which struggles to read a QR-sized target
+          at arm's length. QrScanner never had a way to fix that; now it
+          does, same icon/label/placement as the seller-side capture UI. */}
+      {camera.devices.length > 1 && (
+        <IonButton
+          size="small"
+          fill="outline"
+          className="mtg-btn"
+          onClick={camera.cycleCamera}
+          style={{ position: 'absolute', top: 8, right: 8, pointerEvents: 'auto' }}
+          aria-label={t('guided_capture_switch_camera_button')}
+        >
+          <IonIcon icon={cameraReverseOutline} />
+        </IonButton>
+      )}
     </div>
   );
 };
