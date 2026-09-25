@@ -12,7 +12,11 @@ living in the same repo:
   ONNX inference), `backend/` (NestJS + Prisma + Postgres marketplace API),
   `desktop-runner/` (Electron+NestJS+React app that is the GUI for running
   every training/export script in certamen_1/2 — venv management, live logs,
-  Optuna, ONNX export, cross-framework comparison).
+  Optuna, ONNX export, cross-framework comparison). Has its own
+  [`Proyecto/examen/CLAUDE.md`](Proyecto/examen/CLAUDE.md) (supplements this
+  file, doesn't replace it) and a categorized context/knowledge folder,
+  [`Proyecto/examen/okf/`](Proyecto/examen/okf/README.md) — read both before
+  working in that subtree.
 
 For the full task backlog (what's left, by workstream, with priority and
 complexity so multiple people can grab different pieces in parallel), see
