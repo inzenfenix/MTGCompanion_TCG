@@ -13,3 +13,13 @@ export interface UserResponseDto {
     shareLocation: boolean;
   };
 }
+
+/**
+ * What GET /users/:id returns about *another* user (seller on the Buy page,
+ * counterparty on a transaction). Only what the app shows — never the email
+ * or settings, which used to leak here without authentication (issue #146).
+ */
+export interface PublicUserDto {
+  id: string;
+  displayName: string;
+}

@@ -118,8 +118,15 @@ export function registerUser(input: RegisterUserInput): Promise<User> {
   });
 }
 
-export function getUser(id: string): Promise<User> {
-  return request<User>(`/users/${id}`);
+/** Another user's public profile — the backend returns only these two
+ *  fields, and only to a logged-in caller (issue #146). */
+export interface PublicUser {
+  id: string;
+  displayName: string;
+}
+
+export function getUser(id: string): Promise<PublicUser> {
+  return request<PublicUser>(`/users/${id}`);
 }
 
 // ── Cards ───────────────────────────────────────────────────────────────

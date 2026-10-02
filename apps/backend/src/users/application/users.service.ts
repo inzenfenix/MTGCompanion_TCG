@@ -19,7 +19,7 @@ import {
 } from '../domain/user.repository';
 import type { UserEntity } from '../domain/user.entity';
 import type { RegisterUserDto } from '../presentation/dto/register-user.dto';
-import type { UserResponseDto } from '../presentation/dto/user-response.dto';
+import type { UserResponseDto, PublicUserDto } from '../presentation/dto/user-response.dto';
 
 const SALT_ROUNDS = 12;
 
@@ -84,6 +84,12 @@ export class UsersService {
   async findById(id: string): Promise<UserResponseDto | null> {
     const user = await this.users.findById(id);
     return user ? this.toResponseDto(user) : null;
+  }
+
+  /** Another user's public profile — id + displayName only (issue #146). */
+  async findPublicProfile(id: string): Promise<PublicUserDto | null> {
+    const user = await this.users.findById(id);
+    return user ? { id: user.id, displayName: user.displayName } : null;
   }
 
   /**

@@ -37,10 +37,15 @@ export class UsersController {
     return this.users.updateLocation(user.id, dto.lat, dto.lng);
   }
 
+  // Another user's public profile (seller name on the Buy page, counterparty
+  // on a transaction). Logged-in only and id + displayName only: it used to
+  // return email + settings to anyone holding an ownerId, and every Bazaar
+  // listing exposes ownerIds (issue #146).
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   async findOne(@Param('id') id: string) {
-    const user = await this.users.findById(id);
-    if (!user) throw new NotFoundException('User not found');
-    return user;
+    const profile = await this.users.findPublicProfile(id);
+    if (!profile) throw new NotFoundException('User not found');
+    return profile;
   }
 }
