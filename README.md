@@ -7,6 +7,9 @@ compra/venta/intercambio de cartas. Nació como el proyecto del curso
 **Frameworks de IA** (UDD); cada modelo se entrena dos veces, en PyTorch y en
 TensorFlow, para comparar ambos frameworks y publicar el ganador por etapa.
 
+Backlog: [ROADMAP.md](ROADMAP.md) (fuente de verdad), reflejado como issues en el
+[tablero del proyecto en GitHub](https://github.com/users/inzenfenix/projects/5).
+
 ## Estructura del repositorio
 
 ```

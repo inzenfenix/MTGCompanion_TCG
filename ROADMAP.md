@@ -11,6 +11,10 @@ architecture/context on that subtree, and
 [`docs/context/roadmap-snapshot.md`](docs/context/roadmap-snapshot.md)
 for a dated status count — this file itself stays the ground truth.
 
+Every row below is mirrored as a GitHub issue (`[<ID>] …`, labels `roadmap` + `ws:<letter>`) on the
+[MTGCompanion_TCG project board](https://github.com/users/inzenfenix/projects/5) — this file stays
+the source of truth; update the issue in the same step as the row (CLAUDE.md workflow rule 5).
+
 Priority: **P0** blocks the graded deliverable (professor asked for two more
 real, working models — Stage 2/3 — in a working pipeline, with Optuna) ·
 **P1** needed for the app to actually demo end-to-end · **P2** polish/scope
@@ -740,6 +744,7 @@ secrets (#13).
 | O6 | At-rest encryption at the infra level: `root_block_device { encrypted = true }` on `ec2_postgres.tf` (#12), explicit `aws_s3_bucket_server_side_encryption_configuration` on the photos bucket (#11) | P2 | S | **The EBS change recreates the Postgres instance, which wipes lab data**, so it needs the user's go-ahead at apply time. S3 is already SSE-S3 by AWS default; this just declares it so it's evidence in code. |
 | O7 | ~~Encrypt `User.email` + HMAC-SHA256 blind index for login lookup~~ | — | — | **Dropped (25 sep), user's call**: removed from `CIFRADO_CAMPOS.md` as beyond the course level. Email is now justified there under "no field encryption needed" (equality lookup at login + `@unique`, so a random-IV cipher would break it; covered by TLS #9 + disk encryption #12). Kept as a struck row so the O-numbering stays stable. |
 | O8 | *(optional)* Hardening: desktop-runner `settings.json` via Electron `safeStorage` or at least mode `0600` (#14); client session tokens off `localStorage` into Android Keystore-backed storage (#15); `sslmode=require` backend↔Postgres (#10) | P3 | M | Independent small items, any order. |
+| O10 | **Actividad N°2 deliverable (umbrella)** — Item I: the field table in the activity's exact columns (CAMPO · NECESIDAD · ELECCIÓN · CRITERIO TÉCNICO · IMPLEMENTACIÓN · EVIDENCIA), built from `docs/security/MAPEO_CIA.md` (Actividad N°1's data dictionary) + `CIFRADO_CAMPOS.md`. Item II: source code, protection of the critical fields, working evidence, how each value is recovered/validated, evidence that keys/secrets aren't exposed — delivered as this GitHub repo | **P0 for this deliverable** | L | Umbrella over O1–O9 (its GitHub issue tracks them as sub-issues). Item II's code is O1–O4 (+ O5/O6 if in scope); its evidence pack is O9. New work only here: reshaping the table to the activity's columns, plus final assembly/PDF. |
 | O9 | Evidence pack + finalize `CIFRADO_CAMPOS.md` (flip ❌→✅, attach test output, `psql` screenshot, `curl -v` TLS handshake, `gitleaks detect` over history clean) | P1 | S | Last step, after whichever of O1–O6/O8 ship. |
 
 **Dependency:** O1 blocks O2, O3 and O4. O5 **is** I6's real-TLS path,

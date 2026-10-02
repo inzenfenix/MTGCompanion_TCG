@@ -133,6 +133,19 @@ item, a refactor):
    divergence this size already happened once (two sessions independently
    built J4/J7 before either had pushed) — see that recovery in this repo's
    own git history for what it costs to reconcile after the fact.
+5. **Mirror every ROADMAP.md change to its GitHub issue.** Since 2 oct
+   (ROADMAP.md P3) every ROADMAP.md row has a matching issue titled
+   `[<ID>] …` (labels `roadmap` + `ws:<letter> …`) on the
+   [MTGCompanion_TCG project board](https://github.com/users/inzenfenix/projects/5).
+   ROADMAP.md stays the source of truth; the board mirrors it. Do the
+   mirror step in the same step as the ROADMAP.md change:
+   claim (🚧) → assign yourself + set Status to In Progress; ✅ → close the
+   issue as completed, with a comment summarizing the dated ROADMAP note
+   (dropped → close as not planned); new row → `gh issue create` with the
+   same title/labels, then `gh project item-add 5 --owner inzenfenix
+   --url <issue-url>` and set Workstream/Priority/Complexity/Roadmap ID.
+   Find a row's issue with `gh issue list --search '"[<ID>]" in:title'
+   --state all`. Commits that finish a row can say `Closes #<n>`.
 
 ## Hard rules established this project — read before touching training scripts
 
