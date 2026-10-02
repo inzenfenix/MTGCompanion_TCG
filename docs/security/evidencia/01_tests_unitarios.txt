@@ -1,0 +1,25 @@
+Fecha: 2026-10-02T09:40:26-03:00   commit: f413067
+$ npx jest src/common/crypto --verbose=true --reporters=default
+PASS src/common/crypto/field-encryption.service.spec.ts
+  FieldEncryptionService (AES-256-GCM, ROADMAP.md O1)
+    ✓ round-trips: decrypt(encrypt(x)) === x (3 ms)
+    ✓ stores v1:<iv>:<tag>:<ciphertext>, never the plaintext (1 ms)
+    ✓ uses a fresh random IV: same value twice gives two different ciphertexts (1 ms)
+    ✓ rejects a tampered ciphertext (GCM authentication) (8 ms)
+    ✓ rejects a tampered auth tag (1 ms)
+    ✓ cannot be decrypted with a different key (1 ms)
+    ✓ refuses plaintext where an envelope is expected
+    ✓ round-trips coordinates as numbers, nulls stay null
+    ✓ rejects keys that are not 32 bytes, without echoing the key
+    key rotation
+      ✓ still reads values written under the retired key
+      ✓ writes new values under the current key and flags old ones for re-encryption
+  assertProductionSecrets (ROADMAP.md O4)
+    ✓ refuses to boot in production without JWT_SECRET / FIELD_ENCRYPTION_KEY, naming only the variables (1 ms)
+    ✓ boots in production when both are set, and never checks outside production (1 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       13 passed, 13 total
+Snapshots:   0 total
+Time:        0.316 s, estimated 1 s
+Ran all test suites matching src/common/crypto.

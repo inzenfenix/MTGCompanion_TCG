@@ -6,7 +6,7 @@
 **Alcance:** MTG Companion (`apps/`) — `backend/` (NestJS + Prisma + PostgreSQL), `apps/mobile/` (cliente), `infra/terraform/` (AWS), `desktop-runner/` (herramienta interna).
 **Insumo:** [`MAPEO_CIA.md`](MAPEO_CIA.md) (diccionario de actores/datos/riesgos) + revisión directa del código.
 
-> Este documento es **solo revisión y decisión** (primera mitad del entregable). La implementación de lo que falta está registrada como tarea en `ROADMAP.md`, **workstream O**, y no se ha ejecutado todavía.
+> Este documento es la **revisión y decisión** campo por campo. La implementación para los datos del jugador (#3, #4, #6) se hizo el 2 oct 2026 — ver [`ACTIVIDAD_2.md`](ACTIVIDAD_2.md) (cuadro final + código + evidencia). Lo de infraestructura sigue registrado en `ROADMAP.md`, **workstream O**.
 
 ---
 
@@ -34,10 +34,10 @@ Estado: ✅ ya implementado · ⚠️ parcial · ❌ pendiente (tarea en `ROADMA
 |---|---|---|---|---|---|---|---|
 | 1 | `User.passwordHash` (contraseña) | **Hashing** | Solo se compara en el login, nunca se recupera. Es de **baja entropía** → hash lento con sal contra fuerza bruta. | bcrypt, costo 12 — `bcryptjs` | Backend, `UsersService.register()` (`users.service.ts:66`) y `validateCredentials()` (`:102`), antes de persistir | Sin llave. Sal aleatoria por usuario, embebida en el hash; costo (12) ajustable. | ✅ |
 | 2 | `RefreshToken.tokenHash` | **Hashing** | Solo se verifica que exista. Es aleatorio de **512 bits** y de un solo uso → basta un hash rápido. | SHA-256 — `node:crypto` | Backend, `AuthService.hashToken()` (`auth.service.ts:171`) | Sin llave; el token ya es aleatorio y de un solo uso. | ✅ |
-| 3 | `UserSettings.twoFactorSecret` (secreto TOTP) | **Cifrado simétrico** | TOTP necesita el **secreto original** para generar códigos → no sirve hash. **Hoy está en texto plano**. | AES-256-GCM — `node:crypto` | Backend, capa de infraestructura: `PrismaUserRepository` cifra al escribir (`prisma-user.repository.ts:45`) y descifra al leer | `FIELD_ENCRYPTION_KEY` (32 bytes) en AWS Secrets Manager (prod) / `.env` gitignoreado (dev). Nunca en la BD ni en el código. | ❌ |
-| 4 | `UserSettings.lastLat` / `lastLng` (geolocalización) | **Cifrado simétrico** | Ubicación = **dato personal** (Ley 21.719). La distancia se calcula en Node → se puede descifrar ahí. | AES-256-GCM — `node:crypto` | Backend, mismo repositorio; columna migra de `Float` a `String` (texto cifrado) | Misma llave que #3. | ❌ |
+| 3 | `UserSettings.twoFactorSecret` (secreto TOTP) | **Cifrado simétrico** | TOTP necesita el **secreto original** para generar códigos → no sirve hash. **Hoy está en texto plano**. | AES-256-GCM — `node:crypto` | Backend, capa de infraestructura: `PrismaUserRepository` cifra al escribir y descifra al leer | `FIELD_ENCRYPTION_KEY` (32 bytes) en AWS Secrets Manager (prod) / `.env` gitignoreado (dev). Nunca en la BD ni en el código. | ✅ (2 oct) |
+| 4 | `UserSettings.lastLat` / `lastLng` (geolocalización) | **Cifrado simétrico** | Ubicación = **dato personal** (Ley 21.719). La distancia se calcula en Node → se puede descifrar ahí. | AES-256-GCM — `node:crypto` | Backend, mismo repositorio; columna migrada de `Float` a `String` (texto cifrado) | Misma llave que #3. | ✅ (2 oct) |
 | 5 | Número de tarjeta / datos de pago | **Tokenización** | El sistema **nunca ve** la tarjeta: MercadoPago es la **bóveda** y `paymentRef` el **token**. | MercadoPago Checkout Pro — SDK oficial `mercadopago` | Proveedor externo; el backend solo persiste `paymentRef` (`mercadopago-payment.provider.ts:55`) | `MERCADOPAGO_ACCESS_TOKEN` en Secrets Manager; nunca llega al cliente. | ✅ |
-| 6 | Access token de sesión (JWT) | **Firma** | Importa la **integridad**, no el secreto: nadie debe fabricar un token. El backend verifica la firma. | HS256 (HMAC-SHA256) — `@nestjs/jwt` | Backend, `AuthService.signAccessToken()` / `JwtStrategy` | `JWT_SECRET` en Secrets Manager. Riesgo: valor por defecto `'change-me-dev-only'` si falta la variable. | ⚠️ |
+| 6 | Access token de sesión (JWT) | **Firma** | Importa la **integridad**, no el secreto: nadie debe fabricar un token. El backend verifica la firma. | HS256 (HMAC-SHA256) — `@nestjs/jwt` | Backend, `AuthService.signAccessToken()` / `JwtStrategy` | `JWT_SECRET` en Secrets Manager. El valor por defecto `'change-me-dev-only'` queda solo para desarrollo: en producción el backend no arranca sin la variable. | ✅ (2 oct) |
 | 7 | Token del QR de compraventa (código de verificación) | **Firma** | Garantiza que el QR apunta a una publicación real. Firmado y caduca en 3 minutos. | HS256 — `@nestjs/jwt`, `typ: 'listing'` | Backend, `cards/domain/listing-token.ts` | Mismo `JWT_SECRET` (ver #6). | ✅ |
 | 8 | Notificación de pago confirmado (webhook) | **Firma** | Verifica que la notificación viene de MercadoPago; además se re-consulta el pago a la API. | HMAC-SHA256 sobre cabecera `x-signature` — SDK `mercadopago` | Backend, `MercadoPagoPaymentProvider` (`mercadopago-payment.provider.ts:101`) | `MERCADOPAGO_WEBHOOK_SECRET` en Secrets Manager. | ✅ |
 | 9 | Credenciales de login, código 2FA, secreto TOTP en el setup, tokens de sesión — **en tránsito** | **TLS (híbrido)** | Hoy viaja por **HTTP plano**, incluido el secreto TOTP del setup. TLS protege todo el tránsito. | TLS 1.2/1.3 — reverse proxy Caddy + certificado Let's Encrypt (hostname nip.io/sslip.io) | EC2 del backend, delante de NestJS (`:443` → `:3000`) | Certificado y llave privada TLS gestionados y renovados automáticamente por Caddy en la instancia. | ❌ (ROADMAP I6, a medias) |
@@ -64,7 +64,7 @@ Estado: ✅ ya implementado · ⚠️ parcial · ❌ pendiente (tarea en `ROADMA
 
 ## 3. Diseño propuesto para el cifrado de campos (#3, #4)
 
-Aún **no implementado** — especificación para la tarea del ROADMAP.
+**Implementado** el 2 oct 2026 tal como se especificó aquí — código y evidencia en [`ACTIVIDAD_2.md`](ACTIVIDAD_2.md).
 
 - **Algoritmo:** AES-256-GCM. Se elige GCM porque es **cifrado autenticado**: además de ocultar el dato, detecta si el texto cifrado fue alterado (el descifrado falla con el tag incorrecto). Se descartan 3DES (legado, según el material) y AES-CBC sin MAC.
 - **Librería:** `node:crypto` (incluida en Node, sin dependencias nuevas).
@@ -96,7 +96,7 @@ Aún **no implementado** — especificación para la tarea del ROADMAP.
 
 ## 4. Evidencia a producir en la implementación
 
-Pendiente, junto con la tarea del ROADMAP:
+Producida para #3, #4 y #6 en [`evidencia/`](evidencia/) (puntos 1–5); el punto 6 (TLS) sigue pendiente con ROADMAP I6/O5:
 
 1. **Código fuente:** `field-encryption.service.ts` + su uso en `PrismaUserRepository` + migración Prisma + script de migración de filas existentes.
 2. **Pruebas unitarias:** ida y vuelta cifrar/descifrar; texto cifrado alterado → error; llave incorrecta → error; dos cifrados del mismo valor → textos distintos (IV aleatorio).
@@ -110,8 +110,8 @@ Pendiente, junto con la tarea del ROADMAP:
 ## 5. Resumen de brechas (por prioridad)
 
 1. **❌ Sin TLS en producción** (#9) — lo más grave: expone contraseñas, tokens y el secreto TOTP en la red.
-2. **❌ Secreto TOTP en texto plano** (#3).
-3. **⚠️ Fallback hardcodeado de `JWT_SECRET`** (#6).
-4. **❌ Ubicación en texto plano** (#4).
+2. ~~Secreto TOTP en texto plano (#3)~~ — ✅ cifrado AES-256-GCM (2 oct).
+3. ~~Fallback hardcodeado de `JWT_SECRET` (#6)~~ — ✅ bloqueado en producción (2 oct).
+4. ~~Ubicación en texto plano (#4)~~ — ✅ cifrada AES-256-GCM (2 oct).
 5. **❌ Volumen EBS de Postgres sin cifrar** (#12) · **⚠️ SSE de S3 no declarado explícito** (#11).
 6. Mejoras: `safeStorage` en desktop-runner (#14), almacenamiento seguro en el cliente (#15), TLS a Postgres (#10).

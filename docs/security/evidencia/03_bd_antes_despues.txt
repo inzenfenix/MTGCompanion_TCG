@@ -1,0 +1,38 @@
+Migración de la BD de desarrollo a campos cifrados (ROADMAP.md O2/O3) — 2 oct 2026
+==================================================================================
+
+=== 1. ANTES (capturado antes de aplicar la migración; valores truncados a propósito) ===
+lastLat/lastLng eran DOUBLE PRECISION en texto plano: cualquiera con acceso a la BD
+veía la ubicación del jugador.
+$ SELECT email, twoFactorEnabled, left(twoFactorSecret,4), pg_typeof(lastLat), left(lastLat::text,3), left(lastLng::text,3) ...
+      email       | tfa_on | two_factor_secret |     lat_type     | last_lat | last_lng 
+------------------+--------+-------------------+------------------+----------+----------
+ test@example.com | f      |                   | double precision | -33…     | -70…
+(1 row)
+
+
+=== 2. Migración + cifrado de los valores existentes (capturado en el momento) ===
+$ npx prisma migrate deploy
+  20261002120000_encrypt_location_fields  ->  lastLat/lastLng: DOUBLE PRECISION -> TEXT
+All migrations have been successfully applied.
+
+$ npm run db:encrypt-fields          # 1ª corrida: cifra lo que quedó en texto plano
+user_settings: 14 rows scanned — encrypted 2 plaintext value(s), re-encrypted 0 under a retired key, 0 already current.
+
+$ npm run db:encrypt-fields          # 2ª corrida: idempotente, no toca nada
+user_settings: 14 rows scanned — encrypted 0 plaintext value(s), re-encrypted 0 under a retired key, 2 already current.
+
+=== 3. DESPUÉS (consulta actual, 2026-10-02T09:40:58-03:00) ===
+Ningún valor sensible en texto plano: solo sobres v1:<iv>:<tag>:<ciphertext>.
+               email                | tipo |                                      twoFactorSecret                                      |                          lastLat                          |                          lastLng                          
+------------------------------------+------+-------------------------------------------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------
+ test@example.com                   | text |                                                                                           | v1:41Gb8EwHq6KQqxUv:Nw8UOSPWtXmL2yg8H0y5vg==:jCnxTAFbcnc= | v1:Qs3iqj0qtov+NQy+:2Jfjij38YCHgXRHM4xdDXA==:YkUdXwMeZfk=
+ vendedor.1790944055@evidencia.test | text | v1:Am4gC8scgFNOqM70:A/jlA3RGQDWv7Upv2aW/oQ==:A3nmRaAA/HDwRgFYMatXdrsre3k4xwQr9SRkkkb9D5o= | v1:6FYE5RxdAquGrb6S:sf6VSjdYQ1y5HcTlhAqxRA==:CkJDRUVYZ/o= | v1:+xDSfavENwDtgG/9:dtOHtgcngeMixgACSHYvsA==:oWk9mJqM+DA=
+ vendedor.1790944071@evidencia.test | text | v1:AQhQCkHIbfbN9juj:AagUxbd0B/c9x+xfx0X6SQ==:A92sOnVjWIDyMO60FYV0LaBncs64HOu5zgUpcWst8Hw= | v1:6NSltD0hZEagdL2D:R5ztAp2IvmxwXlPy1f+yUQ==:YSFsJZ9jC9w= | v1:XP/4dQ9isMxXNAWS:WugcHhRKWUej/ykfdtJABQ==:818ausk/W/0=
+(3 rows)
+
+Nota: las cuentas vendedor.*@evidencia.test son las de 04_flujo_cifrado.txt; su twoFactorSecret
+fue alterado a propósito en el paso 10 (prueba de integridad), por eso los segmentos empiezan con "A".
+
+Valores aún en texto plano (debe ser 0):
+0

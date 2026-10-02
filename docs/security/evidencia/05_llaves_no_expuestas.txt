@@ -1,0 +1,45 @@
+Fecha: 2026-10-02T09:40:05-03:00   commit: f413067
+
+=== 1. gitleaks sobre TODO el historial de git (todas las ramas/commits) ===
+12:40PM INF 180 commits scanned.
+12:40PM INF no leaks found
+(los 9 hallazgos revisados y descartados — contraseñas de cuentas desechables de los tests e2e —
+ están listados con su justificación en .gitleaksignore)
+
+=== 2. Archivos con secretos reales: ignorados por git y nunca versionados ===
+apps/backend/.env                          ignorado por: apps/backend/.gitignore:10:.env  commits que lo incluyeron: 0
+apps/mobile/.env                           ignorado por: apps/mobile/.gitignore:49:.env   commits que lo incluyeron: 0
+infra/terraform/terraform.tfvars           ignorado por: infra/terraform/.gitignore:1:terraform.tfvars commits que lo incluyeron: 0
+infra/terraform/terraform.tfstate          ignorado por: infra/terraform/.gitignore:2:*.tfstate commits que lo incluyeron: 0
+infra/terraform/terraform.tfstate.backup   ignorado por: infra/terraform/.gitignore:3:*.tfstate.* commits que lo incluyeron: 0
+versionados solo los ejemplos (sin valores):
+  apps/backend/.env.example
+  apps/mobile/.env.example
+  infra/terraform/terraform.tfvars.example
+
+=== 3. La llave de cifrado local no aparece en ningún commit del historial ===
+longitud de la llave: 32 bytes — apariciones en git log --all -p: 0
+FIELD_ENCRYPTION_KEY en archivos versionados (placeholder vacío o referencia a variable — nunca un valor):
+  apps/backend/.env.example:70:FIELD_ENCRYPTION_KEY=
+  infra/terraform/scripts/deploy-backend.sh:104:FIELD_ENCRYPTION_KEY=${FIELD_KEY}
+
+=== 4. La BD no guarda la llave: solo el texto cifrado (la llave vive en la EC2 del backend / .env, no en Postgres) ===
+3 filas de user_settings con valores cifrados (v1:...)
+
+=== 5. El backend se niega a arrancar en producción sin sus secretos (sin valor por defecto) ===
+a) NODE_ENV=production, sin JWT_SECRET ni FIELD_ENCRYPTION_KEY:
+   [Nest] 60145  - 10/02/2026, 9:40:08 AM   ERROR [ExceptionHandler] Error: Refusing to start in production: missing required secret(s) JWT_SECRET, FIELD_ENCRYPTION_KEY. They are loaded from AWS Secrets Manager by infra/terraform/scripts/deploy-backend.sh.
+b) NODE_ENV=production, con JWT_SECRET pero sin FIELD_ENCRYPTION_KEY:
+   [Nest] 60160  - 10/02/2026, 9:40:08 AM   ERROR [ExceptionHandler] Error: Refusing to start in production: missing required secret(s) FIELD_ENCRYPTION_KEY. They are loaded from AWS Secrets Manager by infra/terraform/scripts/deploy-backend.sh.
+c) NODE_ENV=development sin FIELD_ENCRYPTION_KEY (tampoco hay llave por defecto en desarrollo):
+   [Nest] 60175  - 10/02/2026, 9:40:09 AM   ERROR [ExceptionHandler] FieldEncryptionError: FIELD_ENCRYPTION_KEY is not set. Generate one with `openssl rand -base64 32` and put it in .env (dev) — in production it comes from AWS Secrets Manager.
+
+=== 6. Separación y ubicación de cada secreto ===
+  FIELD_ENCRYPTION_KEY  AWS Secrets Manager (mtg-companion/field_encryption_key) -> .env del contenedor en la EC2 del backend
+  JWT_SECRET            AWS Secrets Manager (mtg-companion/jwt_secret)           -> idem; llave distinta a la de cifrado
+  MERCADOPAGO_*         AWS Secrets Manager                                     -> idem; nunca llega al cliente
+  Postgres              EC2 separada: guarda solo el texto cifrado, sin acceso a Secrets Manager
+  Dev                   apps/backend/.env (gitignoreado), llave generada localmente con openssl rand -base64 32
+deploy-backend.sh lee los secretos con el aws cli y arma el .env en memoria (nunca escribe un archivo local):
+  86:print(fetch(arns["postgres_password"]), fetch(arns["jwt_secret"]), fetch(arns["field_encryption_key"]), fetch(arns["mercadopago_access_
+  104:FIELD_ENCRYPTION_KEY=${FIELD_KEY}

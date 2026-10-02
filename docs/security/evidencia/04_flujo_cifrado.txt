@@ -1,0 +1,58 @@
+Fecha: 2026-10-02T09:27:51-03:00
+API:   http://localhost:3000
+
+=== 1. Registro del vendedor y login (sin 2FA todavía) ===
+{"id":"ed49b85d-1dd0-44cf-97c2-2ec8843e90f5","email":"vendedor.1790944071@evidencia.test"}
+accessToken: eyJhbGciOiJIUzI1NiIsInR5…
+
+=== 2. Contraseña: la BD guarda solo el hash bcrypt (se valida, nunca se recupera) ===
+               email                |         password_hash          
+------------------------------------+--------------------------------
+ vendedor.1790944071@evidencia.test | $2b$12$kHYlR/eEdHqQ8yBg7AMVeu…
+(1 row)
+
+
+=== 3. POST /auth/2fa/setup — el backend genera el secreto TOTP y lo devuelve una vez (para el QR) ===
+secreto devuelto al cliente (una sola vez): MEBCK3Q7HOHGZSIPCLOKELJKCA3MPUJE
+
+=== 4. Lo que guarda Postgres: AES-256-GCM, formato v1:<iv>:<tag>:<ciphertext> — NO el secreto ===
+               email                | twoFactorEnabled |                                      twoFactorSecret                                      
+------------------------------------+------------------+-------------------------------------------------------------------------------------------
+ vendedor.1790944071@evidencia.test | f                | v1:I6FLS5qvg2tCzqC4:aK7EWycs+MPrqvvIxVMdUA==:1YTwIHs/3/FN3CmC6domvYsFxfNLehMKR+ly6UTlqi8=
+(1 row)
+
+OK: el valor en la BD no contiene el secreto en claro
+
+=== 5. POST /auth/2fa/enable — el backend DESCIFRA el secreto para validar el código TOTP ===
+{"id":"ed49b85d-1dd0-44cf-97c2-2ec8843e90f5","email":"vendedor.1790944071@evidencia.test","displayName":"Vendedor Evidencia","emailVerifiedAt":null,"createdAt":"2026-10-02T12:27:51.980Z","settings":{"language":"en","theme":"dark","twoFactorEnabled":true,"notifyByEmail":true,"shareLocation":false}}
+
+=== 6. Login con 2FA: paso 1 devuelve un desafío firmado; paso 2 valida el código contra el secreto descifrado ===
+{"twoFactorRequired":true,"twoFactorToken":"eyJhbGciOiJIUzI1NiIsInR5…"}
+código incorrecto:
+{"statusCode":401,"message":"Invalid two-factor code"}
+código correcto (generado desde el secreto, como lo haría la app autenticadora):
+accessToken: eyJhbGciOiJIUzI1NiIsInR5…
+
+=== 7. PATCH /users/me/location — ubicación del vendedor (Santiago), dato personal ===
+HTTP 200
+               email                | tipo |                          lastLat                          |                          lastLng                          
+------------------------------------+------+-----------------------------------------------------------+-----------------------------------------------------------
+ vendedor.1790944071@evidencia.test | text | v1:6NSltD0hZEagdL2D:R5ztAp2IvmxwXlPy1f+yUQ==:YSFsJZ9jC9w= | v1:XP/4dQ9isMxXNAWS:WugcHhRKWUej/ykfdtJABQ==:818ausk/W/0=
+(1 row)
+
+
+=== 8. El vendedor publica una carta ===
+{"id":"73541863-4169-4ca7-a37f-f42375a598b7","title":"Evidencia 1790944071"}
+
+=== 9. Un comprador (Valparaíso) busca: el backend descifra la ubicación SOLO para calcular la distancia ===
+{"title":"Evidencia 1790944071","ownerDisplayName":"Vendedor Evidencia","distanceKm":98.44528575632592,"respuesta_incluye_coordenadas":false}
+(distanceKm ≈ 100 km Santiago–Valparaíso; la respuesta no incluye coordenadas: nunca salen del backend)
+
+=== 10. Integridad: si alguien altera el texto cifrado en la BD, el backend lo rechaza (GCM) en vez de usar un valor falso ===
+login del vendedor con el secreto alterado:
+{"statusCode":500,"message":"Internal server error"}
+(falla cerrado con un 500 genérico — no filtra detalles al cliente; la cuenta no se puede usar con un secreto manipulado)
+log del servidor:
+[Nest] 48313  - 10/02/2026, 9:27:53 AM   ERROR [ExceptionsHandler] FieldEncryptionError: Encrypted field failed authentication (tampered or wrong key)
+
+=== Fin ===

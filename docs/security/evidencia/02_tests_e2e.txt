@@ -1,0 +1,53 @@
+Fecha: 2026-10-02T09:40:27-03:00   commit: f413067
+Suite e2e completa del backend contra la BD de desarrollo ya migrada (campos cifrados): verifica que nada se rompió.
+$ npx jest --config ./test/jest-e2e.json --runInBand --verbose=true --reporters=default
+PASS test/coupons.e2e-spec.ts (5.737 s)
+    ✓ spins and issues a coupon matching one of the 3 real prize tiers, then lists it as available (26 ms)
+    ✓ rejects a second spin inside the 24h cooldown (11 ms)
+    ✓ rejects spinning without auth (2 ms)
+    ✓ redeeming a coupon discounts a real purchase (20% off capped at $25 on a $200 card -> $175), and the coupon becomes single-use (532 ms)
+    ✓ rejects redeeming someone else's coupon with 404 (979 ms)
+    ✓ a purchase without a couponId is unaffected (no discount applied) (21 ms)
+    ✓ L6: dev-reset-all deletes every coupon, no JWT required, gated to non-production only (492 ms)
+PASS test/catalog.e2e-spec.ts
+    ✓ returns real multi-printing results for a known card name (64 ms)
+    ✓ falls back to a fuzzy match when the exact/contains search finds nothing (a real OCR-misread name) (151 ms)
+    ✓ search-by-text finds the real card from a real (noisy) rules-text OCR read, via oracleText not name (2405 ms)
+    ✓ search-by-text rejects a query shorter than its 10-char minimum with 400 (2 ms)
+    ✓ rejects a query shorter than the 2-char minimum with 400 (1 ms)
+    ✓ rejects a missing q param with 400 (1 ms)
+    ✓ clamps an oversized limit rather than erroring (37 ms)
+PASS test/offers-realtime.e2e-spec.ts
+    ✓ a client that joined the room sees a live auction-update when a new offer is placed (30 ms)
+    ✓ a client in a DIFFERENT card's room does not get another card's update (330 ms)
+PASS test/decks.e2e-spec.ts
+    ✓ creates a deck and lists it for its owner (11 ms)
+    ✓ rejects creating a deck with an empty name (2 ms)
+    ✓ renames a deck for its owner, but 404s for a non-owner (14 ms)
+    ✓ moves a card into a deck via PATCH /cards/:id, and back to Unsorted with deckId: null (31 ms)
+    ✓ rejects moving a card into a deck owned by someone else (14 ms)
+    ✓ filters GET /cards by deckId, and by the "unsorted" sentinel (32 ms)
+    ✓ deleting a non-empty deck un-assigns its cards back to Unsorted rather than deleting them (30 ms)
+    ✓ rejects deleting a deck owned by someone else (7 ms)
+PASS test/payments-cash.e2e-spec.ts
+    ✓ a CASH purchase stays PENDING until the seller confirms it, then transfers ownership (63 ms)
+    ✓ the receipt for a PAID transaction has exact IVA math (119.00 -> net 100.00 / iva 19.00 / total 119.00) (44 ms)
+    ✓ rejects a self-purchase with 400 (9 ms)
+    ✓ the receipt for a still-PENDING transaction 400s ("not paid yet") (21 ms)
+PASS test/payment-receipt-email.e2e-spec.ts
+    ✓ confirming a cash payment emails both buyer and seller a matching receipt (90 ms)
+PASS test/listing-token.e2e-spec.ts
+    ✓ the owner mints a token that resolves back to the same cardId (6 ms)
+    ✓ a non-owner can't mint a token for someone else's card (404, not confirming the card exists to them) (3 ms)
+    ✓ a garbage token is rejected with 401, not trusted (1 ms)
+    ✓ a minted listing token can't be used as a bearer access token on a guarded route (5 ms)
+PASS test/auth-refresh.e2e-spec.ts
+    ✓ login returns an access+refresh token pair (242 ms)
+    ✓ refresh exchanges a live token for a new pair, rotating (single-use) the old one (256 ms)
+    ✓ rejects a garbage refresh token with 401 (3 ms)
+    ✓ rejects a missing refreshToken field with 400 (DTO validation) (1 ms)
+PASS test/app.e2e-spec.ts
+    ✓ / (GET) (63 ms)
+Test Suites: 9 passed, 9 total
+Tests:       38 passed, 38 total
+Time:        16.813 s, estimated 17 s
