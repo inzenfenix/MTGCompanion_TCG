@@ -26,6 +26,16 @@ resource "aws_secretsmanager_secret_version" "jwt_secret" {
   secret_string = var.jwt_secret
 }
 
+resource "aws_secretsmanager_secret" "field_encryption_key" {
+  name        = "${var.project_name}/field_encryption_key"
+  description = "AES-256-GCM key for field-level encryption of player data (backend FIELD_ENCRYPTION_KEY)."
+}
+
+resource "aws_secretsmanager_secret_version" "field_encryption_key" {
+  secret_id     = aws_secretsmanager_secret.field_encryption_key.id
+  secret_string = var.field_encryption_key
+}
+
 resource "aws_secretsmanager_secret" "mercadopago_access_token" {
   name        = "${var.project_name}/mercadopago_access_token"
   description = "MercadoPago Checkout Pro access token (blank = NoopPaymentProvider fallback)."

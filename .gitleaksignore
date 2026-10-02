@@ -1,0 +1,15 @@
+# gitleaks — hallazgos revisados y descartados (Actividad N°2, ROADMAP.md O9, 2 oct 2026).
+# Los 9 son falsos positivos de la regla generic-api-key: contraseñas de cuentas
+# desechables que crean y borran los propios tests e2e del backend
+# (p.ej. 'owner-pass-123' con emails <prefijo>-<timestamp>@example.com).
+# No son credenciales de ningún entorno real. Ver docs/security/evidencia/05_llaves_no_expuestas.txt.
+
+add7bc4bda4fd2a948419777386c0d30748de2fc:Proyecto/examen/backend/test/coupons.e2e-spec.ts:generic-api-key:33
+add7bc4bda4fd2a948419777386c0d30748de2fc:Proyecto/examen/backend/test/coupons.e2e-spec.ts:generic-api-key:37
+55bb344cb49d648222359f2b668565b35508044f:Proyecto/examen/backend/test/decks.e2e-spec.ts:generic-api-key:23
+55bb344cb49d648222359f2b668565b35508044f:Proyecto/examen/backend/test/decks.e2e-spec.ts:generic-api-key:27
+7cb63e6e0a7affb46ed922c1dcabc856a96450b1:Proyecto/examen/backend/test/payment-receipt-email.e2e-spec.ts:generic-api-key:41
+f9c87859c6fb04adc44f257e70ffdef41acf33d1:Proyecto/examen/backend/test/offers-realtime.e2e-spec.ts:generic-api-key:35
+7f6c3e6ff8330308f345e77e4faceb01e73690db:Proyecto/examen/backend/test/listing-token.e2e-spec.ts:generic-api-key:21
+7f6c3e6ff8330308f345e77e4faceb01e73690db:Proyecto/examen/backend/test/listing-token.e2e-spec.ts:generic-api-key:25
+6ecda23281798eac3a608419d5faabac994f3a29:Proyecto/examen/backend/test/payments-cash.e2e-spec.ts:generic-api-key:43

@@ -83,10 +83,10 @@ def fetch(arn):
     # SecretString, so terraform stores this instead; translate it back to
     # "" here so the backend's .env ends up blank exactly like before.
     return "" if val == "unset" else val
-print(fetch(arns["postgres_password"]), fetch(arns["jwt_secret"]), fetch(arns["mercadopago_access_token"]) or "-", fetch(arns["mercadopago_webhook_secret"]) or "-")
+print(fetch(arns["postgres_password"]), fetch(arns["jwt_secret"]), fetch(arns["field_encryption_key"]), fetch(arns["mercadopago_access_token"]) or "-", fetch(arns["mercadopago_webhook_secret"]) or "-")
 PY
 )
-read -r PG_PW JWT_SECRET MP_TOKEN MP_WEBHOOK <<< "$SECRETS_OUT"
+read -r PG_PW JWT_SECRET FIELD_KEY MP_TOKEN MP_WEBHOOK <<< "$SECRETS_OUT"
 [ "$MP_TOKEN" = "-" ] && MP_TOKEN=""
 [ "$MP_WEBHOOK" = "-" ] && MP_WEBHOOK=""
 
@@ -101,6 +101,7 @@ EMAIL_FROM=MTG Companion <no-reply@mtgcompanion.app>
 SMTP_HOST=${MAILHOG_IP}
 SMTP_PORT=1025
 JWT_SECRET=${JWT_SECRET}
+FIELD_ENCRYPTION_KEY=${FIELD_KEY}
 JWT_ACCESS_TTL=15m
 JWT_REFRESH_TTL=30d
 MERCADOPAGO_ACCESS_TOKEN=${MP_TOKEN}

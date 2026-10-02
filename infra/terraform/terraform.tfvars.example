@@ -24,6 +24,7 @@ instance_type_backend  = "t3.small"
 
 postgres_password = "change-me"
 jwt_secret         = "change-me"
+field_encryption_key = "" # required: openssl rand -base64 32 (keep a copy — losing it loses the encrypted data)
 
 mercadopago_access_token   = ""
 mercadopago_webhook_secret = ""

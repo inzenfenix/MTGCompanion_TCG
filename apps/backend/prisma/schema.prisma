@@ -53,7 +53,9 @@ model UserSettings {
   // 2FA fields are modeled now (target: TOTP) but the enrollment/verification
   // flow itself is not implemented yet — see backend/README.md "What's next".
   twoFactorEnabled Boolean @default(false)
-  twoFactorSecret  String? // TOTP secret, set once enrollment ships; never returned by any endpoint
+  // TOTP secret, stored AES-256-GCM encrypted (`v1:<iv>:<tag>:<ct>`, ROADMAP.md
+  // O2) by PrismaUserRepository; never returned by any endpoint.
+  twoFactorSecret  String?
 
   notifyByEmail Boolean @default(true)
 
@@ -63,8 +65,10 @@ model UserSettings {
   // location prompt. lastLat/lastLng are null (shareLocation false) until
   // the user grants browser geolocation and it round-trips once.
   shareLocation     Boolean   @default(false)
-  lastLat           Float?
-  lastLng           Float?
+  // Personal data (Ley 21.719): stored AES-256-GCM encrypted as text
+  // (ROADMAP.md O3), decrypted in the repositories only to compute distance.
+  lastLat           String?
+  lastLng           String?
   locationUpdatedAt DateTime?
 
   @@map("user_settings")

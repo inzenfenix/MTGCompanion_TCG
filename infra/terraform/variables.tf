@@ -109,6 +109,16 @@ variable "jwt_secret" {
   sensitive   = true
 }
 
+variable "field_encryption_key" {
+  description = "AES-256-GCM key for field-level encryption of player data (FIELD_ENCRYPTION_KEY env var, ROADMAP.md O1-O4). 32 random bytes, base64 — generate with `openssl rand -base64 32`. Losing it makes the encrypted columns unreadable; rotating it needs the retired key kept around (see backend config/configuration.ts)."
+  type        = string
+  sensitive   = true
+  validation {
+    condition     = can(base64decode(var.field_encryption_key)) && length(base64decode(var.field_encryption_key)) == 32
+    error_message = "field_encryption_key must be 32 bytes, base64-encoded (openssl rand -base64 32)."
+  }
+}
+
 variable "mercadopago_access_token" {
   description = "MercadoPago Checkout Pro access token. Leave blank to keep MercadoPago-method transactions on NoopPaymentProvider (CASH always works regardless)."
   type        = string

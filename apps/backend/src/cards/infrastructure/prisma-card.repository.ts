@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { FieldEncryptionService } from '../../common/crypto/field-encryption.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import type {
   AuctionStateUpdate,
@@ -19,7 +20,10 @@ type CardWithPhotos = Card & { photos: CardPhoto[] };
 
 @Injectable()
 export class PrismaCardRepository implements CardRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly fieldEncryption: FieldEncryptionService,
+  ) {}
 
   async create(data: CreateCardData): Promise<CardEntity> {
     const { ownerId, ...rest } = data;
@@ -122,8 +126,14 @@ export class PrismaCardRepository implements CardRepository {
         guessedPrice: Number(card.guessedPrice),
         photos: [],
         ownerDisplayName: owner.displayName,
-        ownerLat: shares ? (owner.settings?.lastLat ?? null) : null,
-        ownerLng: shares ? (owner.settings?.lastLng ?? null) : null,
+        // Stored encrypted (ROADMAP.md O3) — decrypted here only to feed
+        // CardsService's haversine; the coordinates never reach a response.
+        ownerLat: shares
+          ? this.fieldEncryption.decryptNumber(owner.settings?.lastLat)
+          : null,
+        ownerLng: shares
+          ? this.fieldEncryption.decryptNumber(owner.settings?.lastLng)
+          : null,
       };
     });
   }
