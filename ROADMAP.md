@@ -746,6 +746,19 @@ secrets (#13).
 so claim both rows together. O9 comes last. Nothing here touches the ML
 workstreams or the "inference stays client-side" invariant.
 
+## P. Repo reorganization (course layout → product layout) + rename to `MTGCompanion_TCG`
+
+Move from the course-shaped `Proyecto/certamen_1|certamen_2|examen` tree
+to a product-shaped one, ahead of the next objective: `ml/training`
+(was `certamen_1`), `ml/data-prep` (was `certamen_2`),
+`apps/{mobile,backend,desktop-runner}` (was `examen/*`), `infra/`,
+`docs/`, `coursework/` (Labs, Material, exam guide — archive). GitHub
+repo renamed `framework-ia-UDD` → `MTGCompanion_TCG`.
+
+| # | Task | Priority | Complexity | Notes |
+|---|---|---|---|---|
+| P1 | 🚧 IN PROGRESS (started 2 oct) — Move every directory, fix hardcoded paths (Python `CERTAMEN2_DIR`/`IONIC_MODELS_DIR`, desktop-runner `CERTAMEN_DIR`/`REPO_ROOT` users, backend `import-catalog.ts`, CI, `.gitignore`), rewrite doc paths, rename GitHub repo | P1 | L | **Touches nearly every path in the repo — don't start other work until this lands; rebase onto it afterwards.** Collides with I31's still-open 🚧 claim (other machine): any unpushed I31 work under `Proyecto/certamen_1/` will need its paths moved to `ml/training/` when it's rebased. |
+
 ---
 
 ## Suggested parallel assignment (4 people)
