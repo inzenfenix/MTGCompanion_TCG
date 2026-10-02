@@ -1,7 +1,7 @@
 # Mapeo de Actores, Datos y Riesgos CIA
 
-**Nombre:** _[completar]_
-**Integrantes:** _[completar]_
+**Nombre:** Grupo MTG Companion
+**Integrantes:** Vicente Fuentes, Tomás Rodriguez, Tomás Solano
 
 | Actor | Dato que maneja | Atributo CIA en riesgo | Por qué |
 |---|---|---|---|

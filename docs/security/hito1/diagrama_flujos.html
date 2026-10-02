@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Mapa de flujos de datos — MTG Companion</title>
+<style>
+  html, body { margin: 0; background: #fff; }
+  svg { display: block; font-family: Calibri, "Carlito", Arial, sans-serif; }
+  .box { fill: #fff; stroke: #222; stroke-width: 2; }
+  .zone { fill: #f4f4f4; stroke: #555; stroke-width: 1.5; stroke-dasharray: 6 4; }
+  .ext { fill: #fff; stroke: #222; stroke-width: 2; stroke-dasharray: 2 0; }
+  .title { font-size: 21px; font-weight: 700; }
+  .zt { font-size: 19px; font-weight: 700; fill: #333; }
+  .t { font-size: 17px; }
+  .s { font-size: 15px; fill: #333; }
+  .lbl { font-size: 15px; font-weight: 600; paint-order: stroke; stroke: #fff !important; stroke-width: 6px; stroke-linejoin: round; }
+  .f1 { stroke: #1f4e9c; fill: #1f4e9c; } .f2 { stroke: #2e7d32; fill: #2e7d32; }
+  .f3 { stroke: #c25e00; fill: #c25e00; } .f4 { stroke: #6a1b9a; fill: #6a1b9a; } .fk { stroke: #555; fill: #555; }
+  path.a { fill: none; stroke-width: 2.6; }
+  .tag { font-size: 15px; font-weight: 700; fill: #fff; }
+</style></head><body>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="980" viewBox="0 0 1600 980">
+  <defs>
+    <marker id="m1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1f4e9c"/></marker>
+    <marker id="m2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2e7d32"/></marker>
+    <marker id="m3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#c25e00"/></marker>
+    <marker id="m4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6a1b9a"/></marker>
+    <marker id="mk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#555"/></marker>
+  </defs>
+
+  <text x="800" y="34" text-anchor="middle" class="title">Mapa de flujos de datos personales — MTG Companion</text>
+
+  <!-- Zona: dispositivo -->
+  <rect class="zone" x="20" y="60" width="430" height="620" rx="10"/>
+  <text x="235" y="88" text-anchor="middle" class="zt">Dispositivo del jugador (app móvil)</text>
+  <rect class="box" x="45" y="110" width="380" height="80" rx="6"/>
+  <text x="235" y="142" text-anchor="middle" class="t">Registro / login (email, contraseña,</text>
+  <text x="235" y="166" text-anchor="middle" class="t">código 2FA)</text>
+  <rect class="box" x="45" y="230" width="380" height="110" rx="6"/>
+  <text x="235" y="262" text-anchor="middle" class="t">Cámara → IA en el dispositivo (ONNX)</text>
+  <text x="235" y="286" text-anchor="middle" class="s">identifica la carta, su condición y precio;</text>
+  <text x="235" y="308" text-anchor="middle" class="s">los fotogramas NO salen del teléfono</text>
+  <rect class="box" x="45" y="380" width="380" height="80" rx="6"/>
+  <text x="235" y="412" text-anchor="middle" class="t">GPS (permiso del sistema operativo)</text>
+  <text x="235" y="436" text-anchor="middle" class="s">al abrir el Bazaar</text>
+  <rect class="box" x="45" y="500" width="380" height="80" rx="6"/>
+  <text x="235" y="532" text-anchor="middle" class="t">Compra / oferta / escaneo de QR</text>
+  <text x="235" y="556" text-anchor="middle" class="s">de la compraventa</text>
+  <rect class="box" x="150" y="610" width="275" height="54" rx="6"/>
+  <text x="287" y="643" text-anchor="middle" class="s">Sesión guardada (tokens)</text>
+
+  <!-- Zona: AWS -->
+  <rect class="zone" x="560" y="60" width="1020" height="620" rx="10"/>
+  <text x="1070" y="88" text-anchor="middle" class="zt">Nube AWS (us-east-1, EE.UU.)</text>
+  <rect class="box" x="600" y="200" width="430" height="330" rx="8"/>
+  <text x="815" y="236" text-anchor="middle" class="title">Backend (API NestJS)</text>
+  <text x="815" y="276" text-anchor="middle" class="s">contraseña → hash bcrypt</text>
+  <text x="815" y="300" text-anchor="middle" class="s">refresh token → hash SHA-256</text>
+  <text x="815" y="324" text-anchor="middle" class="s">secreto 2FA y ubicación → AES-256-GCM</text>
+  <text x="815" y="348" text-anchor="middle" class="s">sesión y QR → firma HMAC-SHA256</text>
+  <text x="815" y="372" text-anchor="middle" class="s">ubicación → solo distancia en km</text>
+  <rect class="box" x="1170" y="120" width="380" height="110" rx="6"/>
+  <text x="1360" y="155" text-anchor="middle" class="t">PostgreSQL (EC2 separada)</text>
+  <text x="1360" y="180" text-anchor="middle" class="s">cuentas, ajustes, cartas, ofertas,</text>
+  <text x="1360" y="202" text-anchor="middle" class="s">transacciones, cupones</text>
+  <rect class="box" x="1170" y="300" width="380" height="80" rx="6"/>
+  <text x="1360" y="333" text-anchor="middle" class="t">S3 — fotos de cartas</text>
+  <text x="1360" y="357" text-anchor="middle" class="s">bucket privado, URL firmada temporal</text>
+  <rect class="box" x="1170" y="450" width="380" height="80" rx="6"/>
+  <text x="1360" y="483" text-anchor="middle" class="t">Secrets Manager</text>
+  <text x="1360" y="507" text-anchor="middle" class="s">llaves y secretos (nunca en la BD)</text>
+
+  <!-- Externos -->
+  <rect class="ext" x="600" y="760" width="240" height="90" rx="6"/>
+  <text x="720" y="796" text-anchor="middle" class="t">MercadoPago</text>
+  <text x="720" y="820" text-anchor="middle" class="s">bóveda de pago (tarjeta)</text>
+  <rect class="ext" x="870" y="760" width="240" height="90" rx="6"/>
+  <text x="990" y="796" text-anchor="middle" class="t">Proveedor de correo</text>
+  <text x="990" y="820" text-anchor="middle" class="s">bienvenida y comprobantes</text>
+  <rect class="ext" x="1140" y="760" width="230" height="90" rx="6"/>
+  <text x="1255" y="796" text-anchor="middle" class="t">Otros jugadores</text>
+  <text x="1255" y="820" text-anchor="middle" class="s">nombre, carta, foto, distancia</text>
+  <rect class="ext" x="1400" y="760" width="180" height="90" rx="6" style="stroke-dasharray:6 4"/>
+  <text x="1490" y="788" text-anchor="middle" class="t">Scryfall (catálogo)</text>
+  <text x="1490" y="810" text-anchor="middle" class="s">importación offline,</text>
+  <text x="1490" y="830" text-anchor="middle" class="s">sin datos de jugadores</text>
+
+  <!-- F1 -->
+  <path class="a f1" d="M425,150 L600,230" marker-end="url(#m1)"/>
+  <text x="445" y="140" class="lbl f1">F1 email, contraseña, 2FA</text>
+  <path class="a f1" d="M1030,215 L1170,140" marker-end="url(#m1)"/>
+  <text x="1085" y="172" text-anchor="middle" class="lbl f1">F1 hash / cifrado</text>
+  <path class="a f1" d="M960,530 L1060,760" marker-end="url(#m1)"/>
+  <text x="1004" y="600" class="lbl f1">F1 email</text>
+  <!-- F2 -->
+  <path class="a f2" d="M425,300 L600,320" marker-end="url(#m2)"/>
+  <text x="440" y="292" class="lbl f2">F2 datos carta + foto</text>
+  <path class="a f2" d="M1030,250 L1170,175" marker-end="url(#m2)"/>
+  <text x="1085" y="208" text-anchor="middle" class="lbl f2">F2 publicación</text>
+  <path class="a f2" d="M1030,330 L1170,338" marker-end="url(#m2)"/>
+  <text x="1065" y="324" text-anchor="middle" class="lbl f2">F2 foto</text>
+  <!-- F3 -->
+  <path class="a f3" d="M425,420 L600,420" marker-end="url(#m3)"/>
+  <text x="450" y="410" class="lbl f3">F3 lat / lng</text>
+  <path class="a f3" d="M1030,290 L1170,207" marker-end="url(#m3)"/>
+  <text x="1085" y="252" text-anchor="middle" class="lbl f3">F3 cifrada</text>
+  <path class="a f3" d="M1010,530 L1255,760" marker-end="url(#m3)"/>
+  <text x="1140" y="640" class="lbl f3">F3 solo distancia (km)</text>
+  <!-- F4 -->
+  <path class="a f4" d="M425,540 L600,480" marker-end="url(#m4)"/>
+  <text x="440" y="568" class="lbl f4">F4 compra / oferta</text>
+  <path class="a f4" d="M760,530 L760,760" marker-start="url(#m4)" marker-end="url(#m4)"/>
+  <text x="770" y="620" class="lbl f4">F4 id, título, monto /</text>
+  <text x="770" y="640" class="lbl f4">webhook firmado</text>
+  <path class="a f4" d="M100,580 C100,800 400,805 600,805" marker-end="url(#m4)"/>
+  <text x="128" y="722" class="lbl f4">F4 datos de tarjeta</text>
+  <text x="128" y="742" class="lbl f4">(solo en MercadoPago)</text>
+  <path class="a f4" d="M1030,450 L1150,450 L1150,226 L1170,226" marker-end="url(#m4)"/>
+  <text x="1158" y="410" class="lbl f4">F4 transacción</text>
+  <path class="a f4" d="M900,530 L1000,760" marker-end="url(#m4)"/>
+  <text x="962" y="702" text-anchor="end" class="lbl f4">F4 comprobante</text>
+  <!-- catálogo público: importación offline, sin datos personales -->
+  <path class="a fk" style="stroke-dasharray:6 4" d="M1565,760 L1565,175 L1552,175" marker-end="url(#mk)"/>
+  <!-- llaves -->
+  <path class="a fk" d="M1170,490 L1030,490" marker-end="url(#mk)"/>
+  <text x="1048" y="512" class="lbl fk">llaves al arrancar</text>
+
+  <!-- Leyenda -->
+  <rect x="20" y="885" width="1560" height="90" rx="6" fill="#fff" stroke="#999"/>
+  <text x="40" y="915" class="lbl">Flujos:</text>
+  <rect x="110" y="900" width="26" height="16" class="f1"/><text x="144" y="914" class="s">F1 Registro y autenticación</text>
+  <rect x="420" y="900" width="26" height="16" class="f2"/><text x="454" y="914" class="s">F2 Escaneo y publicación de carta</text>
+  <rect x="760" y="900" width="26" height="16" class="f3"/><text x="794" y="914" class="s">F3 Búsqueda con ubicación (Bazaar)</text>
+  <rect x="1110" y="900" width="26" height="16" class="f4"/><text x="1144" y="914" class="s">F4 Compraventa y pago</text>
+  <text x="40" y="942" class="s">Línea punteada = zona (dispositivo / nube AWS). Cajas inferiores = terceros fuera del sistema. Todo el tránsito app ↔ backend debe ir por TLS (pendiente en producción).</text>
+  <text x="40" y="964" class="s">Línea gris punteada = importación offline del catálogo público (Scryfall): no lleva ni recibe datos de jugadores.</text>
+</svg>
+</body></html>

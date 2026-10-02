@@ -1,7 +1,7 @@
 # Actividad N°2 — Cifrado, hashing y tokenización de datos sensibles
 
-**Nombre:** _[completar]_  
-**Integrantes:** _[completar]_  
+**Nombre:** Grupo MTG Companion  
+**Integrantes:** Vicente Fuentes, Tomás Rodriguez, Tomás Solano  
 **Fecha:** 2 oct 2026  
 **Proyecto:** MTG Companion — app de intercambio/compraventa de cartas (`apps/`), backend NestJS + Prisma + PostgreSQL  
 **Repositorio:** https://github.com/inzenfenix/MTGCompanion_TCG · tarea: [issue #35](https://github.com/inzenfenix/MTGCompanion_TCG/issues/35)  

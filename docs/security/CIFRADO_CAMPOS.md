@@ -1,7 +1,7 @@
 # Cifrado de Datos Personales — Revisión por campo sensible
 
-**Nombre:** _[completar]_
-**Integrantes:** _[completar]_
+**Nombre:** Grupo MTG Companion
+**Integrantes:** Vicente Fuentes, Tomás Rodriguez, Tomás Solano
 **Fecha de revisión:** 25 sep 2026
 **Alcance:** MTG Companion (`apps/`) — `backend/` (NestJS + Prisma + PostgreSQL), `apps/mobile/` (cliente), `infra/terraform/` (AWS), `desktop-runner/` (herramienta interna).
 **Insumo:** [`MAPEO_CIA.md`](MAPEO_CIA.md) (diccionario de actores/datos/riesgos) + revisión directa del código.
