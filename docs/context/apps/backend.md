@@ -1,7 +1,7 @@
 # `backend/` — NestJS + Prisma + PostgreSQL
 
 Persistence only — accounts, cards+photos, transactions, offers, decks,
-coupons. Never runs ML inference (see `okf/apps/README.md`'s invariant).
+coupons. Never runs ML inference (see `docs/context/apps/README.md`'s invariant).
 Docker (`backend/docker/`) is dev-only (Postgres + MinIO + MailHog) — the
 backend itself doesn't run in Docker. Full up-to-date status lives in
 `backend/README.md`'s own "Estado actual" section — treat that section as
@@ -72,4 +72,4 @@ called live from the scan flow (`ListCard.tsx`, `Tab2.tsx`) to produce
 `Card`/`Transaction` — the backend never computes or re-derives it. If a
 future change wants server-verified pricing (e.g. to stop a client from
 submitting an arbitrary price), that's a real architecture decision to flag,
-not an obvious bug fix — see `okf/apps/README.md`'s invariant.
+not an obvious bug fix — see `docs/context/apps/README.md`'s invariant.

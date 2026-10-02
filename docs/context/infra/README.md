@@ -1,9 +1,9 @@
 # Infra — AWS via Terraform
 
-Full plan/context: `Proyecto/examen/infra/PLAN.md` (approved-and-largely-
+Full plan/context: `infra/PLAN.md` (approved-and-largely-
 implemented; treat that file plus `ROADMAP.md` workstream I as canonical —
 this is a map, not a restatement). Terraform lives at
-`Proyecto/examen/infra/terraform/`.
+`infra/terraform/`.
 
 ## What's deployed — one EC2 instance per service
 
@@ -39,7 +39,7 @@ repo. They're used one of two ways:
 The Deploy tab is deliberately generic (not named "AWS") — meant to be the
 home for any future cloud/deployment credential (MercadoPago production
 tokens, another cloud provider, etc.), not a one-off AWS-only widget. See
-`okf/apps/desktop-runner.md` for its implementation (built on
+`docs/context/apps/desktop-runner.md` for its implementation (built on
 `ScriptsService`'s existing process-spawn/stream/kill primitives, same as
 Terraform commands themselves).
 

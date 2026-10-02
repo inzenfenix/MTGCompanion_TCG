@@ -2,7 +2,7 @@
 
 Documento de reporting (workstream H de [ROADMAP.md](../../ROADMAP.md)). Junta
 las métricas que cada script de entrenamiento ya escribe por separado en
-`certamen_1/output/{pytorch,tensorflow}/**/metrics_*.json` y
+`ml/training/output/{pytorch,tensorflow}/**/metrics_*.json` y
 `final_metrics.json`, para tener una sola fuente de verdad "qué framework
 ganó, por stage" — la misma comparación que `ExportPanel.tsx` calcula en vivo
 para el desktop-runner, pero como documento estático para el informe.
@@ -42,7 +42,7 @@ endpoint `/export/comparison` del desktop-runner (C5).
 **Actualización (B6, mismo día — la tabla de arriba ya la refleja, esta nota
 documenta el cambio):** los números originales de esta sección (PyTorch
 0.4411 / TensorFlow 0.4300) eran de *antes* de B6 del ROADMAP, que agregó
-`edhrec_rank` (popularidad/demanda, desde `certamen_1/merge_edhrec_rank.py`)
+`edhrec_rank` (popularidad/demanda, desde `ml/training/merge_edhrec_rank.py`)
 como feature tabular — el R² log saltó de 0.427–0.441 a 0.648–0.658 en
 ambos frameworks, cerrando y superando la brecha con el baseline tabular
 (0.521) que esta sección originalmente señalaba como sin cerrar. Ver B6 en
@@ -113,7 +113,7 @@ F1 en el umbral de Youden ya estaba listo (`evaluar()` en
 `pytorch/14_text_validator.py`/`tensorFlow/12_text_validator.py`, reusado
 por los scripts de Optuna), pero re-correr los 4 scripts para generar
 números reales requería datos que no existían en esta máquina: el
-`certamen_1/data/cards.json` local era un scrape parcial viejo (5,000
+`ml/training/data/cards.json` local era un scrape parcial viejo (5,000
 cartas, **sin el campo `oracle_text` en absoluto** — no es que estuviera
 vacío para algunas cartas, la clave ni existía), así que un primer intento
 de regenerar el dataset de pares dio ROC-AUC 0.63 (comparando OCR contra
@@ -129,6 +129,6 @@ no un placeholder.
 
 *Última actualización: 2026-08-16 (Stage 3 refrescado post-B6/`edhrec_rank`,
 ver nota en esa sección). Datos de Stage 3 leídos directamente de
-`certamen_1/output/{pytorch,tensorflow}/{price_estimator,optuna_price_estimator}/latest/`
-y `certamen_2/output/price_baseline/latest/`. Datos de Stage 2 de la corrida
+`ml/training/output/{pytorch,tensorflow}/{price_estimator,optuna_price_estimator}/latest/`
+y `ml/data-prep/output/price_baseline/latest/`. Datos de Stage 2 de la corrida
 real documentada arriba (H2).*

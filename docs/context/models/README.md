@@ -1,10 +1,10 @@
-# Models — the 4-stage pipeline as consumed by `examen/`
+# Models — the 4-stage pipeline as consumed by `apps/`
 
-Full training detail lives in `Proyecto/certamen_1/` (Stage 1 + 4) and
-`Proyecto/certamen_2/` (Stage 2 + 3, plus shared preprocessing) — see root
+Full training detail lives in `ml/training/` (Stage 1 + 4) and
+`ml/data-prep/` (Stage 2 + 3, plus shared preprocessing) — see root
 `CLAUDE.md`'s pipeline table for the canonical status. This file is the
 "what actually ships to the client" view: which checkpoint each stage uses,
-what's on disk, what's exported, and the gotchas that mattered for `examen/`
+what's on disk, what's exported, and the gotchas that mattered for `apps/`
 specifically.
 
 ## The 4 stages
@@ -18,7 +18,7 @@ specifically.
 
 ## What's actually on disk (gitignored — invisible in `git status`)
 
-`pytorch/models/` and `tensorFlow/models/` (both under `Proyecto/certamen_1/`)
+`pytorch/models/` and `tensorFlow/models/` (both under `ml/training/`)
 hold the trained checkpoints per framework: `mtg_detector.{pth,keras}`,
 `text_matcher.{pth,keras}`, `price_regressor.{pth,keras}` +
 `price_embedding.onnx` (PyTorch-only, see below), and
@@ -28,7 +28,7 @@ None of this is committed to git — if it's missing on a fresh checkout, it
 needs re-training (`desktop-runner`'s "Correr TODO", or the individual
 scripts) before export/publish will produce anything.
 
-## What's published to the client (`trading-app-ionic/public/models/`)
+## What's published to the client (`apps/mobile/public/models/`)
 
 ```
 stage1-detector.onnx          # Stage 1 classifier (sigmoid logit)
@@ -43,7 +43,7 @@ Publishing is done by each `*_export_onnx*.py` script's `publicar_en_ionic()`
 helper (root `CLAUDE.md` rule 3) — re-running export overwrites these files
 in place, no manual copy step.
 
-## Gotchas that matter here (see `okf/decisions/README.md` for full "why")
+## Gotchas that matter here (see `docs/context/decisions/README.md` for full "why")
 
 - **`external_data=False` fix.** Every PyTorch export script now passes this
   to `torch.onnx.export()` — without it, `torch`'s dynamo exporter silently
@@ -65,7 +65,7 @@ in place, no manual copy step.
   TensorFlow's expects 626 (50 + 576) — the two are not interchangeable, and
   there is no TensorFlow equivalent of `stage1-embedder.onnx`
   (`19_export_onnx_price_embedding.py` is PyTorch-only).
-  `trading-app-ionic/src/lib/ml/stage3PriceEstimator.ts` only knows how to
+  `apps/mobile/src/lib/ml/stage3PriceEstimator.ts` only knows how to
   build the 1280-dim input, so the TensorFlow Stage 3 model is simply never
   usable from the client. `desktop-runner`'s `RUN_ALL_EXPORT_SEQUENCE`
   (`scripts.config.ts`) deliberately runs TensorFlow's Stage 3 export
@@ -84,4 +84,4 @@ in place, no manual copy step.
 Versioned run history: `output/{framework}/{timestamp}/` (or
 `output/{framework}/optuna/{timestamp}/` for Optuna runs), with a `latest/`
 symlink — this is committed to git on purpose (it's the metrics history).
-Model binaries themselves never go here — see `okf/tools/README.md`.
+Model binaries themselves never go here — see `docs/context/tools/README.md`.

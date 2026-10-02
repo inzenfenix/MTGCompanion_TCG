@@ -32,7 +32,7 @@ from `stage1-embedder.onnx`, PyTorch-only); TensorFlow's needs 626 (50 +
 576) and has no embedding-export equivalent. `stage3PriceEstimator.ts` only
 builds the 1280-dim path. This is a real architectural asymmetry between
 the two frameworks for this one stage, not a bug — see
-`okf/models/README.md` for the export-ordering trick that keeps
+`docs/context/models/README.md` for the export-ordering trick that keeps
 `stage3-price-estimator.onnx` always PyTorch's regardless of which
 framework's other stages "win."
 
@@ -52,7 +52,7 @@ only if a materially better visual backbone changes that ceiling number.
 Deterministic (murmurhash3, fixed seed, no `.fit()`) so PyTorch and
 TensorFlow can each build the exact same input features independently,
 without shipping/syncing a vectorizer artifact between frameworks — required
-for the cross-framework comparison in `certamen_2` to be fair, and it's why
+for the cross-framework comparison in `ml/data-prep` to be fair, and it's why
 the client can reimplement it in TypeScript (`hashingVectorizer.ts`) instead
 of needing to load a Python-trained artifact at inference time. Any new
 text-feature stage should follow this same pattern (root `CLAUDE.md` rule
@@ -61,7 +61,7 @@ text-feature stage should follow this same pattern (root `CLAUDE.md` rule
 ## ONNX + `onnxruntime-web`, not TensorFlow.js
 
 The professor suggested TensorFlow.js; the team chose ONNX instead because
-`certamen_2` trains every stage in *both* frameworks and picks the winner
+`ml/data-prep` trains every stage in *both* frameworks and picks the winner
 per stage independently — committing to TensorFlow.js would have forced
 discarding a PyTorch win. ONNX covers whichever framework actually won each
 stage, without knowing in advance which one that'll be.
@@ -70,7 +70,7 @@ stage, without knowing in advance which one that'll be.
 
 `01_scraper.py` unconditionally overwrites `data/cards.json`, truncated to
 `--max-cards` (UI default 5,000) — this is why it's excluded from every
-"run all" sequence (`okf/tools/README.md`). Don't add it to an automatic
+"run all" sequence (`docs/context/tools/README.md`). Don't add it to an automatic
 sequence to "make setup easier" — that's the exact failure mode it's
 excluded to prevent (silently shrinking the real 58k+ card dataset down to
 5,000).

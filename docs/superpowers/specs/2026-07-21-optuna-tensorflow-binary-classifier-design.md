@@ -3,25 +3,25 @@
 ## Objetivo
 
 Aplicar Optuna al clasificador MTG/no-MTG de TensorFlow existente en
-`Proyecto/certamen_1/tensorFlow/`, determinar una combinación ganadora de
+`ml/training/tensorFlow/`, determinar una combinación ganadora de
 hiperparámetros mediante un conjunto de validación fijo y reentrenar el modelo
 final en la ruta documentada por el proyecto.
 
 La entrega debe poder ejecutarse durante la noche en un equipo sin GPU
 detectable, reanudarse después de una interrupción y dejar evidencia
-reproducible en `Proyecto/certamen_1/output/tensorflow/optuna/{timestamp}/`.
+reproducible en `ml/training/output/tensorflow/optuna/{timestamp}/`.
 
 ## Alcance
 
 Se incluye:
 
-- Reconstrucción del dataset con los scripts existentes de `certamen_1`.
+- Reconstrucción del dataset con los scripts existentes de `ml/training`.
 - Optimización exclusivamente del pipeline TensorFlow.
 - Parametrización retrocompatible del constructor del clasificador.
 - Estudio Optuna persistente con TPE y poda de trials.
 - Gráficos, tabla de trials y parámetros ganadores.
 - Reentrenamiento y evaluación del modelo final.
-- Actualización del README de `certamen_2` con instrucciones y artefactos.
+- Actualización del README de `ml/data-prep` con instrucciones y artefactos.
 
 Se excluye:
 
@@ -36,7 +36,7 @@ Se excluye:
 
 ### Constructor parametrizable
 
-`Proyecto/certamen_1/tensorFlow/src/binary_classifier.py` ampliará
+`ml/training/tensorFlow/src/binary_classifier.py` ampliará
 `build_binary_classifier()` con parámetros opcionales para:
 
 - `learning_rate`
@@ -60,7 +60,7 @@ BatchNormalization durante el fine-tuning.
 
 ### Script de optimización
 
-`Proyecto/certamen_1/tensorFlow/08_optuna_binary_classifier.py` será el punto
+`ml/training/tensorFlow/08_optuna_binary_classifier.py` será el punto
 de entrada. Reutilizará del pipeline existente las funciones de descarga de
 negativos, preparación de muestras y construcción de `tf.data.Dataset`. La
 carga del archivo cuyo nombre comienza por `07_` se encapsulará en una función
@@ -135,7 +135,7 @@ test hold-out separado.
 
 Cada corrida nueva crea:
 
-`Proyecto/certamen_1/output/tensorflow/optuna/YYYY-MM-DD_HHMMSS/`
+`ml/training/output/tensorflow/optuna/YYYY-MM-DD_HHMMSS/`
 
 con:
 
@@ -156,7 +156,7 @@ el patrón tolerante a Windows de `04_evaluate.py`: enlace de directorio cuando
 el sistema lo permita y copia como fallback.
 
 El modelo final permanecerá en la ruta documentada actual:
-`Proyecto/certamen_1/tensorFlow/models/mtg_detector.keras`. También se
+`ml/training/tensorFlow/models/mtg_detector.keras`. También se
 actualizará `models/mtg_detector_cfg.json` con los hiperparámetros ganadores,
 el umbral `0.5`, el tamaño de imagen y la ruta de los resultados Optuna.
 
@@ -182,7 +182,7 @@ los trials adicionales solicitados.
 
 ## Dependencias
 
-`Proyecto/certamen_1/tensorFlow/requirements.txt` agregará versiones compatibles
+`ml/training/tensorFlow/requirements.txt` agregará versiones compatibles
 de `optuna` y `optuna-integration[tfkeras]`. TensorFlow se ejecutará con Python
 3.12 porque el único intérprete detectado actualmente es Python 3.14 y la
 instalación debe usar una versión para la cual existan wheels compatibles.
@@ -210,14 +210,14 @@ modelo final puede cargarse con `tf.keras.models.load_model()`.
 
 ## Comandos previstos
 
-Desde `Proyecto/certamen_1`:
+Desde `ml/training`:
 
 ```powershell
 python 01_scraper.py --max-cards 5000 --quality small
 python 02_downloader.py
 ```
 
-Desde `Proyecto/certamen_1/tensorFlow`, usando el Python 3.12 del entorno
+Desde `ml/training/tensorFlow`, usando el Python 3.12 del entorno
 virtual:
 
 ```powershell

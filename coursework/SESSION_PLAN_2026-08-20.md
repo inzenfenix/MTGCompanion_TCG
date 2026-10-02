@@ -68,7 +68,7 @@ the same `setup:opencv` → `build` → `cap sync android` →
 `gradlew assembleDebug` sequence `desktop-runner`'s local "Reconstruir
 APK" button already runs → publish `app-debug.apk` as a GitHub Release.
 
-Documented in `Proyecto/examen/trading-app-ionic/README.md`'s new "CI:
+Documented in `apps/mobile/README.md`'s new "CI:
 compilar el APK..." section. Verified: YAML parses; the `.env`/XML
 substitution logic was dry-run tested against the real committed file.
 **Not verified**: no live GitHub Actions run — this machine has no `gh`

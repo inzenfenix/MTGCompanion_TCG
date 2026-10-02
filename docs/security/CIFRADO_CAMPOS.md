@@ -3,7 +3,7 @@
 **Nombre:** _[completar]_
 **Integrantes:** _[completar]_
 **Fecha de revisión:** 25 sep 2026
-**Alcance:** MTG Companion (`Proyecto/examen/`) — `backend/` (NestJS + Prisma + PostgreSQL), `trading-app-ionic/` (cliente), `infra/terraform/` (AWS), `desktop-runner/` (herramienta interna).
+**Alcance:** MTG Companion (`apps/`) — `backend/` (NestJS + Prisma + PostgreSQL), `apps/mobile/` (cliente), `infra/terraform/` (AWS), `desktop-runner/` (herramienta interna).
 **Insumo:** [`MAPEO_CIA.md`](MAPEO_CIA.md) (diccionario de actores/datos/riesgos) + revisión directa del código.
 
 > Este documento es **solo revisión y decisión** (primera mitad del entregable). La implementación de lo que falta está registrada como tarea en `ROADMAP.md`, **workstream O**, y no se ha ejecutado todavía.
@@ -46,7 +46,7 @@ Estado: ✅ ya implementado · ⚠️ parcial · ❌ pendiente (tarea en `ROADMA
 | 12 | Base de datos completa (cuentas, colección/inventario, transacciones, montos, cupones) | **Cifrado en reposo (disco)** | Se consultan y ordenan en SQL → cifrar por campo rompería la app. Se cifra el disco (**hoy no**). | Cifrado EBS (AES-256 vía AWS KMS, llave `aws/ebs`) | `infra/terraform/ec2_postgres.tf` → `root_block_device { encrypted = true }` | Llave administrada por AWS KMS (`aws/ebs`). | ❌ |
 | 13 | Secretos de configuración (`JWT_SECRET`, tokens MercadoPago, password Postgres, MinIO) | **Gestión de secretos** (no se cifran en el código: se sacan del código) | Son las llaves de todo lo anterior: nunca en el código ni junto al dato. | AWS Secrets Manager; leídos al arrancar con el rol de la instancia | `infra/terraform/secrets.tf`, `deploy-backend.sh:79` | `.env`, `terraform.tfvars` y `*.tfstate` gitignoreados; verificado que nunca se commitearon. | ✅ |
 | 14 | Credenciales AWS del administrador (desktop-runner) | **Cifrado simétrico con llavero del SO** | Deben recuperarse para usarse. Hoy están **en texto plano** fuera del repo. | Electron `safeStorage` (usa libsecret / Keychain / DPAPI) o, mínimo, permisos `0600` | `desktop-runner/apps/server/src/scripts/settings.ts:101` | La llave la custodia el llavero del sistema operativo, no la app. | ⚠️ |
-| 15 | Sesión en el cliente (access + refresh token) | **Almacenamiento seguro del dispositivo** | En `localStorage` cualquier XSS puede leerlos. En Android conviene el almacén del hardware. | Android Keystore vía plugin de almacenamiento seguro de Capacitor | `trading-app-ionic/src/lib/auth/AuthContext.tsx` | Llave del Android Keystore, no exportable. | ❌ (prioridad baja) |
+| 15 | Sesión en el cliente (access + refresh token) | **Almacenamiento seguro del dispositivo** | En `localStorage` cualquier XSS puede leerlos. En Android conviene el almacén del hardware. | Android Keystore vía plugin de almacenamiento seguro de Capacitor | `apps/mobile/src/lib/auth/AuthContext.tsx` | Llave del Android Keystore, no exportable. | ❌ (prioridad baja) |
 
 ### Datos revisados que **no** requieren cifrado de campo (justificación)
 

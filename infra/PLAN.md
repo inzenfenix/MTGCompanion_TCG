@@ -51,7 +51,7 @@ before implementing, since it's a real scope decision, not a fact.
 
 ## Ground truth from research (already done — don't re-explore, just build)
 
-**desktop-runner** (`Proyecto/examen/desktop-runner`): NestJS server
+**desktop-runner** (`apps/desktop-runner`): NestJS server
 (`apps/server`, port 4550) + React renderer + Electron shell. Settings live
 at `~/.mtg-desktop-runner/settings.json` via `apps/server/src/scripts/
 settings.ts`'s `RunnerSettings`/`readSettings()`/`writeSettings()`, exposed
@@ -93,13 +93,13 @@ need to fit that shape, but should still live inside `ScriptsService`
 app that owns process spawn/stream/kill — splitting it out would fragment
 that responsibility for no benefit.
 
-Root repo `.gitignore` has a **stale** `!Proyecto/certamen_1/desktop-runner/
-**/src/lib/` exception — the app actually lives at `Proyecto/examen/
+Root repo `.gitignore` has a **stale** `!ml/training/desktop-runner/
+**/src/lib/` exception — the app actually lives at `apps/
 desktop-runner/` now. Don't copy-paste that stale pattern into any new
 gitignore rule; flag it as a tangential fix opportunity, don't silently
 "fix" it without confirming since it's outside this workstream's scope.
 
-**backend** (`Proyecto/examen/backend`): No Dockerfile anywhere (confirmed
+**backend** (`apps/backend`): No Dockerfile anywhere (confirmed
 via full-repo search). `docker/docker-compose.yml` is dev-only
 (postgres:16-alpine, MinIO, MailHog — no app container; `npm run start:dev`
 run by hand). `.env.example` has every var needed: `NODE_ENV`, `PORT`,
@@ -140,7 +140,7 @@ runtime config). No `network_security_config.xml` exists yet; Android
 `targetSdkVersion 36` means plaintext HTTP to a new EC2 host is blocked by
 default unless this file is added. `capacitor.config.ts` needs no change
 (no `server` block, WebView always loads bundled `dist/`). **Confirmed real
-gap**: `trading-app-ionic/.gitignore` excludes `.env.local`/
+gap**: `apps/mobile/.gitignore` excludes `.env.local`/
 `.env.development.local`/etc. but **not plain `.env`** — since this
 workstream's hand-off step is "paste the real backend URL into `.env`,"
 add a bare `.env` line to that `.gitignore` as an in-scope fix.
@@ -304,7 +304,7 @@ add a bare `.env` line to that `.gitignore` as an in-scope fix.
   `STORAGE_ACCESS_KEY_ID`/`SECRET` should stay blank on EC2 to use the
   instance role.
 
-### 2. Terraform — new `Proyecto/examen/infra/terraform/`
+### 2. Terraform — new `infra/terraform/`
 ```
 infra/terraform/
   providers.tf            # provider "aws" reading var.aws_access_key_id/
@@ -356,7 +356,7 @@ infra/terraform/
   README.md                          # runbook: getting temp creds from the
                            #   Academy Lab console, init/plan/apply order,
                            #   the "after apply" hand-off (backend_url into
-                           #   trading-app-ionic/.env + backend .env's
+                           #   apps/mobile/.env + backend .env's
                            #   PUBLIC_API_URL, then npm run build → npx cap
                            #   sync android → gradlew assembleDebug),
                            #   deploy-backend.sh usage, MinIO-vs-S3 decision
@@ -442,7 +442,7 @@ mercadopago_webhook_secret = ""
 - `terraform.ts` (new, mirrors `tf-docker.ts`) — `getTerraformEligibility()`
   (probes `terraform version`, optionally `aws --version`, reusing
   `probeCommand()` — export it from `tf-docker.ts` rather than duplicating);
-  `TERRAFORM_DIR = path.resolve(REPO_ROOT, 'Proyecto/examen/infra/terraform')`;
+  `TERRAFORM_DIR = path.resolve(REPO_ROOT, 'infra/terraform')`;
   `buildTerraformEnv(creds): Record<string,string>` building
   `{TF_VAR_aws_access_key_id, TF_VAR_aws_secret_access_key,
   TF_VAR_aws_session_token}` (token only if non-null) — mirrors the existing
@@ -507,7 +507,7 @@ mercadopago_webhook_secret = ""
   indicator inside the tab is simpler and correct).
 
 ### 4. trading-app-ionic
-- `trading-app-ionic/.gitignore` — add a bare `.env` line (confirmed
+- `apps/mobile/.gitignore` — add a bare `.env` line (confirmed
   missing today).
 - `android/app/src/main/res/xml/network_security_config.xml` (new):
   cleartext exception for a placeholder host, commented "replace with the
@@ -545,7 +545,7 @@ mercadopago_webhook_secret = ""
    and `ec2_backend.tf`'s real output shape (step 4); write last, ideally
    after at least one real `apply` so its assumptions about output names
    are verified, not guessed.
-6. **`trading-app-ionic` `.gitignore` fix + `network_security_config.xml`**
+6. **`apps/mobile` `.gitignore` fix + `network_security_config.xml`**
    — small, independent, do whenever convenient.
 
 Nothing here requires a real `apply` — that stays a separate, explicit

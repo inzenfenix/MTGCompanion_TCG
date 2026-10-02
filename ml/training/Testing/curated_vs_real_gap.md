@@ -1,6 +1,6 @@
 # Datos curados vs. fotos reales — el gap por stage
 
-Documento de reporting (workstream H de [ROADMAP.md](../../ROADMAP.md), item
+Documento de reporting (workstream H de [ROADMAP.md](../../../ROADMAP.md), item
 H6). Formaliza algo ya observado de forma anecdótica durante el proyecto:
 las métricas de validación/Optuna se miden sobre datos curados (renders de
 catálogo, crops sintéticos, wear sintético) y son sistemáticamente más
@@ -74,7 +74,7 @@ de discriminación del embedding, que afecta a *ambos* regímenes.
 
 **Curado**: ROC-AUC 0.96–0.99 sobre pares OCR-vs-referencia generados a
 partir de descargas de catálogo (foto de referencia limpia, no una foto de
-producto físico), ver `../../certamen_2/RESULTADOS.md`.
+producto físico), ver `../../data-prep/RESULTADOS.md`.
 
 **Real-foto**: tasa de confirmación 15.6% → 22.1% (pre/post-G4b, mismo fix
 de localización + la corrección de orientación nueva que trajo G4b —
@@ -113,7 +113,7 @@ Con Stage 1 al 18%, la mayoría de estas comparaciones son "¿el precio
 estimado se parece al precio de una carta *distinta* a la fotografiada?" —
 que el error siga siendo bajo (mediana $0.26) dice más sobre lo comprimida
 que está la distribución de precios de MTG (la mayoría de las cartas valen
-centavos, ver H3 en `certamen_2/RESULTADOS.md`) que sobre la precisión real
+centavos, ver H3 en `ml/data-prep/RESULTADOS.md`) que sobre la precisión real
 de Stage 3 en esta prueba. No es comparable 1:1 contra el R²=0.44 curado,
 que sí garantiza la carta correcta por construcción.
 
@@ -172,7 +172,7 @@ el que comparar este trade-off del lado TF.
 ---
 
 *Última actualización: 2026-08-16. Fuentes: `../RESULTADOS.md` (H1/H4,
-datos curados), `../../certamen_2/RESULTADOS.md` (Stage 2/3 curado),
+datos curados), `../../data-prep/RESULTADOS.md` (Stage 2/3 curado),
 `real_photo_eval_report.md` (G4, post-G4b), ROADMAP.md filas G4/G4a/G4b/G4d,
 CLAUDE.md (tabla del pipeline, nota del checkpoint combinado de Stage 4). No
 se corrió ningún modelo nuevo para este documento — es síntesis de

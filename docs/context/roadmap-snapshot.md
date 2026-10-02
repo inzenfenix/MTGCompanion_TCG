@@ -1,7 +1,7 @@
 # ROADMAP snapshot — 2026-09-11
 
 **This is a dated, mechanically-generated status count, not a substitute
-for [`ROADMAP.md`](../../../ROADMAP.md).** It was produced by counting rows
+for [`ROADMAP.md`](../../ROADMAP.md).** It was produced by counting rows
 marked ✅/🚧 per workstream heading at the time this file was written — it
 will be wrong the moment `ROADMAP.md` changes again, which happens often.
 Open `ROADMAP.md` itself for ground truth; use this only to orient which
@@ -32,7 +32,7 @@ signal, not an exact row tally.
 
 By this count, workstreams A–H, K, L, M, N read as essentially closed out;
 **I (AWS infra)** has the one row still showing 🚧 as of this writing and is
-by far the largest workstream (40 rows) — see `okf/infra/README.md` and
+by far the largest workstream (40 rows) — see `docs/context/infra/README.md` and
 `infra/PLAN.md`. **J (trading flow)** is large and under active development
 per recent commit history (e.g. "J15 identify/sell flow"). If you're
 choosing a workstream to pick up, `ROADMAP.md` itself — not this file — has

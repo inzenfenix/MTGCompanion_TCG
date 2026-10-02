@@ -2,11 +2,11 @@
 
 Esta carpeta (`backend/`) contiene la API que le da persistencia real a
 **MTG Companion**, la app comercial planteada para el Examen (ver
-[Proyecto/examen/README.md](../README.md)): cuentas de
+[apps/README.md](../README.md)): cuentas de
 usuario, cartas de la colección con sus fotos, transacciones de
 compra/venta entre usuarios, y el settings de cada cuenta (idioma, tema,
 2FA). El escaneo/identificación de la carta en sí sigue corriendo
-del lado del cliente en `trading-app-ionic/` vía `onnxruntime-web` — este
+del lado del cliente en `apps/mobile/` vía `onnxruntime-web` — este
 backend no hace inferencia, solo guarda lo que el usuario colecciona y
 transacciona.
 
@@ -47,7 +47,7 @@ transacciona.
   código sin un caller real todavía) ni el frontend consume este endpoint
   todavía (`AuthContext.tsx` sigue
   cerrando sesión en cualquier 401 del access token, sin intentar
-  refrescar primero — ver `trading-app-ionic/README.md`).
+  refrescar primero — ver `apps/mobile/README.md`).
 - ✅ 2FA real vía TOTP (`otplib`, app autenticadora). Enrollment en dos
   pasos: `POST /auth/2fa/setup` (autenticado) genera un secreto y lo guarda
   *pendiente* (`twoFactorEnabled` sigue en `false`), devuelve `otpauthUrl` +
@@ -192,7 +192,7 @@ dispara y el correo se genera con el contenido correcto).
 ## Qué falta (a propósito, fuera de alcance de este pase)
 
 - **Frontend de 2FA.** El backend ya implementa TOTP de punta a punta (ver
-  "Estado actual" más arriba) pero `trading-app-ionic/src/pages/
+  "Estado actual" más arriba) pero `apps/mobile/src/pages/
   SecuritySettings.tsx` sigue siendo un mock estático (`useState` local,
   sin llamadas a la API) — no muestra el QR real, no pide el código de
   confirmación, y `AuthContext`/`api.ts` no saben manejar la respuesta
@@ -206,14 +206,14 @@ dispara y el correo se genera con el contenido correcto).
   `.env.example`) tampoco es útil en `localhost` sin un túnel (ngrok o
   similar) — MercadoPago no puede llamar de vuelta a `notification_url` si
   no es una URL pública.
-- **Balance/wallet del usuario.** El mock de `trading-app-ionic/` (Tab 1)
+- **Balance/wallet del usuario.** El mock de `apps/mobile/` (Tab 1)
   muestra un balance de tesorería fijo; deliberadamente no se modeló un
   campo `balance` en `User` — ahora que el pago real existe (ver "Estado
   actual"), se puede derivar de las transacciones `PAID`, pero sigue sin
   construirse (ROADMAP.md F5/E7).
 - **Export ONNX de Stage 4 (grader de condición) y Stage 1** — vive en
-  `Proyecto/certamen_2/`, no en este backend; ver
-  [Proyecto/examen/README.md](../README.md).
+  `ml/data-prep/`, no en este backend; ver
+  [apps/README.md](../README.md).
 
 ## Despliegue en producción (EC2, referencia)
 

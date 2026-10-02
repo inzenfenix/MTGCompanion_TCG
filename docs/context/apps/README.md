@@ -1,4 +1,4 @@
-# Apps — how the three pieces of `examen/` fit together
+# Apps — how the three pieces of `apps/` fit together
 
 ```
 ┌─────────────────────── trading-app-ionic (Ionic React + Capacitor) ───────────────────────┐
@@ -6,7 +6,7 @@
 │  Camera (getUserMedia/Capacitor Camera)                                                    │
 │    → OpenCV.js: cardLocalizer.ts (crop/perspective/CLAHE)                                  │
 │    → onnxruntime-web: Stage 1 detector → Stage 2 text validator → Stage 3 price            │
-│      estimator (PyTorch-only, see okf/models) → Stage 4 condition grader                   │
+│      estimator (PyTorch-only, see docs/context/models) → Stage 4 condition grader                   │
 │    → tesseract.js (in-browser OCR) + GET /catalog/search[-by-text] → identifyCard.ts       │
 │      resolves *which* catalog card this is                                                 │
 │                                                                                             │
@@ -24,8 +24,8 @@
 
 ┌──────────────────────── desktop-runner (Electron + NestJS + React) ───────────────────────┐
 │  Not part of the runtime app above — this is the dev-side GUI that produces the ONNX       │
-│  models trading-app-ionic consumes (wraps certamen_1/certamen_2's Python pipeline) and,     │
-│  separately, drives AWS/Terraform deploys for backend infra (see okf/infra).                │
+│  models trading-app-ionic consumes (wraps ml/training/certamen_2's Python pipeline) and,     │
+│  separately, drives AWS/Terraform deploys for backend infra (see docs/context/infra).                │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 

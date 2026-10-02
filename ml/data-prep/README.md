@@ -8,7 +8,7 @@
 > de generalización (sección 9). Falta: las versiones "de verdad" (no
 > baseline) de Stage 2/3, y exportar TensorFlow a ONNX. El resto de este
 > documento es el plan acordado para el flujo de tres modelos que alimenta la
-> app Ionic — ver [Proyecto/examen/README.md](../examen/README.md).
+> app Ionic — ver [apps/README.md](../../apps/README.md).
 
 ## Consigna
 
@@ -30,7 +30,7 @@ Entrega de la semana de Optuna, ya ejecutada de punta a punta:
       batch size, unidades/dropout de la cabeza, optimizer, fracción de
       backbone congelada) y corre un `study` con sampler TPE.
 - [x] Corrida real completada — resultados en
-      `Proyecto/certamen_1/output/tensorflow/optuna/2026-07-21_104919/`
+      `ml/training/output/tensorflow/optuna/2026-07-21_104919/`
       (`best_params.json`, `optuna_historia.png`, `optuna_importancia.png`,
       `final_metrics.json`) y `tensorFlow/models/mtg_detector.keras` reentrenado
       con los mejores hiperparámetros. Instrucciones de reanudar/trasladar la
@@ -46,7 +46,7 @@ Entrega de la semana de Optuna, ya ejecutada de punta a punta:
       (`state_dict`), a diferencia de `.keras` que empaqueta arquitectura +
       pesos. Corrida real completada (n=3000, 20 trials — 4 podados por el
       pruner, 15 épocas finales) — resultados en
-      `Proyecto/certamen_1/output/pytorch/optuna/latest/`. Ganador: trial 0
+      `ml/training/output/pytorch/optuna/latest/`. Ganador: trial 0
       (`optimizer=adam, lr=1.3e-4, weight_decay=6.4e-3, batch_size=16,
       head_units=128, dropout=0.0, freeze_ratio=0.65`), `val_accuracy=1.0000`
       en el split de validación (renders oficiales, ambas clases).
@@ -186,7 +186,7 @@ otras cartas o de las imágenes Pokémon ya descargadas
 ### Stage 3 — Estimador de precio (regresión)
 
 Motivación: da valor comercial concreto a la identificación (ver
-[plan del examen](../examen/README.md)) — no solo "qué carta es", sino
+[plan del examen](../../apps/README.md)) — no solo "qué carta es", sino
 "cuánto vale hoy".
 
 Entrada: metadata de la carta ya confirmada (rareza, set, `cmc`, colores,
@@ -219,7 +219,7 @@ ROC-AUC bajo en este proyecto (dataset desbalanceado o chico).
 
 ## 3. ONNX — portabilidad a la app Ionic
 
-Reemplaza el enfoque anterior del [plan del examen](../examen/README.md), que
+Reemplaza el enfoque anterior del [plan del examen](../../apps/README.md), que
 proponía llevar solo TensorFlow (vía TensorFlow.js) a la app. Con ONNX como
 formato de exportación común:
 
@@ -247,7 +247,7 @@ deben mantener el mismo contrato que ya usan `01_scraper.py` / `02_downloader.py
 - CLI vía `argparse`, nunca interacción por input().
 - Exit code `0` solo si terminó bien; `sys.exit(1)` en cualquier prerequisito
   faltante (mismo criterio que se aplicó en Certamen 1, ver
-  [certamen_1/README.md](../certamen_1/README.md)).
+  [ml/training/README.md](../training/README.md)).
 - Salidas a rutas predecibles y versionadas bajo `output/` (`--output-dir`),
   igual que `04_evaluate.py`.
 
@@ -293,7 +293,7 @@ con backbone no superan claramente este baseline, no vale la pena el costo
 extra de entrenarlos con imágenes.
 
 ```bash
-cd Proyecto/certamen_2
+cd ml/data-prep
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
@@ -360,7 +360,7 @@ x = concat(x_tab, x_vis)
 Nuevo módulo `price_features.py`, Python puro (sin `torch`/`tf`/`sklearn`),
 duplicado byte-idéntico en `pytorch/src/` y `tensorFlow/src/` — mismo
 criterio que ya usa `src/text_matcher.py` en las dos carpetas, no
-centralizado en `certamen_2/`. Reutiliza el feature set ya probado de
+centralizado en `ml/data-prep/`. Reutiliza el feature set ya probado de
 `price_estimator_baseline.py::fila_features()` (rareza, `cmc`, colores, tipo
 primario, legendaria, antigüedad, `set_type`, `frame`, `border_color`, foil/
 etched, `frame_effects`) pero reemplaza el `OneHotEncoder` de `sklearn`
@@ -389,7 +389,7 @@ Más 9 campos numéricos/binarios sin encoding (`cmc`, `n_colores`,
 Normalización: los 5 campos numéricos sin acotar (`cmc`, `n_colores`,
 `n_frame_effects`, `anio`, `antiguedad_anios`) se estandarizan con media/
 desvío calculados **una vez** sobre el split de train y persistidos en
-`certamen_2/data/price_dataset/tabular_scaler.json` — no un objeto
+`ml/data-prep/data/price_dataset/tabular_scaler.json` — no un objeto
 `StandardScaler` pickleado (no portable entre `sklearn` de dos venvs
 distintos, tampoco exportable a ONNX), solo los números, aplicados igual en
 los dos frameworks. Las columnas binarias/one-hot quedan en 0/1 crudo.
@@ -420,16 +420,16 @@ Como el backbone está congelado, su salida es una función determinística de
 la imagen — no hace falta recalcularla en cada epoch. Se precalcula **una
 sola vez** por framework y se cachea en disco (mismo criterio que evitar
 re-correr OCR en cada epoch de Stage 2):
-`certamen_2/data/price_dataset/{framework}_visual_embeddings.npy` +
+`ml/data-prep/data/price_dataset/{framework}_visual_embeddings.npy` +
 `card_ids.json`. Esto requiere un script de preparación nuevo,
-`certamen_2/prepare_price_dataset.py` (corre una vez por framework, dentro
+`ml/data-prep/prepare_price_dataset.py` (corre una vez por framework, dentro
 del venv correspondiente porque importa `torch` o `tf`) — todavía no
 escrito, queda como prerrequisito de B2/B3 (ROADMAP.md, workstream B) y es
 exactamente el "futuro prep script de Stage 3" que ya anticipaba la nota de
 C1 en ROADMAP.md.
 
 **Split**: partición fija train/val/test por `card_id`, guardada en
-`certamen_2/data/price_dataset/split.json` (seed fija) — para que ambos
+`ml/data-prep/data/price_dataset/split.json` (seed fija) — para que ambos
 frameworks entrenen/evalúen sobre exactamente las mismas cartas, no solo
 sobre la misma proporción (más fuerte que el `train_test_split(random_state=42)`
 independiente que usa hoy el baseline). Hace falta un val set separado del
@@ -448,7 +448,7 @@ arranque en `pytorch/15_price_estimator.py` y en `prepare_price_dataset.py`
 ### 5.1.2 Stage 3 "de verdad" — primera corrida real (15 ago)
 
 Escritos y corridos de punta a punta los scripts que implementan el diseño
-de 5.1.1: `certamen_2/prepare_price_dataset.py` (tabular + split + scaler) →
+de 5.1.1: `ml/data-prep/prepare_price_dataset.py` (tabular + split + scaler) →
 `pytorch/prepare_price_embeddings.py` / `tensorFlow/prepare_price_embeddings.py`
 (embedding visual congelado, uno por framework) →
 `pytorch/15_price_estimator.py` / `tensorFlow/13_price_estimator.py`
@@ -501,7 +501,7 @@ $40 con las mismas columnas categóricas — el precio lo mueve demanda/
 escasez, no capturado hasta ahora.
 
 Fix: `edhrec_rank` de Scryfall (más bajo = más jugada/popular en EDH/
-Commander) agregado a `cards.json` vía `certamen_1/merge_edhrec_rank.py` —
+Commander) agregado a `cards.json` vía `ml/training/merge_edhrec_rank.py` —
 **no** vía `01_scraper.py` (destructivo, trunca a `--max-cards`, CLAUDE.md
 regla 2) — reusando el cache local `data/raw_cards.json` del scrape original
 (ya trae `edhrec_rank` para 101,909/116,703 filas crudas, 87.3%, sin
@@ -554,7 +554,7 @@ modelo propio entrenado (**OpenCV + OCR + similitud de strings**), antes de
 construir las dos versiones "de verdad" por framework.
 
 ```bash
-cd Proyecto/certamen_2
+cd ml/data-prep
 python text_validator_baseline.py                # 800 cartas de muestra
 python text_validator_baseline.py --n 200          # muestra chica, iterar rápido
 ```
@@ -563,7 +563,7 @@ Pipeline: `card_preprocessing.py` (localizar carta + corregir perspectiva +
 normalizar contraste — ver sección 8) → recorte fijo de la caja de texto
 dentro de la carta ya encuadrada → OCR con `pytesseract` → similitud
 (`difflib`) contra `name` + `oracle_text` de la carta candidata. Descarga su
-propia sub-muestra en calidad "large" (`certamen_2/data/ocr_images/`,
+propia sub-muestra en calidad "large" (`ml/data-prep/data/ocr_images/`,
 gitignored) — las imágenes "small" del dataset compartido (146×204px) son
 ilegibles para OCR.
 
@@ -589,7 +589,7 @@ Encadena Stage 1 (`pytorch/scanner.py`, subproceso) → Stage 2 → Stage 3 sobr
 una sola foto, con lo que existe hoy (baselines, no los modelos "de verdad"):
 
 ```bash
-cd Proyecto/certamen_2
+cd ml/data-prep
 python full_pipeline_demo.py ruta/a/carta.jpg
 ```
 
@@ -653,7 +653,7 @@ reconstruir el índice de PyTorch contra el dataset completo
 - [x] Exportar Stage 2 a ONNX, ambos frameworks
       (`pytorch/16_export_onnx_text_validator.py` +
       `tensorFlow/14_export_onnx_text_validator.py`), publicado como
-      `stage2-text-validator.onnx` en `trading-app-ionic/public/models/`.
+      `stage2-text-validator.onnx` en `apps/mobile/public/models/`.
 - [ ] Exportar Stage 3 a ONNX y armar el registro `best_model.json` por etapa
       (sección 2) — todavía no existe para ninguna etapa, la selección de
       "ganador" hoy es manual/última corrida publicada.
@@ -923,7 +923,7 @@ puliendo el bootstrap sintético.
       no expone el campo `license` en su modelo de objetos, hubo que pegarle
       directo a `api.roboflow.com/{workspace}/{project}`). Requiere una API
       key personal (gratis, cuenta propia) — no se versiona, va en
-      `certamen_2/.env` (gitignored).
+      `ml/data-prep/.env` (gitignored).
 - [x] `import_roboflow_condition_data.py`: los dos datasets vienen anotados
       para **detección de objetos** (cajas marcando dónde hay daño —
       "Dano"/Scratch/Edge Wear/Corner Wear), no para clasificación de carta
@@ -1029,7 +1029,7 @@ gratis de Roboflow — [roboflow.com](https://roboflow.com) → Settings →
 Roboflow API → Private API Key):
 
 ```bash
-cd Proyecto/certamen_2
+cd ml/data-prep
 echo "ROBOFLOW_API_KEY=tu_key_acá" > .env      # gitignored, no se versiona
 pip install roboflow python-dotenv
 

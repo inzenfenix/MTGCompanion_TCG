@@ -1,6 +1,6 @@
 # MTG Scanner — Desktop Runner
 
-App de escritorio para correr los scripts de `certamen_1/` (pipelines PyTorch y
+App de escritorio para correr los scripts de `ml/training/` (pipelines PyTorch y
 TensorFlow) desde una interfaz gráfica, sin ejecutar cada `.py` manualmente en
 la terminal.
 
@@ -25,7 +25,7 @@ desktop-runner/
 └── package.json    # workspaces npm
 ```
 
-El server ubica `certamen_1/` en runtime de forma relativa (no hace falta
+El server ubica `ml/training/` en runtime de forma relativa (no hace falta
 configurar nada) — ver `apps/server/src/scripts/scripts.config.ts`.
 
 ## Primer uso
@@ -41,7 +41,7 @@ puede ponerse lento — marcá `desktop-runner/node_modules` para que no se
 sincronice ("Liberar espacio" / excluir la carpeta), no afecta al proyecto.
 
 **Requisito de sistema para los scripts de Stage 2:** los scripts de
-`certamen_2` que preparan el dataset del validador de texto
+`ml/data-prep` que preparan el dataset del validador de texto
 (`prepare_text_validator_dataset.py`) necesitan el binario **`tesseract`**
 (OCR) instalado a nivel de sistema — `sudo dnf install tesseract` (Fedora) /
 `sudo apt install tesseract-ocr` (Debian/Ubuntu). Esta app no lo instala por
@@ -95,7 +95,7 @@ resultados (`final_metrics.json`) sí se leen y comparan en la pestaña
 "Exportar".
 
 Cada script muestra sus parámetros reales (los mismos flags de
-`argparse` que ves en `Proyecto/certamen_1/README.md`), con sus valores por
+`argparse` que ves en `ml/training/README.md`), con sus valores por
 defecto. Los que necesitan una imagen (`scanner.py`, `compare_scanners.py`)
 tienen un botón "Elegir…" que abre el file picker nativo de Electron.
 

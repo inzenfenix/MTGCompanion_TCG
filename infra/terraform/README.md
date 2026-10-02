@@ -61,11 +61,11 @@ terraform apply
    any time you want to push a new backend version — it's idempotent, not
    just a first-deploy step.
 3. Point the Android build at the real server:
-   - `trading-app-ionic/.env`: `VITE_API_BASE_URL=<terraform output backend_url>`
+   - `apps/mobile/.env`: `VITE_API_BASE_URL=<terraform output backend_url>`
    - `backend`'s remote `.env` already gets `PUBLIC_API_URL` set by
      `deploy-backend.sh` (needed for MercadoPago's webhook callback).
    - Replace the placeholder host in
-     `trading-app-ionic/android/app/src/main/res/xml/network_security_config.xml`
+     `apps/mobile/android/app/src/main/res/xml/network_security_config.xml`
      with the real EC2 host (Android blocks plaintext HTTP by default;
      that file's cleartext exception only covers the placeholder as
      committed — a real TLS setup, see below, would remove the need for
@@ -74,12 +74,12 @@ terraform apply
      ./gradlew assembleDebug`.
 4. One-time catalog import (not part of `user_data` — a 58k-row import
    shouldn't block instance boot). Easiest: desktop-runner's Deploy tab →
-   Outputs card → "3. Importar catálogo" (uploads `certamen_1/data/
+   Outputs card → "3. Importar catálogo" (uploads `ml/training/data/
    cards.json` to `deploy_artifacts_bucket_name` and runs it remotely via
    SSM Run Command, no shell needed). Doing it by hand instead needs two
    real gotchas worked around, both found running this for real against a
    live instance:
-   - `certamen_1/data/cards.json` isn't on the instance (only `backend/`
+   - `ml/training/data/cards.json` isn't on the instance (only `backend/`
      gets shipped) — copy it in yourself first (`docker cp` after getting it
      onto the instance somehow, e.g. via the same S3-staging trick
      `deploy-backend.sh` uses).

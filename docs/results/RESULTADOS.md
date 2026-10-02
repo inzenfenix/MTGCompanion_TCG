@@ -1,15 +1,15 @@
 # Resultados consolidados — PyTorch vs. TensorFlow, las 4 stages
 
-Documento de reporting (workstream H de [ROADMAP.md](ROADMAP.md), item H5).
+Documento de reporting (workstream H de [ROADMAP.md](../../ROADMAP.md), item H5).
 Tabla ganador-por-stage, mismo criterio y las mismas fuentes que
 `ExportPanel.tsx`/`scripts.config.ts` (`EXPORT_STAGES`) del desktop-runner
 calculan en vivo — acá como documento estático para el informe. Detalle
 completo por stage (hiperparámetros, desglose por clase, notas de calidad
 de dato) en:
 
-- [`Proyecto/certamen_1/RESULTADOS.md`](Proyecto/certamen_1/RESULTADOS.md) — Stage 1 (detector + retrieval) y Stage 4 (condición)
-- [`Proyecto/certamen_2/RESULTADOS.md`](Proyecto/certamen_2/RESULTADOS.md) — Stage 2 (validador de texto) y Stage 3 (precio)
-- [`Proyecto/certamen_1/Testing/curated_vs_real_gap.md`](Proyecto/certamen_1/Testing/curated_vs_real_gap.md) — datos curados vs. fotos reales (H6)
+- [`ml/training/RESULTADOS.md`](../../ml/training/RESULTADOS.md) — Stage 1 (detector + retrieval) y Stage 4 (condición)
+- [`ml/data-prep/RESULTADOS.md`](../../ml/data-prep/RESULTADOS.md) — Stage 2 (validador de texto) y Stage 3 (precio)
+- [`ml/training/Testing/curated_vs_real_gap.md`](../../ml/training/Testing/curated_vs_real_gap.md) — datos curados vs. fotos reales (H6)
 
 Regla de empate del proyecto (la misma que usa `scripts.service.ts` /
 `ExportPanel.tsx`): si la diferencia entre PyTorch y TensorFlow en la
@@ -34,7 +34,7 @@ transfer learning). La fila de retrieval Top-1 no forma parte de esa
 comparación en vivo — se agrega acá como referencia porque es la métrica
 que de verdad importa para el uso real del scanner (identificar *cuál*
 carta, no solo *si* es una carta) y es la que motivó H4/H6. Ver
-`Proyecto/certamen_1/RESULTADOS.md` para el desglose completo (Top-5, MRR,
+`ml/training/RESULTADOS.md` para el desglose completo (Top-5, MRR,
 velocidad).
 
 ## Resumen — 3 de 5 filas para PyTorch, 2 empates, 0 para TensorFlow en solitario
@@ -46,7 +46,7 @@ velocidad).
 - **Stage 4 es la única stage con una brecha grande** (0.198 en F1 macro) —
   no es un artefacto de tuning: TensorFlow es sistemáticamente más débil en
   las 5 clases de condición, con su peor caso en HP (F1 0.673 vs. 0.966 de
-  PyTorch). Ver `Proyecto/certamen_1/RESULTADOS.md` para el desglose
+  PyTorch). Ver `ml/training/RESULTADOS.md` para el desglose
   completo por grado.
 - **Stage 1 y 2 son empates técnicos** por la regla del proyecto (diff <
   0.005) — ambos frameworks llegan a arquitecturas Optuna distintas
@@ -64,5 +64,5 @@ velocidad).
 
 *Última actualización: 2026-08-16. Ningún modelo se re-entrenó para armar
 este documento — agregación pura de resultados ya existentes en
-`Proyecto/certamen_1/output/` y `Proyecto/certamen_1/output/{pytorch,tensorflow}/optuna_*`
+`ml/training/output/` y `ml/training/output/{pytorch,tensorflow}/optuna_*`
 (ROADMAP.md H5, depende de H1–H4, todos ya completos).*

@@ -25,15 +25,15 @@ is TensorFlow-only.
 # GPU panel (Configuración inicial) shows the same detection result.
 export HSA_OVERRIDE_GFX_VERSION=10.3.0
 
-./run.sh Proyecto/certamen_1/tensorFlow/07_binary_classifier.py --epochs 3
+./run.sh ml/training/tensorFlow/07_binary_classifier.py --epochs 3
 ```
 
 First run pulls the image (~11GB — see disk/bandwidth note below). The
 script mounts the whole repo at `/workspace` inside the container, installs
-`certamen_1/tensorFlow/requirements.txt` (fast — TensorFlow itself is
+`ml/training/tensorFlow/requirements.txt` (fast — TensorFlow itself is
 already in the image and matches the constraint, so pip leaves it alone),
 and runs your script with the GPU passed through. Works identically for
-`certamen_2/` scripts.
+`ml/data-prep/` scripts.
 
 ## Why this image tag
 

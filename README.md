@@ -1,21 +1,31 @@
-# Framework IA — UDD
+# MTGCompanion_TCG
 
-Repositorio del curso **Frameworks de IA** (UDD): laboratorios, material de clase
-y el proyecto del curso, evaluado en tres entregas (Certamen 1, Certamen 2, Examen).
+**MTG Companion** — escáner de cartas de *Magic: The Gathering* con inferencia
+100% en el dispositivo (4 modelos ONNX: detector, validador de texto/OCR,
+estimador de precio, clasificador de condición) más un marketplace para
+compra/venta/intercambio de cartas. Nació como el proyecto del curso
+**Frameworks de IA** (UDD); cada modelo se entrena dos veces, en PyTorch y en
+TensorFlow, para comparar ambos frameworks y publicar el ganador por etapa.
 
 ## Estructura del repositorio
 
 ```
-framework-ia-UDD/
-├── Labs/          # laboratorios de curso (notebooks PyTorch / TensorFlow)
-├── Material/      # material y scripts de referencia entregados en clase
-└── Proyecto/      # proyecto del curso
-    ├── certamen_1/  # entrega 1 — ver README propio
-    ├── certamen_2/  # entrega 2 — pipeline de 3 etapas (WIP, ver README propio)
-    └── examen/      # entrega final — app comercial completa, ver README propio
-        ├── trading-app-ionic/  # frontend Ionic React — conectado al backend real (cuentas/cartas/transacciones); scaffold de ONNX del lado del cliente listo, sin modelo entrenado todavía
-        ├── backend/             # API NestJS + Prisma + PostgreSQL — cuentas, cartas, transacciones (ver README propio)
-        └── desktop-runner/      # app Electron que envuelve los scripts Python del pipeline (ver README propio)
+MTGCompanion_TCG/
+├── ml/                     # todo lo relacionado a modelos
+│   ├── training/           # scraper/downloaders + entrenamiento/Optuna/export ONNX de los 4 stages
+│   │   ├── pytorch/        #   implementación PyTorch
+│   │   ├── tensorFlow/     #   implementación TensorFlow/Keras
+│   │   └── Testing/        #   evaluación sobre fotos reales, comparación de scanners
+│   └── data-prep/          # preparación de datasets (OCR, precio, condición), helpers OpenCV, baselines sklearn
+├── apps/
+│   ├── mobile/             # app Ionic React + Capacitor — inferencia ONNX en el cliente
+│   ├── backend/            # API NestJS + Prisma + PostgreSQL — cuentas, cartas, transacciones, marketplace
+│   └── desktop-runner/     # app Electron — GUI para entrenar/exportar modelos y desplegar a AWS
+├── infra/terraform/        # infraestructura AWS (Terraform)
+├── docs/                   # arquitectura, contexto para agentes (docs/context), seguridad, resultados
+├── coursework/             # material original del curso (labs, material de clase, guía del examen) — archivo
+├── ROADMAP.md              # backlog por workstream
+└── CLAUDE.md               # memoria del proyecto / convenciones
 ```
 
 ## El proyecto
@@ -42,16 +52,16 @@ entender en la práctica sus diferencias de diseño, rendimiento y ergonomía.
   validador de texto/OCR → estimador de precio por regresión), cada una
   entrenada en ambos frameworks (6 modelos en total) y con Optuna para
   hiperparámetros — la entrega de Optuna sobre el detector ya está hecha. Ver
-  [Proyecto/certamen_2/README.md](Proyecto/certamen_2/README.md).
+  [ml/data-prep/README.md](ml/data-prep/README.md).
 - **Examen** — empaquetar todo como la app Ionic de uso comercial en
-  [`Proyecto/examen/trading-app-ionic/`](Proyecto/examen/trading-app-ionic/README.md). La persistencia
+  [`apps/mobile/`](apps/mobile/README.md). La persistencia
   (cuentas, cartas con fotos, transacciones) ya está conectada a un backend
-  NestJS real, ver [`Proyecto/examen/backend/`](Proyecto/examen/backend/README.md). El escaneo de cartas
+  NestJS real, ver [`apps/backend/`](apps/backend/README.md). El escaneo de cartas
   tiene su scaffold de cliente listo — cámara en vivo
   (`getUserMedia`+canvas) y `onnxruntime-web` corriendo Stage 1
   (detector MTG/no-MTG) — pero **sin ningún modelo `.onnx` entrenado
   todavía**: falta correr el export de PyTorch/TensorFlow (Certamen 2) y
-  conectarlo. Ver [Proyecto/examen/README.md](Proyecto/examen/README.md).
+  conectarlo. Ver [apps/README.md](apps/README.md).
 - **Automatización del entrenamiento** — un integrante del equipo está
   construyendo una app Electron que envuelve los scripts Python (scraper,
   downloader, embedders, clasificadores, Optuna) para correr todo el pipeline
@@ -66,8 +76,8 @@ entender en la práctica sus diferencias de diseño, rendimiento y ergonomía.
 - **OpenCV** — recorte/perspectiva/normalización de la carta antes de cada modelo
 - **ONNX** / `onnxruntime-web` — formato de exportación común para correr el
   modelo ganador de cada etapa (PyTorch o TensorFlow) del lado del cliente
-- **Ionic React** — frontend de la app final (`Proyecto/examen/trading-app-ionic/`)
-- **NestJS + Prisma + PostgreSQL** — backend de la app final (`Proyecto/examen/backend/`):
+- **Ionic React** — frontend de la app final (`apps/mobile/`)
+- **NestJS + Prisma + PostgreSQL** — backend de la app final (`apps/backend/`):
   cuentas, cartas, transacciones
 - **Scryfall API** — catálogo, imágenes, texto de reglas y precios de cartas MTG
 - **pokemontcg.io** — imágenes negativas para el clasificador binario
@@ -76,7 +86,7 @@ entender en la práctica sus diferencias de diseño, rendimiento y ergonomía.
 ### Requisitos del sistema
 
 Además de las dependencias de Python (`requirements.txt` por entorno), el
-pipeline de Stage 2 (`certamen_2/prepare_text_validator_dataset.py`, vía
+pipeline de Stage 2 (`ml/data-prep/prepare_text_validator_dataset.py`, vía
 `text_validator_baseline.py`) necesita el binario **`tesseract`** (OCR)
 instalado a nivel de sistema — no es un paquete de pip:
 
@@ -88,7 +98,7 @@ sudo apt install tesseract-ocr    # Debian/Ubuntu
 Sin esto, `prepare_text_validator_dataset.py` falla al arrancar. El resto
 del pipeline (Stage 1/3/4) no lo necesita.
 
-Para compilar el **APK Android** de `trading-app-ionic/` (Capacitor) hace
+Para compilar el **APK Android** de `apps/mobile/` (Capacitor) hace
 falta además, a nivel de sistema (nada de esto es un paquete npm):
 
 - **JDK 17–21** (el proyecto usa AGP 8.13.0 / Gradle 8.14.3, que no soportan
@@ -117,7 +127,7 @@ falta además, a nivel de sistema (nada de esto es un paquete npm):
 Con los requisitos de arriba instalados:
 
 ```bash
-cd Proyecto/examen/trading-app-ionic
+cd apps/mobile
 npm install
 npm run build                 # genera dist/
 npx cap add android           # solo la primera vez — genera android/
@@ -136,19 +146,19 @@ con `adb install`) queda en
 (keystore + `signingConfigs` para `assembleRelease`/Play Store) todavía **no**
 está configurada — ver el ítem E3d en [ROADMAP.md](ROADMAP.md).
 
-## Entregas
+## Componentes
 
-| Entrega | Estado | Enlace |
+| Componente | Origen en el curso | Enlace |
 |---|---|---|
-| Certamen 1 | ✅ | [Proyecto/certamen_1/README.md](Proyecto/certamen_1/README.md) |
-| Certamen 2 | 🚧 plan | [Proyecto/certamen_2/README.md](Proyecto/certamen_2/README.md) |
-| Examen | 🚧 plan | [Proyecto/examen/README.md](Proyecto/examen/README.md) |
+| Entrenamiento (4 stages, PyTorch + TensorFlow) | Certamen 1 | [ml/training/README.md](ml/training/README.md) |
+| Preparación de datasets + baselines | Certamen 2 | [ml/data-prep/README.md](ml/data-prep/README.md) |
+| Apps (mobile, backend, desktop-runner) | Examen | [apps/README.md](apps/README.md) |
 
 ## Aplicación Frontend (Ionic)
 
 La interfaz comercial del escáner de cartas se está construyendo actualmente con Ionic React. 
 - Puedes encontrar su código, estado de avance, y las **instrucciones de despliegue** en su respectiva carpeta.
-- ➡️ **[Ir al README de la aplicación Ionic](Proyecto/examen/trading-app-ionic/README.md)**
+- ➡️ **[Ir al README de la aplicación Ionic](apps/mobile/README.md)**
 
 ## Backend (NestJS + Prisma + PostgreSQL)
 
@@ -156,10 +166,10 @@ La persistencia de la app final (cuentas de usuario, cartas de la colección
 con sus fotos, transacciones de compra/venta) vive en un backend NestJS
 separado, con Postgres y object storage S3-compatible levantados vía Docker
 solo para desarrollo local (el backend en sí no corre en Docker).
-- ➡️ **[Ir al README del backend](Proyecto/examen/backend/README.md)** — instrucciones de
+- ➡️ **[Ir al README del backend](apps/backend/README.md)** — instrucciones de
   despliegue, arquitectura por capas (domain/application/infrastructure/
   presentation) y qué falta a propósito (login/JWT, 2FA, MercadoPago real).
-  `trading-app-ionic/` ya habla con esta API (registro, cartas + fotos,
+  `apps/mobile/` ya habla con esta API (registro, cartas + fotos,
   listado de la Bóveda) — ver su propio README para el detalle de qué está
   cableado y qué falta.
 
@@ -167,5 +177,5 @@ solo para desarrollo local (el backend en sí no corre en Docker).
 
 La creación de los modelos (scraping, embeddings, entrenamiento, Optuna) se está
 empaquetando en una app Electron aparte para no depender de la terminal.
-- ➡️ **[Contrato de integración para la app Electron](PIPELINE_INTEGRATION.md)**
+- ➡️ **[Contrato de integración para la app Electron](docs/architecture/PIPELINE_INTEGRATION.md)**
   — inventario de scripts, venvs, argumentos y convenciones de salida.

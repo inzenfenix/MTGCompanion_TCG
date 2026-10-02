@@ -11,32 +11,32 @@
 ## Global Constraints
 
 - No ejecutar `git`, no crear commits y no hacer push, por instrucción explícita del usuario.
-- Implementar solo TensorFlow dentro de `Proyecto/certamen_1/tensorFlow/`.
+- Implementar solo TensorFlow dentro de `ml/training/tensorFlow/`.
 - Defaults nocturnos: 3.000 imágenes por clase, 20 trials, 6 épocas por trial y 15 épocas finales.
 - Usar TPE con seed `42`, dirección `maximize` y poda sobre `val_accuracy`.
 - Persistir el estudio en SQLite y permitir reanudar mediante `--resume-dir`.
 - Mantener `training=False` al invocar MobileNetV2 para proteger BatchNormalization.
 - No integrar `mtg_detector.keras` con `tensorFlow/scanner.py` en este trabajo.
-- Guardar resultados en `Proyecto/certamen_1/output/tensorflow/optuna/{timestamp}/`.
+- Guardar resultados en `ml/training/output/tensorflow/optuna/{timestamp}/`.
 - No reemplazar `models/mtg_detector.keras` hasta validar que el checkpoint final se puede cargar.
 
 ## File Map
 
-- Modify: `Proyecto/certamen_1/tensorFlow/src/binary_classifier.py` — constructor y optimizadores parametrizables.
-- Create: `Proyecto/certamen_1/tensorFlow/src/optuna_support.py` — rutas, serialización, gráficos y enlace `latest`.
-- Create: `Proyecto/certamen_1/tensorFlow/08_optuna_binary_classifier.py` — CLI, objective, estudio y reentrenamiento.
-- Create: `Proyecto/certamen_1/tensorFlow/tests/test_binary_classifier_optuna.py` — pruebas del constructor parametrizable.
-- Create: `Proyecto/certamen_1/tensorFlow/tests/test_optuna_support.py` — pruebas de persistencia y artefactos.
-- Modify: `Proyecto/certamen_1/tensorFlow/requirements.txt` — dependencias Optuna.
-- Modify: `Proyecto/certamen_2/README.md` — instrucciones, salidas y checklist de la entrega inmediata.
+- Modify: `ml/training/tensorFlow/src/binary_classifier.py` — constructor y optimizadores parametrizables.
+- Create: `ml/training/tensorFlow/src/optuna_support.py` — rutas, serialización, gráficos y enlace `latest`.
+- Create: `ml/training/tensorFlow/08_optuna_binary_classifier.py` — CLI, objective, estudio y reentrenamiento.
+- Create: `ml/training/tensorFlow/tests/test_binary_classifier_optuna.py` — pruebas del constructor parametrizable.
+- Create: `ml/training/tensorFlow/tests/test_optuna_support.py` — pruebas de persistencia y artefactos.
+- Modify: `ml/training/tensorFlow/requirements.txt` — dependencias Optuna.
+- Modify: `ml/data-prep/README.md` — instrucciones, salidas y checklist de la entrega inmediata.
 
 ---
 
 ### Task 1: Parametrizar el constructor Keras de forma retrocompatible
 
 **Files:**
-- Modify: `Proyecto/certamen_1/tensorFlow/src/binary_classifier.py`
-- Create: `Proyecto/certamen_1/tensorFlow/tests/test_binary_classifier_optuna.py`
+- Modify: `ml/training/tensorFlow/src/binary_classifier.py`
+- Create: `ml/training/tensorFlow/tests/test_binary_classifier_optuna.py`
 
 **Interfaces:**
 - Produces: `build_optimizer(name: str, learning_rate: float, weight_decay: float) -> tf.keras.optimizers.Optimizer`.
@@ -175,8 +175,8 @@ Expected: todas las pruebas `OK`.
 ### Task 2: Implementar persistencia y artefactos Optuna
 
 **Files:**
-- Create: `Proyecto/certamen_1/tensorFlow/src/optuna_support.py`
-- Create: `Proyecto/certamen_1/tensorFlow/tests/test_optuna_support.py`
+- Create: `ml/training/tensorFlow/src/optuna_support.py`
+- Create: `ml/training/tensorFlow/tests/test_optuna_support.py`
 
 **Interfaces:**
 - Produces: `create_or_resume_run(output_root: Path, resume_dir: Path | None, timestamp: str | None = None) -> Path`.
@@ -346,8 +346,8 @@ Expected: todas las pruebas `OK`.
 ### Task 3: Construir el CLI de optimización y reentrenamiento
 
 **Files:**
-- Create: `Proyecto/certamen_1/tensorFlow/08_optuna_binary_classifier.py`
-- Modify: `Proyecto/certamen_1/tensorFlow/requirements.txt`
+- Create: `ml/training/tensorFlow/08_optuna_binary_classifier.py`
+- Modify: `ml/training/tensorFlow/requirements.txt`
 
 **Interfaces:**
 - Produces: `parse_args(argv: list[str] | None = None) -> argparse.Namespace`.
@@ -512,9 +512,9 @@ Expected: exit code `0` y presencia de `--trials`, `--resume-dir` y
 ### Task 4: Documentar y verificar el flujo completo
 
 **Files:**
-- Modify: `Proyecto/certamen_2/README.md`
-- Test: `Proyecto/certamen_1/tensorFlow/tests/test_binary_classifier_optuna.py`
-- Test: `Proyecto/certamen_1/tensorFlow/tests/test_optuna_support.py`
+- Modify: `ml/data-prep/README.md`
+- Test: `ml/training/tensorFlow/tests/test_binary_classifier_optuna.py`
+- Test: `ml/training/tensorFlow/tests/test_optuna_support.py`
 
 **Interfaces:**
 - Consumes: CLI y artefactos creados en Tasks 1–3.

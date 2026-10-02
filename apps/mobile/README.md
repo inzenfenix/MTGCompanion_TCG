@@ -1,6 +1,6 @@
 # Aplicación de Intercambio de Cartas Mágicas (Frontend Ionic)
 
-Esta carpeta (`trading-app-ionic/`) contiene la aplicación móvil/web desarrollada con **Ionic React**, **Vite**, y **Framer Motion**. La aplicación actúa como la interfaz de usuario para el escáner de cartas de Magic The Gathering (MTG), integrando un diseño premium de "Fantasía Oscura/Mágica".
+Esta carpeta (`apps/mobile/`) contiene la aplicación móvil/web desarrollada con **Ionic React**, **Vite**, y **Framer Motion**. La aplicación actúa como la interfaz de usuario para el escáner de cartas de Magic The Gathering (MTG), integrando un diseño premium de "Fantasía Oscura/Mágica".
 
 ## 🚀 Estado Actual del Proyecto
 
@@ -21,7 +21,7 @@ El frontend ya cuenta con una interfaz sólida, tematizada e interactiva, **cone
 ## 🧠 Pipeline de ML del lado del cliente (Stage 1 — scaffold)
 
 Siguiendo la decisión de arquitectura documentada en
-[`Proyecto/examen/README.md`](../Proyecto/examen/README.md): la inferencia
+[`apps/README.md`](../README.md): la inferencia
 corre 100% en el cliente, vía `onnxruntime-web`, no en el backend.
 
 - **Captura en vivo:** `src/lib/camera/useLiveCamera.ts` — hook con
@@ -31,14 +31,14 @@ corre 100% en el cliente, vía `onnxruntime-web`, no en el backend.
   explícitamente diferida.
 - **Foto única (listar carta):** `@capacitor/camera` — reservado para el
   flujo de una sola foto en `ListCard.tsx`, no para el escaneo en vivo. Ver
-  la nota de arquitectura en `Proyecto/examen/README.md`.
+  la nota de arquitectura en `apps/README.md`.
 - **Inferencia Stage 1:** `src/lib/ml/stage1Detector.ts` — carga un modelo
   ONNX desde una ruta configurable (`VITE_STAGE1_MODEL_URL`, por defecto
   `/models/stage1-detector.onnx`) y corre el detector binario MTG/no-MTG
   sobre el frame capturado.
 
 **⚠️ No existe ningún modelo `.onnx` entrenado en este repo todavía.** El
-script de exportación de PyTorch (`Proyecto/certamen_1/pytorch/
+script de exportación de PyTorch (`ml/training/pytorch/
 09_export_onnx.py`) existe pero no se ha corrido para producir un artefacto
 en este repositorio, y TensorFlow todavía no tiene script de exportación.
 Por eso `stage1Detector.ts` está escrito para degradar con gracia: si no
@@ -47,9 +47,9 @@ disponible todavía" en vez de fallar. Para conectar un modelo real una vez
 esté exportado:
 
 1. Correr el script de exportación del framework que haya ganado Stage 1
-   (ver `Proyecto/certamen_2/README.md`).
+   (ver `ml/data-prep/README.md`).
 2. Copiar el `.onnx` resultante a
-   `trading-app-ionic/public/models/stage1-detector.onnx` (o apuntar
+   `apps/mobile/public/models/stage1-detector.onnx` (o apuntar
    `VITE_STAGE1_MODEL_URL` a donde se sirva).
 3. Revisar que el preprocesamiento en `stage1Detector.ts` (tamaño de
    imagen, normalización, forma de la salida) coincida con lo que espera

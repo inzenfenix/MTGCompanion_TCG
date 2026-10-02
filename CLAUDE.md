@@ -1,22 +1,28 @@
 # CLAUDE.md — Project memory
 
-Course project for Fundamentos/Framework de IA (UDD). Two linked deliverables
-living in the same repo:
+**MTGCompanion_TCG** — an MTG card scanner + marketplace. Started as the
+course project for Fundamentos/Framework de IA (UDD); reorganized from the
+course layout (`Proyecto/certamen_1|certamen_2|examen`) into a product
+layout on 2 oct (ROADMAP.md workstream P — older ROADMAP/git history still
+uses the old names). Two linked halves:
 
-- **`Proyecto/certamen_1/` + `Proyecto/certamen_2/`** — the ML coursework
-  itself: an MTG card scanner pipeline, every stage trained **twice**, once
-  in PyTorch and once in TensorFlow, so the two frameworks can be compared
-  head-to-head on the same data/metrics and the better one picked per stage.
-- **`Proyecto/examen/`** — "MTG Companion", a commercial app built on top of
-  that pipeline: `trading-app-ionic/` (Ionic+React frontend, does on-device
-  ONNX inference), `backend/` (NestJS + Prisma + Postgres marketplace API),
-  `desktop-runner/` (Electron+NestJS+React app that is the GUI for running
-  every training/export script in certamen_1/2 — venv management, live logs,
-  Optuna, ONNX export, cross-framework comparison). Has its own
-  [`Proyecto/examen/CLAUDE.md`](Proyecto/examen/CLAUDE.md) (supplements this
-  file, doesn't replace it) and a categorized context/knowledge folder,
-  [`Proyecto/examen/okf/`](Proyecto/examen/okf/README.md) — read both before
-  working in that subtree.
+- **`ml/`** — the ML pipeline: an MTG card scanner, every stage trained
+  **twice**, once in PyTorch and once in TensorFlow, so the two frameworks
+  can be compared head-to-head on the same data/metrics and the better one
+  picked per stage. `ml/training/` (was `certamen_1`) holds the training/
+  Optuna/export scripts for all 4 stages; `ml/data-prep/` (was
+  `certamen_2`) holds the slow dataset-prep steps, shared OpenCV helpers
+  and sklearn baselines.
+- **`apps/`** — "MTG Companion", the commercial app built on that pipeline:
+  `apps/mobile/` (Ionic+React frontend, does on-device ONNX inference),
+  `apps/backend/` (NestJS + Prisma + Postgres marketplace API),
+  `apps/desktop-runner/` (Electron+NestJS+React app that is the GUI for
+  running every training/export script in `ml/` — venv management, live
+  logs, Optuna, ONNX export, cross-framework comparison — plus the AWS
+  deploy tab for `infra/`). Has its own [`apps/CLAUDE.md`](apps/CLAUDE.md)
+  (supplements this file, doesn't replace it) and a categorized
+  context/knowledge folder, [`docs/context/`](docs/context/README.md) —
+  read both before working in that subtree.
 
 For the full task backlog (what's left, by workstream, with priority and
 complexity so multiple people can grab different pieces in parallel), see
@@ -25,18 +31,28 @@ complexity so multiple people can grab different pieces in parallel), see
 ## Repo map
 
 ```
-Proyecto/
-  certamen_1/            # Stage 1 (detector) + Stage 4 (condition grader) — original certamen
-    pytorch/              03_*.py … 14_text_validator.py, src/, models/, output/
-    tensorFlow/            same numbering, Keras instead of torch
-  certamen_2/            # Stage 2 (text validator) + Stage 3 (price estimator) — this certamen's ask
+ml/
+  training/              # was Proyecto/certamen_1 — all 4 stages' training scripts
+    01_scraper.py, 02_downloader.py, ...   shared data acquisition (data/ lives here, gitignored)
+    pytorch/              03_*.py … 19_*.py, src/, models/, tests/
+    tensorFlow/            same idea, Keras instead of torch (numbering differs slightly)
+    Testing/               real-photo evaluation, scanner comparison
+    output/                committed run artifacts (Optuna trials, run_config.json)
+  data-prep/             # was Proyecto/certamen_2
     prepare_*_dataset.py  slow OCR/download step, run once, feeds the fast training scripts
     *_baseline.py          framework-agnostic sklearn baselines (already done, both stages)
     card_preprocessing.py, synthetic_wear.py  shared OpenCV helpers
-  examen/
-    trading-app-ionic/    Ionic/React app, on-device ONNX inference (src/lib/ml/)
-    backend/               NestJS API + Prisma schema + docker/ (Postgres+MinIO+MailHog, dev only)
-    desktop-runner/        Electron GUI for the whole pipeline above
+apps/
+  mobile/                # was Proyecto/examen/trading-app-ionic — Ionic/React app, on-device ONNX inference (src/lib/ml/)
+  backend/               # NestJS API + Prisma schema + docker/ (Postgres+MinIO+MailHog, dev only)
+  desktop-runner/        # Electron GUI for the whole pipeline above + AWS deploy
+infra/terraform/         # AWS Academy Learner Lab infra
+docs/
+  context/               # was Proyecto/examen/okf — categorized context for agents
+  architecture/          # PIPELINE_INTEGRATION.md, SYSTEM_ATLAS.html
+  security/              # MAPEO_CIA, CIFRADO_CAMPOS
+  results/               # cross-stage RESULTADOS.md
+coursework/              # Labs/, Material/, GUIA_EXAMEN.md — course archive, not part of the product
 ```
 
 ## The 4-stage pipeline
@@ -48,7 +64,7 @@ Proyecto/
 | 3 — Price estimator | regression, tabular + frozen visual embedding (Stage 1 backbone) | ✅ done, Optuna done | ✅ done, Optuna done | real, both frameworks |
 | 4 — Condition grader (NM/LP/MP/HP/DMG) | 5-class classifier, transfer learning | ✅ done, Optuna done (+ combined real+synthetic checkpoint — see below) | ✅ done, Optuna done (+ combined real+synthetic checkpoint, 17 ago — see below) | real |
 
-ONNX-exported and present in `trading-app-ionic/public/models/`, all 4 stages
+ONNX-exported and present in `apps/mobile/public/models/`, all 4 stages
 (15 ago — the desktop-runner Exportar tab now has a "Correr todo" button that
 runs all of these in sequence, workstream C). All 4 PyTorch export scripts
 (`09_export_onnx.py`, `12_export_onnx_condition.py`,
@@ -139,7 +155,7 @@ item, a refactor):
    `shared-downloader` runs automatically. The scraper is a manual, one-off
    step.
 3. **ONNX export → Ionic convention.** Every `*_export_onnx*.py` script
-   defines `IONIC_MODELS_DIR = .../examen/trading-app-ionic/public/models`
+   defines `IONIC_MODELS_DIR = <repo>/apps/mobile/public/models`
    and a small `publicar_en_ionic(destino, nombre_publico)` helper that
    copies the exported file there under a fixed name
    (`stage{N}-{name}.onnx`), no-ops with a warning if the Ionic project isn't
@@ -173,11 +189,11 @@ item, a refactor):
 - AMD GPU via ROCm; `HSA_OVERRIDE_GFX_VERSION=10.3.0` needed for PyTorch on
   this card (mobile RDNA2, no official precompiled kernels) — already
   handled automatically by `desktop-runner`'s GPU detection.
-- `tesseract` (system OCR binary, needed by `certamen_2`'s Stage 2 pipeline)
+- `tesseract` (system OCR binary, needed by `ml/data-prep`'s Stage 2 pipeline)
   **is installed** on this machine (`tesseract 5.5.2`, confirmed 20 ago) —
   this note used to say otherwise; ROADMAP.md's G4a already flagged that as
   stale (15 ago) but this file never got corrected until now. If a future
   session hits a genuine "not found" here, it regressed — re-run
   `sudo dnf install tesseract`.
-- `certamen_2/.venv` was created ad hoc for dry-run testing during
+- `ml/data-prep/.venv` was created ad hoc for dry-run testing during
   development — it is not yet a `desktop-runner`-registered environment.

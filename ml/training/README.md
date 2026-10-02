@@ -12,7 +12,7 @@ generado una sola vez por los scripts en la raíz de esta carpeta.
 ## Estructura
 
 ```
-certamen_1/
+ml/training/
 ├── 01_scraper.py              # descarga y filtra el catálogo (compartido)
 ├── 02_downloader.py           # descarga las imágenes del catálogo (compartido)
 ├── 04_evaluate.py             # punto de entrada único: evalúa pytorch, tensorflow o ambos
@@ -78,7 +78,7 @@ python 06_finetune.py              # fine-tuning SimCLR (opcional)
 python 07_binary_classifier.py     # clasificador binario MTG / no-MTG
 ```
 
-Para evaluar el retrieval, usar `04_evaluate.py` desde la raíz de `certamen_1/`
+Para evaluar el retrieval, usar `04_evaluate.py` desde la raíz de `ml/training/`
 (ver sección 5) en vez de correrlo directamente desde acá.
 
 **Usar el scanner:**
@@ -108,7 +108,7 @@ TensorFlow y permite comparar ambos frameworks con el mismo criterio (ver
 `Testing/` más abajo).
 
 Artefactos locales: `pytorch/data/`, `pytorch/models/`. Las métricas de evaluación
-quedan en `output/pytorch/` (raíz de `certamen_1/`), no acá.
+quedan en `output/pytorch/` (raíz de `ml/training/`), no acá.
 
 ## 3. Pipeline TensorFlow (MobileNetV2)
 
@@ -129,7 +129,7 @@ python 07_binary_classifier.py                 # clasificador binario MTG / no-M
 python 07_binary_classifier.py --skip-download # reutiliza Pokémon ya descargados
 ```
 
-Para evaluar el retrieval, usar `04_evaluate.py` desde la raíz de `certamen_1/`
+Para evaluar el retrieval, usar `04_evaluate.py` desde la raíz de `ml/training/`
 (ver sección 5) en vez de correrlo directamente desde acá.
 
 **Usar el scanner:**
@@ -146,7 +146,7 @@ o el sistema comparará contra cartas desactualizadas.
 
 Artefactos locales: `tensorFlow/data/indexes/magic_embeddings.pkl`,
 `tensorFlow/models/`. Las métricas de evaluación quedan en `output/tensorflow/`
-(raíz de `certamen_1/`), no acá.
+(raíz de `ml/training/`), no acá.
 
 ## 4. Clasificador binario MTG / No-MTG
 
@@ -206,7 +206,7 @@ Modelo guardado en `tensorFlow/models/mtg_detector.keras`.
 
 ## 5. Métricas de evaluación
 
-`04_evaluate.py`, en la raíz de `certamen_1/`, es el punto de entrada único para
+`04_evaluate.py`, en la raíz de `ml/training/`, es el punto de entrada único para
 evaluar el retrieval de cualquiera de los dos frameworks (o ambos). Decide qué
 framework(s) correr, se asegura de que el venv correspondiente exista (lo crea e
 instala su `requirements.txt` si falta) y corre la implementación de evaluación

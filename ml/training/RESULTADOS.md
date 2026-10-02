@@ -1,9 +1,9 @@
 # Resultados consolidados — Certamen 1 (Stage 1 y Stage 4)
 
-Documento de reporting (workstream H de [ROADMAP.md](../ROADMAP.md), items H1/H4).
+Documento de reporting (workstream H de [ROADMAP.md](../../ROADMAP.md), items H1/H4).
 Junta las métricas que cada script ya escribe por separado en
 `output/{pytorch,tensorflow}/**/final_metrics.json` y `metrics_p{t,f}.json`,
-mismo espíritu que [`certamen_2/RESULTADOS.md`](../certamen_2/RESULTADOS.md)
+mismo espíritu que [`ml/data-prep/RESULTADOS.md`](../data-prep/RESULTADOS.md)
 (Stage 2/3) — una sola fuente de verdad estática para el informe, en vez de
 solo lo que `ExportPanel.tsx` calcula en vivo en el desktop-runner.
 
@@ -133,7 +133,7 @@ extrayendo el embedding (53ms vs 137ms/imagen — MobileNetV3Small corre en
 CPU en esta máquina, sin path GPU, ver ROADMAP.md regla 6/workstream D),
 TensorFlow es ~3x más rápido en la búsqueda del índice (4.3ms vs 13.1ms —
 tamaño del vector distinto, 576-d TF vs 1280-d PyTorch, ver
-`certamen_2/README.md` §5.1.1).
+`ml/data-prep/README.md` §5.1.1).
 
 **Nota de calidad de datos — clasificación binaria por umbral óptimo:**
 PyTorch reporta además `accuracy_bin`/`precision_bin`/`recall_bin`/`f1_bin`

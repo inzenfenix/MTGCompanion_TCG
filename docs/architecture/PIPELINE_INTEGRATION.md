@@ -2,14 +2,14 @@
 
 > Actualizado 2026-09-11. La app Electron para la que se escribió
 > originalmente este documento **ya existe y está en uso**:
-> `Proyecto/examen/desktop-runner/`. Este documento sigue siendo el
+> `apps/desktop-runner/`. Este documento sigue siendo el
 > contrato de referencia para quien la modifique o extienda — qué invoca,
 > con qué argumentos, cómo sabe si funcionó, dónde lee resultados — pero ya
 > no es documentación de "lo que hay que construir", sino de "cómo está
 > construido". Para el mapa de más alto nivel de `desktop-runner/` (UI,
 > streaming de logs, `RUN_ALL_*`) ver
-> [`Proyecto/examen/okf/apps/desktop-runner.md`](Proyecto/examen/okf/apps/desktop-runner.md)
-> y [`Proyecto/examen/okf/tools/README.md`](Proyecto/examen/okf/tools/README.md).
+> [`docs/context/apps/desktop-runner.md`](../context/apps/desktop-runner.md)
+> y [`docs/context/tools/README.md`](../context/tools/README.md).
 > Si algo de este documento y el código de `scripts.config.ts` alguna vez
 > no coinciden, **el código gana** — avisar y corregir acá.
 
@@ -22,8 +22,8 @@
 ## 1. Modelo mental: nada corre "globalmente"
 
 Cada framework (`pytorch/`, `tensorFlow/`) vive en su **propio venv**, nunca
-mezclados. `Proyecto/certamen_2/` (dataset prep + baselines tabulares/OCR)
-tiene el suyo también. Los scripts compartidos de la raíz de `certamen_1/`
+mezclados. `ml/data-prep/` (dataset prep + baselines tabulares/OCR)
+tiene el suyo también. Los scripts compartidos de la raíz de `ml/training/`
 (`01_scraper.py`, `02_downloader.py`, `03_real_photos_downloader.py`) no
 tienen venv propio — corren con el **venv de `pytorch/`** (ya trae
 `requests`; ver `scripts.config.ts`, `env: 'pytorch'` en cada uno).
@@ -40,7 +40,7 @@ Si un venv no existe, hay que crearlo e instalar su `requirements.txt` antes
 de correr nada ahí — **no asumir que ya existe**. El patrón de referencia
 (crear venv si falta, instalar requirements de forma idempotente, y si falla
 por incompatibilidad de Python con TensorFlow reintentar con un Python
-3.9–3.12 encontrado vía `pyenv`) está en `Proyecto/certamen_1/04_evaluate.py`,
+3.9–3.12 encontrado vía `pyenv`) está en `ml/training/04_evaluate.py`,
 función `asegurar_venv()`. `desktop-runner` reusa esa lógica invocando los
 scripts existentes en vez de reimplementar creación de venv del lado de
 Electron.
@@ -63,11 +63,11 @@ Electron.
   y están en `.gitignore`.
 - **Modelos y binarios pesados nunca van a `output/`** — van a una carpeta
   `models/` local, gitignored (`pytorch/models/`, `tensorFlow/models/`,
-  `certamen_2/models/`). `output/` solo tiene JSON + PNG livianos.
+  `ml/data-prep/models/`). `output/` solo tiene JSON + PNG livianos.
 - **Export a ONNX sigue el mismo contrato** más una convención propia:
   cada `*_export_onnx*.py` define `IONIC_MODELS_DIR` y un helper
   `publicar_en_ionic()` que copia el archivo exportado a
-  `trading-app-ionic/public/models/stage{N}-{nombre}.onnx`, no-op con
+  `apps/mobile/public/models/stage{N}-{nombre}.onnx`, no-op con
   warning si el proyecto Ionic no está presente, saltable con
   `--no-ionic-copy`.
 
@@ -79,7 +79,7 @@ El inventario completo y actualizado vive como código en
 anterior de este documento pedía que se creara. Lo de abajo es un resumen
 por carpeta, no un espejo campo por campo de ese archivo.
 
-### Dataset compartido (`Proyecto/certamen_1/`, venv de `pytorch/`)
+### Dataset compartido (`ml/training/`, venv de `pytorch/`)
 
 | Script | Qué hace | Args clave | Salida |
 |---|---|---|---|
@@ -88,26 +88,26 @@ por carpeta, no un espejo campo por campo de ese archivo.
 | `03_real_photos_downloader.py` | Descarga fotos reales (no renders) para datasets de condición/generalización — idempotente | — | `data/real_photos/` |
 | `04_evaluate.py` | Orquesta evaluación de retrieval de uno o ambos frameworks; **crea los venvs de pytorch/tensorFlow si faltan** | `--model {pytorch,tensorflow,both}` (default: both) | `output/{framework}/{timestamp}/` |
 
-### PyTorch (`Proyecto/certamen_1/pytorch/`, venv propio) — Stage 1 + 2 + 3 + 4
+### PyTorch (`ml/training/pytorch/`, venv propio) — Stage 1 + 2 + 3 + 4
 
 | Script | Etapa | Qué hace | Salida |
 |---|---|---|---|
 | `03_pt_embedder.py` | — | Índice de embeddings (EfficientNet_b0) | `data/embeddings_pt.npy`, `data/index_pt.json` |
 | `07_binary_classifier.py`, `08_optuna_binary_classifier.py` | Stage 1 | Detector MTG/no-MTG (fijo / Optuna) | `models/mtg_detector.pth` + métricas |
 | `09_export_onnx.py` | Stage 1 | Exporta detector + embedder a ONNX | `models/mtg_detector.onnx`, publica `stage1-detector.onnx` |
-| `10_condition_grader.py`, `11_optuna_condition_grader.py` | Stage 4 (plano) | Calificador de condición, dataset curado — **no es el checkpoint que se publica**, ver `okf/models/README.md` | `models/condition_grader.pth` |
+| `10_condition_grader.py`, `11_optuna_condition_grader.py` | Stage 4 (plano) | Calificador de condición, dataset curado — **no es el checkpoint que se publica**, ver `docs/context/models/README.md` | `models/condition_grader.pth` |
 | `12_condition_grader_combined.py` | Stage 4 (real+sintético) | Reentrena sobre real+sintético — **este es el checkpoint que se exporta** | `models/condition_grader_combined.pth` |
 | `12_export_onnx_condition.py` | Stage 4 | Exporta el checkpoint combinado a ONNX | publica `stage4-condition-grader.onnx` |
 | `14_text_validator.py`, `15_optuna_text_validator.py` | Stage 2 | Validador de texto (MLP sobre `HashingVectorizer`) | `models/text_matcher.pth` |
 | `16_export_onnx_text_validator.py` | Stage 2 | Exporta a ONNX | publica `stage2-text-validator.onnx` |
 | `15_price_estimator.py`, `17_optuna_price_estimator.py` | Stage 3 | Estimador de precio (tabular + embedding visual congelado) | `models/price_regressor.pth` |
 | `18_export_onnx_price_estimator.py` | Stage 3 | Exporta a ONNX | publica `stage3-price-estimator.onnx` |
-| `19_export_onnx_price_embedding.py` | Stage 3 | Exporta el backbone de Stage 1 como embedding puro (1280-dim) — **sin equivalente en TensorFlow**, ver `okf/models/README.md` | publica `stage1-embedder.onnx` |
+| `19_export_onnx_price_embedding.py` | Stage 3 | Exporta el backbone de Stage 1 como embedding puro (1280-dim) — **sin equivalente en TensorFlow**, ver `docs/context/models/README.md` | publica `stage1-embedder.onnx` |
 | `prepare_price_embeddings.py` | Stage 3 | Precalcula embeddings visuales para el dataset de precio | — |
 | `scanner.py` | — | Demo CLI: identifica una carta desde una foto | stdout (parseable, `Testing/compare_scanners.py`) |
 | `predict_condition.py`, `predict_price.py`, `predict_text_validator.py` | 2/3/4 | CLIs de inferencia puntual por etapa, para debugging/demo | stdout |
 
-### TensorFlow (`Proyecto/certamen_1/tensorFlow/`, venv propio) — mismas 4 etapas, numeración propia
+### TensorFlow (`ml/training/tensorFlow/`, venv propio) — mismas 4 etapas, numeración propia
 
 Mismo inventario funcional que PyTorch: `03_build_embeddings.py` en vez de
 `03_pt_embedder.py`; `07_binary_classifier.py`/`08_optuna_binary_classifier.py`
@@ -123,7 +123,7 @@ ONNX vía `09_export_onnx.py`, `11_export_onnx_condition.py`,
 `requirements.txt`) — la versión PyTorch no lo necesita, usa
 `trial.report()`/`trial.should_prune()` manual.
 
-### Certamen 2 (`Proyecto/certamen_2/`, venv propio) — dataset prep + baselines, no el entrenamiento "de verdad"
+### Certamen 2 (`ml/data-prep/`, venv propio) — dataset prep + baselines, no el entrenamiento "de verdad"
 
 | Script | Qué hace | Salida |
 |---|---|---|
@@ -138,8 +138,8 @@ ONNX vía `09_export_onnx.py`, `11_export_onnx_condition.py`,
 
 Los dos baselines (`price_estimator_baseline.py`, `text_validator_baseline.py`)
 siguen siendo **precursores/referencia** — el modelo real que se entrena,
-compara entre frameworks y exporta vive en `certamen_1/pytorch/` y
-`certamen_1/tensorFlow/` (tablas de arriba), no acá.
+compara entre frameworks y exporta vive en `ml/training/pytorch/` y
+`ml/training/tensorFlow/` (tablas de arriba), no acá.
 
 ## 4. Detalles que importan para una UI
 
@@ -162,7 +162,7 @@ compara entre frameworks y exporta vive en `certamen_1/pytorch/` y
   (`cuda`/`cpu`) al arrancar; los de TensorFlow, no explícitamente.
   `desktop-runner` ya auto-detecta ROCm/AMD y aplica
   `HSA_OVERRIDE_GFX_VERSION` para PyTorch, y cae TensorFlow a CPU en AMD
-  automáticamente (ver `okf/environment/README.md`).
+  automáticamente (ver `docs/context/environment/README.md`).
 - **Tiempos**: un trial de Optuna a escala completa tarda minutos en GPU y
   bastante más en CPU — `desktop-runner` trata cada corrida como un job en
   background con logs en vivo (`LogsGateway`, socket.io), no como una acción

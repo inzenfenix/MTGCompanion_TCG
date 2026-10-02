@@ -499,10 +499,10 @@ frameworks): `lr=1.33e-4`, `weight_decay=6.35e-3`, `batch_size=16`,
 | PyTorch (Optuna) | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
 | TensorFlow (Optuna) | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
 
-![Matriz de confusión — Stage 1 PyTorch](Proyecto/certamen_1/pytorch/results/confusion_matrix_binary.png)
-![Curva ROC — Stage 1 PyTorch](Proyecto/certamen_1/pytorch/results/roc_auc.png)
-![Curva de pérdida — Stage 1 PyTorch](Proyecto/certamen_1/pytorch/results/loss_binary.png)
-![Métricas en barras — Stage 1 TensorFlow](Proyecto/certamen_1/tensorFlow/results/metrics_binary_bar.png)
+![Matriz de confusión — Stage 1 PyTorch](../ml/training/pytorch/results/confusion_matrix_binary.png)
+![Curva ROC — Stage 1 PyTorch](../ml/training/pytorch/results/roc_auc.png)
+![Curva de pérdida — Stage 1 PyTorch](../ml/training/pytorch/results/loss_binary.png)
+![Métricas en barras — Stage 1 TensorFlow](../ml/training/tensorFlow/results/metrics_binary_bar.png)
 
 **Qué concluir de estos gráficos**: la matriz de confusión debería verse
 "diagonal perfecta" (sin celdas fuera de la diagonal) — consistente con
@@ -527,8 +527,8 @@ es, entre 58,679 posibles)**:
 | PyTorch (EfficientNet-B0) | 25.1-25.3% | 37.2-37.3% | 41.7% | 0.300-0.304 |
 | TensorFlow (MobileNetV3Small) | 24.4% | 38.8% | — | 0.300 |
 
-![Curva ROC de retrieval — PyTorch](Proyecto/certamen_1/pytorch/results/roc_retrieval_pt.png)
-![t-SNE de embeddings — PyTorch](Proyecto/certamen_1/pytorch/results/tsne_pt.png)
+![Curva ROC de retrieval — PyTorch](../ml/training/pytorch/results/roc_retrieval_pt.png)
+![t-SNE de embeddings — PyTorch](../ml/training/pytorch/results/tsne_pt.png)
 
 **Qué concluir**: el t-SNE (reducción de dimensionalidad de los embeddings
 a 2D para visualizar) debería mostrar si cartas visualmente similares
@@ -631,12 +631,12 @@ F1 por grado (combinado):
 | HP | 0.794 | 0.413 |
 | DMG | 0.862 | 0.718 |
 
-![Matriz de confusión — combinado PyTorch](Proyecto/certamen_1/output/pytorch/condition_grader_combined/2026-08-08_000933/confusion_matrix.png)
-![Curva de entrenamiento — combinado PyTorch](Proyecto/certamen_1/output/pytorch/condition_grader_combined/2026-08-08_000933/training_curve.png)
-![Matriz de confusión — combinado TensorFlow](Proyecto/certamen_1/output/tensorflow/condition_grader_combined/2026-08-17_122446/confusion_matrix.png)
-![Curva de entrenamiento — combinado TensorFlow](Proyecto/certamen_1/output/tensorflow/condition_grader_combined/2026-08-17_122446/training_curve.png)
-![Historia Optuna — condition grader PyTorch](Proyecto/certamen_1/output/pytorch/optuna_condition/2026-08-07_220747/optuna_historia.png)
-![Importancia de hiperparámetros — condition grader PyTorch](Proyecto/certamen_1/output/pytorch/optuna_condition/2026-08-07_220747/optuna_importancia.png)
+![Matriz de confusión — combinado PyTorch](../ml/training/output/pytorch/condition_grader_combined/2026-08-08_000933/confusion_matrix.png)
+![Curva de entrenamiento — combinado PyTorch](../ml/training/output/pytorch/condition_grader_combined/2026-08-08_000933/training_curve.png)
+![Matriz de confusión — combinado TensorFlow](../ml/training/output/tensorflow/condition_grader_combined/2026-08-17_122446/confusion_matrix.png)
+![Curva de entrenamiento — combinado TensorFlow](../ml/training/output/tensorflow/condition_grader_combined/2026-08-17_122446/training_curve.png)
+![Historia Optuna — condition grader PyTorch](../ml/training/output/pytorch/optuna_condition/2026-08-07_220747/optuna_historia.png)
+![Importancia de hiperparámetros — condition grader PyTorch](../ml/training/output/pytorch/optuna_condition/2026-08-07_220747/optuna_importancia.png)
 
 **Qué concluir de la matriz de confusión combinada**: los errores no son
 uniformes — se concentran entre grados **adyacentes** (ej. LP confundido
@@ -721,12 +721,12 @@ validación):
 Diferencia final PyTorch vs TensorFlow: 0.0020 ROC-AUC → **empate**
 (bajo el umbral de 0.005).
 
-![ROC y distribución de scores — Text Validator PyTorch](Proyecto/certamen_1/output/pytorch/text_validator/latest/roc_y_distribucion.png)
-![Curva de entrenamiento — Text Validator PyTorch](Proyecto/certamen_1/output/pytorch/text_validator/latest/training_curve.png)
-![Historia Optuna — Text Validator PyTorch](Proyecto/certamen_1/output/pytorch/optuna_text_validator/latest/optuna_historia.png)
-![Importancia hiperparámetros — Text Validator PyTorch](Proyecto/certamen_1/output/pytorch/optuna_text_validator/latest/optuna_importancia.png)
-![Ejemplos OCR — baseline](Proyecto/certamen_2/output/text_validator_baseline/2026-08-07_193430/ejemplos_ocr.png)
-![ROC y distribución — baseline OCR+difflib](Proyecto/certamen_2/output/text_validator_baseline/2026-08-07_193430/roc_y_distribucion.png)
+![ROC y distribución de scores — Text Validator PyTorch](../ml/training/output/pytorch/text_validator/latest/roc_y_distribucion.png)
+![Curva de entrenamiento — Text Validator PyTorch](../ml/training/output/pytorch/text_validator/latest/training_curve.png)
+![Historia Optuna — Text Validator PyTorch](../ml/training/output/pytorch/optuna_text_validator/latest/optuna_historia.png)
+![Importancia hiperparámetros — Text Validator PyTorch](../ml/training/output/pytorch/optuna_text_validator/latest/optuna_importancia.png)
+![Ejemplos OCR — baseline](../ml/data-prep/output/text_validator_baseline/2026-08-07_193430/ejemplos_ocr.png)
+![ROC y distribución — baseline OCR+difflib](../ml/data-prep/output/text_validator_baseline/2026-08-07_193430/roc_y_distribucion.png)
 
 **Qué concluir**: el gráfico de "distribución de scores" (histograma de la
 salida del modelo separado en pares positivos vs. negativos) debería
@@ -833,11 +833,11 @@ weight_decay=1.07e-4, hidden_units=448, dropout=0.0, optimizer=adam`;
 TensorFlow `lr=2.73e-4, weight_decay=7.15e-5, hidden_units=384,
 dropout=0.3, optimizer=adam`.
 
-![Predicción vs. real — Price Estimator PyTorch](Proyecto/certamen_1/output/pytorch/price_estimator/2026-08-15_220304/pred_vs_actual.png)
-![Curva de entrenamiento — Price Estimator PyTorch](Proyecto/certamen_1/output/pytorch/price_estimator/2026-08-15_220304/training_curve.png)
-![Historia Optuna — Price Estimator PyTorch](Proyecto/certamen_1/output/pytorch/optuna_price_estimator/2026-08-15_220429/optuna_historia.png)
-![Importancia de features — baseline Random Forest](Proyecto/certamen_2/output/price_baseline/2026-08-07_190152/feature_importance.png)
-![Predicción vs. real — baseline Random Forest](Proyecto/certamen_2/output/price_baseline/2026-08-07_190152/pred_vs_actual.png)
+![Predicción vs. real — Price Estimator PyTorch](../ml/training/output/pytorch/price_estimator/2026-08-15_220304/pred_vs_actual.png)
+![Curva de entrenamiento — Price Estimator PyTorch](../ml/training/output/pytorch/price_estimator/2026-08-15_220304/training_curve.png)
+![Historia Optuna — Price Estimator PyTorch](../ml/training/output/pytorch/optuna_price_estimator/2026-08-15_220429/optuna_historia.png)
+![Importancia de features — baseline Random Forest](../ml/data-prep/output/price_baseline/2026-08-07_190152/feature_importance.png)
+![Predicción vs. real — baseline Random Forest](../ml/data-prep/output/price_baseline/2026-08-07_190152/pred_vs_actual.png)
 
 **Qué concluir del gráfico "predicción vs. real"**: los puntos deberían
 agruparse cerca de la diagonal `y=x` para precios bajos (la mayoría de la
@@ -980,7 +980,7 @@ no se usó en ningún entrenamiento real** (trabajo futuro documentado).
 ## PARTE 4 — Arquitectura de la app (MTG Companion) y servicios usados
 
 La app comercial construida sobre el pipeline de ML tiene tres piezas:
-`trading-app-ionic/` (frontend móvil), `backend/` (API), `desktop-runner/`
+`apps/mobile/` (frontend móvil), `backend/` (API), `desktop-runner/`
 (herramienta de escritorio para correr el pipeline de entrenamiento).
 
 ### 4.1 Frontend — Ionic + React + Capacitor
