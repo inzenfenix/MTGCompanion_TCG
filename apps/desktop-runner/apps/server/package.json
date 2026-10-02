@@ -2,7 +2,7 @@
   "name": "@mtg-runner/server",
   "private": true,
   "version": "0.1.0",
-  "description": "Backend NestJS embebido: registro de scripts de certamen_1, manejo de venvs por framework y streaming de logs en vivo por WebSocket.",
+  "description": "Backend NestJS embebido: registro de scripts de ml/, manejo de venvs por framework y streaming de logs en vivo por WebSocket.",
   "scripts": {
     "build": "nest build",
     "start": "node dist/main.js",

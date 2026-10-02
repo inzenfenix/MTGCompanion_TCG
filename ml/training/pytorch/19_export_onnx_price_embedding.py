@@ -1,5 +1,5 @@
 """
-MTG Card Scanner — Certamen 2, Stage 3 (ver ../../certamen_2/README.md,
+MTG Card Scanner — Certamen 2, Stage 3 (ver ../../data-prep/README.md,
 sección 5.1.1)
 19_export_onnx_price_embedding.py: exporta el extractor de embedding visual
 de Stage 1 (`MTGDetector.features` → `.avgpool` → `.flatten`, 1280 dims) a
@@ -52,7 +52,7 @@ SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 MODELS_DIR = SCRIPT_DIR / "models"
 # Misma convención que 09_export_onnx.py / 16_export_onnx_text_validator.py /
 # 18_export_onnx_price_estimator.py — ver CLAUDE.md regla 3.
-IONIC_MODELS_DIR = SCRIPT_DIR.parent.parent / "examen" / "trading-app-ionic" / "public" / "models"
+IONIC_MODELS_DIR = SCRIPT_DIR.parent.parent.parent / "apps" / "mobile" / "public" / "models"
 IMG_SIZE = 224
 DEVICE = "cpu"  # export y verificación en CPU, mismo criterio que 09_export_onnx.py
 
@@ -169,7 +169,7 @@ def main() -> None:
     parser.add_argument("--tolerancia", type=float, default=2e-4,
                         help="Diferencia máxima aceptable entre salidas PyTorch/ONNX (default: 2e-4)")
     parser.add_argument("--no-ionic-copy", action="store_true",
-                        help="No copiar el .onnx a trading-app-ionic/public/models/ (solo dejarlo en models/).")
+                        help="No copiar el .onnx a apps/mobile/public/models/ (solo dejarlo en models/).")
     args = parser.parse_args()
 
     cfg_path = MODELS_DIR / "mtg_detector_cfg.json"

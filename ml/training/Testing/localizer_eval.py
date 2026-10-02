@@ -1,7 +1,7 @@
 """
 MTG Card Scanner — Certamen 2, I33 (ROADMAP.md workstream I)
 localizer_eval.py: mide el find-rate real de `localizar_carta()`
-(certamen_2/card_preprocessing.py) sobre un directorio de fotos reales,
+(ml/data-prep/card_preprocessing.py) sobre un directorio de fotos reales,
 distinto del chequeo end-to-end de real_photo_eval.py (G4) — esto solo
 prueba la LOCALIZACIÓN (¿encontró un candidato con forma de carta?), no
 identificación/precio/condición.
@@ -36,9 +36,9 @@ import sys
 import time
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
-CERTAMEN1_DIR = SCRIPT_DIR.parent
-CERTAMEN2_DIR = CERTAMEN1_DIR.parent / "certamen_2"
-sys.path.insert(0, str(CERTAMEN2_DIR))
+TRAINING_DIR = SCRIPT_DIR.parent
+DATA_PREP_DIR = TRAINING_DIR.parent / "data-prep"
+sys.path.insert(0, str(DATA_PREP_DIR))
 
 import cv2  # noqa: E402
 from card_preprocessing import ASPECT_RATIO_CARTA, corregir_perspectiva, localizar_carta  # noqa: E402

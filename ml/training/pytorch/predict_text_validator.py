@@ -7,7 +7,7 @@ oracle_text de referencia de una carta, usando el modelo real entrenado
 CLI standalone, mismo espíritu que predict_condition.py — toma los textos ya
 extraídos (OCR de la foto + oracle_text de la carta identificada por Stage 1)
 en vez de una imagen: el OCR en sí (pytesseract) corre en el proceso que
-llama a este script (full_pipeline_demo.py, certamen_2/, venv liviano sin
+llama a este script (full_pipeline_demo.py, ml/data-prep/, venv liviano sin
 torch) — separar OCR de matching evita instalar cv2/pytesseract acá también,
 mismo motivo por el que Stage 3 separa "extraer feature visual" de "estimar
 precio" (ver prepare_price_embeddings.py).

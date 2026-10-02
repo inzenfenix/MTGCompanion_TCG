@@ -1,7 +1,7 @@
 /**
  * Client-side port of `sklearn.feature_extraction.text.HashingVectorizer`,
  * configured exactly like `build_vectorizer()` in
- * `certamen_1/{pytorch,tensorFlow}/src/text_matcher.py` (Stage 2):
+ * `ml/training/{pytorch,tensorFlow}/src/text_matcher.py` (Stage 2):
  * `analyzer="char_wb", ngram_range=(3, 5), n_features=512,
  * alternate_sign=False, norm="l2"`. Needed because Stage 2's ONNX graph
  * takes the already-vectorized 2048-dim feature tensor as input, not raw

@@ -10,7 +10,7 @@ import { REPO_ROOT } from './tf-docker';
  * y preguntar "¿esto no se puede automatizar?" (16 ago).
  */
 
-export const TRADING_APP_DIR = path.join(REPO_ROOT, 'Proyecto', 'examen', 'trading-app-ionic');
+export const TRADING_APP_DIR = path.join(REPO_ROOT, 'apps', 'mobile');
 const ENV_PATH = path.join(TRADING_APP_DIR, '.env');
 const ENV_EXAMPLE_PATH = path.join(TRADING_APP_DIR, '.env.example');
 const NETWORK_CONFIG_PATH = path.join(

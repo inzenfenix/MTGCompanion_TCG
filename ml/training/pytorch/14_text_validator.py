@@ -1,9 +1,9 @@
 """
-MTG Card Scanner — Certamen 2, Stage 2 (ver ../../certamen_2/README.md)
+MTG Card Scanner — Certamen 2, Stage 2 (ver ../../data-prep/README.md)
 14_text_validator.py: validador de texto "de verdad" (no el baseline difflib), PyTorch.
 
 Entrena sobre el dataset de pares (ocr_text, texto_referencia, label) que arma
-certamen_2/prepare_text_validator_dataset.py — separado del entrenamiento por
+ml/data-prep/prepare_text_validator_dataset.py — separado del entrenamiento por
 el mismo motivo que Stage 4 separa prepare_condition_dataset.py: el OCR
 (tesseract, lento) corre una sola vez, no en cada iteración de arquitectura.
 
@@ -37,8 +37,8 @@ from torch.utils.data import DataLoader, TensorDataset
 from src.text_matcher import N_FEATURES, build_text_matcher, build_vectorizer
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
-CERTAMEN2_DIR = SCRIPT_DIR.parent.parent / "certamen_2"
-DATASET_INDEX = CERTAMEN2_DIR / "data" / "text_pairs" / "index.csv"
+DATA_PREP_DIR = SCRIPT_DIR.parent.parent / "data-prep"
+DATASET_INDEX = DATA_PREP_DIR / "data" / "text_pairs" / "index.csv"
 OUTPUT_ROOT = SCRIPT_DIR.parent / "output" / "pytorch" / "text_validator"
 MODELS_DIR = SCRIPT_DIR / "models"
 
@@ -231,7 +231,7 @@ def main() -> None:
 
     if not DATASET_INDEX.exists():
         print(f"Error: no existe {DATASET_INDEX}.")
-        print("Corré certamen_2/prepare_text_validator_dataset.py primero.")
+        print("Corré ml/data-prep/prepare_text_validator_dataset.py primero.")
         raise SystemExit(1)
 
     print("=" * 62)

@@ -66,7 +66,7 @@ export class ScriptsController {
     return this.scriptsService.getChartsExtras();
   }
 
-  // ROADMAP.md M1 — publica trading-app-ionic/public/models/ al bucket
+  // ROADMAP.md M1 — publica apps/mobile/public/models/ al bucket
   // deploy_artifacts (mismo mecanismo/credenciales que POST deploy/backend,
   // ver el comentario junto a uploadModelsToS3()) para que cualquier otra
   // máquina (o, más adelante, CI) pueda armar el APK sin re-entrenar nada.

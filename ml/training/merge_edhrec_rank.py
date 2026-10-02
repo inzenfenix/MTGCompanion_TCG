@@ -138,7 +138,7 @@ def main() -> None:
     tmp_path.replace(CARDS_JSON)
 
     print(f"\nGuardado: {CARDS_JSON}  ({CARDS_JSON.stat().st_size / 1e6:.1f} MB)")
-    print("Siguiente paso: certamen_2/prepare_price_dataset.py (regenera cards.csv/scaler con la nueva columna).")
+    print("Siguiente paso: ml/data-prep/prepare_price_dataset.py (regenera cards.csv/scaler con la nueva columna).")
 
 
 if __name__ == "__main__":

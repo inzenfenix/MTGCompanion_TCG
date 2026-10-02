@@ -1,10 +1,10 @@
 """
 Vectorizador tabular compartido para Stage 3 (estimador de precio) — ver
-../../../certamen_2/README.md, sección "5.1.1 Diseño del feature vector
+../../../data-prep/README.md, sección "5.1.1 Diseño del feature vector
 combinado — Stage 3 'de verdad'".
 
 Deliberadamente Python puro (sin torch/tf/sklearn) para poder importarse
-tanto desde certamen_2/prepare_price_dataset.py (que no tiene ningún
+tanto desde ml/data-prep/prepare_price_dataset.py (que no tiene ningún
 framework de ML instalado, es el venv liviano compartido) como desde los
 dos scripts de entrenamiento — mismo criterio que text_matcher.py con
 HashingVectorizer (CLAUDE.md regla 4), pero acá el "sin .fit()" se logra con
@@ -12,12 +12,12 @@ vocabularios fijos hardcodeados + bucket "other" en vez de un
 `OneHotEncoder` de sklearn (que sí tiene estado que fitear y persistir).
 
 Este módulo está duplicado byte-idéntico en pytorch/src/ y tensorFlow/src/
-— no centralizado en certamen_2/, mismo motivo que text_matcher.py: cada
+— no centralizado en ml/data-prep/, mismo motivo que text_matcher.py: cada
 script de entrenamiento importa `from src.price_features import ...`
 relativo a su propio directorio (pytorch/ o tensorFlow/), sin depender de
 que el otro framework esté instalado.
 
-Reusa el feature set de certamen_2/price_estimator_baseline.py::fila_features()
+Reusa el feature set de ml/data-prep/price_estimator_baseline.py::fila_features()
 pero reemplaza el OneHotEncoder fiteado de sklearn por vocabularios fijos —
 los 4 vocabularios de abajo se sacaron de un Counter real sobre los 58,679
 registros de cards.json (15 ago) y hoy son exhaustivos; el bucket "other" es
@@ -31,7 +31,7 @@ la misma rareza/set_type/frame pueden diferir en precio por órdenes de
 magnitud porque una se juega en Commander y la otra no), y el Optuna sweep
 de B4 plateaba en R²(log-USD) ~0.44 con train loss todavía bajando — señal
 de techo de información, no de falta de tuning. `edhrec_rank` (más bajo =
-más popular; viene de certamen_1/merge_edhrec_rank.py, que lo agrega a
+más popular; viene de ml/training/merge_edhrec_rank.py, que lo agrega a
 cards.json por separado) no está disponible para toda carta, de ahí el flag
 de "conocido" — mismo patrón de imputación-con-indicador que evita que un
 placeholder se confunda con una señal real.
@@ -66,8 +66,8 @@ _CAMPOS_BASE = [
 ]
 # Subconjunto sin acotar (los otros 5 de _CAMPOS_BASE ya son 0/1) — se
 # estandarizan con media/desvío calculados una vez sobre el split de train
-# (ver certamen_2/prepare_price_dataset.py y
-# certamen_2/data/price_dataset/tabular_scaler.json). edhrec_rank_log entra acá
+# (ver ml/data-prep/prepare_price_dataset.py y
+# ml/data-prep/data/price_dataset/tabular_scaler.json). edhrec_rank_log entra acá
 # también (aunque su placeholder de "desconocido" ya es 0.0, ver
 # raw_card_fields()) para que quede en la misma escala que el resto — el flag
 # edhrec_rank_conocido es el que le dice al modelo si ese 0.0 es una carta
@@ -101,8 +101,8 @@ def raw_card_fields(card: dict) -> dict:
     """
     Aplana una carta (registro crudo de cards.json) a sus campos base (sin
     one-hot, sin escalar) — mismo shape que
-    certamen_2/price_estimator_baseline.py::fila_features(), para que
-    certamen_2/prepare_price_dataset.py pueda volcar estos campos a un CSV
+    ml/data-prep/price_estimator_baseline.py::fila_features(), para que
+    ml/data-prep/prepare_price_dataset.py pueda volcar estos campos a un CSV
     intermedio (cards.csv) sin más dependencia de este módulo que ser Python
     puro.
     """
@@ -116,7 +116,7 @@ def raw_card_fields(card: dict) -> dict:
     anio = int(anio_str) if anio_str.isdigit() else None
 
     # edhrec_rank: más bajo = más popular. No toda carta lo tiene (cards.json
-    # solo lo trae si certamen_1/merge_edhrec_rank.py ya corrió, y ni así
+    # solo lo trae si ml/training/merge_edhrec_rank.py ya corrió, y ni así
     # cubre el 100% — ver ese script). Placeholder 0.0 cuando no se conoce +
     # flag "conocido" en vez de imputar con la media, para no depender de
     # tener que recalcular ese promedio acá (ya lo hace tabular_scaler.json

@@ -33,8 +33,8 @@ from src.price_regressor import PriceRegressor
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 MODELS_DIR = SCRIPT_DIR / "models"
-CERTAMEN2_DIR = SCRIPT_DIR.parent.parent / "certamen_2"
-SCALER_JSON = CERTAMEN2_DIR / "data" / "price_dataset" / "tabular_scaler.json"
+DATA_PREP_DIR = SCRIPT_DIR.parent.parent / "data-prep"
+SCALER_JSON = DATA_PREP_DIR / "data" / "price_dataset" / "tabular_scaler.json"
 
 IMG_SIZE = 224
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"

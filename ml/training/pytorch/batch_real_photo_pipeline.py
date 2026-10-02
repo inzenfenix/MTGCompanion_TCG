@@ -3,7 +3,7 @@ MTG Card Scanner — Certamen 2, G4 (ROADMAP.md workstream G, item G4a)
 batch_real_photo_pipeline.py: corre las 4 etapas reales del pipeline sobre
 un directorio entero de fotos, cargando cada modelo UNA sola vez.
 
-full_pipeline_demo.py --real-models (certamen_2/) es correcto pero corre
+full_pipeline_demo.py --real-models (ml/data-prep/) es correcto pero corre
 como 4 subprocesos por foto (scanner.py, predict_condition.py,
 predict_text_validator.py, predict_price.py) — cada uno reimporta
 torch/torchvision (lento bajo ROCm) y recarga su checkpoint desde cero,
@@ -15,9 +15,9 @@ forward passes (mismo motivo por el que ONNX Runtime en la app Ionic será
 rápido — carga una vez, se queda residente).
 
 OCR (pytesseract) y las utilidades de card_preprocessing.py/
-text_validator_baseline.py viven en certamen_2/ — se importan acá vía un
+text_validator_baseline.py viven en ml/data-prep/ — se importan acá vía un
 sys.path.insert (import cruzado, mismo espíritu que full_pipeline_demo.py
-pero invertido: acá pytorch/ importa de certamen_2/ en vez de certamen_2/
+pero invertido: acá pytorch/ importa de ml/data-prep/ en vez de ml/data-prep/
 shell-eando a pytorch/). Requiere pytesseract instalado en pytorch/.venv
 (ver requirements.txt) y el binario de sistema `tesseract`.
 
@@ -38,13 +38,13 @@ import numpy as np
 import torch
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
-CERTAMEN1_DIR = SCRIPT_DIR.parent
-CERTAMEN2_DIR = CERTAMEN1_DIR.parent / "certamen_2"
-CARDS_JSON = CERTAMEN1_DIR / "data" / "cards.json"
-DEFAULT_PHOTOS_DIR = CERTAMEN1_DIR / "data" / "real_photos"
-DEFAULT_OUTPUT = CERTAMEN1_DIR / "Testing" / "real_photo_eval_raw.json"
+TRAINING_DIR = SCRIPT_DIR.parent
+DATA_PREP_DIR = TRAINING_DIR.parent / "data-prep"
+CARDS_JSON = TRAINING_DIR / "data" / "cards.json"
+DEFAULT_PHOTOS_DIR = TRAINING_DIR / "data" / "real_photos"
+DEFAULT_OUTPUT = TRAINING_DIR / "Testing" / "real_photo_eval_raw.json"
 
-sys.path.insert(0, str(CERTAMEN2_DIR))
+sys.path.insert(0, str(DATA_PREP_DIR))
 
 from card_preprocessing import mejorar_contraste, normalizar_carta  # noqa: E402
 from orientation_fix import corregir_orientacion  # noqa: E402

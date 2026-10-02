@@ -45,13 +45,13 @@ SHARED_DATA_DIR = SCRIPT_DIR.parent / "data"             # dataset compartido (c
 IMAGES_DIR      = SHARED_DATA_DIR / "images"
 MODELS_DIR      = SCRIPT_DIR / "models"
 RESULTS_DIR     = SCRIPT_DIR / "results"
-CERTAMEN2_DIR   = SCRIPT_DIR.parent.parent / "certamen_2"
+DATA_PREP_DIR   = SCRIPT_DIR.parent.parent / "data-prep"
 
-# card_preprocessing vive en certamen_2/ — mismo import cruzado que
+# card_preprocessing vive en ml/data-prep/ — mismo import cruzado que
 # batch_real_photo_pipeline.py (ver ROADMAP.md G4b). Necesario para que
 # extraer_embedding() pueda localizar/encuadrar la carta antes de embeber en
 # vez de embeber la foto cruda con fondo, como hacía antes.
-sys.path.insert(0, str(CERTAMEN2_DIR))
+sys.path.insert(0, str(DATA_PREP_DIR))
 from card_preprocessing import mejorar_contraste, normalizar_carta  # noqa: E402
 IMG_SIZE   = 224
 DEVICE     = "cuda" if torch.cuda.is_available() else "cpu"

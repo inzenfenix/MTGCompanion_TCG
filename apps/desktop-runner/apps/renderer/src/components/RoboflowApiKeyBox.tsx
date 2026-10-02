@@ -7,7 +7,7 @@ import { api } from '@/lib/api';
 
 /**
  * API key de Roboflow para `shared-download-roboflow` (datasets reales de
- * Stage 4, ver certamen_2/download_roboflow_condition_data.py). Se guarda en
+ * Stage 4, ver ml/data-prep/download_roboflow_condition_data.py). Se guarda en
  * la config local del runner (settings.ts, server) — nunca en el repo ni
  * hardcodeada en un script — y el server la inyecta como env var solo al
  * correr ese script puntual.

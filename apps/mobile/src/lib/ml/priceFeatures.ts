@@ -11,7 +11,7 @@
  * for Stage 2.
  *
  * Input is a **raw Scryfall-shaped card record** (the shape of an entry in
- * `certamen_1/data/cards.json`, post `merge_edhrec_rank.py`), not the
+ * `ml/training/data/cards.json`, post `merge_edhrec_rank.py`), not the
  * backend's thin `Card` type from `src/lib/api.ts` (which only keeps
  * `title/oracleText/rarity/setName` for an *owned* card, not
  * `type_line`/`colors`/`frame`/`finishes`/`edhrec_rank`/etc.). This matches

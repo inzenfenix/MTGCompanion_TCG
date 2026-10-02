@@ -3,7 +3,7 @@ Arquitectura configurable del clasificador de condición (Stage 4, PyTorch).
 
 Mismo patrón que src/binary_classifier.py: EfficientNet_b0 preentrenado +
 cabeza propia, parametrizada para que la corrida normal y una futura búsqueda
-Optuna (ver certamen_2/README.md, sección 0, mismo patrón que Stage 1)
+Optuna (ver ml/data-prep/README.md, sección 0, mismo patrón que Stage 1)
 entrenen exactamente la misma arquitectura. Difiere de MTGDetector en que la
 cabeza tiene GRADOS salidas (clasificación multi-clase, CrossEntropyLoss) en
 vez de una sola (binaria, BCEWithLogitsLoss).

@@ -22,7 +22,7 @@ Requisitos: pytorch/.venv ya creado (Certamen 1, incluye
 models/condition_grader_combined.pth — ver
 pytorch/12_condition_grader_combined.py; es el modelo entrenado con datos
 reales+sintéticos, no el sintético-solo — generaliza mucho mejor a fotos
-reales, ver README.md sección 9) + certamen_2/.venv con este mismo
+reales, ver README.md sección 9) + ml/data-prep/.venv con este mismo
 requirements.txt. No corre el clasificador binario de PyTorch como gate
 (usa --skip-detect en el scanner) porque acá interesa forzar las etapas
 incluso sobre fotos limpias de Scryfall.
@@ -33,7 +33,7 @@ Uso:
     python full_pipeline_demo.py ruta/a/carta.jpg --condition LP   # forzar condición, ignora Stage 4
 
 Nota sobre condición: por default, Stage 4 (PyTorch, el framework ganador de
-esa etapa — ver certamen_2/README.md sección 9) predice la condición de la
+esa etapa — ver ml/data-prep/README.md sección 9) predice la condición de la
 foto y esa es la que usa Stage 3. `--condition` es un override manual (por si
 Stage 4 se equivoca, o para forzar un escenario) — no desactiva Stage 4, solo
 ignora su resultado para el cálculo de precio.
@@ -68,10 +68,10 @@ from text_validator_baseline import (
     texto_referencia,
 )
 
-CERTAMEN2_DIR = pathlib.Path(__file__).resolve().parent
-CERTAMEN1_DIR = CERTAMEN2_DIR.parent / "certamen_1"
-PYTORCH_DIR = CERTAMEN1_DIR / "pytorch"
-CARDS_JSON = CERTAMEN1_DIR / "data" / "cards.json"
+DATA_PREP_DIR = pathlib.Path(__file__).resolve().parent
+TRAINING_DIR = DATA_PREP_DIR.parent / "training"
+PYTORCH_DIR = TRAINING_DIR / "pytorch"
+CARDS_JSON = TRAINING_DIR / "data" / "cards.json"
 
 _PT_LINE_RE = {
     "card_name": re.compile(r"^card_name=(.+)$"),
@@ -149,7 +149,7 @@ def stage4_predecir_condicion(imagen: pathlib.Path) -> dict:
     Corre pytorch/predict_condition.py (el framework ganador de Stage 4, ver
     README.md sección 9) como subproceso sobre la carta ya localizada/
     normalizada — el modelo se entrenó sobre recortes limpios con desgaste
-    sintético (certamen_2/synthetic_wear.py), no sobre fotos con fondo, así
+    sintético (ml/data-prep/synthetic_wear.py), no sobre fotos con fondo, así
     que alimentarlo con la foto cruda sería el mismo desajuste train/inferencia
     que ya se documentó para Stage 1/2 (ver README.md, secciones 5.3 y 8).
     """
@@ -235,7 +235,7 @@ def stage3_estimar_precio_real(imagen: pathlib.Path, carta: dict) -> dict:
     Corre pytorch/predict_price.py (concat(x_tab, x_vis), modelo real
     entrenado) en vez del baseline tabular-only — ver --real-models en
     main(). A diferencia del baseline, este modelo no toma la condición como
-    input (ver certamen_2/README.md, sección B6/ROADMAP: el precio de
+    input (ver ml/data-prep/README.md, sección B6/ROADMAP: el precio de
     catálogo de Scryfall es condition-independent), así que no hay ajuste
     por condición acá — Stage 4 se sigue mostrando por separado, solo no
     alimenta a este cálculo.
@@ -287,7 +287,7 @@ def stage3_estimar_precio_real(imagen: pathlib.Path, carta: dict) -> dict:
 def stage3_estimar_precio(carta: dict, condicion: str = "NM") -> dict:
     """
     Predice prices.usd (near-mint) con el baseline tabular entrenado
-    (certamen_2/models/) y lo ajusta por la condición declarada — el modelo
+    (ml/data-prep/models/) y lo ajusta por la condición declarada — el modelo
     no infiere condición de la foto, ver docstring del módulo.
     """
     modelo_path = PRICE_MODELS_DIR / "price_baseline_model.joblib"
@@ -326,7 +326,7 @@ def main() -> None:
         print(f"Error: no existe {args.imagen}")
         sys.exit(1)
     if not CARDS_JSON.exists():
-        print(f"Error: no existe {CARDS_JSON}. Corré certamen_1/01_scraper.py primero.")
+        print(f"Error: no existe {CARDS_JSON}. Corré ml/training/01_scraper.py primero.")
         sys.exit(1)
 
     with open(CARDS_JSON, encoding="utf-8") as f:
@@ -397,7 +397,7 @@ def main() -> None:
         print(f"  Condición usada  : {condicion_final}  ({origen_condicion})")
         s3 = stage3_estimar_precio(carta, condicion=condicion_final)
         if not s3["disponible"]:
-            print("  Aviso: no existe certamen_2/models/price_baseline_model.joblib —")
+            print("  Aviso: no existe ml/data-prep/models/price_baseline_model.joblib —")
             print("  corré price_estimator_baseline.py primero.")
         else:
             print(f"  Precio estimado (near-mint) : ${s3['precio_estimado_nm_usd']:.2f}")

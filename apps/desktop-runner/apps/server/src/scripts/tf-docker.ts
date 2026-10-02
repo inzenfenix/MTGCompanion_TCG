@@ -2,7 +2,7 @@ import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { detectGpu } from './gpu-detect';
-import { CERTAMEN_DIR } from './scripts.config';
+import { TRAINING_DIR } from './scripts.config';
 
 /**
  * Integra a la UI el escape hatch manual documentado en
@@ -20,9 +20,9 @@ export const TF_DOCKER_BASE_IMAGE = 'rocm/tensorflow:rocm7.1.1-py3.12-tf2.20-dev
 export const TF_DOCKER_READY_IMAGE = 'mtg-tf-rocm-ready:latest';
 export const TF_DOCKER_SETUP_CONTAINER = 'mtg-tf-rocm-setup';
 
-// CERTAMEN_DIR = .../Proyecto/certamen_1 — la raíz del repo está dos niveles arriba.
-export const REPO_ROOT = path.resolve(CERTAMEN_DIR, '..', '..');
-export const TF_REQUIREMENTS_REL_PATH = 'Proyecto/certamen_1/tensorFlow/requirements.txt';
+// TRAINING_DIR = .../ml/training — la raíz del repo está dos niveles arriba.
+export const REPO_ROOT = path.resolve(TRAINING_DIR, '..', '..');
+export const TF_REQUIREMENTS_REL_PATH = 'ml/training/tensorFlow/requirements.txt';
 
 /**
  * Genera el requirements.txt "sin tensorflow" al vuelo dentro del contenedor

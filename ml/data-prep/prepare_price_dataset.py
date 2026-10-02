@@ -31,7 +31,7 @@ Salidas, todas bajo data/price_dataset/ (gitignored):
                           ONNX), solo los números.
 
 Además, si se corre con el dataset completo (sin --n), publica
-tabular_scaler.json en trading-app-ionic/public/models/stage3-tabular-scaler.json
+tabular_scaler.json en apps/mobile/public/models/stage3-tabular-scaler.json
 (ROADMAP.md E2) — mismo patrón publicar_en_ionic() que los scripts
 *_export_onnx*.py (CLAUDE.md regla 3), con el mismo --no-ionic-copy para
 saltarlo. Solo el escalador de la corrida --n 0 (catálogo completo) debe
@@ -52,18 +52,18 @@ import random
 import shutil
 import sys
 
-CERTAMEN2_DIR = pathlib.Path(__file__).resolve().parent
-CARDS_JSON = CERTAMEN2_DIR.parent / "certamen_1" / "data" / "cards.json"
-IMAGES_DIR = CERTAMEN2_DIR.parent / "certamen_1" / "data" / "images"
-PRICE_DATASET_DIR = CERTAMEN2_DIR / "data" / "price_dataset"
+DATA_PREP_DIR = pathlib.Path(__file__).resolve().parent
+CARDS_JSON = DATA_PREP_DIR.parent / "training" / "data" / "cards.json"
+IMAGES_DIR = DATA_PREP_DIR.parent / "training" / "data" / "images"
+PRICE_DATASET_DIR = DATA_PREP_DIR / "data" / "price_dataset"
 # Misma convención que 09_export_onnx.py / 18_export_onnx_price_estimator.py
 # (CLAUDE.md regla 3), aunque este script no exporta un .onnx — publica un
 # artefacto de datos (el escalador) que el cliente Ionic necesita igual.
-IONIC_MODELS_DIR = CERTAMEN2_DIR.parent / "examen" / "trading-app-ionic" / "public" / "models"
+IONIC_MODELS_DIR = DATA_PREP_DIR.parent.parent / "apps" / "mobile" / "public" / "models"
 
 # src/price_features.py es Python puro (sin torch/tf) — cualquiera de las
 # dos copias (pytorch/src o tensorFlow/src) sirve igual, son byte-idénticas.
-sys.path.insert(0, str(CERTAMEN2_DIR.parent / "certamen_1" / "pytorch"))
+sys.path.insert(0, str(DATA_PREP_DIR.parent / "training" / "pytorch"))
 from src.price_features import NUMERIC_FIELDS, build_tabular_vector, raw_card_fields  # noqa: E402
 
 SEED = 42
@@ -122,7 +122,7 @@ def calcular_scaler(filas: list[dict], train_ids: set[str]) -> dict:
 
 
 def publicar_en_ionic(destino: pathlib.Path, nombre_publico: str) -> pathlib.Path | None:
-    """Copia tabular_scaler.json a trading-app-ionic/public/models/ — ver
+    """Copia tabular_scaler.json a apps/mobile/public/models/ — ver
     18_export_onnx_price_estimator.py::publicar_en_ionic() (mismo patrón,
     sin sidecar porque esto no es un .onnx)."""
     if not IONIC_MODELS_DIR.parent.exists():
@@ -143,11 +143,11 @@ def main() -> None:
     parser.add_argument("--val-split", type=float, default=VAL_SPLIT)
     parser.add_argument("--test-split", type=float, default=TEST_SPLIT)
     parser.add_argument("--no-ionic-copy", action="store_true",
-                         help="No copiar tabular_scaler.json a trading-app-ionic/public/models/.")
+                         help="No copiar tabular_scaler.json a apps/mobile/public/models/.")
     args = parser.parse_args()
 
     if not CARDS_JSON.exists():
-        print(f"Error: no existe {CARDS_JSON}. Corré certamen_1/01_scraper.py primero.")
+        print(f"Error: no existe {CARDS_JSON}. Corré ml/training/01_scraper.py primero.")
         sys.exit(1)
 
     with open(CARDS_JSON, encoding="utf-8") as f:

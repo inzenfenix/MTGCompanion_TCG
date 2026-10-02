@@ -1,6 +1,6 @@
 /**
  * Bulk-imports the Scryfall-derived card catalog (ROADMAP.md workstream F,
- * item F6) from certamen_1/data/cards.json into the `catalog_cards` table so
+ * item F6) from ml/training/data/cards.json into the `catalog_cards` table so
  * the Bazaar (TabSearch.tsx, E6) can search real card names/printings
  * instead of only whatever titles users have typed into their own listings.
  *
@@ -51,7 +51,7 @@ const TRANSACTION_TIMEOUT_MS = 30000;
 // the same regardless of where it's invoked from.
 const DEFAULT_SOURCE = path.resolve(
   __dirname,
-  '../../../certamen_1/data/cards.json',
+  '../../../ml/training/data/cards.json',
 );
 
 interface ScryfallCardRow {
@@ -117,7 +117,7 @@ async function main() {
     // convention as certamen_2's tabular_scaler.json gap (E2 in ROADMAP.md).
     throw new Error(
       `Catalog source not found: ${file}\n` +
-        `Run certamen_1's scraper first (desktop-runner's Scraper tab, or ` +
+        `Run ml/training's scraper first (desktop-runner's Scraper tab, or ` +
         `01_scraper.py --max-cards 0), or pass --file <path>.`,
     );
   }

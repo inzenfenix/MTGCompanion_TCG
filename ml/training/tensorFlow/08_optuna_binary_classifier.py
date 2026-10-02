@@ -300,7 +300,7 @@ def _run_config(
 
 def _print_missing_dataset(path: pathlib.Path) -> None:
     print(f"Error: se encontraron menos de 500 imágenes MTG en {path}.")
-    print("Reconstruye el dataset desde Proyecto/certamen_1 con:")
+    print("Reconstruye el dataset desde ml/training con:")
     print("  python 01_scraper.py --max-cards 5000 --quality small")
     print("  python 02_downloader.py")
 

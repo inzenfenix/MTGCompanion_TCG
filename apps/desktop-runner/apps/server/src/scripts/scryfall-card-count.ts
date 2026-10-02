@@ -1,6 +1,6 @@
 /**
  * Estima cuántas cartas "sobreviven" los mismos filtros que 01_scraper.py
- * (ver `filtrar_y_limpiar` en Proyecto/certamen_1/01_scraper.py) SIN
+ * (ver `filtrar_y_limpiar` en ml/training/01_scraper.py) SIN
  * descargar el bulk dump completo de Scryfall (varios cientos de MB) —
  * usa `/cards/search`, que devuelve `total_cards` ya en la primera página
  * de resultados, sin tener que paginar el resto.

@@ -11,7 +11,7 @@ Stage 4 (condición) trabajen sobre la misma carta ya encuadrada en vez de
 cada uno adivinar coordenadas fijas sobre la foto cruda.
 
 Es el equivalente en Python de lo que OpenCV.js hará del lado del cliente en
-la app Ionic (ver examen/README.md) — mismo algoritmo, sirve también como
+la app Ionic (ver apps/README.md) — mismo algoritmo, sirve también como
 referencia de qué portar a JS más adelante.
 
 Pipeline (`normalizar_carta`):

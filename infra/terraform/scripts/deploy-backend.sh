@@ -1,5 +1,5 @@
 #!/bin/bash
-# Pushes Proyecto/examen/backend/ to the live backend EC2 instance, writes a
+# Pushes apps/backend/ to the live backend EC2 instance, writes a
 # real .env from Secrets Manager + `terraform output`, and (re)builds/runs
 # the Docker container. Run by hand after a real `terraform apply` — this
 # is deliberately NOT baked into ec2_backend.tf's user_data (a git-clone
@@ -34,7 +34,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TERRAFORM_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-BACKEND_DIR="$(cd "$TERRAFORM_DIR/../../backend" && pwd)"
+BACKEND_DIR="$(cd "$TERRAFORM_DIR/../../apps/backend" && pwd)"
 
 cd "$TERRAFORM_DIR"
 

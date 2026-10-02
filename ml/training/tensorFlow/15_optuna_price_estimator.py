@@ -5,7 +5,7 @@ Espejo de pytorch/17_optuna_price_estimator.py: mismo search space, mismo
 objective de regresión (minimizar val_loss, MSE en escala log1p(price)) en
 vez de maximizar ROC-AUC como en Stage 2. El featurizado (tabular + embedding
 visual congelado) ya viene precalculado en disco
-(certamen_2/prepare_price_dataset.py + prepare_price_embeddings.py) y se
+(ml/data-prep/prepare_price_dataset.py + prepare_price_embeddings.py) y se
 arma una sola vez antes de abrir el estudio.
 
 No hay flag --device: TensorFlow no tiene ruta de GPU en esta máquina fuera
@@ -252,9 +252,9 @@ def main(argv: list[str] | None = None) -> int:
     training_module = load_training_module()
 
     faltantes = [
-        (training_module.CARDS_CSV, "certamen_2/prepare_price_dataset.py"),
-        (training_module.SPLIT_JSON, "certamen_2/prepare_price_dataset.py"),
-        (training_module.SCALER_JSON, "certamen_2/prepare_price_dataset.py"),
+        (training_module.CARDS_CSV, "ml/data-prep/prepare_price_dataset.py"),
+        (training_module.SPLIT_JSON, "ml/data-prep/prepare_price_dataset.py"),
+        (training_module.SCALER_JSON, "ml/data-prep/prepare_price_dataset.py"),
         (training_module.EMBEDDINGS_NPY, "tensorFlow/prepare_price_embeddings.py"),
         (training_module.EMBEDDINGS_IDS_JSON, "tensorFlow/prepare_price_embeddings.py"),
     ]

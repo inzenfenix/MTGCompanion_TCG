@@ -1,9 +1,9 @@
 """
-MTG Card Scanner — Certamen 2, Stage 2 (ver ../../certamen_2/README.md)
+MTG Card Scanner — Certamen 2, Stage 2 (ver ../../data-prep/README.md)
 12_text_validator.py: validador de texto "de verdad" (no el baseline difflib), TensorFlow.
 
 Espejo de pytorch/14_text_validator.py — mismo dataset de pares (ocr_text,
-texto_referencia, label) que arma certamen_2/prepare_text_validator_dataset.py,
+texto_referencia, label) que arma ml/data-prep/prepare_text_validator_dataset.py,
 mismo split por CARTA (card_id, no por fila — ver docstring del script
 PyTorch), mismas features (src/text_matcher.py, HashingVectorizer idéntico al
 lado PyTorch — CLAUDE.md regla 4), mismas métricas (ROC-AUC, umbral óptimo de
@@ -37,8 +37,8 @@ from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, roc_curve
 from src.text_matcher import N_FEATURES, build_text_matcher, build_vectorizer
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
-CERTAMEN2_DIR = SCRIPT_DIR.parent.parent / "certamen_2"
-DATASET_INDEX = CERTAMEN2_DIR / "data" / "text_pairs" / "index.csv"
+DATA_PREP_DIR = SCRIPT_DIR.parent.parent / "data-prep"
+DATASET_INDEX = DATA_PREP_DIR / "data" / "text_pairs" / "index.csv"
 OUTPUT_ROOT = SCRIPT_DIR.parent / "output" / "tensorflow" / "text_validator"
 MODELS_DIR = SCRIPT_DIR / "models"
 
@@ -192,7 +192,7 @@ def main() -> None:
 
     if not args.dataset.exists():
         print(f"Error: no existe {args.dataset}.")
-        print("Corré certamen_2/prepare_text_validator_dataset.py primero.")
+        print("Corré ml/data-prep/prepare_text_validator_dataset.py primero.")
         raise SystemExit(1)
 
     tf.keras.utils.set_random_seed(SEED)

@@ -1,5 +1,5 @@
 """
-MTG Card Scanner — Certamen 2, Stage 3 (ver ../../certamen_2/README.md,
+MTG Card Scanner — Certamen 2, Stage 3 (ver ../../data-prep/README.md,
 sección 5.1.1)
 prepare_price_embeddings.py: precalcula y cachea el embedding visual
 congelado (mitad x_vis del feature vector combinado) para PyTorch.
@@ -13,11 +13,11 @@ determinística de la imagen — se calcula UNA SOLA VEZ acá (no en cada época
 de 15_price_estimator.py), mismo motivo que Stage 2 no re-corre OCR en cada
 época.
 
-Corre después de certamen_2/prepare_price_dataset.py (necesita cards.csv
+Corre después de ml/data-prep/prepare_price_dataset.py (necesita cards.csv
 para saber qué card_ids procesar) y antes de 15_price_estimator.py. Vive acá
-(pytorch/) y no en certamen_2/ porque necesita torch/torchvision cargados —
+(pytorch/) y no en ml/data-prep/ porque necesita torch/torchvision cargados —
 certamen_2 es el venv liviano compartido, sin frameworks de ML pesados (ver
-certamen_2/prepare_price_dataset.py, docstring).
+ml/data-prep/prepare_price_dataset.py, docstring).
 
 Uso:
     python prepare_price_embeddings.py
@@ -39,9 +39,9 @@ from PIL import Image
 from src.binary_classifier import MTGDetector
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
-CERTAMEN2_DIR = SCRIPT_DIR.parent.parent / "certamen_2"
+DATA_PREP_DIR = SCRIPT_DIR.parent.parent / "data-prep"
 IMAGES_DIR = SCRIPT_DIR.parent / "data" / "images"
-PRICE_DATASET_DIR = CERTAMEN2_DIR / "data" / "price_dataset"
+PRICE_DATASET_DIR = DATA_PREP_DIR / "data" / "price_dataset"
 CARDS_CSV = PRICE_DATASET_DIR / "cards.csv"
 MODELS_DIR = SCRIPT_DIR / "models"
 
@@ -121,7 +121,7 @@ def main() -> None:
         sys.exit(1)
     if not CARDS_CSV.exists():
         print(f"Error: no existe {CARDS_CSV}.")
-        print("Corré certamen_2/prepare_price_dataset.py primero.")
+        print("Corré ml/data-prep/prepare_price_dataset.py primero.")
         sys.exit(1)
 
     with open(cfg_path) as f:

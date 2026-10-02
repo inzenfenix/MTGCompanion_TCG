@@ -4,14 +4,14 @@ import { pathEnvWithToolBin } from './tool-install';
 import type { AwsCredentials } from './settings';
 
 /**
- * Integra el stack de Terraform (Proyecto/examen/infra/terraform/,
+ * Integra el stack de Terraform (infra/terraform/,
  * ROADMAP.md workstream I) a la pestaña "Deploy" — mismo espíritu que
  * tf-docker.ts para el escape hatch de Docker: el server sabe correr/
  * streamear el comando, la UI da los botones. `infra/terraform/README.md`
  * documenta el flujo manual completo para quien prefiera la terminal.
  */
 
-export const TERRAFORM_DIR = path.join(REPO_ROOT, 'Proyecto', 'examen', 'infra', 'terraform');
+export const TERRAFORM_DIR = path.join(REPO_ROOT, 'infra', 'terraform');
 
 export type TerraformAction = 'init' | 'validate' | 'plan' | 'apply' | 'destroy';
 

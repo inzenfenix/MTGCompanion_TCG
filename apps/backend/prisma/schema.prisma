@@ -232,7 +232,7 @@ model CardPhoto {
 
 // ─────────────────────────────────────────────────────────────────────────
 // Catalog (F6 — read-only Scryfall metadata, imported in bulk by
-// `prisma/import-catalog.ts` from certamen_1/data/cards.json, NOT the same
+// `prisma/import-catalog.ts` from ml/training/data/cards.json, NOT the same
 // thing as Card above. Card is a physical card a user owns/lists; this is
 // the full ~58k-row reference catalog the Bazaar search (E6) matches
 // against so it can suggest real card names even for cards nobody has

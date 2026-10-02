@@ -1,5 +1,5 @@
 """
-MTG Card Scanner — Certamen 2, Stage 4 (ver ../../certamen_2/README.md, sección 9)
+MTG Card Scanner — Certamen 2, Stage 4 (ver ../../data-prep/README.md, sección 9)
 12_condition_grader_combined.py: reentrena el clasificador de condición
 (PyTorch) sobre el dataset COMBINADO (sintético + fotos reales de Roboflow),
 usando los mejores hiperparámetros encontrados por
@@ -57,8 +57,8 @@ from torch.utils.data import DataLoader, Dataset
 from src.condition_classifier import GRADOS, build_condition_grader
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
-CERTAMEN2_DIR = SCRIPT_DIR.parent.parent / "certamen_2"
-DATASET_INDEX = CERTAMEN2_DIR / "data" / "condition_dataset" / "index.csv"
+DATA_PREP_DIR = SCRIPT_DIR.parent.parent / "data-prep"
+DATASET_INDEX = DATA_PREP_DIR / "data" / "condition_dataset" / "index.csv"
 OUTPUT_ROOT = SCRIPT_DIR.parent / "output" / "pytorch" / "condition_grader_combined"
 MODELS_DIR = SCRIPT_DIR / "models"
 

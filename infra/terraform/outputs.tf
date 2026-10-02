@@ -1,4 +1,4 @@
-# backend_url is THE hand-off value: paste it into trading-app-ionic/.env's
+# backend_url is THE hand-off value: paste it into apps/mobile/.env's
 # VITE_API_BASE_URL and backend/.env's PUBLIC_API_URL, then rebuild
 # (npm run build -> npx cap sync android -> gradlew assembleDebug). See
 # README.md's "After apply" section.

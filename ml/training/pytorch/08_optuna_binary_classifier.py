@@ -5,7 +5,7 @@ Espejo de tensorFlow/08_optuna_binary_classifier.py — mismo search space,
 mismo formato de artefactos (study.db, run_config.json, trials.csv,
 best_params.json, optuna_historia.png, optuna_importancia.png,
 final_metrics.json), para que ambos frameworks queden comparables. Ver
-Proyecto/certamen_2/README.md, sección 0.
+ml/data-prep/README.md, sección 0.
 
 Ejemplos:
     python 08_optuna_binary_classifier.py
@@ -50,7 +50,7 @@ MODELS_DIR = SCRIPT_DIR / "models"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Mismo search space que tensorFlow/08_optuna_binary_classifier.py — ver tabla
-# en Proyecto/certamen_2/README.md, sección 0. freeze_ratio se traduce acá a
+# en ml/data-prep/README.md, sección 0. freeze_ratio se traduce acá a
 # un índice de bloque entero (ver src/binary_classifier.py).
 SEARCH_SPACE = {
     "learning_rate": {"low": 1e-5, "high": 1e-2, "log": True},
@@ -325,7 +325,7 @@ def _run_config(args: argparse.Namespace, run_dir: pathlib.Path, effective_n: in
 
 def _print_missing_dataset(path: pathlib.Path) -> None:
     print(f"Error: se encontraron menos de 500 imágenes MTG en {path}.")
-    print("Reconstruye el dataset desde Proyecto/certamen_1 con:")
+    print("Reconstruye el dataset desde ml/training con:")
     print("  python 01_scraper.py --max-cards 5000 --quality small")
     print("  python 02_downloader.py")
 

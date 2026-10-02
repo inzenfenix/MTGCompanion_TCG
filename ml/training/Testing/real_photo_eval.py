@@ -7,7 +7,7 @@ Corre pytorch/batch_real_photo_pipeline.py UNA vez (un solo proceso, carga
 los 4 modelos una sola vez — ver docstring de ese script sobre por qué:
 la versión anterior de este script shelleaba full_pipeline_demo.py por
 cada foto, 4 subprocesos con reimport de torch cada uno, ~66s/foto) sobre
-certamen_1/data/real_photos/ y agrega:
+ml/training/data/real_photos/ y agrega:
   - Stage 1 : ¿el nombre de carta predicho (top-1) está en el decklist
               conocido? (accuracy aproximada — ver el propio decklist.json
               sobre por qué esto es membership, no un ground truth 1:1 por foto)
@@ -30,9 +30,9 @@ import subprocess
 import sys
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
-CERTAMEN1_DIR = SCRIPT_DIR.parent
-PYTORCH_DIR = CERTAMEN1_DIR / "pytorch"
-REAL_PHOTOS_DIR = CERTAMEN1_DIR / "data" / "real_photos"
+TRAINING_DIR = SCRIPT_DIR.parent
+PYTORCH_DIR = TRAINING_DIR / "pytorch"
+REAL_PHOTOS_DIR = TRAINING_DIR / "data" / "real_photos"
 DECKLIST_PATH = REAL_PHOTOS_DIR / "squirreled_away_decklist.json"
 REPORT_PATH = SCRIPT_DIR / "real_photo_eval_report.md"
 RAW_JSON_PATH = SCRIPT_DIR / "real_photo_eval_raw.json"

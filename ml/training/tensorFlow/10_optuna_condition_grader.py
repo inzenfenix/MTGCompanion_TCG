@@ -3,7 +3,7 @@ Optimiza con Optuna el clasificador de condición (Stage 4, TensorFlow).
 
 Mismo patrón que 08_optuna_binary_classifier.py (mismo search space, mismo
 formato de artefactos) aplicado a 09_condition_grader.py — ver
-Proyecto/certamen_2/README.md, sección 9.
+ml/data-prep/README.md, sección 9.
 
 Ejemplos:
     python 10_optuna_condition_grader.py
@@ -256,7 +256,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if not training_module.DATASET_INDEX.exists():
         print(f"Error: no existe {training_module.DATASET_INDEX}.")
-        print("Corré certamen_2/prepare_condition_dataset.py primero.")
+        print("Corré ml/data-prep/prepare_condition_dataset.py primero.")
         return 1
 
     print("=" * 68)

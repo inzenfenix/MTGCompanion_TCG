@@ -2,7 +2,7 @@
 <!--
   Android 9+ (API 28+) blocks plaintext HTTP by default. ROADMAP.md
   workstream I's backend runs on a bare EC2 IP over plain HTTP (no domain/
-  TLS in the v1 infra plan — see Proyecto/examen/infra/terraform/README.md
+  TLS in the v1 infra plan — see infra/terraform/README.md
   "TLS / domain") — this is a dev/course-project-only cleartext exception,
   NOT a production-appropriate answer. Replace REPLACE_WITH_BACKEND_HOST
   below with the real host from `terraform output backend_public_ip` (or

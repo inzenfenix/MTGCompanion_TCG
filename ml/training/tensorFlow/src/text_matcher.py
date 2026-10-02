@@ -1,6 +1,6 @@
 """
 Arquitectura del validador de texto (Stage 2, TensorFlow) — espejo de
-../../pytorch/src/text_matcher.py. Ver ../../certamen_2/README.md, sección
+../../pytorch/src/text_matcher.py. Ver ../../data-prep/README.md, sección
 "Stage 2 — Validador de texto (OCR)".
 
 `build_vectorizer()` es IDÉNTICO al de pytorch/src/text_matcher.py (mismos

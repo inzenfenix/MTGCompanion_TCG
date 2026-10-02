@@ -73,7 +73,7 @@ export type IdentifyStatus =
   | { status: 'error'; message: string }
   | { status: 'ok'; result: IdentifyResult };
 
-/** Mirrors `texto_referencia()` in `certamen_2/text_validator_baseline.py` — same format the model was trained on. */
+/** Mirrors `texto_referencia()` in `ml/data-prep/text_validator_baseline.py` — same format the model was trained on. */
 function referenceText(card: api.CatalogEntry): string {
   return `${card.name} ${card.oracleText ?? ''}`;
 }
@@ -141,7 +141,7 @@ function dedupeById(cards: api.CatalogEntry[]): api.CatalogEntry[] {
 /**
  * Maps the backend's camelCase `CatalogEntry` onto the raw-Scryfall-shaped
  * `ScryfallCardFields` `priceFeatures.ts`/Stage 3 expects (snake_case, same
- * field names as `certamen_1/data/cards.json`). One-to-one field rename,
+ * field names as `ml/training/data/cards.json`). One-to-one field rename,
  * no derivation — the backend's `CatalogCard` columns were added (E3b) to
  * carry exactly these Scryfall fields through unchanged.
  */

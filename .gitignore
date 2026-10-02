@@ -196,10 +196,10 @@ yarn-error.log*
 
 # Excepción: la regla Python "lib/" de más arriba también matchea el código
 # fuente real de desktop-runner/apps/renderer/src/lib/ (api.ts, utils.ts, etc.).
-!Proyecto/certamen_1/desktop-runner/**/src/lib/
+!apps/desktop-runner/**/src/lib/
 
-# Misma excepción para trading-app-ionic/src/lib/ (api.ts, auth/, camera/, ml/).
-!trading-app-ionic/src/lib/
+# Misma excepción para apps/mobile/src/lib/ (api.ts, auth/, camera/, ml/).
+!apps/mobile/src/lib/
 
 # Electron build output
 out/

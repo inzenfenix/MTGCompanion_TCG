@@ -36,7 +36,7 @@ import { runStage4ConditionGrading } from '../lib/ml/stage4ConditionGrader';
 import { identifyCard, toScryfallFields, type IdentifyCandidate, type IdentifyStatus } from '../lib/scan/identifyCard';
 import { withTimeout, SCAN_PIPELINE_TIMEOUT_MS } from '../lib/async/withTimeout';
 
-// Two capture paths, matching Proyecto/examen/README.md's documented split:
+// Two capture paths, matching apps/README.md's documented split:
 // - "Manual" is the original single-shot @capacitor/camera photo, typed-in
 //   fields — unchanged, still the fallback for anyone who doesn't want
 //   scanning or whose camera/models aren't available.

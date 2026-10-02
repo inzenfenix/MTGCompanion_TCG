@@ -21,7 +21,7 @@ export interface RunnerSettings {
   /**
    * API key personal de Roboflow (https://roboflow.com), usada solo por
    * `shared-download-roboflow` para bajar los datasets reales de Stage 4
-   * (certamen_2/download_roboflow_condition_data.py). Se guarda acá (no en
+   * (ml/data-prep/download_roboflow_condition_data.py). Se guarda acá (no en
    * el repo, no hardcodeada en ningún script) para que cada quien use su
    * propia key — null si todavía no se configuró.
    */

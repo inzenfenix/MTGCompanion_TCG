@@ -3,7 +3,7 @@ Optimiza con Optuna el validador de texto (Stage 2, TensorFlow).
 
 Mismo patrón que 10_optuna_condition_grader.py (mismo formato de artefactos)
 aplicado a 12_text_validator.py — ver
-Proyecto/certamen_2/README.md, sección "Stage 2 — Validador de texto (OCR)".
+ml/data-prep/README.md, sección "Stage 2 — Validador de texto (OCR)".
 Espejo de pytorch/15_optuna_text_validator.py: mismo search space (sin
 freeze_ratio — TextMatcher no tiene backbone congelable, ver
 src/text_matcher.py), features vectorizadas una sola vez antes de abrir el
@@ -251,7 +251,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if not training_module.DATASET_INDEX.exists():
         print(f"Error: no existe {training_module.DATASET_INDEX}.")
-        print("Corré certamen_2/prepare_text_validator_dataset.py primero.")
+        print("Corré ml/data-prep/prepare_text_validator_dataset.py primero.")
         return 1
 
     print("=" * 68)

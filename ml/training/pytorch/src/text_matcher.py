@@ -1,6 +1,6 @@
 """
 Arquitectura del validador de texto (Stage 2, PyTorch) — ver
-../../certamen_2/README.md, sección "Stage 2 — Validador de texto (OCR)".
+../../data-prep/README.md, sección "Stage 2 — Validador de texto (OCR)".
 
 A diferencia de Stage 1/4 (que parten de un backbone de imágenes preentrenado,
 transfer learning), acá no hay nada preentrenado que reusar: es texto corto de

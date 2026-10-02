@@ -18,6 +18,7 @@ import {
   ScriptDef,
   SCRIPTS,
   StageExtraFrameworkData,
+  TRAINING_DIR,
   findScript,
 } from './scripts.config';
 import { LogsGateway } from './logs.gateway';
@@ -1112,7 +1113,7 @@ export class ScriptsService {
   }
 
   /**
-   * ROADMAP.md M1 — `aws s3 sync` de `trading-app-ionic/public/models/` (los
+   * ROADMAP.md M1 — `aws s3 sync` de `apps/mobile/public/models/` (los
    * `.onnx` exportados + `stage3-tabular-scaler.json`, gitignored — ver ese
    * `.gitignore`, nunca se versionan porque son artefactos generados, no
    * fuente) hacia `s3://{deploy_artifacts_bucket}/models/`. El eslabón que
@@ -1630,7 +1631,7 @@ export class ScriptsService {
   /**
    * Dos bugs reales encontrados en vivo, corriendo esto contra la instancia
    * real por primera vez, ninguno hipotético:
-   *  1. `certamen_1/data/cards.json` (59MB) nunca llega a la instancia — el
+   *  1. `ml/training/data/cards.json` (59MB) nunca llega a la instancia — el
    *     deploy solo empaqueta `backend/`. Se sube ahora al bucket
    *     deploy_artifacts (mismo bucket que ya usa deploy-backend.sh) y se
    *     copia adentro del contenedor con `docker cp` antes de correr el
@@ -1660,7 +1661,7 @@ export class ScriptsService {
     ) {
       throw new BadRequestException('No hay backend_instance_id/aws_region/deploy_artifacts_bucket_name todavía — ¿corriste "terraform apply"?');
     }
-    const cardsJsonPath = path.join(REPO_ROOT, 'Proyecto', 'certamen_1', 'data', 'cards.json');
+    const cardsJsonPath = path.join(TRAINING_DIR, 'data', 'cards.json');
     if (!fs.existsSync(cardsJsonPath)) {
       throw new BadRequestException(`No se encontró ${cardsJsonPath} en esta máquina — corré el scraper (Scraper tab) primero.`);
     }

@@ -1,5 +1,5 @@
 """
-MTG Card Scanner — Certamen 2, Stage 3 (ver ../../certamen_2/README.md,
+MTG Card Scanner — Certamen 2, Stage 3 (ver ../../data-prep/README.md,
 sección 5.1.1)
 prepare_price_embeddings.py: precalcula y cachea el embedding visual
 congelado (mitad x_vis del feature vector combinado) para TensorFlow.
@@ -32,9 +32,9 @@ import tensorflow as tf
 from PIL import Image
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
-CERTAMEN2_DIR = SCRIPT_DIR.parent.parent / "certamen_2"
+DATA_PREP_DIR = SCRIPT_DIR.parent.parent / "data-prep"
 IMAGES_DIR = SCRIPT_DIR.parent / "data" / "images"
-PRICE_DATASET_DIR = CERTAMEN2_DIR / "data" / "price_dataset"
+PRICE_DATASET_DIR = DATA_PREP_DIR / "data" / "price_dataset"
 CARDS_CSV = PRICE_DATASET_DIR / "cards.csv"
 MODELS_DIR = SCRIPT_DIR / "models"
 
@@ -89,7 +89,7 @@ def main() -> None:
         sys.exit(1)
     if not CARDS_CSV.exists():
         print(f"Error: no existe {CARDS_CSV}.")
-        print("Corré certamen_2/prepare_price_dataset.py primero.")
+        print("Corré ml/data-prep/prepare_price_dataset.py primero.")
         sys.exit(1)
 
     with open(CARDS_CSV, encoding="utf-8") as f:

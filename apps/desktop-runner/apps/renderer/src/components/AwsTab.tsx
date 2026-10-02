@@ -17,7 +17,7 @@ import type { ApplyBackendUrlResult, GithubStatus } from '@/lib/types';
  * Pestaña "Deploy" (ROADMAP.md workstream I) — infraestructura AWS real vía
  * Terraform, para que el APK deje de apuntar a localhost. Deliberadamente
  * no lleva un ScriptDef ni entra en TAB_BUCKETS/useRunAllStatus (App.tsx):
- * las acciones de Terraform no son scripts de certamen_1/2, tienen su
+ * las acciones de Terraform no son scripts de ml/, tienen su
  * propio estado acá adentro.
  */
 export function AwsTab() {
@@ -54,7 +54,7 @@ export function AwsTab() {
 }
 
 /**
- * ROADMAP.md M1 — publica trading-app-ionic/public/models/ (los .onnx que
+ * ROADMAP.md M1 — publica apps/mobile/public/models/ (los .onnx que
  * la pestaña Exportar deja localmente) a s3://{deploy_artifacts}/models/,
  * mismo bucket que ya usa el paso "0. Desplegar backend" de OutputsCard de
  * arriba, prefijo separado. Vive acá en Deploy, no en Exportar — es parte

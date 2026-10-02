@@ -1,17 +1,16 @@
 import * as path from 'path';
 
 /**
- * Raíz de certamen_1/, calculada en runtime relativa a este archivo compilado.
- * Este archivo compila a apps/server/dist/scripts/scripts.config.js. Desde
- * que desktop-runner se movió a Proyecto/examen/ (antes vivía adentro de
- * Proyecto/certamen_1/), certamen_1/ ya no es un ancestro directo — hacen
- * falta 6 niveles para llegar a Proyecto/, y de ahí bajar a certamen_1/:
- *   dist/scripts -> dist -> server -> apps -> desktop-runner -> examen -> Proyecto -> certamen_1
+ * Raíz de ml/training/ (scripts de entrenamiento/export de los 4 stages),
+ * calculada en runtime relativa a este archivo compilado. Este archivo
+ * compila a apps/server/dist/scripts/scripts.config.js — hacen falta 6
+ * niveles para llegar a la raíz del repo, y de ahí bajar a ml/training/:
+ *   dist/scripts -> dist -> server -> apps -> desktop-runner -> apps -> <repo> -> ml/training
  */
-export const CERTAMEN_DIR = path.resolve(__dirname, '..', '..', '..', '..', '..', '..', 'certamen_1');
+export const TRAINING_DIR = path.resolve(__dirname, '..', '..', '..', '..', '..', '..', 'ml', 'training');
 
-/** Igual que CERTAMEN_DIR pero apuntando a certamen_2/ (hermano de certamen_1/ bajo Proyecto/). */
-export const CERTAMEN2_DIR = path.resolve(__dirname, '..', '..', '..', '..', '..', '..', 'certamen_2');
+/** Igual que TRAINING_DIR pero apuntando a ml/data-prep/ (preparación de datasets, hermano de ml/training/). */
+export const DATA_PREP_DIR = path.resolve(__dirname, '..', '..', '..', '..', '..', '..', 'ml', 'data-prep');
 
 export type EnvId = 'pytorch' | 'tensorflow' | 'testing' | 'certamen2' | 'system';
 
@@ -43,14 +42,14 @@ export const ENVS: Record<EnvId, EnvDef> = {
   pytorch: {
     id: 'pytorch',
     label: 'PyTorch (EfficientNet_b0)',
-    dir: path.join(CERTAMEN_DIR, 'pytorch'),
-    requirementsFile: path.join(CERTAMEN_DIR, 'pytorch', 'requirements.txt'),
+    dir: path.join(TRAINING_DIR, 'pytorch'),
+    requirementsFile: path.join(TRAINING_DIR, 'pytorch', 'requirements.txt'),
   },
   tensorflow: {
     id: 'tensorflow',
     label: 'TensorFlow (MobileNetV3Small)',
-    dir: path.join(CERTAMEN_DIR, 'tensorFlow'),
-    requirementsFile: path.join(CERTAMEN_DIR, 'tensorFlow', 'requirements.txt'),
+    dir: path.join(TRAINING_DIR, 'tensorFlow'),
+    requirementsFile: path.join(TRAINING_DIR, 'tensorFlow', 'requirements.txt'),
     // TensorFlow suele tardar meses/años en soportar la última versión de
     // Python — se prueban las últimas que sí tienen wheel conocido primero.
     preferredPythonBins: ['python3.12', 'python3.11', 'python3.10'],
@@ -58,19 +57,19 @@ export const ENVS: Record<EnvId, EnvDef> = {
   testing: {
     id: 'testing',
     label: 'Testing (comparación entre frameworks)',
-    dir: path.join(CERTAMEN_DIR, 'Testing'),
-    requirementsFile: path.join(CERTAMEN_DIR, 'Testing', 'requirements.txt'),
+    dir: path.join(TRAINING_DIR, 'Testing'),
+    requirementsFile: path.join(TRAINING_DIR, 'Testing', 'requirements.txt'),
   },
   certamen2: {
     id: 'certamen2',
-    label: 'Certamen 2 (preparación de datasets — Stage 2/3/4)',
+    label: 'Data prep (ml/data-prep — preparación de datasets, Stage 2/3/4)',
     // Venv liviano, framework-agnóstico (pandas/sklearn/opencv-headless/
-    // pytesseract, ver certamen_2/requirements.txt) — deliberadamente sin
+    // pytesseract, ver ml/data-prep/requirements.txt) — deliberadamente sin
     // torch/tensorflow, así los scripts de prepare_*_dataset.py no tienen
     // que instalar ninguno de los dos frameworks pesados solo para leer
     // cards.json y correr OCR/OpenCV (ver ROADMAP.md workstream C, C1).
-    dir: CERTAMEN2_DIR,
-    requirementsFile: path.join(CERTAMEN2_DIR, 'requirements.txt'),
+    dir: DATA_PREP_DIR,
+    requirementsFile: path.join(DATA_PREP_DIR, 'requirements.txt'),
   },
   system: {
     id: 'system',
@@ -163,19 +162,19 @@ export interface ScriptDef {
   liveFile?: (values: Record<string, unknown>) => LiveFileDef | null;
 }
 
-const PT_DIR = path.join(CERTAMEN_DIR, 'pytorch');
-const TF_DIR = path.join(CERTAMEN_DIR, 'tensorFlow');
-const TEST_DIR = path.join(CERTAMEN_DIR, 'Testing');
+const PT_DIR = path.join(TRAINING_DIR, 'pytorch');
+const TF_DIR = path.join(TRAINING_DIR, 'tensorFlow');
+const TEST_DIR = path.join(TRAINING_DIR, 'Testing');
 
 export const SCRIPTS: ScriptDef[] = [
-  // ── Compartidos (raíz de certamen_1/) ──────────────────────────────────
+  // ── Compartidos (raíz de ml/training/) ──────────────────────────────────
   {
     id: 'shared-scraper',
     group: 'shared',
     label: '01 · Scraper de catálogo (Scryfall)',
     description:
       'Descarga y filtra el catálogo de cartas desde la API de Scryfall. Genera data/cards.json. Usa el venv de pytorch/ (incluye requests).',
-    cwd: CERTAMEN_DIR,
+    cwd: TRAINING_DIR,
     script: '01_scraper.py',
     env: 'pytorch',
     args: [
@@ -212,7 +211,7 @@ export const SCRIPTS: ScriptDef[] = [
     label: '02 · Downloader de imágenes',
     description:
       'Descarga las imágenes de cards.json (idempotente, reanudable, ~3.6 GB en corrida completa). Usa el venv de pytorch/.',
-    cwd: CERTAMEN_DIR,
+    cwd: TRAINING_DIR,
     script: '02_downloader.py',
     env: 'pytorch',
     args: [
@@ -236,7 +235,7 @@ export const SCRIPTS: ScriptDef[] = [
     label: '03 · Fotos reales (Google Drive)',
     description:
       'Descarga el set de fotos reales de un mazo físico (Google Drive) usado para el chequeo end-to-end del scanner (no sintéticas, no renders). Idempotente: reutiliza lo que ya existe en disco. Usa el venv de pytorch/ (incluye gdown).',
-    cwd: CERTAMEN_DIR,
+    cwd: TRAINING_DIR,
     script: '03_real_photos_downloader.py',
     env: 'pytorch',
     args: [
@@ -255,7 +254,7 @@ export const SCRIPTS: ScriptDef[] = [
     label: 'Fotos reales de cartas negativas (Google Drive) — Stage 1',
     description:
       'Descarga un set de fotos reales (no scrapeadas, no sintéticas) de cartas NO-MTG en escenas reales, subidas manualmente (ROADMAP.md I31/I33) — a diferencia de "Descargar cartas negativas" (catálogos/Wikimedia Commons scrapeados), estas tienen la misma fidelidad de captura real que "Fotos reales" de arriba, pero con contenido negativo: sirven tanto para Stage 1 (negativos reales) como para poner a prueba el localizador geométrico con una carta real en una escena real. Idempotente: reutiliza lo que ya existe en disco. Usa el venv de pytorch/ (incluye gdown).',
-    cwd: CERTAMEN_DIR,
+    cwd: TRAINING_DIR,
     script: 'real_negatives_downloader.py',
     env: 'pytorch',
     args: [
@@ -274,7 +273,7 @@ export const SCRIPTS: ScriptDef[] = [
     label: 'Fotos reales de daño (Roboflow) — Stage 4',
     description:
       'Descarga los dos datasets públicos de Roboflow (daño/desgaste en cartas) usados para reentrenar el clasificador de condición con fotos reales. Necesita una API key de Roboflow — configurala arriba. Idempotente. Usa el venv de pytorch/.',
-    cwd: CERTAMEN2_DIR,
+    cwd: DATA_PREP_DIR,
     script: 'download_roboflow_condition_data.py',
     env: 'pytorch',
     args: [],
@@ -299,7 +298,7 @@ export const SCRIPTS: ScriptDef[] = [
     label: '04 · Evaluar retrieval (orquestador)',
     description:
       'Punto de entrada único de evaluación: corre pytorch/, tensorflow/ o ambos, cada uno en su propio venv (los crea si faltan). No necesita venv propio.',
-    cwd: CERTAMEN_DIR,
+    cwd: TRAINING_DIR,
     script: '04_evaluate.py',
     env: 'system',
     args: [
@@ -312,16 +311,16 @@ export const SCRIPTS: ScriptDef[] = [
       const model = (values.model as string) || 'both';
       const files: ResultFileDef[] = [];
       if (model === 'both' || model === 'pytorch') {
-        files.push({ kind: 'metrics', label: 'Métricas — PyTorch', path: path.join(CERTAMEN_DIR, 'output', 'pytorch', 'latest', 'metrics_pt.json') });
+        files.push({ kind: 'metrics', label: 'Métricas — PyTorch', path: path.join(TRAINING_DIR, 'output', 'pytorch', 'latest', 'metrics_pt.json') });
       }
       if (model === 'both' || model === 'tensorflow') {
-        files.push({ kind: 'metrics', label: 'Métricas — TensorFlow', path: path.join(CERTAMEN_DIR, 'output', 'tensorflow', 'latest', 'metrics_tf.json') });
+        files.push({ kind: 'metrics', label: 'Métricas — TensorFlow', path: path.join(TRAINING_DIR, 'output', 'tensorflow', 'latest', 'metrics_tf.json') });
       }
       return files;
     },
   },
 
-  // Preparación de datasets de certamen_2/ (pasos lentos de I/O — OCR,
+  // Preparación de datasets de ml/data-prep/ (pasos lentos de I/O — OCR,
   // descarga, desgaste sintético — separados del entrenamiento en sí, ver
   // los docstrings de cada script). Usan el venv 'certamen2' (C1 en
   // ROADMAP.md), no 'pytorch': son Python puro/OpenCV/sklearn, no necesitan
@@ -335,8 +334,8 @@ export const SCRIPTS: ScriptDef[] = [
     group: 'shared',
     label: 'Preparar dataset — Stage 2 (OCR + pares de texto)',
     description:
-      'Descarga N cartas en calidad "large", corre OCR (tesseract) sobre el recorte de texto y arma pares (ocr_text, texto_referencia, label) balanceados 1:1 en certamen_2/data/text_pairs/index.csv. Paso lento — necesita tesseract instalado en el sistema. Usa el venv certamen2.',
-    cwd: CERTAMEN2_DIR,
+      'Descarga N cartas en calidad "large", corre OCR (tesseract) sobre el recorte de texto y arma pares (ocr_text, texto_referencia, label) balanceados 1:1 en ml/data-prep/data/text_pairs/index.csv. Paso lento — necesita tesseract instalado en el sistema. Usa el venv de data prep (ml/data-prep/.venv).',
+    cwd: DATA_PREP_DIR,
     script: 'prepare_text_validator_dataset.py',
     env: 'certamen2',
     args: [
@@ -359,8 +358,8 @@ export const SCRIPTS: ScriptDef[] = [
     group: 'shared',
     label: 'Preparar dataset — Stage 3 (tabular + split + escalador)',
     description:
-      'Arma la mitad tabular del dataset de precio (cards.csv), el split train/val/test por card_id (split.json) y el escalador de features numéricas (tabular_scaler.json), todos bajo certamen_2/data/price_dataset/. No toca imágenes ni ningún backbone — eso lo hacen pytorch/prepare_price_embeddings.py y tensorFlow/prepare_price_embeddings.py después, cada uno en su propio venv. Usa el venv certamen2.',
-    cwd: CERTAMEN2_DIR,
+      'Arma la mitad tabular del dataset de precio (cards.csv), el split train/val/test por card_id (split.json) y el escalador de features numéricas (tabular_scaler.json), todos bajo ml/data-prep/data/price_dataset/. No toca imágenes ni ningún backbone — eso lo hacen pytorch/prepare_price_embeddings.py y tensorFlow/prepare_price_embeddings.py después, cada uno en su propio venv. Usa el venv de data prep (ml/data-prep/.venv).',
+    cwd: DATA_PREP_DIR,
     script: 'prepare_price_dataset.py',
     env: 'certamen2',
     args: [
@@ -375,8 +374,8 @@ export const SCRIPTS: ScriptDef[] = [
     group: 'shared',
     label: 'Preparar dataset — Stage 4 (desgaste sintético)',
     description:
-      'Bootstrap de datos para el clasificador de condición: por cada carta muestreada genera una versión por grado (NM/LP/MP/HP/DMG) con synthetic_wear.py, todas a partir de la misma imagen limpia. No reemplaza fotos reales (ver Roboflow, arriba) — es para tener algo entrenable antes de conseguir/etiquetar fotos reales. Usa el venv certamen2.',
-    cwd: CERTAMEN2_DIR,
+      'Bootstrap de datos para el clasificador de condición: por cada carta muestreada genera una versión por grado (NM/LP/MP/HP/DMG) con synthetic_wear.py, todas a partir de la misma imagen limpia. No reemplaza fotos reales (ver Roboflow, arriba) — es para tener algo entrenable antes de conseguir/etiquetar fotos reales. Usa el venv de data prep (ml/data-prep/.venv).',
+    cwd: DATA_PREP_DIR,
     script: 'prepare_condition_dataset.py',
     env: 'certamen2',
     args: [
@@ -469,8 +468,8 @@ export const SCRIPTS: ScriptDef[] = [
     // actualiza output/pytorch/optuna/latest. Si --no-final-train está activo,
     // final_metrics.json no existe — se omite solo, no rompe nada.
     resultFiles: () => [
-      { kind: 'optuna', label: 'Optuna — PyTorch', path: path.join(CERTAMEN_DIR, 'output', 'pytorch', 'optuna', 'latest', 'best_params.json') },
-      { kind: 'classifier-metrics', label: 'Modelo final — PyTorch', path: path.join(CERTAMEN_DIR, 'output', 'pytorch', 'optuna', 'latest', 'final_metrics.json') },
+      { kind: 'optuna', label: 'Optuna — PyTorch', path: path.join(TRAINING_DIR, 'output', 'pytorch', 'optuna', 'latest', 'best_params.json') },
+      { kind: 'classifier-metrics', label: 'Modelo final — PyTorch', path: path.join(TRAINING_DIR, 'output', 'pytorch', 'optuna', 'latest', 'final_metrics.json') },
     ],
   },
   {
@@ -478,7 +477,7 @@ export const SCRIPTS: ScriptDef[] = [
     group: 'pytorch',
     label: '09 · Exportar a ONNX',
     description:
-      'Exporta el detector MTG/no-MTG ya entrenado (mtg_detector.pth) a ONNX, verificando que las salidas coincidan con el modelo original, y lo copia a trading-app-ionic/public/models/stage1-detector.onnx. No reentrena nada.',
+      'Exporta el detector MTG/no-MTG ya entrenado (mtg_detector.pth) a ONNX, verificando que las salidas coincidan con el modelo original, y lo copia a apps/mobile/public/models/stage1-detector.onnx. No reentrena nada.',
     cwd: PT_DIR,
     script: '09_export_onnx.py',
     env: 'pytorch',
@@ -486,7 +485,7 @@ export const SCRIPTS: ScriptDef[] = [
       { flag: '--imagen', name: 'imagen', kind: 'file', label: 'Imagen de verificación (opcional, si no se usa un tensor aleatorio)' },
       { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
       { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0001 },
-      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a trading-app-ionic/public/models/', default: false },
+      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a apps/mobile/public/models/', default: false },
     ],
   },
   {
@@ -494,7 +493,7 @@ export const SCRIPTS: ScriptDef[] = [
     group: 'pytorch',
     label: '12 · Exportar clasificador de condición a ONNX (Stage 4)',
     description:
-      'Exporta el clasificador de condición ya entrenado (condition_grader_combined.pth — el modelo real+sintético que predict_condition.py usa, no el sintético-solo) a ONNX, verificando que las salidas coincidan con el modelo original, y lo copia a trading-app-ionic/public/models/stage4-condition-grader.onnx. Requiere haber corrido "12 · Entrenar combinado" primero. No reentrena nada.',
+      'Exporta el clasificador de condición ya entrenado (condition_grader_combined.pth — el modelo real+sintético que predict_condition.py usa, no el sintético-solo) a ONNX, verificando que las salidas coincidan con el modelo original, y lo copia a apps/mobile/public/models/stage4-condition-grader.onnx. Requiere haber corrido "12 · Entrenar combinado" primero. No reentrena nada.',
     cwd: PT_DIR,
     script: '12_export_onnx_condition.py',
     env: 'pytorch',
@@ -502,7 +501,7 @@ export const SCRIPTS: ScriptDef[] = [
       { flag: '--imagen', name: 'imagen', kind: 'file', label: 'Imagen de verificación (opcional, si no se usa un tensor aleatorio)' },
       { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
       { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0001 },
-      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a trading-app-ionic/public/models/', default: false },
+      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a apps/mobile/public/models/', default: false },
     ],
   },
   {
@@ -529,7 +528,7 @@ export const SCRIPTS: ScriptDef[] = [
     id: 'pt-text-validator',
     group: 'pytorch',
     label: '14 · Entrenar validador de texto',
-    description: 'Entrena el MLP que compara texto OCR contra el texto de referencia (hashed n-grams). Requiere el dataset preparado por certamen_2/prepare_text_validator_dataset.py.',
+    description: 'Entrena el MLP que compara texto OCR contra el texto de referencia (hashed n-grams). Requiere el dataset preparado por ml/data-prep/prepare_text_validator_dataset.py.',
     cwd: PT_DIR,
     script: '14_text_validator.py',
     env: 'pytorch',
@@ -566,7 +565,7 @@ export const SCRIPTS: ScriptDef[] = [
       { flag: '--no-final-train', name: 'no_final_train', kind: 'boolean', label: 'No entrenar el modelo final', default: false },
     ],
     resultFiles: () => [
-      { kind: 'optuna', label: 'Optuna — PyTorch', path: path.join(CERTAMEN_DIR, 'output', 'pytorch', 'optuna_text_validator', 'latest', 'best_params.json') },
+      { kind: 'optuna', label: 'Optuna — PyTorch', path: path.join(TRAINING_DIR, 'output', 'pytorch', 'optuna_text_validator', 'latest', 'best_params.json') },
     ],
   },
   {
@@ -574,7 +573,7 @@ export const SCRIPTS: ScriptDef[] = [
     group: 'pytorch',
     label: '16 · Exportar validador de texto a ONNX (Stage 2)',
     description:
-      'Exporta el validador de texto ya entrenado (text_matcher.pth) a ONNX, verificando que las salidas coincidan con el modelo original, y lo copia a trading-app-ionic/public/models/stage2-text-validator.onnx. No reentrena nada.',
+      'Exporta el validador de texto ya entrenado (text_matcher.pth) a ONNX, verificando que las salidas coincidan con el modelo original, y lo copia a apps/mobile/public/models/stage2-text-validator.onnx. No reentrena nada.',
     cwd: PT_DIR,
     script: '16_export_onnx_text_validator.py',
     env: 'pytorch',
@@ -583,7 +582,7 @@ export const SCRIPTS: ScriptDef[] = [
       { flag: '--ref-text', name: 'ref_text', kind: 'string', label: 'Texto de referencia de verificación (opcional)' },
       { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
       { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0001 },
-      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a trading-app-ionic/public/models/', default: false },
+      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a apps/mobile/public/models/', default: false },
     ],
   },
 
@@ -593,7 +592,7 @@ export const SCRIPTS: ScriptDef[] = [
     group: 'pytorch',
     label: '15 · Entrenar estimador de precio',
     description:
-      'Entrena el regresor de precio (tabular + embedding visual congelado de Stage 1) sobre log1p(price). Requiere certamen_2/prepare_price_dataset.py y pytorch/prepare_price_embeddings.py ya corridos.',
+      'Entrena el regresor de precio (tabular + embedding visual congelado de Stage 1) sobre log1p(price). Requiere ml/data-prep/prepare_price_dataset.py y pytorch/prepare_price_embeddings.py ya corridos.',
     cwd: PT_DIR,
     script: '15_price_estimator.py',
     env: 'pytorch',
@@ -608,7 +607,7 @@ export const SCRIPTS: ScriptDef[] = [
       { flag: '--device', name: 'device', kind: 'select', label: 'Device', options: ['auto', 'cpu', 'cuda'], default: 'auto', recommended: 'auto', help: 'Cambiar a "cpu" solo si esta máquina sufre el segfault de ROCm/MIOpen descrito en CLAUDE.md.' },
     ],
     resultFiles: () => [
-      { kind: 'metrics', label: 'Métricas — PyTorch', path: path.join(CERTAMEN_DIR, 'output', 'pytorch', 'price_estimator', 'latest', 'metrics_price_estimator.json') },
+      { kind: 'metrics', label: 'Métricas — PyTorch', path: path.join(TRAINING_DIR, 'output', 'pytorch', 'price_estimator', 'latest', 'metrics_price_estimator.json') },
     ],
   },
   {
@@ -631,8 +630,8 @@ export const SCRIPTS: ScriptDef[] = [
       { flag: '--no-final-train', name: 'no_final_train', kind: 'boolean', label: 'No entrenar el modelo final', default: false },
     ],
     resultFiles: () => [
-      { kind: 'optuna', label: 'Optuna — PyTorch', path: path.join(CERTAMEN_DIR, 'output', 'pytorch', 'optuna_price_estimator', 'latest', 'best_params.json') },
-      { kind: 'metrics', label: 'Modelo final — PyTorch', path: path.join(CERTAMEN_DIR, 'output', 'pytorch', 'optuna_price_estimator', 'latest', 'final_metrics.json') },
+      { kind: 'optuna', label: 'Optuna — PyTorch', path: path.join(TRAINING_DIR, 'output', 'pytorch', 'optuna_price_estimator', 'latest', 'best_params.json') },
+      { kind: 'metrics', label: 'Modelo final — PyTorch', path: path.join(TRAINING_DIR, 'output', 'pytorch', 'optuna_price_estimator', 'latest', 'final_metrics.json') },
     ],
   },
   {
@@ -640,14 +639,14 @@ export const SCRIPTS: ScriptDef[] = [
     group: 'pytorch',
     label: '18 · Exportar estimador de precio a ONNX (Stage 3)',
     description:
-      'Exporta el estimador de precio ya entrenado (price_regressor.pth) a ONNX, verificando paridad numérica contra el modelo original (salida cruda log1p(price), sin sigmoid), y lo copia a trading-app-ionic/public/models/stage3-price-estimator.onnx. No reentrena nada.',
+      'Exporta el estimador de precio ya entrenado (price_regressor.pth) a ONNX, verificando paridad numérica contra el modelo original (salida cruda log1p(price), sin sigmoid), y lo copia a apps/mobile/public/models/stage3-price-estimator.onnx. No reentrena nada.',
     cwd: PT_DIR,
     script: '18_export_onnx_price_estimator.py',
     env: 'pytorch',
     args: [
       { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
       { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0001 },
-      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a trading-app-ionic/public/models/', default: false },
+      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a apps/mobile/public/models/', default: false },
     ],
   },
   {
@@ -663,7 +662,7 @@ export const SCRIPTS: ScriptDef[] = [
       { flag: '--imagen', name: 'imagen', kind: 'file', label: 'Imagen de verificación (opcional, si no se usa un tensor aleatorio)', help: 'Recomendado: una foto real da paridad ~1e-6; el tensor aleatorio por defecto da ~1e-4, cerca del límite de tolerancia.' },
       { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
       { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0002 },
-      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a trading-app-ionic/public/models/', default: false },
+      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a apps/mobile/public/models/', default: false },
     ],
   },
 
@@ -672,7 +671,7 @@ export const SCRIPTS: ScriptDef[] = [
     id: 'pt-condition-grader',
     group: 'pytorch',
     label: '10 · Entrenar clasificador de condición',
-    description: 'Entrena el clasificador de condición (NM/LP/MP/HP/DMG) sobre desgaste sintético. Requiere el dataset preparado por certamen_2/prepare_condition_dataset.py.',
+    description: 'Entrena el clasificador de condición (NM/LP/MP/HP/DMG) sobre desgaste sintético. Requiere el dataset preparado por ml/data-prep/prepare_condition_dataset.py.',
     cwd: PT_DIR,
     script: '10_condition_grader.py',
     env: 'pytorch',
@@ -701,7 +700,7 @@ export const SCRIPTS: ScriptDef[] = [
       { flag: '--no-final-train', name: 'no_final_train', kind: 'boolean', label: 'No entrenar el modelo final', default: false },
     ],
     resultFiles: () => [
-      { kind: 'optuna', label: 'Optuna — PyTorch', path: path.join(CERTAMEN_DIR, 'output', 'pytorch', 'optuna_condition', 'latest', 'best_params.json') },
+      { kind: 'optuna', label: 'Optuna — PyTorch', path: path.join(TRAINING_DIR, 'output', 'pytorch', 'optuna_condition', 'latest', 'best_params.json') },
     ],
   },
   {
@@ -709,7 +708,7 @@ export const SCRIPTS: ScriptDef[] = [
     group: 'pytorch',
     label: '12 · Entrenar combinado (sintético + fotos reales)',
     description:
-      'Reentrena el clasificador de condición agregando 1,184 fotos reales de Roboflow (ver certamen_2/import_roboflow_condition_data.py) al desgaste sintético — genera condition_grader_combined.pth, el modelo que de verdad generaliza a fotos reales (72.2% vs 38.7% del sintético-solo, ver certamen_2/README.md sección 9) y el que usa "Testear" más abajo.',
+      'Reentrena el clasificador de condición agregando 1,184 fotos reales de Roboflow (ver ml/data-prep/import_roboflow_condition_data.py) al desgaste sintético — genera condition_grader_combined.pth, el modelo que de verdad generaliza a fotos reales (72.2% vs 38.7% del sintético-solo, ver ml/data-prep/README.md sección 9) y el que usa "Testear" más abajo.',
     cwd: PT_DIR,
     script: '12_condition_grader_combined.py',
     env: 'pytorch',
@@ -792,8 +791,8 @@ export const SCRIPTS: ScriptDef[] = [
       { flag: '--no-final-train', name: 'no_final_train', kind: 'boolean', label: 'No entrenar el modelo final', default: false },
     ],
     resultFiles: () => [
-      { kind: 'optuna', label: 'Optuna — TensorFlow', path: path.join(CERTAMEN_DIR, 'output', 'tensorflow', 'optuna', 'latest', 'best_params.json') },
-      { kind: 'classifier-metrics', label: 'Modelo final — TensorFlow', path: path.join(CERTAMEN_DIR, 'output', 'tensorflow', 'optuna', 'latest', 'final_metrics.json') },
+      { kind: 'optuna', label: 'Optuna — TensorFlow', path: path.join(TRAINING_DIR, 'output', 'tensorflow', 'optuna', 'latest', 'best_params.json') },
+      { kind: 'classifier-metrics', label: 'Modelo final — TensorFlow', path: path.join(TRAINING_DIR, 'output', 'tensorflow', 'optuna', 'latest', 'final_metrics.json') },
     ],
   },
   {
@@ -801,7 +800,7 @@ export const SCRIPTS: ScriptDef[] = [
     group: 'tensorflow',
     label: '09 · Exportar a ONNX',
     description:
-      'Exporta el detector MTG/no-MTG ya entrenado (mtg_detector.keras) a ONNX vía tf2onnx, verificando que las salidas coincidan con el modelo original, y lo copia a trading-app-ionic/public/models/stage1-detector.onnx. No reentrena nada.',
+      'Exporta el detector MTG/no-MTG ya entrenado (mtg_detector.keras) a ONNX vía tf2onnx, verificando que las salidas coincidan con el modelo original, y lo copia a apps/mobile/public/models/stage1-detector.onnx. No reentrena nada.',
     cwd: TF_DIR,
     script: '09_export_onnx.py',
     env: 'tensorflow',
@@ -809,7 +808,7 @@ export const SCRIPTS: ScriptDef[] = [
       { flag: '--imagen', name: 'imagen', kind: 'file', label: 'Imagen de verificación (opcional, si no se usa un array aleatorio)' },
       { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
       { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0001 },
-      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a trading-app-ionic/public/models/', default: false },
+      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a apps/mobile/public/models/', default: false },
     ],
   },
   {
@@ -817,7 +816,7 @@ export const SCRIPTS: ScriptDef[] = [
     group: 'tensorflow',
     label: '11 · Exportar clasificador de condición a ONNX (Stage 4)',
     description:
-      'Exporta el clasificador de condición ya entrenado (condition_grader.keras) a ONNX vía tf2onnx, verificando paridad numérica, y lo copia a trading-app-ionic/public/models/stage4-condition-grader.onnx. No reentrena nada.',
+      'Exporta el clasificador de condición ya entrenado (condition_grader.keras) a ONNX vía tf2onnx, verificando paridad numérica, y lo copia a apps/mobile/public/models/stage4-condition-grader.onnx. No reentrena nada.',
     cwd: TF_DIR,
     script: '11_export_onnx_condition.py',
     env: 'tensorflow',
@@ -825,7 +824,7 @@ export const SCRIPTS: ScriptDef[] = [
       { flag: '--imagen', name: 'imagen', kind: 'file', label: 'Imagen de verificación (opcional, si no se usa un array aleatorio)' },
       { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
       { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0001 },
-      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a trading-app-ionic/public/models/', default: false },
+      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a apps/mobile/public/models/', default: false },
     ],
   },
   {
@@ -849,7 +848,7 @@ export const SCRIPTS: ScriptDef[] = [
     id: 'tf-text-validator',
     group: 'tensorflow',
     label: '12 · Entrenar validador de texto',
-    description: 'Entrena el MLP que compara texto OCR contra el texto de referencia (hashed n-grams). Requiere el dataset preparado por certamen_2/prepare_text_validator_dataset.py.',
+    description: 'Entrena el MLP que compara texto OCR contra el texto de referencia (hashed n-grams). Requiere el dataset preparado por ml/data-prep/prepare_text_validator_dataset.py.',
     cwd: TF_DIR,
     script: '12_text_validator.py',
     env: 'tensorflow',
@@ -881,7 +880,7 @@ export const SCRIPTS: ScriptDef[] = [
       { flag: '--no-final-train', name: 'no_final_train', kind: 'boolean', label: 'No entrenar el modelo final', default: false },
     ],
     resultFiles: () => [
-      { kind: 'optuna', label: 'Optuna — TensorFlow', path: path.join(CERTAMEN_DIR, 'output', 'tensorflow', 'optuna_text_validator', 'latest', 'best_params.json') },
+      { kind: 'optuna', label: 'Optuna — TensorFlow', path: path.join(TRAINING_DIR, 'output', 'tensorflow', 'optuna_text_validator', 'latest', 'best_params.json') },
     ],
   },
   {
@@ -889,7 +888,7 @@ export const SCRIPTS: ScriptDef[] = [
     group: 'tensorflow',
     label: '14 · Exportar validador de texto a ONNX (Stage 2)',
     description:
-      'Exporta el validador de texto ya entrenado (text_matcher.keras) a ONNX vía tf2onnx, verificando paridad numérica, y lo copia a trading-app-ionic/public/models/stage2-text-validator.onnx. No reentrena nada.',
+      'Exporta el validador de texto ya entrenado (text_matcher.keras) a ONNX vía tf2onnx, verificando paridad numérica, y lo copia a apps/mobile/public/models/stage2-text-validator.onnx. No reentrena nada.',
     cwd: TF_DIR,
     script: '14_export_onnx_text_validator.py',
     env: 'tensorflow',
@@ -898,7 +897,7 @@ export const SCRIPTS: ScriptDef[] = [
       { flag: '--ref-text', name: 'ref_text', kind: 'string', label: 'Texto de referencia de verificación (opcional)' },
       { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
       { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0001 },
-      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a trading-app-ionic/public/models/', default: false },
+      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a apps/mobile/public/models/', default: false },
     ],
   },
 
@@ -908,7 +907,7 @@ export const SCRIPTS: ScriptDef[] = [
     group: 'tensorflow',
     label: '13 · Entrenar estimador de precio',
     description:
-      'Entrena el regresor de precio (tabular + embedding visual congelado de Stage 1) sobre log1p(price). Requiere certamen_2/prepare_price_dataset.py y tensorFlow/prepare_price_embeddings.py ya corridos.',
+      'Entrena el regresor de precio (tabular + embedding visual congelado de Stage 1) sobre log1p(price). Requiere ml/data-prep/prepare_price_dataset.py y tensorFlow/prepare_price_embeddings.py ya corridos.',
     cwd: TF_DIR,
     script: '13_price_estimator.py',
     env: 'tensorflow',
@@ -922,7 +921,7 @@ export const SCRIPTS: ScriptDef[] = [
       { flag: '--batch-size', name: 'batch_size', kind: 'number', label: 'Batch size', default: 64 },
     ],
     resultFiles: () => [
-      { kind: 'metrics', label: 'Métricas — TensorFlow', path: path.join(CERTAMEN_DIR, 'output', 'tensorflow', 'price_estimator', 'latest', 'metrics_price_estimator.json') },
+      { kind: 'metrics', label: 'Métricas — TensorFlow', path: path.join(TRAINING_DIR, 'output', 'tensorflow', 'price_estimator', 'latest', 'metrics_price_estimator.json') },
     ],
   },
   {
@@ -944,8 +943,8 @@ export const SCRIPTS: ScriptDef[] = [
       { flag: '--no-final-train', name: 'no_final_train', kind: 'boolean', label: 'No entrenar el modelo final', default: false },
     ],
     resultFiles: () => [
-      { kind: 'optuna', label: 'Optuna — TensorFlow', path: path.join(CERTAMEN_DIR, 'output', 'tensorflow', 'optuna_price_estimator', 'latest', 'best_params.json') },
-      { kind: 'metrics', label: 'Modelo final — TensorFlow', path: path.join(CERTAMEN_DIR, 'output', 'tensorflow', 'optuna_price_estimator', 'latest', 'final_metrics.json') },
+      { kind: 'optuna', label: 'Optuna — TensorFlow', path: path.join(TRAINING_DIR, 'output', 'tensorflow', 'optuna_price_estimator', 'latest', 'best_params.json') },
+      { kind: 'metrics', label: 'Modelo final — TensorFlow', path: path.join(TRAINING_DIR, 'output', 'tensorflow', 'optuna_price_estimator', 'latest', 'final_metrics.json') },
     ],
   },
   {
@@ -953,14 +952,14 @@ export const SCRIPTS: ScriptDef[] = [
     group: 'tensorflow',
     label: '16 · Exportar estimador de precio a ONNX (Stage 3)',
     description:
-      'Exporta el estimador de precio ya entrenado (price_regressor.keras) a ONNX vía tf2onnx, verificando paridad numérica (salida cruda log1p(price), sin sigmoid), y lo copia a trading-app-ionic/public/models/stage3-price-estimator.onnx. No reentrena nada.',
+      'Exporta el estimador de precio ya entrenado (price_regressor.keras) a ONNX vía tf2onnx, verificando paridad numérica (salida cruda log1p(price), sin sigmoid), y lo copia a apps/mobile/public/models/stage3-price-estimator.onnx. No reentrena nada.',
     cwd: TF_DIR,
     script: '16_export_onnx_price_estimator.py',
     env: 'tensorflow',
     args: [
       { flag: '--opset', name: 'opset', kind: 'number', label: 'Versión de opset ONNX', default: 18 },
       { flag: '--tolerancia', name: 'tolerancia', kind: 'float', label: 'Tolerancia de verificación', default: 0.0001 },
-      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a trading-app-ionic/public/models/', default: false },
+      { flag: '--no-ionic-copy', name: 'no_ionic_copy', kind: 'boolean', label: 'No copiar a apps/mobile/public/models/', default: false },
     ],
   },
 
@@ -969,7 +968,7 @@ export const SCRIPTS: ScriptDef[] = [
     id: 'tf-condition-grader',
     group: 'tensorflow',
     label: '09 · Entrenar clasificador de condición',
-    description: 'Entrena el clasificador de condición (NM/LP/MP/HP/DMG) sobre desgaste sintético. Requiere el dataset preparado por certamen_2/prepare_condition_dataset.py.',
+    description: 'Entrena el clasificador de condición (NM/LP/MP/HP/DMG) sobre desgaste sintético. Requiere el dataset preparado por ml/data-prep/prepare_condition_dataset.py.',
     cwd: TF_DIR,
     script: '09_condition_grader.py',
     env: 'tensorflow',
@@ -998,7 +997,7 @@ export const SCRIPTS: ScriptDef[] = [
       { flag: '--no-final-train', name: 'no_final_train', kind: 'boolean', label: 'No entrenar el modelo final', default: false },
     ],
     resultFiles: () => [
-      { kind: 'optuna', label: 'Optuna — TensorFlow', path: path.join(CERTAMEN_DIR, 'output', 'tensorflow', 'optuna_condition', 'latest', 'best_params.json') },
+      { kind: 'optuna', label: 'Optuna — TensorFlow', path: path.join(TRAINING_DIR, 'output', 'tensorflow', 'optuna_condition', 'latest', 'best_params.json') },
     ],
   },
 
@@ -1044,7 +1043,7 @@ export const SCRIPTS: ScriptDef[] = [
  * búsqueda de Optuna de cada stage queda como acción manual aparte (son
  * corridas largas, no tiene sentido meterlas en el camino automático de
  * "correr todo"). Stage 3 (`pt-price-estimator`/`tf-price-estimator`)
- * requiere que `certamen_2/prepare_price_dataset.py` y
+ * requiere que `ml/data-prep/prepare_price_dataset.py` y
  * `{pytorch,tensorFlow}/prepare_price_embeddings.py` ya hayan corrido — no
  * son parte de esta secuencia todavía (siguen sin venv registrado, ver
  * ROADMAP.md workstream C, item C1).
@@ -1178,7 +1177,7 @@ export const EXPORT_STAGES: StageComparisonDef[] = [
     label: 'Stage 1 — Detector MTG / no-MTG',
     metricKey: 'accuracy',
     metricLabel: 'Accuracy',
-    metricsPath: (fw) => path.join(CERTAMEN_DIR, 'output', fw, 'optuna', 'latest', 'final_metrics.json'),
+    metricsPath: (fw) => path.join(TRAINING_DIR, 'output', fw, 'optuna', 'latest', 'final_metrics.json'),
     exportScriptId: (fw) => (fw === 'pytorch' ? 'pt-export-onnx' : 'tf-export-onnx'),
     extras: {
       lossHistoryPath: (fw) => path.join(fw === 'pytorch' ? PT_DIR : TF_DIR, 'results', 'training_history.json'),
@@ -1190,7 +1189,7 @@ export const EXPORT_STAGES: StageComparisonDef[] = [
     label: 'Stage 2 — Validador de texto (OCR match)',
     metricKey: 'roc_auc',
     metricLabel: 'ROC-AUC',
-    metricsPath: (fw) => path.join(CERTAMEN_DIR, 'output', fw, 'optuna_text_validator', 'latest', 'final_metrics.json'),
+    metricsPath: (fw) => path.join(TRAINING_DIR, 'output', fw, 'optuna_text_validator', 'latest', 'final_metrics.json'),
     exportScriptId: (fw) => (fw === 'pytorch' ? 'pt-export-onnx-text-validator' : 'tf-export-onnx-text-validator'),
   },
   {
@@ -1203,11 +1202,11 @@ export const EXPORT_STAGES: StageComparisonDef[] = [
     // el que de verdad importa para el usuario final pero sale casi-cero
     // (0.02–0.12, ver ROADMAP.md H3) por el sesgo/outliers de precio — un
     // artefacto esperado, no comparable de forma justa entre frameworks:
-    // ver certamen_2/README.md y el propio ROADMAP.md, workstream B.
+    // ver ml/data-prep/README.md y el propio ROADMAP.md, workstream B.
     metricKey: 'log_space.r2',
     metricLabel: 'R² (log-USD)',
     format: 'decimal',
-    metricsPath: (fw) => path.join(CERTAMEN_DIR, 'output', fw, 'optuna_price_estimator', 'latest', 'final_metrics.json'),
+    metricsPath: (fw) => path.join(TRAINING_DIR, 'output', fw, 'optuna_price_estimator', 'latest', 'final_metrics.json'),
     exportScriptId: (fw) => (fw === 'pytorch' ? 'pt-export-onnx-price-estimator' : 'tf-export-onnx-price-estimator'),
   },
   {
@@ -1219,7 +1218,7 @@ export const EXPORT_STAGES: StageComparisonDef[] = [
     // framework falla sistemáticamente en un grado en particular.
     metricKey: 'f1_macro',
     metricLabel: 'F1 (macro)',
-    metricsPath: (fw) => path.join(CERTAMEN_DIR, 'output', fw, 'optuna_condition', 'latest', 'final_metrics.json'),
+    metricsPath: (fw) => path.join(TRAINING_DIR, 'output', fw, 'optuna_condition', 'latest', 'final_metrics.json'),
     exportScriptId: (fw) => (fw === 'pytorch' ? 'pt-export-onnx-condition' : 'tf-export-onnx-condition'),
   },
 ];

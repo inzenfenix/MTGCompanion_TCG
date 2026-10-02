@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Escape hatch: run a certamen_1/certamen_2 TensorFlow script inside the
+# Escape hatch: run an ml/training or ml/data-prep TensorFlow script inside the
 # official rocm/tensorflow Docker image, with the host's AMD GPU passed
 # through. This is a MANUAL step — desktop-runner does not shell out to
 # Docker automatically (ROADMAP.md workstream D2, option (b): documented
@@ -10,8 +10,8 @@
 #   ./run.sh <script-path-relative-to-repo-root> [script-args...]
 #
 # Examples:
-#   ./run.sh Proyecto/certamen_1/tensorFlow/07_binary_classifier.py --epochs 3
-#   ./run.sh Proyecto/certamen_2/prepare_price_dataset.py
+#   ./run.sh ml/training/tensorFlow/07_binary_classifier.py --epochs 3
+#   ./run.sh ml/data-prep/prepare_price_dataset.py
 #
 # First run pulls the image (~11GB, tag chosen to match this host's
 # installed ROCm 7.1.1 userspace — see README's "Why this tag" section).
@@ -23,9 +23,9 @@ set -euo pipefail
 IMAGE="rocm/tensorflow:rocm7.1.1-py3.12-tf2.20-dev"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(git -C "$HERE" rev-parse --show-toplevel)"
-# requirements.txt lives under certamen_1/tensorFlow; certamen_2 scripts
+# requirements.txt lives under ml/training/tensorFlow; ml/data-prep scripts
 # reuse the same dependency set (no separate TF requirements file there yet).
-REQUIREMENTS="Proyecto/certamen_1/tensorFlow/requirements.txt"
+REQUIREMENTS="ml/training/tensorFlow/requirements.txt"
 # Volumen nombrado, no bind mount: un bind mount a un dir del host queda con
 # el UID del host, y el contenedor corre como root (UID 0) — pip ve el cache
 # "no owned by the current user" y lo deshabilita (confirmado en el spike de
@@ -34,7 +34,7 @@ PIP_CACHE_VOLUME="tf-rocm-pip-cache"
 
 if [ $# -lt 1 ]; then
   echo "Uso: $0 <script-relativo-a-la-raiz-del-repo> [args-del-script...]" >&2
-  echo "  ej:  $0 Proyecto/certamen_1/tensorFlow/07_binary_classifier.py --epochs 3" >&2
+  echo "  ej:  $0 ml/training/tensorFlow/07_binary_classifier.py --epochs 3" >&2
   exit 1
 fi
 

@@ -1,5 +1,5 @@
 /**
- * ROADMAP.md G4c/G4e — OpenCV.js port of `certamen_2/card_preprocessing.py`'s
+ * ROADMAP.md G4c/G4e — OpenCV.js port of `ml/data-prep/card_preprocessing.py`'s
  * `localizar_carta()`/`corregir_perspectiva()`. Same algorithm, not an
  * approximation: saturation-Otsu + brightness-Otsu candidate masks, every
  * contour per mask scored by how close its aspect ratio is to a real MTG
@@ -12,7 +12,7 @@
  *
  * Runs on `@techstark/opencv-js` (WASM), which works in both the browser
  * and Node — this module's own `.test.ts` verifies it against real photos
- * from `certamen_1/data/real_photos/`, the same ground-truth set
+ * from `ml/training/data/real_photos/`, the same ground-truth set
  * `card_preprocessing.py` was measured against (ROADMAP.md G4b).
  *
  * **Not ported**: orientation correction (`orientation_fix.py` needs a
@@ -203,7 +203,7 @@ export const AREA_MAXIMA_FRACCION = 0.75;
 // failing the `<5` bound). Root cause isn't a JS-port bug: Python's values
 // were tuned against real standalone-camera-app photos at 3000-8000px
 // (`real_negatives`/`real_photos`, see `localizer_eval.py` under
-// certamen_1/Testing), while THIS file's actual native operating range is
+// ml/training/Testing), while THIS file's actual native operating range is
 // 400-1920px (`GuidedCapture.tsx`'s live tracking + capture path, see the
 // comment above) — a fraction-of-resolution kernel is inherently
 // regime-dependent, so "same fraction" does NOT mean "same behavior" across

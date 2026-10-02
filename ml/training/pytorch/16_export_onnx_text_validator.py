@@ -1,5 +1,5 @@
 """
-MTG Card Scanner — Certamen 2, Stage 2 (ver ../../certamen_2/README.md)
+MTG Card Scanner — Certamen 2, Stage 2 (ver ../../data-prep/README.md)
 16_export_onnx_text_validator.py: exporta el validador de texto (Stage 2)
 entrenado en PyTorch a ONNX.
 
@@ -38,7 +38,7 @@ from src.text_matcher import TextMatcher, build_vectorizer, par_a_features
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 MODELS_DIR = SCRIPT_DIR / "models"
 # Misma carpeta pública que 09_export_onnx.py / 12_export_onnx_condition.py.
-IONIC_MODELS_DIR = SCRIPT_DIR.parent.parent / "examen" / "trading-app-ionic" / "public" / "models"
+IONIC_MODELS_DIR = SCRIPT_DIR.parent.parent.parent / "apps" / "mobile" / "public" / "models"
 DEVICE = "cpu"  # export y verificación en CPU: liviano, no compite por GPU con un entrenamiento en curso
 
 
@@ -106,7 +106,7 @@ def verificar(modelo: TextMatcher, entrada: torch.Tensor, onnx_path: pathlib.Pat
 
 
 def publicar_en_ionic(destino: pathlib.Path, nombre_publico: str) -> pathlib.Path | None:
-    """Copia el .onnx a trading-app-ionic/public/models/ — ver 09_export_onnx.py."""
+    """Copia el .onnx a apps/mobile/public/models/ — ver 09_export_onnx.py."""
     if not IONIC_MODELS_DIR.parent.exists():
         print(f"  aviso: no se encontró {IONIC_MODELS_DIR.parent} — no se copia a la app Ionic.")
         return None
@@ -135,7 +135,7 @@ def main() -> None:
     parser.add_argument("--tolerancia", type=float, default=1e-4,
                         help="Diferencia máxima aceptable entre salidas PyTorch/ONNX (default: 1e-4)")
     parser.add_argument("--no-ionic-copy", action="store_true",
-                        help="No copiar el .onnx a trading-app-ionic/public/models/ (solo dejarlo en models/).")
+                        help="No copiar el .onnx a apps/mobile/public/models/ (solo dejarlo en models/).")
     args = parser.parse_args()
 
     cfg_path = MODELS_DIR / "text_matcher_cfg.json"
@@ -173,7 +173,7 @@ def main() -> None:
         if publico:
             print(f"Copiado a la app Ionic       : {publico}")
     print("Próximo paso: cargar este .onnx en la app Ionic con onnxruntime-web")
-    print("(ver Proyecto/examen/README.md) — recordar que el cliente necesita")
+    print("(ver apps/README.md) — recordar que el cliente necesita")
     print("calcular las 4×512 features de matching antes de llamar al modelo.")
 
 

@@ -1,5 +1,5 @@
 """
-MTG Card Scanner — Certamen 2, Stage 4 (ver ../../certamen_2/README.md, sección 9)
+MTG Card Scanner — Certamen 2, Stage 4 (ver ../../data-prep/README.md, sección 9)
 13_analizar_generalizacion_real.py: dos análisis sobre el clasificador de
 condición, corridos juntos porque comparten la misma preparación de datos.
 
@@ -49,9 +49,9 @@ import torchvision.transforms as T
 from src.condition_classifier import GRADOS, ConditionGrader
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
-CERTAMEN2_DIR = SCRIPT_DIR.parent.parent / "certamen_2"
-DATASET_INDEX = CERTAMEN2_DIR / "data" / "condition_dataset" / "index.csv"
-ROBOFLOW_RAW_DIR = CERTAMEN2_DIR / "data" / "roboflow_raw"
+DATA_PREP_DIR = SCRIPT_DIR.parent.parent / "data-prep"
+DATASET_INDEX = DATA_PREP_DIR / "data" / "condition_dataset" / "index.csv"
+ROBOFLOW_RAW_DIR = DATA_PREP_DIR / "data" / "roboflow_raw"
 MODELS_DIR = SCRIPT_DIR / "models"
 
 IMG_SIZE = 224

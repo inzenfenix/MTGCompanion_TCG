@@ -28,8 +28,8 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
 
-CERTAMEN2_DIR = pathlib.Path(__file__).resolve().parent
-ROBOFLOW_RAW_DIR = CERTAMEN2_DIR / "data" / "roboflow_raw"
+DATA_PREP_DIR = pathlib.Path(__file__).resolve().parent
+ROBOFLOW_RAW_DIR = DATA_PREP_DIR / "data" / "roboflow_raw"
 
 # (carpeta local, workspace, project slug, versión) — ver README.md sección 9
 # para el origen de cada dataset.

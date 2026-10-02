@@ -1,18 +1,18 @@
 """
-MTG Card Scanner — Certamen 2, Stage 3 (ver ../../certamen_2/README.md)
+MTG Card Scanner — Certamen 2, Stage 3 (ver ../../data-prep/README.md)
 13_price_estimator.py: estimador de precio "de verdad" (no el baseline
 tabular), TensorFlow. Espejo de ../pytorch/15_price_estimator.py.
 
-Entrena sobre concat(x_tab, x_vis) — ver certamen_2/README.md, sección 5.1.1:
+Entrena sobre concat(x_tab, x_vis) — ver ml/data-prep/README.md, sección 5.1.1:
 x_tab son 48 dims tabulares idénticas a PyTorch (src/price_features.py),
 x_vis es el embedding visual de 576 dims del backbone YA fine-tuneado de
 Stage 1, completamente congelado y precalculado una sola vez por
-certamen_2/prepare_price_dataset.py + prepare_price_embeddings.py — este
+ml/data-prep/prepare_price_dataset.py + prepare_price_embeddings.py — este
 script no toca imágenes ni el backbone, solo lee los artefactos ya cacheados
-en certamen_2/data/price_dataset/.
+en ml/data-prep/data/price_dataset/.
 
 Split train/val/test fijo por card_id, compartido entre frameworks — ver
-split.json (arma certamen_2/prepare_price_dataset.py) — mismo motivo que
+split.json (arma ml/data-prep/prepare_price_dataset.py) — mismo motivo que
 split_por_carta() en 12_text_validator.py (CLAUDE.md regla 5).
 
 Target: log1p(prices.usd) — métricas en escala log y en USD (MAE, Median AE,
@@ -52,8 +52,8 @@ from src.price_features import (
 from src.price_regressor import build_price_regressor
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
-CERTAMEN2_DIR = SCRIPT_DIR.parent.parent / "certamen_2"
-PRICE_DATASET_DIR = CERTAMEN2_DIR / "data" / "price_dataset"
+DATA_PREP_DIR = SCRIPT_DIR.parent.parent / "data-prep"
+PRICE_DATASET_DIR = DATA_PREP_DIR / "data" / "price_dataset"
 CARDS_CSV = PRICE_DATASET_DIR / "cards.csv"
 SPLIT_JSON = PRICE_DATASET_DIR / "split.json"
 SCALER_JSON = PRICE_DATASET_DIR / "tabular_scaler.json"
@@ -199,9 +199,9 @@ def main() -> None:
     args = parser.parse_args()
 
     faltantes = [
-        (CARDS_CSV, "certamen_2/prepare_price_dataset.py"),
-        (SPLIT_JSON, "certamen_2/prepare_price_dataset.py"),
-        (SCALER_JSON, "certamen_2/prepare_price_dataset.py"),
+        (CARDS_CSV, "ml/data-prep/prepare_price_dataset.py"),
+        (SPLIT_JSON, "ml/data-prep/prepare_price_dataset.py"),
+        (SCALER_JSON, "ml/data-prep/prepare_price_dataset.py"),
         (EMBEDDINGS_NPY, "tensorFlow/prepare_price_embeddings.py"),
         (EMBEDDINGS_IDS_JSON, "tensorFlow/prepare_price_embeddings.py"),
     ]

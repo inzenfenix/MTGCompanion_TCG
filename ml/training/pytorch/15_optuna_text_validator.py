@@ -5,7 +5,7 @@ Mismo patrón que 08_optuna_binary_classifier.py / 11_optuna_condition_grader.py
 (mismo formato de artefactos: study.db, run_config.json, trials.csv,
 best_params.json, optuna_historia.png, optuna_importancia.png,
 final_metrics.json) aplicado a 14_text_validator.py — ver
-Proyecto/certamen_2/README.md, sección "Stage 2 — Validador de texto (OCR)".
+ml/data-prep/README.md, sección "Stage 2 — Validador de texto (OCR)".
 
 A diferencia de Stage 1/4 (imágenes), acá el featurizado (HashingVectorizer)
 no depende de ningún hiperparámetro del modelo — se vectoriza una sola vez
@@ -329,7 +329,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if not training_module.DATASET_INDEX.exists():
         print(f"Error: no existe {training_module.DATASET_INDEX}.")
-        print("Corré certamen_2/prepare_text_validator_dataset.py primero.")
+        print("Corré ml/data-prep/prepare_text_validator_dataset.py primero.")
         return 1
 
     print("=" * 68)

@@ -9,7 +9,7 @@ A diferencia de Stage 2, acá el objective es de regresión: se minimiza
 val_loss (MSE en escala log1p(price), la misma que reporta el checkpoint
 "mejor" de 15_price_estimator.py) en vez de maximizar ROC-AUC. Igual que
 Stage 2, el featurizado (tabular + embedding visual congelado) ya viene
-precalculado en disco (certamen_2/prepare_price_dataset.py +
+precalculado en disco (ml/data-prep/prepare_price_dataset.py +
 prepare_price_embeddings.py) y se arma una sola vez antes de abrir el
 estudio, no en cada trial.
 
@@ -304,9 +304,9 @@ def main(argv: list[str] | None = None) -> int:
     training_module.DEVICE = DEVICE
 
     faltantes = [
-        (training_module.CARDS_CSV, "certamen_2/prepare_price_dataset.py"),
-        (training_module.SPLIT_JSON, "certamen_2/prepare_price_dataset.py"),
-        (training_module.SCALER_JSON, "certamen_2/prepare_price_dataset.py"),
+        (training_module.CARDS_CSV, "ml/data-prep/prepare_price_dataset.py"),
+        (training_module.SPLIT_JSON, "ml/data-prep/prepare_price_dataset.py"),
+        (training_module.SCALER_JSON, "ml/data-prep/prepare_price_dataset.py"),
         (training_module.EMBEDDINGS_NPY, "pytorch/prepare_price_embeddings.py"),
         (training_module.EMBEDDINGS_IDS_JSON, "pytorch/prepare_price_embeddings.py"),
     ]

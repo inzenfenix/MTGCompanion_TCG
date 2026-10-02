@@ -191,7 +191,7 @@ def obtener_metadata_star_wars(n_target: int) -> list:
 
 def _commons_category_files(category: str) -> list[str]:
     """Lista todos los títulos de archivo de una categoría de Wikimedia Commons
-    (con paginación vía cmcontinue). Ver certamen_1/pytorch/07_binary_classifier.py,
+    (con paginación vía cmcontinue). Ver ml/training/pytorch/07_binary_classifier.py,
     misma función — duplicada acá porque este script no importa de pytorch/."""
     titles: list[str] = []
     params = {

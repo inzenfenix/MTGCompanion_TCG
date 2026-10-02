@@ -44,8 +44,8 @@ from text_validator_baseline import (
     texto_referencia,
 )
 
-CERTAMEN2_DIR = pathlib.Path(__file__).resolve().parent
-PAIRS_DIR = CERTAMEN2_DIR / "data" / "text_pairs"  # gitignored, igual que condition_dataset/
+DATA_PREP_DIR = pathlib.Path(__file__).resolve().parent
+PAIRS_DIR = DATA_PREP_DIR / "data" / "text_pairs"  # gitignored, igual que condition_dataset/
 
 
 def main() -> None:
@@ -59,7 +59,7 @@ def main() -> None:
     asegurar_tessdata()
 
     if not CARDS_JSON.exists():
-        print(f"Error: no existe {CARDS_JSON}. Corré certamen_1/01_scraper.py primero.")
+        print(f"Error: no existe {CARDS_JSON}. Corré ml/training/01_scraper.py primero.")
         sys.exit(1)
 
     with open(CARDS_JSON, encoding="utf-8") as f:

@@ -2,7 +2,7 @@
   "name": "mtg-scanner-desktop-runner",
   "private": true,
   "version": "0.1.0",
-  "description": "App de escritorio (Electron + NestJS + React/shadcn) para correr los pipelines de certamen_1 (pytorch/tensorFlow) sin usar la terminal manualmente.",
+  "description": "App de escritorio (Electron + NestJS + React/shadcn) para correr los pipelines de ml/ (pytorch/tensorFlow) sin usar la terminal manualmente.",
   "workspaces": [
     "apps/server",
     "apps/renderer",

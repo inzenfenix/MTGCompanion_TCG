@@ -42,10 +42,10 @@ from card_preprocessing import normalizar_carta
 from synthetic_sleeve import TIPOS as TIPOS_FUNDA, aplicar_funda
 from synthetic_wear import aplicar_desgaste, GRADOS
 
-CERTAMEN2_DIR = pathlib.Path(__file__).resolve().parent
-CARDS_JSON = CERTAMEN2_DIR.parent / "certamen_1" / "data" / "cards.json"
-FUENTE_IMAGENES_DIR = CERTAMEN2_DIR / "data" / "ocr_images"  # reusa el cache de text_validator_baseline.py (calidad "large")
-DATASET_DIR = CERTAMEN2_DIR / "data" / "condition_dataset"    # gitignored
+DATA_PREP_DIR = pathlib.Path(__file__).resolve().parent
+CARDS_JSON = DATA_PREP_DIR.parent / "training" / "data" / "cards.json"
+FUENTE_IMAGENES_DIR = DATA_PREP_DIR / "data" / "ocr_images"  # reusa el cache de text_validator_baseline.py (calidad "large")
+DATASET_DIR = DATA_PREP_DIR / "data" / "condition_dataset"    # gitignored
 
 HEADERS = {"User-Agent": "MTG-Scanner-Academic/1.0"}
 SEED = 42
@@ -82,7 +82,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if not CARDS_JSON.exists():
-        print(f"Error: no existe {CARDS_JSON}. Corré certamen_1/01_scraper.py primero.")
+        print(f"Error: no existe {CARDS_JSON}. Corré ml/training/01_scraper.py primero.")
         sys.exit(1)
 
     with open(CARDS_JSON, encoding="utf-8") as f:

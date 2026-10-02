@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 /**
  * Live camera capture via `navigator.mediaDevices.getUserMedia` + a hidden
  * <canvas> — NOT @capacitor-community/camera-preview. Per the documented
- * architecture decision (Proyecto/examen/README.md), live-scan (this hook,
+ * architecture decision (apps/README.md), live-scan (this hook,
  * used by Tab2's "Scan & Appraise") uses getUserMedia+canvas so frames can
  * be grabbed continuously for inference; @capacitor/camera is reserved for
  * one-shot single-photo capture (used by ListCard.tsx when listing a card).

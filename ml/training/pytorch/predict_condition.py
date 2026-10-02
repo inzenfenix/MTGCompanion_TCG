@@ -1,12 +1,12 @@
 """
 MTG Card Scanner — Certamen 2, Stage 4
 predict_condition.py: clasifica la condición (NM/LP/MP/HP/DMG) de una carta ya
-recortada/normalizada (ver ../../certamen_2/card_preprocessing.py).
+recortada/normalizada (ver ../../data-prep/card_preprocessing.py).
 
 CLI standalone, en el mismo espíritu que scanner.py — salida parseable para
-que certamen_2/full_pipeline_demo.py la invoque como subproceso (así no hace
-falta instalar torch en certamen_2/.venv). PyTorch es el framework ganador de
-Stage 4 (ver certamen_2/README.md sección 9) — es el que corre en el
+que ml/data-prep/full_pipeline_demo.py la invoque como subproceso (así no hace
+falta instalar torch en ml/data-prep/.venv). PyTorch es el framework ganador de
+Stage 4 (ver ml/data-prep/README.md sección 9) — es el que corre en el
 pipeline; la versión TensorFlow (tensorFlow/09_condition_grader.py) queda
 disponible para seguir comparando, no para producción.
 
@@ -17,7 +17,7 @@ los mismos hiperparámetros de Optuna). Motivo, medido no supuesto: sobre 266
 fotos reales holdout el sintético-solo cae a 38.7% de accuracy (colapsa —
 sobre-predice NM/DMG) contra 72.2% del combinado — ver
 `12_condition_grader_combined.py` y `13_analizar_generalizacion_real.py`,
-certamen_2/README.md sección 9. El número más alto en el split de origen no
+ml/data-prep/README.md sección 9. El número más alto en el split de origen no
 es el criterio; lo es cuál generaliza a fotos reales, que es para lo que
 existe este modelo.
 

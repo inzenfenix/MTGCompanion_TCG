@@ -41,8 +41,8 @@ import numpy as np
 import pytesseract
 import requests
 
-CERTAMEN2_DIR = pathlib.Path(__file__).resolve().parent
-_TESSDATA_LOCAL = CERTAMEN2_DIR / ".tessdata"
+DATA_PREP_DIR = pathlib.Path(__file__).resolve().parent
+_TESSDATA_LOCAL = DATA_PREP_DIR / ".tessdata"
 
 _ROTACIONES = {
     90: cv2.ROTATE_90_CLOCKWISE,

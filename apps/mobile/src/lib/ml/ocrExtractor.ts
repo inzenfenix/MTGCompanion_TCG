@@ -1,7 +1,7 @@
 /**
  * ROADMAP.md E3 — browser-side OCR (`tesseract.js`) feeding Stage 2 at scan
  * time. Ports the text-region crop + binarize steps of
- * `certamen_2/text_validator_baseline.py::recortar_texto()` /
+ * `ml/data-prep/text_validator_baseline.py::recortar_texto()` /
  * `card_preprocessing.py` to canvas, then runs `tesseract.js` on the result.
  * `stage2TextValidator.ts` (E1) already accepts `(ocrText, refText)` as two
  * plain strings — `extractCardText()` below produces the `ocrText` half.

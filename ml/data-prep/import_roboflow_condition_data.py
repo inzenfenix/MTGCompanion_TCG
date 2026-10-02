@@ -34,9 +34,9 @@ import cv2
 
 from card_preprocessing import mejorar_contraste, normalizar_carta
 
-CERTAMEN2_DIR = pathlib.Path(__file__).resolve().parent
-ROBOFLOW_RAW_DIR = CERTAMEN2_DIR / "data" / "roboflow_raw"
-DATASET_DIR = CERTAMEN2_DIR / "data" / "condition_dataset"
+DATA_PREP_DIR = pathlib.Path(__file__).resolve().parent
+ROBOFLOW_RAW_DIR = DATA_PREP_DIR / "data" / "roboflow_raw"
+DATASET_DIR = DATA_PREP_DIR / "data" / "condition_dataset"
 INDEX_PATH = DATASET_DIR / "index.csv"
 
 # Categorías de "daño" por dataset (excluye la caja que marca la carta entera).

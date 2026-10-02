@@ -3,7 +3,7 @@ Optimiza con Optuna el clasificador de condición (Stage 4, PyTorch).
 
 Mismo patrón que 08_optuna_binary_classifier.py (mismo search space, mismo
 formato de artefactos) aplicado a 10_condition_grader.py — ver
-Proyecto/certamen_2/README.md, sección 9.
+ml/data-prep/README.md, sección 9.
 
 Ejemplos:
     python 11_optuna_condition_grader.py
@@ -47,7 +47,7 @@ MODELS_DIR = SCRIPT_DIR / "models"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Mismo search space que 08_optuna_binary_classifier.py — ver
-# Proyecto/certamen_2/README.md, sección 0/9.
+# ml/data-prep/README.md, sección 0/9.
 SEARCH_SPACE = {
     "learning_rate": {"low": 1e-5, "high": 1e-2, "log": True},
     "weight_decay": {"low": 1e-6, "high": 1e-2, "log": True},
@@ -304,7 +304,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if not training_module.DATASET_INDEX.exists():
         print(f"Error: no existe {training_module.DATASET_INDEX}.")
-        print("Corré certamen_2/prepare_condition_dataset.py primero.")
+        print("Corré ml/data-prep/prepare_condition_dataset.py primero.")
         return 1
 
     print("=" * 68)

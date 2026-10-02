@@ -139,7 +139,7 @@ export default function App() {
         <div>
           <h1 className="text-xl font-semibold">MTG Card Scanner — Runner</h1>
           <p className="text-sm text-muted-foreground">
-            Corre los pipelines de certamen_1 (PyTorch / TensorFlow) sin usar la terminal.
+            Corre los pipelines de ml/ (PyTorch / TensorFlow) sin usar la terminal.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => setShowSetup(true)}>

@@ -4,7 +4,7 @@ price_estimator_baseline.py: baseline de regresión de precio (Stage 3), solo me
 
 Este es el primer paso de Stage 3 del pipeline (ver README.md, sección 1): un
 baseline tabular framework-agnóstico (scikit-learn) que NO necesita el dataset
-de imágenes descargado — solo `certamen_1/data/cards.json` (metadata + `prices`).
+de imágenes descargado — solo `ml/training/data/cards.json` (metadata + `prices`).
 Sirve para medir qué tan lejos llega la metadata sola antes de sumarle el
 embedding visual (PyTorch EfficientNet_b0 / TensorFlow MobileNetV3) en la
 siguiente iteración de este modelo, que sí duplica Stage 3 por framework.
@@ -38,10 +38,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
-CERTAMEN2_DIR = pathlib.Path(__file__).resolve().parent
-CARDS_JSON = CERTAMEN2_DIR.parent / "certamen_1" / "data" / "cards.json"
-OUTPUT_ROOT = CERTAMEN2_DIR / "output" / "price_baseline"
-MODELS_DIR = CERTAMEN2_DIR / "models"  # binarios locales, gitignored (igual que pytorch/models, tensorFlow/models)
+DATA_PREP_DIR = pathlib.Path(__file__).resolve().parent
+CARDS_JSON = DATA_PREP_DIR.parent / "training" / "data" / "cards.json"
+OUTPUT_ROOT = DATA_PREP_DIR / "output" / "price_baseline"
+MODELS_DIR = DATA_PREP_DIR / "models"  # binarios locales, gitignored (igual que pytorch/models, tensorFlow/models)
 
 SEED = 42
 ANIO_ACTUAL = datetime.date.today().year
@@ -222,7 +222,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if not CARDS_JSON.exists():
-        print(f"Error: no existe {CARDS_JSON}. Corré certamen_1/01_scraper.py primero.")
+        print(f"Error: no existe {CARDS_JSON}. Corré ml/training/01_scraper.py primero.")
         sys.exit(1)
 
     with open(CARDS_JSON, encoding="utf-8") as f:

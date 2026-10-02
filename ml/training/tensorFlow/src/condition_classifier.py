@@ -33,7 +33,7 @@ def build_condition_grader(
     A diferencia de build_binary_classifier (MobileNetV2, salida binaria),
     esta es la primera pieza del pipeline que usa MobileNetV3 — Stage 4 es
     codigo nuevo, sin atar el resto del pipeline (Stage 1 sigue en V2 hasta
-    que termine esa migracion, ver certamen_2/README.md seccion 1). Salida:
+    que termine esa migracion, ver ml/data-prep/README.md seccion 1). Salida:
     len(GRADOS) logits con softmax, entrenado con categorical_crossentropy.
     """
     if not 0.0 <= freeze_ratio <= 1.0:

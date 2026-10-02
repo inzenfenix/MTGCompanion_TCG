@@ -6,12 +6,12 @@ import numpy as np
 
 from src.config import IMG_SIZE
 
-# card_preprocessing vive en certamen_2/ — mismo import cruzado que el lado
+# card_preprocessing vive en ml/data-prep/ — mismo import cruzado que el lado
 # PyTorch (pytorch/scanner.py, ver ROADMAP.md G4b). Necesario para que
 # extract_embedding() pueda localizar/encuadrar la carta antes de embeber en
 # vez de embeber la foto cruda con fondo, como hacía antes.
-_CERTAMEN2_DIR = Path(__file__).resolve().parents[3] / "certamen_2"
-sys.path.insert(0, str(_CERTAMEN2_DIR))
+_DATA_PREP_DIR = Path(__file__).resolve().parents[3] / "data-prep"
+sys.path.insert(0, str(_DATA_PREP_DIR))
 
 # Tamaño de batch para build_index() — alinea con el BATCH_SIZE que usa el
 # DataLoader del lado PyTorch (03_pt_embedder.py) para el mismo paso.

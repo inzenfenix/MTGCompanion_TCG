@@ -1,6 +1,6 @@
 """
 Cabeza de regresión de Stage 3 (estimador de precio, PyTorch) — MLP sobre
-concat(x_tab, x_vis) (ver ../../../certamen_2/README.md, sección 5.1.1).
+concat(x_tab, x_vis) (ver ../../../data-prep/README.md, sección 5.1.1).
 Mismo shape que src/text_matcher.py::TextMatcher (Linear→ReLU→Dropout ×2 →
 salida única) pero para regresión: predice log1p(price) en vez de un logit
 de clasificación binaria.

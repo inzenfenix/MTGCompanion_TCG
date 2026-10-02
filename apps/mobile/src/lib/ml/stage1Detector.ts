@@ -3,8 +3,8 @@
  * `onnxruntime-web`. Scope is deliberately narrow: this file only runs
  * Stage 1. Stage 2 (OCR/text validation, future `tesseract.js`) and Stage 3
  * (price regression — no backend endpoint exists anywhere yet) are NOT
- * wired here on purpose; see Proyecto/examen/README.md and
- * Proyecto/certamen_2/README.md for the full 3-stage pipeline plan.
+ * wired here on purpose; see apps/README.md and
+ * ml/data-prep/README.md for the full 3-stage pipeline plan.
  *
  * ROADMAP.md I37 — this file's header used to say "NO TRAINED MODEL FILE
  * SHIPS IN THIS REPO YET" and described `IMG_SIZE`/`MEAN`/`STD` as

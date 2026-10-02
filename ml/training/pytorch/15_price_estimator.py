@@ -1,18 +1,18 @@
 """
-MTG Card Scanner — Certamen 2, Stage 3 (ver ../../certamen_2/README.md)
+MTG Card Scanner — Certamen 2, Stage 3 (ver ../../data-prep/README.md)
 15_price_estimator.py: estimador de precio "de verdad" (no el baseline
-tabular de certamen_2/price_estimator_baseline.py), PyTorch.
+tabular de ml/data-prep/price_estimator_baseline.py), PyTorch.
 
-Entrena sobre concat(x_tab, x_vis) — ver certamen_2/README.md, sección 5.1.1
+Entrena sobre concat(x_tab, x_vis) — ver ml/data-prep/README.md, sección 5.1.1
 ("Diseño del feature vector combinado"): x_tab son 48 dims tabulares
 idénticas a TensorFlow (src/price_features.py), x_vis es el embedding visual
 de 1280 dims del backbone YA fine-tuneado de Stage 1, completamente
-congelado y precalculado una sola vez por certamen_2/prepare_price_dataset.py
+congelado y precalculado una sola vez por ml/data-prep/prepare_price_dataset.py
 + prepare_price_embeddings.py — este script no toca imágenes ni el backbone,
-solo lee los artefactos ya cacheados en certamen_2/data/price_dataset/.
+solo lee los artefactos ya cacheados en ml/data-prep/data/price_dataset/.
 
 Split train/val/test fijo por card_id, compartido entre frameworks — ver
-split.json (arma certamen_2/prepare_price_dataset.py). Mismo motivo que
+split.json (arma ml/data-prep/prepare_price_dataset.py). Mismo motivo que
 split_por_carta() en 14_text_validator.py (CLAUDE.md regla 5), aunque acá
 cada carta aporta una sola fila (no hay riesgo de leakage por fila
 duplicada) — se usa igual para que ambos frameworks entrenen/evalúen sobre
@@ -55,8 +55,8 @@ from src.price_features import (
 from src.price_regressor import build_price_regressor
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
-CERTAMEN2_DIR = SCRIPT_DIR.parent.parent / "certamen_2"
-PRICE_DATASET_DIR = CERTAMEN2_DIR / "data" / "price_dataset"
+DATA_PREP_DIR = SCRIPT_DIR.parent.parent / "data-prep"
+PRICE_DATASET_DIR = DATA_PREP_DIR / "data" / "price_dataset"
 CARDS_CSV = PRICE_DATASET_DIR / "cards.csv"
 SPLIT_JSON = PRICE_DATASET_DIR / "split.json"
 SCALER_JSON = PRICE_DATASET_DIR / "tabular_scaler.json"
@@ -243,9 +243,9 @@ def main() -> None:
         DEVICE = args.device
 
     faltantes = [
-        (CARDS_CSV, "certamen_2/prepare_price_dataset.py"),
-        (SPLIT_JSON, "certamen_2/prepare_price_dataset.py"),
-        (SCALER_JSON, "certamen_2/prepare_price_dataset.py"),
+        (CARDS_CSV, "ml/data-prep/prepare_price_dataset.py"),
+        (SPLIT_JSON, "ml/data-prep/prepare_price_dataset.py"),
+        (SCALER_JSON, "ml/data-prep/prepare_price_dataset.py"),
         (EMBEDDINGS_NPY, "pytorch/prepare_price_embeddings.py"),
         (EMBEDDINGS_IDS_JSON, "pytorch/prepare_price_embeddings.py"),
     ]

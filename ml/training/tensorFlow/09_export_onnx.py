@@ -1,8 +1,8 @@
 """
-MTG Card Scanner — Certamen 2, Stage 3 del plan (ver ../../certamen_2/README.md)
+MTG Card Scanner — Certamen 2, Stage 3 del plan (ver ../../data-prep/README.md)
 09_export_onnx.py: exporta el detector MTG/no-MTG entrenado (TensorFlow) a ONNX.
 
-Por qué ONNX (y no TensorFlow.js): certamen_2/README.md, sección 3 — el
+Por qué ONNX (y no TensorFlow.js): ml/data-prep/README.md, sección 3 — el
 pipeline final elige el mejor framework por etapa, así que la app Ionic
 necesita un formato de exportación común a ambos en vez de atarse a uno solo.
 Acá se resuelve el lado TensorFlow con `tf2onnx`; el lado PyTorch usa
@@ -40,11 +40,11 @@ from PIL import Image
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 MODELS_DIR = SCRIPT_DIR / "models"
-# Carpeta pública de la app Ionic (ver Proyecto/examen/README.md) — el nombre
+# Carpeta pública de la app Ionic (ver apps/README.md) — el nombre
 # fijo stage1-detector.onnx es el que stage1Detector.ts busca por default
 # (VITE_STAGE1_MODEL_URL). Publicar acá directamente evita el paso manual de
 # copiar el .onnx a mano después de cada export.
-IONIC_MODELS_DIR = SCRIPT_DIR.parent.parent / "examen" / "trading-app-ionic" / "public" / "models"
+IONIC_MODELS_DIR = SCRIPT_DIR.parent.parent.parent / "apps" / "mobile" / "public" / "models"
 IMG_SIZE = 224
 
 
@@ -93,7 +93,7 @@ def verificar(modelo: tf.keras.Model, entrada: np.ndarray, onnx_path: pathlib.Pa
 
 
 def publicar_en_ionic(destino: pathlib.Path, nombre_publico: str) -> pathlib.Path | None:
-    """Copia el .onnx a trading-app-ionic/public/models/ — ver pytorch/09_export_onnx.py."""
+    """Copia el .onnx a apps/mobile/public/models/ — ver pytorch/09_export_onnx.py."""
     if not IONIC_MODELS_DIR.parent.exists():
         print(f"  aviso: no se encontró {IONIC_MODELS_DIR.parent} — no se copia a la app Ionic.")
         return None
@@ -111,7 +111,7 @@ def main() -> None:
     parser.add_argument("--tolerancia", type=float, default=1e-4,
                         help="Diferencia máxima aceptable entre salidas TensorFlow/ONNX (default: 1e-4)")
     parser.add_argument("--no-ionic-copy", action="store_true",
-                        help="No copiar el .onnx a trading-app-ionic/public/models/ (solo dejarlo en models/).")
+                        help="No copiar el .onnx a apps/mobile/public/models/ (solo dejarlo en models/).")
     args = parser.parse_args()
 
     cfg_path = MODELS_DIR / "mtg_detector_cfg.json"
@@ -148,7 +148,7 @@ def main() -> None:
         if publico:
             print(f"Copiado a la app Ionic       : {publico}")
     print("Próximo paso: cargar este .onnx en la app Ionic con onnxruntime-web")
-    print("(ver Proyecto/examen/README.md).")
+    print("(ver apps/README.md).")
 
 
 if __name__ == "__main__":

@@ -1,17 +1,17 @@
 """
-MTG Card Scanner — Certamen 2, Stage 4 (ver ../../certamen_2/README.md, sección 9)
+MTG Card Scanner — Certamen 2, Stage 4 (ver ../../data-prep/README.md, sección 9)
 11_condition_grader_combined.py: reentrena el clasificador de condición
 (TensorFlow) sobre el dataset COMBINADO (sintético + fotos reales de
 Roboflow), usando los mejores hiperparámetros encontrados por
 `10_optuna_condition_grader.py` (val_accuracy=0.6375 sobre el split
 sintético-solo — bastante más bajo que el 0.9525 de PyTorch en el mismo
-punto, ver certamen_1/RESULTADOS.md § Stage 4; ese gap ya está registrado,
+punto, ver ml/training/RESULTADOS.md § Stage 4; ese gap ya está registrado,
 no es nuevo).
 
 Espejo directo de pytorch/12_condition_grader_combined.py — mismo
 motivo (CLAUDE.md's pipeline table decía explícitamente "TensorFlow has no
 combined-checkpoint equivalent yet", ROADMAP.md ítem I20 punto 2), mismo
-dataset (`../../certamen_2/data/condition_dataset/index.csv`, ya con las
+dataset (`../../data-prep/data/condition_dataset/index.csv`, ya con las
 1,355 fotos reales de Roboflow importadas junto a las sintéticas), mismo
 split por CARTA (no por imagen — "carta" acá incluye tanto card_id de
 Scryfall como los ids sintéticos `roboflow_mtg_N`/`roboflow_cross_N`, cada
@@ -48,8 +48,8 @@ from src.config import IMG_SIZE
 from src.condition_classifier import GRADOS, build_condition_grader
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
-CERTAMEN2_DIR = SCRIPT_DIR.parent.parent / "certamen_2"
-DATASET_INDEX = CERTAMEN2_DIR / "data" / "condition_dataset" / "index.csv"
+DATA_PREP_DIR = SCRIPT_DIR.parent.parent / "data-prep"
+DATASET_INDEX = DATA_PREP_DIR / "data" / "condition_dataset" / "index.csv"
 OUTPUT_ROOT = SCRIPT_DIR.parent / "output" / "tensorflow" / "condition_grader_combined"
 MODELS_DIR = SCRIPT_DIR / "models"
 

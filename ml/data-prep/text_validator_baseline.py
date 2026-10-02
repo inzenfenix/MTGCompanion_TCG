@@ -9,11 +9,11 @@ contra oracle_text" alcanza como señal de confirmación, antes de invertir en
 un modelo propio entrenado.
 
 Por qué imágenes en calidad "large" y no las ya descargadas por 02_downloader.py:
-el dataset compartido (certamen_1/data/images/) está en calidad "small"
+el dataset compartido (ml/training/data/images/) está en calidad "small"
 (146×204px) — de sobra para detección/embeddings, pero ilegible para OCR. Las
 URLs de Scryfall codifican la calidad en el path
 (.../small/front/... → .../large/front/...), así que este script descarga
-una sub-muestra aparte en calidad "large" a certamen_2/data/ocr_images/, sin
+una sub-muestra aparte en calidad "large" a ml/data-prep/data/ocr_images/, sin
 tocar ni duplicar el dataset "small" de certamen_1.
 
 Pipeline por carta:
@@ -55,15 +55,15 @@ from sklearn.metrics import roc_auc_score, roc_curve
 
 from card_preprocessing import mejorar_contraste, normalizar_carta
 
-CERTAMEN2_DIR = pathlib.Path(__file__).resolve().parent
-CARDS_JSON = CERTAMEN2_DIR.parent / "certamen_1" / "data" / "cards.json"
-OCR_IMAGES_DIR = CERTAMEN2_DIR / "data" / "ocr_images"  # gitignored, calidad "large" aparte del dataset compartido
-OUTPUT_ROOT = CERTAMEN2_DIR / "output" / "text_validator_baseline"
+DATA_PREP_DIR = pathlib.Path(__file__).resolve().parent
+CARDS_JSON = DATA_PREP_DIR.parent / "training" / "data" / "cards.json"
+OCR_IMAGES_DIR = DATA_PREP_DIR / "data" / "ocr_images"  # gitignored, calidad "large" aparte del dataset compartido
+OUTPUT_ROOT = DATA_PREP_DIR / "output" / "text_validator_baseline"
 
 # El paquete de idioma de tesseract (`eng.traineddata`) se instala vía el
 # gestor de paquetes del sistema en la mayoría de las máquinas (apt install
 # tesseract-ocr-eng, choco install tesseract, etc.).
-_TESSDATA_LOCAL = CERTAMEN2_DIR / ".tessdata"
+_TESSDATA_LOCAL = DATA_PREP_DIR / ".tessdata"
 
 
 def asegurar_tessdata() -> None:
@@ -217,7 +217,7 @@ def main() -> None:
     asegurar_tessdata()
 
     if not CARDS_JSON.exists():
-        print(f"Error: no existe {CARDS_JSON}. Corré certamen_1/01_scraper.py primero.")
+        print(f"Error: no existe {CARDS_JSON}. Corré ml/training/01_scraper.py primero.")
         sys.exit(1)
 
     with open(CARDS_JSON, encoding="utf-8") as f:

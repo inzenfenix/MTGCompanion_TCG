@@ -1,7 +1,7 @@
 """
 Cabeza de regresión de Stage 3 (estimador de precio, TensorFlow) — espejo de
 ../../pytorch/src/price_regressor.py. MLP sobre concat(x_tab, x_vis) (ver
-../../../certamen_2/README.md, sección 5.1.1), prediciendo log1p(price).
+../../../data-prep/README.md, sección 5.1.1), prediciendo log1p(price).
 
 API funcional (no Sequential) — mismo motivo que src/text_matcher.py:
 Sequential no expone `output_names`, lo que rompe tf2onnx al exportar más

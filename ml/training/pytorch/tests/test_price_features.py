@@ -2,7 +2,7 @@
 ROADMAP.md G1 — unit tests for src/price_features.py (Stage 3 tabular
 vectorizer, PyTorch side). Pure Python, no torch/sklearn needed to exercise
 this module (see its own docstring — deliberately dependency-free so
-certamen_2/prepare_price_dataset.py can import it too). Mirrored
+ml/data-prep/prepare_price_dataset.py can import it too). Mirrored
 byte-for-byte in tensorFlow/tests/test_price_features.py since the module
 itself is byte-identical in both frameworks (CLAUDE.md rule 4-style
 duplication, see B1/B6 in ROADMAP.md).

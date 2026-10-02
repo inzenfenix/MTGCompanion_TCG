@@ -153,7 +153,7 @@ export function TerraformActionCard({ credentialsRefreshToken }: TerraformAction
         </div>
         <CardDescription>
           Corre <code className="font-mono">terraform</code> en{' '}
-          <code className="font-mono">Proyecto/examen/infra/terraform/</code> — mismos comandos que la terminal, acá
+          <code className="font-mono">infra/terraform/</code> — mismos comandos que la terminal, acá
           streameados. <code className="font-mono">apply</code>/<code className="font-mono">destroy</code> crean/destruyen
           infraestructura real y facturable, nunca se disparan con un solo click.
         </CardDescription>

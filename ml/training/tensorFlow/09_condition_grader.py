@@ -1,14 +1,14 @@
 """
-MTG Card Scanner — Certamen 2, Stage 4 (ver ../../certamen_2/README.md, sección 9)
+MTG Card Scanner — Certamen 2, Stage 4 (ver ../../data-prep/README.md, sección 9)
 09_condition_grader.py: clasificador de condición (NM/LP/MP/HP/DMG), TensorFlow.
 
 Espejo de pytorch/10_condition_grader.py — mismo dataset
-(../../certamen_2/data/condition_dataset/, generado por
-certamen_2/prepare_condition_dataset.py + synthetic_wear.py), mismo split
+(../../data-prep/data/condition_dataset/, generado por
+ml/data-prep/prepare_condition_dataset.py + synthetic_wear.py), mismo split
 por carta (no por imagen, para no filtrar la identidad de la carta entre
 train/val — ver docstring del script PyTorch), mismo formato de artefactos.
 Usa MobileNetV3Small en vez de V2 — código nuevo de Stage 4, no atado a la
-migración de Stage 1 (ver certamen_2/README.md, sección 1).
+migración de Stage 1 (ver ml/data-prep/README.md, sección 1).
 
 Uso:
     python 09_condition_grader.py
@@ -37,8 +37,8 @@ from src.config import IMG_SIZE
 from src.condition_classifier import GRADOS, build_condition_grader
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
-CERTAMEN2_DIR = SCRIPT_DIR.parent.parent / "certamen_2"
-DATASET_INDEX = CERTAMEN2_DIR / "data" / "condition_dataset" / "index.csv"
+DATA_PREP_DIR = SCRIPT_DIR.parent.parent / "data-prep"
+DATASET_INDEX = DATA_PREP_DIR / "data" / "condition_dataset" / "index.csv"
 OUTPUT_ROOT = SCRIPT_DIR.parent / "output" / "tensorflow" / "condition_grader"
 MODELS_DIR = SCRIPT_DIR / "models"
 
@@ -196,7 +196,7 @@ def main() -> None:
 
     if not DATASET_INDEX.exists():
         print(f"Error: no existe {DATASET_INDEX}.")
-        print("Corré certamen_2/prepare_condition_dataset.py primero.")
+        print("Corré ml/data-prep/prepare_condition_dataset.py primero.")
         raise SystemExit(1)
 
     tf.keras.utils.set_random_seed(SEED)

@@ -19,7 +19,7 @@
  * photo's OCR output at scan time is E3 (tesseract.js in the browser, not
  * built yet — see ROADMAP.md). `refText` should be built the same way the
  * training data was: `` `${card.name} ${card.oracleText ?? ''}` `` (mirrors
- * `texto_referencia()` in `certamen_2/text_validator_baseline.py`).
+ * `texto_referencia()` in `ml/data-prep/text_validator_baseline.py`).
  */
 
 import { hashingVectorize, HASHING_N_FEATURES } from './hashingVectorizer';

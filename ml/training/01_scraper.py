@@ -17,7 +17,7 @@ Filtros aplicados:
     - Hasta MAX_PRINTINGS_POR_CARTA impresiones por nombre de carta, priorizando
       estilos visualmente distintos (frame / border_color / frame_effects) para
       que el dataset cubra distintos borders, foils y frames de una misma carta
-      en vez de solo la impresión más reciente (ver Proyecto/certamen_2/README.md).
+      en vez de solo la impresión más reciente (ver ml/data-prep/README.md).
 """
 
 import argparse

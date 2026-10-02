@@ -1,12 +1,12 @@
 """
-MTG Card Scanner — Certamen 2, Stage 4 (ver ../../certamen_2/README.md, sección 9)
+MTG Card Scanner — Certamen 2, Stage 4 (ver ../../data-prep/README.md, sección 9)
 10_condition_grader.py: clasificador de condición (NM/LP/MP/HP/DMG), PyTorch.
 
 Corre en paralelo con Stage 1 (ambos consumen la misma carta ya localizada/
-normalizada por certamen_2/card_preprocessing.py) — no necesita saber qué
+normalizada por ml/data-prep/card_preprocessing.py) — no necesita saber qué
 carta es, solo en qué estado está. Entrena sobre el dataset sintético de
-../../certamen_2/data/condition_dataset/ (generado por
-certamen_2/prepare_condition_dataset.py + synthetic_wear.py) — bootstrap con
+../../data-prep/data/condition_dataset/ (generado por
+ml/data-prep/prepare_condition_dataset.py + synthetic_wear.py) — bootstrap con
 desgaste simulado por OpenCV, no fotos reales etiquetadas por condición
 todavía (ver README, sección 9, sobre los datasets reales identificados para
 complementar esto más adelante).
@@ -46,8 +46,8 @@ from torch.utils.data import DataLoader, Dataset
 from src.condition_classifier import GRADOS, build_condition_grader
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
-CERTAMEN2_DIR = SCRIPT_DIR.parent.parent / "certamen_2"
-DATASET_INDEX = CERTAMEN2_DIR / "data" / "condition_dataset" / "index.csv"
+DATA_PREP_DIR = SCRIPT_DIR.parent.parent / "data-prep"
+DATASET_INDEX = DATA_PREP_DIR / "data" / "condition_dataset" / "index.csv"
 OUTPUT_ROOT = SCRIPT_DIR.parent / "output" / "pytorch" / "condition_grader"
 MODELS_DIR = SCRIPT_DIR / "models"
 
@@ -250,7 +250,7 @@ def main() -> None:
 
     if not DATASET_INDEX.exists():
         print(f"Error: no existe {DATASET_INDEX}.")
-        print("Corré certamen_2/prepare_condition_dataset.py primero.")
+        print("Corré ml/data-prep/prepare_condition_dataset.py primero.")
         raise SystemExit(1)
 
     print("=" * 62)
