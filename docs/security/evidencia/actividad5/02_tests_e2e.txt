@@ -1,0 +1,194 @@
+# npm run test:e2e:embedded  (apps/backend, e2e contra PostgreSQL 16 embebido; catalog.e2e-spec necesita el catálogo Scryfall, ausente en esta máquina)
+# Resultado por caso: [OK] pasó · [FALLA] falló · [OMITIDA] omitida.  156 pasaron, 3 fallaron, 159 en total; 15/16 suites OK.
+# Fecha: 2026-10-23T14:35:50.889Z
+
+## catalog.e2e-spec.ts  (4/7)
+  [FALLA]  returns real multi-printing results for a known card name
+  [FALLA]  falls back to a fuzzy match when the exact/contains search finds nothing (a real OCR-misread name)
+  [FALLA]  search-by-text finds the real card from a real (noisy) rules-text OCR read, via oracleText not name
+  [OK]     search-by-text rejects a query shorter than its 10-char minimum with 400
+  [OK]     rejects a query shorter than the 2-char minimum with 400
+  [OK]     rejects a missing q param with 400
+  [OK]     clamps an oversized limit rather than erroring
+
+## data-rights.e2e-spec.ts  (24/24)
+  [OK]     identity verification (step-up) › a wrong password is refused and audited
+  [OK]     identity verification (step-up) › ACCESS without step-up is received, then closed DENIED — no data handed out
+  [OK]     identity verification (step-up) › a step-up token is not a bearer token
+  [OK]     identity verification (step-up) › someone else's step-up token doesn't verify you
+  [OK]     access and portability › walks every stage and records each date, with the 30-day legal deadline
+  [OK]     access and portability › the export is structured JSON with the subject’s own data and processing info
+  [OK]     access and portability › …and nothing that is not theirs to take: no secrets, no third-party identifiers
+  [OK]     access and portability › the export is not stored anywhere — only the section names
+  [OK]     access and portability › the same step-up token cannot back a second request (single use)
+  [OK]     access and portability › the answer is sent in writing to the player (art. 11)
+  [OK]     access and portability › another player's request id is a 404, not a 403
+  [OK]     rectification › a low-risk field needs only the session, and the audit keeps the field name, not the value
+  [OK]     rectification › it propagates: the counterparty now sees the new name on the shared transaction
+  [OK]     rectification › the same validation rules as registration apply (no contact data in the alias)
+  [OK]     rectification › an email change without step-up is denied
+  [OK]     rectification › someone else's email is refused (unique)
+  [OK]     rectification › with step-up the email changes, every session ends and the OLD address is warned
+  [OK]     erasure › must be explicitly confirmed
+  [OK]     erasure › is denied, with the reason, while a purchase is still pending
+  [OK]     erasure › is denied for a staff account until another ADMIN removes the role
+  [OK]     erasure › with no transactions, the account disappears entirely — the request record stays
+  [OK]     erasure › with closed transactions, the account becomes an anonymous tombstone
+  [OK]     erasure › the counterparty’s own export now shows "Cuenta eliminada"
+  [OK]     staff follow-up › USER → 403; SUPPORT sees deadlines with pseudonyms only
+
+## security.e2e-spec.ts  (18/18)
+  [OK]     brute force → alert + automatic temporary lock › raises a HIGH auth.bruteforce alert for that account (pseudonym only)
+  [OK]     brute force → alert + automatic temporary lock › locks the account: even the right password gets the same generic 401
+  [OK]     brute force → alert + automatic temporary lock › the failed attempts are audited without the email typed in
+  [OK]     brute force → alert + automatic temporary lock › a failed login for an unknown email is "anonymous" and keeps no trace of the email
+  [OK]     brute force → alert + automatic temporary lock › recovery: an ADMIN re-enables (lifting the lock), with a reason
+  [OK]     repeated step-up failures on a live session → alert + every session revoked
+  [OK]     probing admin routes → access.denied.burst alert
+  [OK]     manual containment (incident plan, ADMIN only) › SUPPORT and USER cannot use it
+  [OK]     manual containment (incident plan, ADMIN only) › a reason is mandatory, and an ADMIN cannot contain their own account
+  [OK]     manual containment (incident plan, ADMIN only) › revoke-sessions kills an access token that is still within its 15 minutes
+  [OK]     manual containment (incident plan, ADMIN only) › disable blocks login; enable restores it
+  [OK]     alert triage follows alerta → evento sospechoso → incidente → cierre
+  [OK]     audit log integrity › the hash chain verifies
+  [OK]     audit log integrity › editing a row behind the trigger’s back is detected and raises an alert
+  [OK]     audit log integrity › UPDATE, DELETE and TRUNCATE are still refused for everyone
+  [OK]     audit log integrity › retention: only rows past the period, only through the purge job
+  [OK]     audit log integrity › the incident snapshot preserves evidence with a verifiable manifest
+  [OK]     every new alert pages the security mailbox when SECURITY_ALERT_EMAIL is set
+
+## access-control.e2e-spec.ts  (27/27)
+  [OK]     authentication (401 without a valid session) › GET /transactions without a token → 401
+  [OK]     authentication (401 without a valid session) › GET /admin/users without a token → 401
+  [OK]     authentication (401 without a valid session) › GET /admin/audit-logs without a token → 401
+  [OK]     authentication (401 without a valid session) › GET /transactions/:id and its receipt used to be public — now 401
+  [OK]     authentication (401 without a valid session) › a forged/garbage token → 401
+  [OK]     USER — own data only › lists only their own transactions
+  [OK]     USER — own data only › ?userId=<someone else> is a 403, not someone else's history
+  [OK]     USER — own data only › both parties may read the transaction; anyone else gets 403
+  [OK]     USER — own data only › USER GET /admin/users → 403
+  [OK]     USER — own data only › USER GET /admin/audit-logs → 403
+  [OK]     USER — own data only › USER GET /admin/reports/sales → 403
+  [OK]     USER — own data only › USER cannot promote themselves → 403
+  [OK]     USER — own data only › denied attempts land in the audit log under a pseudonym, never the raw id
+  [OK]     SUPPORT — dispute resolution, nothing administrative › lists accounts with a masked email, never the full one or any secret
+  [OK]     SUPPORT — dispute resolution, nothing administrative › needs a reason to read someone's transactions (400 without one)
+  [OK]     SUPPORT — dispute resolution, nothing administrative › rejects a 'reason' that carries contact data (400)
+  [OK]     SUPPORT — dispute resolution, nothing administrative › with a reason → 200, and the access is audited with that reason
+  [OK]     SUPPORT — dispute resolution, nothing administrative › SUPPORT cannot change roles → 403
+  [OK]     SUPPORT — dispute resolution, nothing administrative › SUPPORT cannot read the audit log or the sales report → 403
+  [OK]     SUPPORT — dispute resolution, nothing administrative › SUPPORT cannot undo a pseudonym → 403
+  [OK]     ADMIN — roles, audit, reports, re-identification › cannot change their own role (separation of duties) → 400
+  [OK]     ADMIN — roles, audit, reports, re-identification › rejects a role that does not exist → 400
+  [OK]     ADMIN — roles, audit, reports, re-identification › reads the audit log — pseudonyms only
+  [OK]     ADMIN — roles, audit, reports, re-identification › resolves a pseudonym back to an account only with a reason, and that is audited too
+  [OK]     ADMIN — roles, audit, reports, re-identification › gets the sales report anonymized: k, cells without ids, suppressed count
+  [OK]     ADMIN — roles, audit, reports, re-identification › demoting SUPPORT takes effect on the very next request (role read from the DB, not the token)
+  [OK]     ADMIN — roles, audit, reports, re-identification › a deleted account's still-valid token stops working → 401
+
+## coupons.e2e-spec.ts  (7/7)
+  [OK]     spins and issues a coupon matching one of the 3 real prize tiers, then lists it as available
+  [OK]     rejects a second spin inside the 24h cooldown
+  [OK]     rejects spinning without auth
+  [OK]     redeeming a coupon discounts a real purchase (20% off capped at $25 on a $200 card -> $175), and the coupon becomes single-use
+  [OK]     rejects redeeming someone else's coupon with 404
+  [OK]     a purchase without a couponId is unaffected (no discount applied)
+  [OK]     L6: dev-reset-all deletes every coupon, no JWT required, gated to non-production only
+
+## privacy-controls.e2e-spec.ts  (13/13)
+  [OK]     registration stores only what is needed › without the 18+ declaration → 400
+  [OK]     registration stores only what is needed › extra personal data (a birth date) is refused, not silently stored → 400
+  [OK]     registration stores only what is needed › extra personal data (a phone number) is refused, not silently stored → 400
+  [OK]     registration stores only what is needed › extra personal data (an address) is refused, not silently stored → 400
+  [OK]     registration stores only what is needed › a display name carrying an email or phone → 400
+  [OK]     registration stores only what is needed › stores the moment of the 18+ declaration, never an age or birth date
+  [OK]     registration stores only what is needed › logs never carry the full email (welcome-email failure path)
+  [OK]     location: coarsened, encrypted, expiring, revocable › is stored rounded to ~1 km and encrypted
+  [OK]     location: coarsened, encrypted, expiring, revocable › a fresh location yields a distance; one past the TTL is ignored by search
+  [OK]     location: coarsened, encrypted, expiring, revocable › the retention job erases stale locations and expired refresh tokens
+  [OK]     location: coarsened, encrypted, expiring, revocable › DELETE /users/me/location revokes it: flag off and coordinates erased
+  [OK]     listings and auctions › a card description with contact data → 400
+  [OK]     listings and auctions › public auction state shows per-card aliases, never bidder ids; `mine` only for the viewer
+
+## db-controls.e2e-spec.ts  (18/18)
+  [OK]     audit_logs is append-only (trigger) › INSERT works
+  [OK]     audit_logs is append-only (trigger) › UPDATE is rejected by the database
+  [OK]     audit_logs is append-only (trigger) › DELETE is rejected by the database
+  [OK]     audit_logs is append-only (trigger) › TRUNCATE is rejected by the database
+  [OK]     least-privilege runtime role mtg_app › can read and write ordinary rows
+  [OK]     least-privilege runtime role mtg_app › cannot UPDATE the audit log
+  [OK]     least-privilege runtime role mtg_app › cannot DELETE from the audit log
+  [OK]     least-privilege runtime role mtg_app › cannot DROP a table
+  [OK]     least-privilege runtime role mtg_app › cannot ALTER a table
+  [OK]     least-privilege runtime role mtg_app › cannot CREATE a table
+  [OK]     least-privilege runtime role mtg_app › cannot read migration history
+  [OK]     least-privilege runtime role mtg_app › cannot write the catalog
+  [OK]     least-privilege runtime role mtg_app › cannot rewrite consent history
+  [OK]     least-privilege runtime role mtg_app › cannot delete rights requests
+  [OK]     least-privilege runtime role mtg_app › cannot delete security alerts
+  [OK]     anonymizer for dev copies › replaces identities, wipes secrets/location/sessions, empties the audit log
+  [OK]     anonymizer for dev copies › leaves the append-only trigger re-enabled afterwards
+  [OK]     anonymizer for dev copies › every account logs in with the known dev password
+
+## consent.e2e-spec.ts  (18/18)
+  [OK]     the purposes and their exact text are public (informed before deciding)
+  [OK]     a new account has no consent at all (nothing pre-ticked)
+  [OK]     without consent, storing a location is refused (403) and nothing is stored
+  [OK]     accepting an outdated text version is refused (409)
+  [OK]     granting one purpose does not grant any other
+  [OK]     with the consent, the location is accepted
+  [OK]     EMAIL_NOTIFICATIONS turns the optional offer email on — and only that
+  [OK]     the optional email follows the consent at send time › consent granted → the seller gets "Nueva oferta"
+  [OK]     the optional email follows the consent at send time › consent revoked → the next offer sends nothing
+  [OK]     revoking LOCATION erases the coordinates, records when, and blocks new ones
+  [OK]     the history keeps every change, with version, text hash and channel
+  [OK]     history rows cannot be rewritten, even straight in the database
+  [OK]     a consent given to an older text stops counting until re-accepted
+  [OK]     TWO_FACTOR cannot be toggled with a bare session — only through the 2FA flow
+  [OK]     enabling and disabling 2FA records the TWO_FACTOR consent
+  [OK]     unknown purposes are 404, and there is no route that takes another user id
+  [OK]     every route except the public purposes needs a session
+  [OK]     every change is in the audit log — pseudonymized, purpose as the resource
+
+## payments-cash.e2e-spec.ts  (4/4)
+  [OK]     a CASH purchase stays PENDING until the seller confirms it, then transfers ownership
+  [OK]     the receipt for a PAID transaction has exact IVA math (119.00 -> net 100.00 / iva 19.00 / total 119.00)
+  [OK]     rejects a self-purchase with 400
+  [OK]     the receipt for a still-PENDING transaction 400s ("not paid yet")
+
+## offers-realtime.e2e-spec.ts  (2/2)
+  [OK]     a client that joined the room sees a live auction-update when a new offer is placed
+  [OK]     a client in a DIFFERENT card's room does not get another card's update
+
+## decks.e2e-spec.ts  (8/8)
+  [OK]     creates a deck and lists it for its owner
+  [OK]     rejects creating a deck with an empty name
+  [OK]     renames a deck for its owner, but 404s for a non-owner
+  [OK]     moves a card into a deck via PATCH /cards/:id, and back to Unsorted with deckId: null
+  [OK]     rejects moving a card into a deck owned by someone else
+  [OK]     filters GET /cards by deckId, and by the "unsorted" sentinel
+  [OK]     deleting a non-empty deck un-assigns its cards back to Unsorted rather than deleting them
+  [OK]     rejects deleting a deck owned by someone else
+
+## payment-receipt-email.e2e-spec.ts  (1/1)
+  [OK]     confirming a cash payment emails both buyer and seller a matching receipt
+
+## app.e2e-spec.ts  (1/1)
+  [OK]     / (GET)
+
+## listing-token.e2e-spec.ts  (4/4)
+  [OK]     the owner mints a token that resolves back to the same cardId
+  [OK]     a non-owner can't mint a token for someone else's card (404, not confirming the card exists to them)
+  [OK]     a garbage token is rejected with 401, not trusted
+  [OK]     a minted listing token can't be used as a bearer access token on a guarded route
+
+## auth-refresh.e2e-spec.ts  (4/4)
+  [OK]     login returns an access+refresh token pair
+  [OK]     refresh exchanges a live token for a new pair, rotating (single-use) the old one
+  [OK]     rejects a garbage refresh token with 401
+  [OK]     rejects a missing refreshToken field with 400 (DTO validation)
+
+## users-public-profile.e2e-spec.ts  (3/3)
+  [OK]     rejects anonymous requests
+  [OK]     returns only id and displayName to a logged-in user
+  [OK]     404s an unknown id

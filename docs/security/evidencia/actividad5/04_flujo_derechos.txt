@@ -1,0 +1,437 @@
+# Actividad N°5 — Acceso/portabilidad, rectificación y supresión
+# Generado por apps/backend/test/evidence/actividad5.mjs — 2026-10-23T14:28:38.128Z
+# Backend compilado (dist/main.js) + PostgreSQL 16 embebido. Tokens truncados.
+
+=== 0. Preparación: ana compró una carta a bruno (transacción PAID) ===
+→ POST /users/register
+  body: {"email":"bruno.1792765669727@evidencia.test","password":"********","displayName":"Bruno Vendedor","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login
+  body: {"email":"bruno.1792765669727@evidencia.test","password":"********"}
+← 201
+→ POST /cards  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"title":"Carta Evidencia 1792765669727","guessedPrice":12,"description":"notas privadas de bruno"}
+← 201
+
+=== 1. ACCESO sin verificar identidad: se recibe, se registra y se cierra DENEGADA (no entrega datos) ===
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"ACCESS"}
+← 201 {
+  "request": {
+    "id": "c932fbeb-f1b7-42ac-bb2b-132e53a1e7d7",
+    "type": "ACCESS",
+    "status": "CLOSED",
+    "outcome": "DENIED",
+    "message": "No pudimos verificar tu identidad: vuelve a ingresar tu contraseña (y tu código 2FA si lo tienes activo).",
+    "verificationMethod": null,
+    "details": {
+      "reason": "IDENTITY_NOT_VERIFIED"
+    },
+    "receivedAt": "2026-10-23T14:28:24.496Z",
+    "verifiedAt": null,
+    "evaluatedAt": null,
+    "executedAt": null,
+    "closedAt": "2026-10-23T14:28:24.511Z",
+    "dueAt": "2026-11-22T14:28:24.496Z"
+  }
+}
+
+=== 2. Step-up con contraseña incorrecta → 401 (y queda auditado) ===
+→ POST /auth/step-up  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"password":"********"}
+← 401 {
+  "message": "Re-authentication failed",
+  "error": "Unauthorized",
+  "statusCode": 401
+}
+
+=== 3. Step-up correcto → token de 5 minutos, de un solo uso ===
+→ POST /auth/step-up  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"password":"********"}
+← 201 {
+  "stepUpToken": "eyJhbGciOiJIUzI1Ni…",
+  "method": "password",
+  "expiresIn": 300
+}
+
+=== 4. ACCESO con step-up: recorre todas las etapas y entrega un JSON estructurado ===
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"ACCESS","stepUpToken":"eyJhbGciOiJIUzI1Ni…"}
+← 201
+  request: {
+  "id": "ff67a629-04c7-4c77-815a-6459f9ceb99f",
+  "type": "ACCESS",
+  "status": "CLOSED",
+  "outcome": "FULFILLED",
+  "message": null,
+  "verificationMethod": "password",
+  "details": {
+    "sections": [
+      "account",
+      "settings",
+      "consents",
+      "consentHistory",
+      "cards",
+      "decks",
+      "offersMade",
+      "transactions",
+      "coupons",
+      "rightsRequests"
+    ]
+  },
+  "receivedAt": "2026-10-23T14:28:26.144Z",
+  "verifiedAt": "2026-10-23T14:28:26.147Z",
+  "evaluatedAt": "2026-10-23T14:28:26.151Z",
+  "executedAt": "2026-10-23T14:28:26.433Z",
+  "closedAt": "2026-10-23T14:28:26.433Z",
+  "dueAt": "2026-11-22T14:28:26.144Z"
+}
+  export.format=mtg-companion/personal-data-export version=1; secciones: format, version, generatedAt, requestId, account, settings, consents, consentHistory, cards, decks, offersMade, transactions, coupons, rightsRequests, processing, notIncluded
+  export.account: {
+  "id": "<id:ana>",
+  "email": "ana.1792765669727@evidencia.test",
+  "displayName": "Ana Evidencia",
+  "emailVerifiedAt": null,
+  "adultDeclarationAt": "2026-10-23T14:28:21.383Z",
+  "role": "USER",
+  "createdAt": "2026-10-23T14:28:21.437Z"
+}
+  export.transactions: [
+  {
+    "id": "e5006375-98fc-4262-8458-c06fecff374e",
+    "role": "buyer",
+    "cardTitle": "Carta Evidencia 1792765669727",
+    "amount": "12",
+    "status": "PAID",
+    "paymentMethod": "CASH",
+    "counterparty": "Bruno Vendedor",
+    "createdAt": "2026-10-23T11:28:24.461Z"
+  }
+]
+  export.notIncluded: [
+  "Hash de contraseña, secreto 2FA, tokens de sesión",
+  "Datos de otros jugadores (id, correo, ofertas de terceros por tus cartas)",
+  "Registro de auditoría y alertas de seguridad",
+  "Referencias internas de pago (paymentRef)"
+]
+  Verificación — el export NO contiene: passwordHash=false, twoFactorSecret=false, correo de bruno=false, id de bruno=false, notas de bruno=false
+SQL> la solicitud guarda solo los nombres de las secciones, nunca la exportación
+  {"type":"ACCESS","status":"CLOSED","outcome":"FULFILLED","verificationMethod":"password","details":{"sections":["account","settings","consents","consentHistory","cards","decks","offersMade","transactions","coupons","rightsRequests"]}}
+
+=== 5. Reutilizar el mismo step-up → DENEGADA (STEP_UP_REUSED, restricción UNIQUE en la BD) ===
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"ACCESS","stepUpToken":"eyJhbGciOiJIUzI1Ni…"}
+← 201 {
+  "request": {
+    "id": "49858f22-e0f7-4af0-8319-75cf9754f444",
+    "type": "ACCESS",
+    "status": "CLOSED",
+    "outcome": "DENIED",
+    "message": "La verificación ya se usó en otra solicitud. Verifica tu identidad de nuevo.",
+    "verificationMethod": null,
+    "details": {
+      "reason": "STEP_UP_REUSED"
+    },
+    "receivedAt": "2026-10-23T14:28:26.492Z",
+    "verifiedAt": null,
+    "evaluatedAt": null,
+    "executedAt": null,
+    "closedAt": "2026-10-23T14:28:26.510Z",
+    "dueAt": "2026-11-22T14:28:26.492Z"
+  }
+}
+
+=== 6. RECTIFICACIÓN del nombre visible: basta la sesión (bajo riesgo) ===
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"RECTIFICATION","rectification":{"displayName":"Ana Corregida"}}
+← 201 {
+  "request": {
+    "id": "e6734201-011b-4f92-8470-da177f88adf4",
+    "type": "RECTIFICATION",
+    "status": "CLOSED",
+    "outcome": "FULFILLED",
+    "message": null,
+    "verificationMethod": "session",
+    "details": {
+      "fields": [
+        "displayName"
+      ]
+    },
+    "receivedAt": "2026-10-23T14:28:26.565Z",
+    "verifiedAt": "2026-10-23T14:28:26.568Z",
+    "evaluatedAt": "2026-10-23T14:28:26.572Z",
+    "executedAt": "2026-10-23T14:28:26.585Z",
+    "closedAt": "2026-10-23T14:28:26.585Z",
+    "dueAt": "2026-11-22T14:28:26.565Z"
+  }
+}
+
+=== 7. RECTIFICACIÓN con datos inválidos → 400 (mismas reglas que el registro) ===
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"RECTIFICATION","rectification":{"displayName":"escríbeme a ana@gmail.com"}}
+← 400 {
+  "message": [
+    "rectification.displayName must not contain an email address or phone number"
+  ],
+  "error": "Bad Request",
+  "statusCode": 400
+}
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"RECTIFICATION","rectification":{"role":"ADMIN"}}
+← 400 {
+  "message": [
+    "rectification.property role should not exist"
+  ],
+  "error": "Bad Request",
+  "statusCode": 400
+}
+
+=== 8. RECTIFICACIÓN del correo sin step-up → DENEGADA; con step-up → aplicada y sesiones revocadas ===
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"RECTIFICATION","rectification":{"email":"ana.nueva.1792765669727@evidencia.test"}}
+← 201 {
+  "request": {
+    "id": "d9543ba8-d986-40c5-b54d-ddac3881fe50",
+    "type": "RECTIFICATION",
+    "status": "CLOSED",
+    "outcome": "DENIED",
+    "message": "No pudimos verificar tu identidad: vuelve a ingresar tu contraseña (y tu código 2FA si lo tienes activo).",
+    "verificationMethod": null,
+    "details": {
+      "reason": "IDENTITY_NOT_VERIFIED"
+    },
+    "receivedAt": "2026-10-23T14:28:26.628Z",
+    "verifiedAt": null,
+    "evaluatedAt": null,
+    "executedAt": null,
+    "closedAt": "2026-10-23T14:28:26.631Z",
+    "dueAt": "2026-11-22T14:28:26.628Z"
+  }
+}
+→ POST /auth/step-up  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"password":"********"}
+← 201 {
+  "stepUpToken": "eyJhbGciOiJIUzI1Ni…",
+  "method": "password",
+  "expiresIn": 300
+}
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"RECTIFICATION","stepUpToken":"eyJhbGciOiJIUzI1Ni…","rectification":{"email":"ana.nueva.1792765669727@evidencia.test"}}
+← 201 {
+  "request": {
+    "id": "cda77d4f-5ace-4860-83d7-df8b7ef68b2c",
+    "type": "RECTIFICATION",
+    "status": "CLOSED",
+    "outcome": "FULFILLED",
+    "message": null,
+    "verificationMethod": "password",
+    "details": {
+      "fields": [
+        "email"
+      ]
+    },
+    "receivedAt": "2026-10-23T14:28:27.425Z",
+    "verifiedAt": "2026-10-23T14:28:27.428Z",
+    "evaluatedAt": "2026-10-23T14:28:27.431Z",
+    "executedAt": "2026-10-23T14:28:27.463Z",
+    "closedAt": "2026-10-23T14:28:27.463Z",
+    "dueAt": "2026-11-22T14:28:27.425Z"
+  }
+}
+  (el access token anterior de ana, emitido antes del cambio:)
+→ GET /consents/me  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 401 {
+  "message": "Invalid token",
+  "error": "Unauthorized",
+  "statusCode": 401
+}
+SQL> SELECT email, "displayName", "emailVerifiedAt", "sessionsRevokedAt" FROM users WHERE id = $1
+  {"email":"ana.nueva.1792765669727@evidencia.test","displayName":"Ana Corregida","emailVerifiedAt":null,"sessionsRevokedAt":"2026-10-23T14:28:27.442Z"}
+→ POST /auth/login
+  body: {"email":"ana.nueva.1792765669727@evidencia.test","password":"********"}
+← 201
+
+=== 9. La corrección se propaga: bruno ve el nuevo nombre en la transacción compartida ===
+SQL> SELECT t.status, b."displayName" AS comprador FROM transactions t JOIN users b ON b.id = t."buyerId" WHERE t."sellerId" = $1
+  {"status":"PAID","comprador":"Ana Corregida"}
+
+=== 10. SUPRESIÓN con una compra PENDIENTE → DENEGADA con motivo (art. 7 ii: ejecución de un contrato) ===
+→ POST /users/register
+  body: {"email":"carla.1792765669727@evidencia.test","password":"********","displayName":"Carla Pendiente","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login
+  body: {"email":"carla.1792765669727@evidencia.test","password":"********"}
+← 201
+→ POST /cards  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"title":"Pendiente 1792765669727","guessedPrice":3}
+← 201
+→ POST /auth/step-up  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"password":"********"}
+← 201 {
+  "stepUpToken": "eyJhbGciOiJIUzI1Ni…",
+  "method": "password",
+  "expiresIn": 300
+}
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"ERASURE","confirmErasure":true,"stepUpToken":"eyJhbGciOiJIUzI1Ni…"}
+← 201 {
+  "request": {
+    "id": "4667fa1a-c99c-4ee0-b635-94310edfbb11",
+    "type": "ERASURE",
+    "status": "CLOSED",
+    "outcome": "DENIED",
+    "message": "Tienes compras o ventas pendientes. Cuando se completen o cancelen podrás pedir la eliminación.",
+    "verificationMethod": "password",
+    "details": {
+      "reason": "OPEN_TRANSACTIONS"
+    },
+    "receivedAt": "2026-10-23T14:28:31.876Z",
+    "verifiedAt": "2026-10-23T14:28:31.880Z",
+    "evaluatedAt": "2026-10-23T14:28:31.882Z",
+    "executedAt": null,
+    "closedAt": "2026-10-23T14:28:31.917Z",
+    "dueAt": "2026-11-22T14:28:31.876Z"
+  }
+}
+
+=== 11. SUPRESIÓN sin transacciones → la cuenta desaparece; la solicitud (prueba de respuesta) queda ===
+→ POST /users/register
+  body: {"email":"diego.1792765669727@evidencia.test","password":"********","displayName":"Diego SinCompras","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login
+  body: {"email":"diego.1792765669727@evidencia.test","password":"********"}
+← 201
+→ POST /cards  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"title":"Diego 1792765669727","guessedPrice":1}
+← 201
+→ POST /auth/step-up  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"password":"********"}
+← 201 {
+  "stepUpToken": "eyJhbGciOiJIUzI1Ni…",
+  "method": "password",
+  "expiresIn": 300
+}
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"ERASURE","confirmErasure":true,"stepUpToken":"eyJhbGciOiJIUzI1Ni…"}
+← 201 {
+  "request": {
+    "id": "44bd0472-06e1-409f-8fbe-eeb2994271cb",
+    "type": "ERASURE",
+    "status": "CLOSED",
+    "outcome": "FULFILLED",
+    "message": null,
+    "verificationMethod": "password",
+    "details": {
+      "mode": "delete",
+      "cardsDeleted": 1,
+      "decksDeleted": 0,
+      "offersDeleted": 0,
+      "photosDeleted": 0,
+      "couponsDeleted": 0,
+      "cardsKeptForTransactions": 0,
+      "storageObjectsPendingDeletion": 0
+    },
+    "receivedAt": "2026-10-23T14:28:34.462Z",
+    "verifiedAt": "2026-10-23T14:28:34.465Z",
+    "evaluatedAt": "2026-10-23T14:28:34.467Z",
+    "executedAt": "2026-10-23T14:28:34.558Z",
+    "closedAt": "2026-10-23T14:28:34.558Z",
+    "dueAt": "2026-11-22T14:28:34.462Z"
+  }
+}
+SQL> SELECT count(*) AS filas_usuario FROM users WHERE id = $1
+  {"filas_usuario":"0"}
+SQL> SELECT count(*) AS cartas FROM cards WHERE "ownerId" = $1
+  {"cartas":"0"}
+SQL> SELECT type, status, outcome, "closedAt" FROM data_rights_requests WHERE id = $1
+  {"type":"ERASURE","status":"CLOSED","outcome":"FULFILLED","closedAt":"2026-10-23T14:28:34.558Z"}
+→ GET /consents/me  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 401 {
+  "message": "Invalid token",
+  "error": "Unauthorized",
+  "statusCode": 401
+}
+
+=== 12. SUPRESIÓN con compras cerradas → "lápida" anónima (las transacciones se conservan 6 años, DL 830) ===
+→ POST /auth/step-up  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"password":"********"}
+← 201 {
+  "stepUpToken": "eyJhbGciOiJIUzI1Ni…",
+  "method": "password",
+  "expiresIn": 300
+}
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"ERASURE","confirmErasure":true,"stepUpToken":"eyJhbGciOiJIUzI1Ni…"}
+← 201 {
+  "request": {
+    "id": "a2032c47-9edb-4e7a-9549-fbb7ba15d884",
+    "type": "ERASURE",
+    "status": "CLOSED",
+    "outcome": "FULFILLED",
+    "message": null,
+    "verificationMethod": "password",
+    "details": {
+      "mode": "tombstone",
+      "cardsDeleted": 0,
+      "decksDeleted": 0,
+      "offersDeleted": 0,
+      "photosDeleted": 0,
+      "couponsDeleted": 0,
+      "cardsKeptForTransactions": 0,
+      "storageObjectsPendingDeletion": 0
+    },
+    "receivedAt": "2026-10-23T14:28:35.414Z",
+    "verifiedAt": "2026-10-23T14:28:35.417Z",
+    "evaluatedAt": "2026-10-23T14:28:35.421Z",
+    "executedAt": "2026-10-23T14:28:35.503Z",
+    "closedAt": "2026-10-23T14:28:35.503Z",
+    "dueAt": "2026-11-22T14:28:35.414Z"
+  }
+}
+SQL> SELECT email, "displayName", left("passwordHash", 8) AS "passwordHash", "deletedAt" IS NOT NULL AS borrada, (SELECT count(*) FROM user_settings s WHERE s."userId" = u.id) AS settings, (SELECT count(*) FROM consents c WHERE c."userId" = u.id) AS consentimientos, (SELECT count(*) FROM transactions t WHERE t."buyerId" = u.id) AS transacciones FROM users u WHERE id = $1
+  {"email":"erased-a8d39ebc-9f95-4d03-aaa0-0b01e6e45d27@erased.invalid","displayName":"Cuenta eliminada","passwordHash":"!erased","borrada":true,"settings":"0","consentimientos":"0","transacciones":"1"}
+→ POST /auth/login
+  body: {"email":"ana.nueva.1792765669727@evidencia.test","password":"********"}
+← 401 {
+  "message": "Invalid email or password",
+  "error": "Unauthorized",
+  "statusCode": 401
+}
+
+=== 13. Seguimiento: el titular ve sus solicitudes; SUPPORT ve plazos con seudónimos (USER → 403) ===
+→ GET /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200 []
+→ POST /users/register
+  body: {"email":"sofia.1792765669727@evidencia.test","password":"********","displayName":"Sofía Soporte","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login
+  body: {"email":"sofia.1792765669727@evidencia.test","password":"********"}
+← 201
+→ GET /admin/data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 403 {
+  "message": "Insufficient permissions",
+  "error": "Forbidden",
+  "statusCode": 403
+}
+→ GET /admin/data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+  ERASURE       CLOSED FULFILLED                        sujeto=u_14577fde050acb8b plazo=2026-11-22T14:28:35.414Z vencida=false
+  ERASURE       CLOSED FULFILLED                        sujeto=u_e9bd5cb9b8f5b05c plazo=2026-11-22T14:28:34.462Z vencida=false
+  ERASURE       CLOSED DENIED    OPEN_TRANSACTIONS      sujeto=u_a51ca162e6320f9f plazo=2026-11-22T14:28:31.876Z vencida=false
+  RECTIFICATION CLOSED FULFILLED                        sujeto=u_14577fde050acb8b plazo=2026-11-22T14:28:27.425Z vencida=false
+  RECTIFICATION CLOSED DENIED    IDENTITY_NOT_VERIFIED  sujeto=u_14577fde050acb8b plazo=2026-11-22T14:28:26.628Z vencida=false
+  RECTIFICATION CLOSED FULFILLED                        sujeto=u_14577fde050acb8b plazo=2026-11-22T14:28:26.565Z vencida=false
+  ACCESS        CLOSED DENIED    STEP_UP_REUSED         sujeto=u_14577fde050acb8b plazo=2026-11-22T14:28:26.492Z vencida=false
+  ACCESS        CLOSED FULFILLED                        sujeto=u_14577fde050acb8b plazo=2026-11-22T14:28:26.144Z vencida=false
+
+=== 14. Todas las solicitudes de la corrida: estado y fecha de cada etapa ===
+SQL> SELECT type, outcome, details->>'reason' AS motivo, "verificationMethod" AS verif, to_char("receivedAt",'HH24:MI:SS.MS') rec, to_char("verifiedAt",'HH24:MI:SS.MS') ver, to_char("evaluatedAt",'HH24:MI:SS.MS') eval, to_char("executedAt",'HH24:MI:SS.MS') ejec, to_char("closedAt",'HH24:MI:SS.MS') cierre, ("dueAt" - "receivedAt") AS plazo FROM data_rights_requests ORDER BY "receivedAt"
+  {"type":"ACCESS","outcome":"DENIED","motivo":"IDENTITY_NOT_VERIFIED","verif":null,"rec":"14:28:24.496","ver":null,"eval":null,"ejec":null,"cierre":"14:28:24.511","plazo":{"days":30}}
+  {"type":"ACCESS","outcome":"FULFILLED","motivo":null,"verif":"password","rec":"14:28:26.144","ver":"14:28:26.147","eval":"14:28:26.151","ejec":"14:28:26.433","cierre":"14:28:26.433","plazo":{"days":30}}
+  {"type":"ACCESS","outcome":"DENIED","motivo":"STEP_UP_REUSED","verif":null,"rec":"14:28:26.492","ver":null,"eval":null,"ejec":null,"cierre":"14:28:26.510","plazo":{"days":30}}
+  {"type":"RECTIFICATION","outcome":"FULFILLED","motivo":null,"verif":"session","rec":"14:28:26.565","ver":"14:28:26.568","eval":"14:28:26.572","ejec":"14:28:26.585","cierre":"14:28:26.585","plazo":{"days":30}}
+  {"type":"RECTIFICATION","outcome":"DENIED","motivo":"IDENTITY_NOT_VERIFIED","verif":null,"rec":"14:28:26.628","ver":null,"eval":null,"ejec":null,"cierre":"14:28:26.631","plazo":{"days":30}}
+  {"type":"RECTIFICATION","outcome":"FULFILLED","motivo":null,"verif":"password","rec":"14:28:27.425","ver":"14:28:27.428","eval":"14:28:27.431","ejec":"14:28:27.463","cierre":"14:28:27.463","plazo":{"days":30}}
+  {"type":"ERASURE","outcome":"DENIED","motivo":"OPEN_TRANSACTIONS","verif":"password","rec":"14:28:31.876","ver":"14:28:31.880","eval":"14:28:31.882","ejec":null,"cierre":"14:28:31.917","plazo":{"days":30}}
+  {"type":"ERASURE","outcome":"FULFILLED","motivo":null,"verif":"password","rec":"14:28:34.462","ver":"14:28:34.465","eval":"14:28:34.467","ejec":"14:28:34.558","cierre":"14:28:34.558","plazo":{"days":30}}
+  {"type":"ERASURE","outcome":"FULFILLED","motivo":null,"verif":"password","rec":"14:28:35.414","ver":"14:28:35.417","eval":"14:28:35.421","ejec":"14:28:35.503","cierre":"14:28:35.503","plazo":{"days":30}}

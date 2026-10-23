@@ -55,7 +55,11 @@ production without any of them, and **`terraform apply` fails if
 `pseudonym_key`/`field_encryption_key` are missing from `terraform.tfvars`**
 (`openssl rand -base64 32` each, different values). Rotating `pseudonym_key`
 changes every pseudonym, so old audit entries can no longer be resolved —
-treat it like the encryption key.
+treat it like the encryption key. Since O15 it also derives (HKDF) the key
+of the audit log's hash chain, so rotating it means verifying the chain with
+the old key first and recording the re-anchor. O15 added no new required
+secret; `SECURITY_ALERT_EMAIL` (alert mailbox) and `AUDIT_RETENTION_DAYS`
+(default 730) are optional backend env vars, not wired into Terraform.
 
 Not wired yet (O14 follow-up): the API still connects to Postgres as the
 table owner; `apps/backend/prisma/sql/least-privilege-role.sql` creates the

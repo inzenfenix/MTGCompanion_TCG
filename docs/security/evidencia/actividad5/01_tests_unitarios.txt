@@ -1,0 +1,145 @@
+# npx jest  (apps/backend, pruebas unitarias — sin base de datos)
+# Resultado por caso: [OK] pasó · [FALLA] falló · [OMITIDA] omitida.  120 pasaron, 0 fallaron, 120 en total; 11/11 suites OK.
+# Fecha: 2026-10-23T14:35:07.011Z
+
+## field-encryption.service.spec.ts  (14/14)
+  [OK]     round-trips: decrypt(encrypt(x)) === x
+  [OK]     stores v1:<iv>:<tag>:<ciphertext>, never the plaintext
+  [OK]     uses a fresh random IV: same value twice gives two different ciphertexts
+  [OK]     rejects a tampered ciphertext (GCM authentication)
+  [OK]     rejects a tampered auth tag
+  [OK]     cannot be decrypted with a different key
+  [OK]     refuses plaintext where an envelope is expected
+  [OK]     round-trips coordinates as numbers, nulls stay null
+  [OK]     rejects keys that are not 32 bytes, without echoing the key
+  [OK]     key rotation › still reads values written under the retired key
+  [OK]     key rotation › writes new values under the current key and flags old ones for re-encryption
+  [OK]     refuses to boot in production without JWT_SECRET / FIELD_ENCRYPTION_KEY, naming only the variables
+  [OK]     also requires PSEUDONYM_KEY in production (ROADMAP.md O14)
+  [OK]     boots in production when all are set, and never checks outside production
+
+## rights-policy.spec.ts  (16/16)
+  [OK]     answers are due 30 calendar days after receipt (Ley 19.628, art. 11)
+  [OK]     identity verification proportional to risk › ACCESS [] → step-up true
+  [OK]     identity verification proportional to risk › ERASURE [] → step-up true
+  [OK]     identity verification proportional to risk › RECTIFICATION ["email"] → step-up true
+  [OK]     identity verification proportional to risk › RECTIFICATION ["displayName","email"] → step-up true
+  [OK]     identity verification proportional to risk › RECTIFICATION ["displayName"] → step-up false
+  [OK]     identity verification proportional to risk › RECTIFICATION ["language"] → step-up false
+  [OK]     erasure › goes ahead when nothing ties the account to an open contract
+  [OK]     erasure › is blocked by {"pendingTransactions":1} → OPEN_TRANSACTIONS
+  [OK]     erasure › is blocked by {"activeAuctionsAsSeller":1} → ACTIVE_AUCTION
+  [OK]     erasure › is blocked by {"leadingBidsInActiveAuctions":2} → ACTIVE_AUCTION
+  [OK]     erasure › is blocked by {"role":"ADMIN"} → ADMIN_ROLE
+  [OK]     erasure › is blocked by {"role":"SUPPORT"} → ADMIN_ROLE
+  [OK]     erasure › deletes the account outright when there is no transaction to keep
+  [OK]     erasure › tombstones it when closed transactions must be kept (tax obligation)
+  [OK]     every denial reason has a message for the player (a denial must be grounded)
+
+## audit-chain.spec.ts  (6/6)
+  [OK]     an untouched chain verifies
+  [OK]     editing any field of a row breaks it at that row
+  [OK]     deleting a row from the middle breaks the link to the next one
+  [OK]     a forged row needs the key: recomputed with another key it fails
+  [OK]     after retention removes the oldest rows, the first remaining row anchors the chain
+  [OK]     rows written before the chain existed (no hash) are skipped, not counted
+
+## detection-rules.spec.ts  (18/18)
+  [OK]     rule ids are unique
+  [OK]     auth.bruteforce matches {"action":"auth.login","outcome":"FAILED","actorPseudonym":"u_1"} → true
+  [OK]     auth.bruteforce matches {"action":"auth.login","outcome":"FAILED","actorPseudonym":"anonymous"} → false
+  [OK]     auth.bruteforce matches {"action":"auth.login","outcome":"ALLOWED","actorPseudonym":"u_1"} → false
+  [OK]     auth.credential-stuffing matches {"action":"auth.login","outcome":"DENIED","actorPseudonym":"anonymous"} → true
+  [OK]     auth.step-up.failures matches {"action":"auth.step-up","outcome":"FAILED","actorPseudonym":"u_1"} → true
+  [OK]     data.export.burst matches {"action":"data.export","outcome":"ALLOWED","actorPseudonym":"u_1"} → true
+  [OK]     data.export.burst matches {"action":"data.export","outcome":"DENIED","actorPseudonym":"u_1"} → false
+  [OK]     access.denied.burst matches {"action":"denied GET /admin/audit-logs","outcome":"DENIED","actorPseudonym":"u_1"} → true
+  [OK]     access.denied.burst matches {"action":"auth.login","outcome":"DENIED","actorPseudonym":"u_1"} → false
+  [OK]     automatic containment is reversible and proportionate — never deletes anything
+  [OK]     alert lifecycle (alerta → evento sospechoso → incidente) › OPEN → INVESTIGATING allowed: true
+  [OK]     alert lifecycle (alerta → evento sospechoso → incidente) › INVESTIGATING → CONFIRMED allowed: true
+  [OK]     alert lifecycle (alerta → evento sospechoso → incidente) › CONFIRMED → CLOSED allowed: true
+  [OK]     alert lifecycle (alerta → evento sospechoso → incidente) › OPEN → DISMISSED allowed: true
+  [OK]     alert lifecycle (alerta → evento sospechoso → incidente) › OPEN → CLOSED allowed: false
+  [OK]     alert lifecycle (alerta → evento sospechoso → incidente) › CLOSED → OPEN allowed: false
+  [OK]     alert lifecycle (alerta → evento sospechoso → incidente) › DISMISSED → CONFIRMED allowed: false
+
+## privacy.spec.ts  (11/11)
+  [OK]     is stable: same id + scope → same pseudonym
+  [OK]     looks like u_<16 hex> and never contains the id
+  [OK]     is scoped: the same bidder gets unlinkable aliases on two different auctions
+  [OK]     is keyed: without the key the pseudonym cannot be recomputed
+  [OK]     resolve() re-identifies only with the key and the list of real ids
+  [OK]     refuses a short key, without echoing it
+  [OK]     masks an email down to first letters + TLD
+  [OK]     redacts emails, phone numbers, RUTs and JWTs in free text
+  [OK]     does not flag a CLP price as a phone number
+  [OK]     accepts a plain alias
+  [OK]     rejects an alias carrying an email or a phone
+
+## minimization.spec.ts  (7/7)
+  [OK]     coarsens a GPS fix to 2 decimals (~1 km)
+  [OK]     treats a location older than the TTL as absent
+  [OK]     accepts the minimal set with the 18+ declaration
+  [OK]     requires the 18+ declaration to be exactly true (no birth date asked)
+  [OK]     rejects contact data in the public alias and overlong values
+  [OK]     publishes only cells backed by ≥ k=5 distinct buyers AND sellers
+  [OK]     carries no identifiers, no per-person counts, rounded totals
+
+## safe-exception.filter.spec.ts  (3/3)
+  [OK]     passes deliberate HTTP errors through unchanged
+  [OK]     wraps a string-bodied HttpException in the usual {statusCode, message} shape
+  [OK]     turns an internal error into a generic 500 that leaks nothing
+
+## app.controller.spec.ts  (1/1)
+  [OK]     root › should return "Hello World!"
+
+## permissions.spec.ts  (31/31)
+  [OK]     USER may NOT users:list
+  [OK]     SUPPORT may users:list
+  [OK]     ADMIN may users:list
+  [OK]     USER may NOT roles:manage
+  [OK]     SUPPORT may NOT roles:manage
+  [OK]     ADMIN may roles:manage
+  [OK]     USER may NOT transactions:read:any
+  [OK]     SUPPORT may transactions:read:any
+  [OK]     ADMIN may transactions:read:any
+  [OK]     USER may NOT audit:read
+  [OK]     SUPPORT may NOT audit:read
+  [OK]     ADMIN may audit:read
+  [OK]     USER may NOT reports:read
+  [OK]     SUPPORT may NOT reports:read
+  [OK]     ADMIN may reports:read
+  [OK]     USER may NOT pseudonym:resolve
+  [OK]     SUPPORT may NOT pseudonym:resolve
+  [OK]     ADMIN may pseudonym:resolve
+  [OK]     USER may NOT data-requests:read
+  [OK]     SUPPORT may data-requests:read
+  [OK]     ADMIN may data-requests:read
+  [OK]     USER may NOT security:incident
+  [OK]     SUPPORT may NOT security:incident
+  [OK]     ADMIN may security:incident
+  [OK]     USER holds no elevated permission at all (self-service is ownership, not RBAC)
+  [OK]     an unknown role gets nothing (fail closed)
+  [OK]     lets through a route that declares no permission
+  [OK]     allows a role that holds the permission, without auditing
+  [OK]     denies a role without it with a generic 403 and records the attempt
+  [OK]     requires every listed permission (AND)
+  [OK]     fails closed when no authenticated user is on the request
+
+## audit.service.spec.ts  (5/5)
+  [OK]     stores pseudonyms, never the raw user id
+  [OK]     masks emails and strips tokens and phone numbers that slip into a reason
+  [OK]     chains each row to the previous hash
+  [OK]     hands every recorded event to detection
+  [OK]     a failing write never throws into the request that caused it
+
+## consent.service.spec.ts  (8/8)
+  [OK]     nothing is consented by default (fails closed)
+  [OK]     a consent for one purpose never enables another
+  [OK]     revocation takes effect immediately and keeps the grant date
+  [OK]     repeating a grant or a revocation writes nothing new (idempotent)
+  [OK]     a consent to an older text version does not count
+  [OK]     the client must accept the current version of the text
+  [OK]     unknown purposes and flow-managed ones are refused
+  [OK]     each change stores the hash of the exact text shown, and is audited without personal data

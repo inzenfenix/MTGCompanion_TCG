@@ -108,3 +108,34 @@ reuse this pattern, not `sklearn.train_test_split` directly on rows.
   The app only shows km; exact GPS was disproportionate.
 - **k = 5 suppression and no grand total** in the anonymized sales report —
   a grand total would let a suppressed cell be recovered by subtraction.
+
+## Consent, rights, audit integrity (ROADMAP.md O15, 23 oct) — `docs/security/ACTIVIDAD_5.md`
+
+- **Consent only for the optional purposes** (`LOCATION_DISTANCE`,
+  `EMAIL_NOTIFICATIONS`, `TWO_FACTOR`); everything the service needs stays on
+  the contract basis. Purposes + exact text + version live in code
+  (`consent/domain/consent-purposes.ts`), bump `version` on any material text
+  change — older consents then stop counting (`requiresReconsent`).
+- **Processes ask `ConsentService.hasConsent(user, purpose)` at use time**;
+  revocation's data effect (location erased, `notifyByEmail` mirror) runs in
+  the same DB transaction as the revocation. `TWO_FACTOR` is only changed by
+  the 2FA flow (needs a TOTP code), never by `/consents/me/:purpose` (409).
+- **Rights requests are recorded rows** (`data_rights_requests`, no FK so they
+  survive erasure) walking RECEIVED→VERIFIED→IN_EVALUATION→CLOSED, due in 30
+  days. Export/erasure/email change need `POST /auth/step-up` (5-min,
+  single-use via `stepUpJti @unique`); name/language need only the session.
+- **Erasure deletes the user row when there are no transactions, otherwise
+  tombstones it** (transactions are kept 6 years for tax law and have a
+  non-cascading FK). Blocked while a transaction is PENDING, an auction is
+  live, or the account has a staff role.
+- **`audit_logs` is hash-chained (HMAC, key = HKDF(PSEUDONYM_KEY))**, appended
+  under `pg_advisory_xact_lock`; use `AuditService.record` or `appendChained`
+  — a raw `prisma.auditLog.create` row has `hash = null` and sits outside the
+  chain. The trigger allows DELETE only from `purge-expired-data` (session
+  flag) and only past `AUDIT_RETENTION_DAYS` (floor 365).
+- **Detection runs on the audit stream** (`AUDIT_RECORDED_EVENT`, awaited):
+  rules in `security/domain/detection-rules.ts`; auto-containment is only
+  reversible (15-min lock, revoke sessions). `users.sessionsRevokedAt` kills
+  access tokens issued before it (compared with `iat` in whole seconds).
+- **No IPs stored** anywhere by design — distributed attacks are only visible
+  by volume; rate limiting belongs at the network layer (not built).

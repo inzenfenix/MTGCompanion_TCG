@@ -1,0 +1,191 @@
+# Actividad N°5 — Registro, consulta y revocación del consentimiento
+# Generado por apps/backend/test/evidence/actividad5.mjs — 2026-10-23T14:28:22.723Z
+# Backend compilado (dist/main.js) + PostgreSQL 16 embebido. Tokens truncados.
+
+=== 1. Registro: una cuenta nueva no tiene ningún consentimiento (nada pre-marcado) ===
+→ POST /users/register
+  body: {"email":"ana.1792765669727@evidencia.test","password":"********","displayName":"Ana Evidencia","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login
+  body: {"email":"ana.1792765669727@evidencia.test","password":"********"}
+← 201
+→ GET /consents/me  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200 [
+  {
+    "purpose": "LOCATION_DISTANCE",
+    "title": "Distancia a los vendedores",
+    "currentVersion": "1",
+    "status": "NONE",
+    "acceptedVersion": null,
+    "requiresReconsent": false,
+    "effective": false,
+    "grantedAt": null,
+    "revokedAt": null,
+    "selfService": true
+  },
+  {
+    "purpose": "EMAIL_NOTIFICATIONS",
+    "title": "Correos opcionales",
+    "currentVersion": "1",
+    "status": "NONE",
+    "acceptedVersion": null,
+    "requiresReconsent": false,
+    "effective": false,
+    "grantedAt": null,
+    "revokedAt": null,
+    "selfService": true
+  },
+  {
+    "purpose": "TWO_FACTOR",
+    "title": "Verificación en dos pasos (2FA)",
+    "currentVersion": "1",
+    "status": "NONE",
+    "acceptedVersion": null,
+    "requiresReconsent": false,
+    "effective": false,
+    "grantedAt": null,
+    "revokedAt": null,
+    "selfService": false
+  }
+]
+SQL> user_settings de ana (correos opcionales y ubicación apagados por defecto)
+  {"notifyByEmail":false,"shareLocation":false,"lastLat":null}
+
+=== 2. Finalidades: el texto exacto, su versión y su hash son públicos (informado antes de decidir) ===
+→ GET /consents/purposes
+← 200
+  LOCATION_DISTANCE v1 selfService=true sha256=01665fdf4a76aa57…
+    "Usaremos tu ubicación aproximada (redondeada a ~1 km y guardada cifrada) solo para mostrar a qué distancia están los vendedores en el Bazar y, si vendes, a qué distancia estás tú de quien busca. Nunca mostramos tus coordenadas a otros jugadores ni las compartimos con terceros. Se borran a los 30 días sin actualizarse o en cuanto retires este consentimiento. La búsqueda funciona igual sin ella."
+  EMAIL_NOTIFICATIONS v1 selfService=true sha256=a35f8efb6037bcc3…
+    "Te enviaremos un correo cuando alguien haga una oferta por una de tus cartas. Los correos necesarios para tu cuenta (bienvenida, comprobantes de pago y avisos de seguridad) no dependen de esta opción."
+  TWO_FACTOR v1 selfService=false sha256=3fa7dedf3fd6529f…
+    "Guardaremos cifrado un secreto TOTP para pedirte un código de tu app autenticadora al iniciar sesión. Se borra al desactivar la verificación en dos pasos."
+
+=== 3. Sin consentimiento, guardar la ubicación se rechaza (403) y no se guarda nada ===
+→ PATCH /users/me/location  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"lat":-33.4489,"lng":-70.6693}
+← 403 {
+  "message": "Location consent required (POST /consents/me/LOCATION_DISTANCE)",
+  "error": "Forbidden",
+  "statusCode": 403
+}
+
+=== 4. Aceptar un texto desactualizado se rechaza (409) ===
+→ POST /consents/me/LOCATION_DISTANCE  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"version":"7"}
+← 409 {
+  "message": "Consent text changed — current version is 1",
+  "error": "Conflict",
+  "statusCode": 409
+}
+
+=== 5. Otorgar LOCATION_DISTANCE (versión vigente) — EMAIL_NOTIFICATIONS sigue sin otorgar ===
+→ POST /consents/me/LOCATION_DISTANCE  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"version":"1"}
+← 201 {
+  "purpose": "LOCATION_DISTANCE",
+  "title": "Distancia a los vendedores",
+  "currentVersion": "1",
+  "status": "GRANTED",
+  "acceptedVersion": "1",
+  "requiresReconsent": false,
+  "effective": true,
+  "grantedAt": "2026-10-23T14:28:22.474Z",
+  "revokedAt": null,
+  "selfService": true
+}
+→ GET /consents/me  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+  LOCATION_DISTANCE: status=GRANTED effective=true
+  EMAIL_NOTIFICATIONS: status=NONE effective=false
+  TWO_FACTOR: status=NONE effective=false
+
+=== 6. Con consentimiento, la ubicación se acepta (redondeada y cifrada en la BD) ===
+→ PATCH /users/me/location  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"lat":-33.4489,"lng":-70.6693}
+← 200
+SQL> SELECT "shareLocation", left("lastLat", 28) || '…' AS "lastLat_cifrado", "locationUpdatedAt" FROM user_settings WHERE "userId" = $1
+  {"shareLocation":true,"lastLat_cifrado":"v1:9xVEqCC971TKBzuv:no3RPV1c…","locationUpdatedAt":"2026-10-23T14:28:22.555Z"}
+
+=== 7. Otorgar EMAIL_NOTIFICATIONS: refleja notifyByEmail = true ===
+→ POST /consents/me/EMAIL_NOTIFICATIONS  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"version":"1"}
+← 201
+SQL> SELECT "notifyByEmail" FROM user_settings WHERE "userId" = $1
+  {"notifyByEmail":true}
+
+=== 8. Revocar LOCATION_DISTANCE: se registra la fecha y las coordenadas se borran en la misma transacción ===
+→ DELETE /consents/me/LOCATION_DISTANCE  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200 {
+  "purpose": "LOCATION_DISTANCE",
+  "title": "Distancia a los vendedores",
+  "currentVersion": "1",
+  "status": "REVOKED",
+  "acceptedVersion": "1",
+  "requiresReconsent": false,
+  "effective": false,
+  "grantedAt": "2026-10-23T14:28:22.474Z",
+  "revokedAt": "2026-10-23T14:28:22.632Z",
+  "selfService": true
+}
+SQL> SELECT "shareLocation", "lastLat", "lastLng", "locationUpdatedAt" FROM user_settings WHERE "userId" = $1
+  {"shareLocation":false,"lastLat":null,"lastLng":null,"locationUpdatedAt":null}
+
+=== 9. Tras revocar, el proceso dependiente vuelve a quedar bloqueado ===
+→ PATCH /users/me/location  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"lat":1,"lng":1}
+← 403 {
+  "message": "Location consent required (POST /consents/me/LOCATION_DISTANCE)",
+  "error": "Forbidden",
+  "statusCode": 403
+}
+
+=== 10. TWO_FACTOR no se puede alternar con una sesión: tiene su propio flujo (exige código TOTP) ===
+→ DELETE /consents/me/TWO_FACTOR  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 409 {
+  "message": "This consent is managed through /auth/2fa/enable y /auth/2fa/disable (exigen un código válido)",
+  "error": "Conflict",
+  "statusCode": 409
+}
+
+=== 11. Historial de cambios (GET /consents/me/history) ===
+→ GET /consents/me/history  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200 [
+  {
+    "purpose": "LOCATION_DISTANCE",
+    "action": "REVOKED",
+    "version": "1",
+    "textHash": "01665fdf4a76aa5735d237c2ec0194aa4ee77f5f349279d43cd9b8f61053f02f",
+    "source": "app",
+    "createdAt": "2026-10-23T14:28:22.632Z"
+  },
+  {
+    "purpose": "EMAIL_NOTIFICATIONS",
+    "action": "GRANTED",
+    "version": "1",
+    "textHash": "a35f8efb6037bcc3076aa868fa3920580ffbc6a8d9a981812cada9290ce1f080",
+    "source": "app",
+    "createdAt": "2026-10-23T14:28:22.587Z"
+  },
+  {
+    "purpose": "LOCATION_DISTANCE",
+    "action": "GRANTED",
+    "version": "1",
+    "textHash": "01665fdf4a76aa5735d237c2ec0194aa4ee77f5f349279d43cd9b8f61053f02f",
+    "source": "app",
+    "createdAt": "2026-10-23T14:28:22.474Z"
+  }
+]
+
+=== 12. Lo que guarda la BD: estado actual + historial; sin IP ni huella del dispositivo ===
+SQL> SELECT purpose, version, status, "grantedAt", "revokedAt" FROM consents WHERE "userId" = $1 ORDER BY purpose
+  {"purpose":"EMAIL_NOTIFICATIONS","version":"1","status":"GRANTED","grantedAt":"2026-10-23T14:28:22.587Z","revokedAt":null}
+  {"purpose":"LOCATION_DISTANCE","version":"1","status":"REVOKED","grantedAt":"2026-10-23T14:28:22.474Z","revokedAt":"2026-10-23T14:28:22.632Z"}
+SQL> SELECT c.purpose, e.action, e.version, left(e."textHash", 16) || '…' AS "textHash", e.source, e."createdAt" FROM consent_events e JOIN consents c ON c.id = e."consentId" WHERE c."userId" = $1 ORDER BY e."createdAt"
+  {"purpose":"LOCATION_DISTANCE","action":"GRANTED","version":"1","textHash":"01665fdf4a76aa57…","source":"app","createdAt":"2026-10-23T14:28:22.474Z"}
+  {"purpose":"EMAIL_NOTIFICATIONS","action":"GRANTED","version":"1","textHash":"a35f8efb6037bcc3…","source":"app","createdAt":"2026-10-23T14:28:22.587Z"}
+  {"purpose":"LOCATION_DISTANCE","action":"REVOKED","version":"1","textHash":"01665fdf4a76aa57…","source":"app","createdAt":"2026-10-23T14:28:22.632Z"}
+
+=== 13. El historial no se puede reescribir, ni siquiera directo en la BD (trigger) ===
+SQL> UPDATE consent_events SET action = 'GRANTED'
+  ERROR: consent_events history cannot be modified (UPDATE rejected)

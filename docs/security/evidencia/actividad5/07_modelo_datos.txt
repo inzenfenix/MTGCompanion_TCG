@@ -1,0 +1,68 @@
+# Actividad N°5 — Modelo de datos (tablas nuevas, columnas y triggers)
+# Generado por apps/backend/test/evidence/actividad5.mjs — 2026-10-23T14:29:01.811Z
+# Backend compilado (dist/main.js) + PostgreSQL 16 embebido. Tokens truncados.
+SQL> columnas de consents
+  {"column_name":"id","data_type":"text","is_nullable":"NO"}
+  {"column_name":"userId","data_type":"text","is_nullable":"NO"}
+  {"column_name":"purpose","data_type":"text","is_nullable":"NO"}
+  {"column_name":"version","data_type":"text","is_nullable":"NO"}
+  {"column_name":"status","data_type":"USER-DEFINED","is_nullable":"NO"}
+  {"column_name":"grantedAt","data_type":"timestamp without time zone","is_nullable":"NO"}
+  {"column_name":"revokedAt","data_type":"timestamp without time zone","is_nullable":"YES"}
+  {"column_name":"updatedAt","data_type":"timestamp without time zone","is_nullable":"NO"}
+SQL> columnas de consent_events
+  {"column_name":"id","data_type":"text","is_nullable":"NO"}
+  {"column_name":"consentId","data_type":"text","is_nullable":"NO"}
+  {"column_name":"action","data_type":"USER-DEFINED","is_nullable":"NO"}
+  {"column_name":"version","data_type":"text","is_nullable":"NO"}
+  {"column_name":"textHash","data_type":"text","is_nullable":"NO"}
+  {"column_name":"source","data_type":"text","is_nullable":"NO"}
+  {"column_name":"createdAt","data_type":"timestamp without time zone","is_nullable":"NO"}
+SQL> columnas de data_rights_requests
+  {"column_name":"id","data_type":"text","is_nullable":"NO"}
+  {"column_name":"userId","data_type":"text","is_nullable":"NO"}
+  {"column_name":"type","data_type":"USER-DEFINED","is_nullable":"NO"}
+  {"column_name":"status","data_type":"USER-DEFINED","is_nullable":"NO"}
+  {"column_name":"outcome","data_type":"USER-DEFINED","is_nullable":"YES"}
+  {"column_name":"verificationMethod","data_type":"text","is_nullable":"YES"}
+  {"column_name":"stepUpJti","data_type":"text","is_nullable":"YES"}
+  {"column_name":"details","data_type":"jsonb","is_nullable":"YES"}
+  {"column_name":"receivedAt","data_type":"timestamp without time zone","is_nullable":"NO"}
+  {"column_name":"verifiedAt","data_type":"timestamp without time zone","is_nullable":"YES"}
+  {"column_name":"evaluatedAt","data_type":"timestamp without time zone","is_nullable":"YES"}
+  {"column_name":"executedAt","data_type":"timestamp without time zone","is_nullable":"YES"}
+  {"column_name":"closedAt","data_type":"timestamp without time zone","is_nullable":"YES"}
+  {"column_name":"dueAt","data_type":"timestamp without time zone","is_nullable":"NO"}
+SQL> columnas de security_alerts
+  {"column_name":"id","data_type":"text","is_nullable":"NO"}
+  {"column_name":"rule","data_type":"text","is_nullable":"NO"}
+  {"column_name":"severity","data_type":"USER-DEFINED","is_nullable":"NO"}
+  {"column_name":"status","data_type":"USER-DEFINED","is_nullable":"NO"}
+  {"column_name":"subjectPseudonym","data_type":"text","is_nullable":"YES"}
+  {"column_name":"details","data_type":"jsonb","is_nullable":"YES"}
+  {"column_name":"resolutionNote","data_type":"text","is_nullable":"YES"}
+  {"column_name":"handledBy","data_type":"text","is_nullable":"YES"}
+  {"column_name":"createdAt","data_type":"timestamp without time zone","is_nullable":"NO"}
+  {"column_name":"updatedAt","data_type":"timestamp without time zone","is_nullable":"NO"}
+SQL> columnas de audit_logs
+  {"column_name":"id","data_type":"text","is_nullable":"NO"}
+  {"column_name":"actorPseudonym","data_type":"text","is_nullable":"NO"}
+  {"column_name":"actorRole","data_type":"USER-DEFINED","is_nullable":"YES"}
+  {"column_name":"action","data_type":"text","is_nullable":"NO"}
+  {"column_name":"targetPseudonym","data_type":"text","is_nullable":"YES"}
+  {"column_name":"reason","data_type":"text","is_nullable":"YES"}
+  {"column_name":"outcome","data_type":"text","is_nullable":"NO"}
+  {"column_name":"createdAt","data_type":"timestamp without time zone","is_nullable":"NO"}
+  {"column_name":"seq","data_type":"bigint","is_nullable":"NO"}
+  {"column_name":"resourceType","data_type":"text","is_nullable":"YES"}
+  {"column_name":"resourceRef","data_type":"text","is_nullable":"YES"}
+  {"column_name":"prevHash","data_type":"text","is_nullable":"YES"}
+  {"column_name":"hash","data_type":"text","is_nullable":"YES"}
+SQL> triggers de protección
+  {"tabla":"audit_logs","trigger_name":"audit_logs_no_update_delete","eventos":"DELETE,UPDATE"}
+  {"tabla":"consent_events","trigger_name":"consent_events_no_update","eventos":"UPDATE"}
+SQL> estado de cuenta (users)
+  {"column_name":"deletedAt"}
+  {"column_name":"disabledAt"}
+  {"column_name":"sessionsRevokedAt"}
+  {"column_name":"lockedUntil"}

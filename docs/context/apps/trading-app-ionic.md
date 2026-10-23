@@ -54,10 +54,17 @@ Privacy-related client behavior (ROADMAP.md O14, 23 oct):
 - Auction offers carry `bidderAlias` (per-card pseudonym) and `mine`, never
   `bidderId`; `Buy.tsx`'s "did I win" uses `mine` from the REST re-fetch
   (socket updates don't carry `mine`).
-- `SecuritySettings.tsx` has a real "share my location" toggle: off →
-  `DELETE /users/me/location` + `lib/locationConsent.ts` opt-out flag, which
-  `TabSearch.tsx` checks before re-sending the location. The rest of that
-  page (2FA, password) is still the static mock.
+- **O15 (23 oct) supersedes the O14 location toggle:** consents live in
+  `pages/Privacy.tsx` (route `/privacy`, linked from Tab4 and Security):
+  one toggle per purpose from `GET /consents/purposes` (grants send the
+  displayed text `version`), consent history, data download (JSON, step-up
+  password prompt), rectification, account deletion and request status.
+  `lib/locationConsent.ts` now asks the server (`hasLocationConsent()`);
+  `TabSearch.tsx` only `PATCH`es the location when that consent is effective
+  (the backend 403s otherwise). The old localStorage opt-out flag is gone.
+  Tab4's static pre-checked "Notifications" toggle was replaced by the
+  Privacy link. `SecuritySettings.tsx`'s 2FA/password section is still the
+  static mock; the app's login still doesn't handle the 2FA challenge.
 - `User.role` comes back on login; no admin/support screens exist yet (the
   `/admin/*` API is backend-only for now).
 

@@ -1,0 +1,224 @@
+# Actividad N°5 — Detección de eventos sospechosos, contención y recuperación
+# Generado por apps/backend/test/evidence/actividad5.mjs — 2026-10-23T14:28:59.073Z
+# Backend compilado (dist/main.js) + PostgreSQL 16 embebido. Tokens truncados.
+→ POST /users/register
+  body: {"email":"admin.1792765669727@evidencia.test","password":"********","displayName":"Admin Seguridad","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login
+  body: {"email":"admin.1792765669727@evidencia.test","password":"********"}
+← 201
+→ POST /users/register
+  body: {"email":"eva.1792765669727@evidencia.test","password":"********","displayName":"Eva Atacada","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login
+  body: {"email":"eva.1792765669727@evidencia.test","password":"********"}
+← 201
+
+=== 1. Fuerza bruta: 5 contraseñas incorrectas contra la cuenta de eva ===
+→ POST /auth/login
+  body: {"email":"eva.1792765669727@evidencia.test","password":"********"}
+← 401
+  intento 1: 401
+→ POST /auth/login
+  body: {"email":"eva.1792765669727@evidencia.test","password":"********"}
+← 401
+  intento 2: 401
+→ POST /auth/login
+  body: {"email":"eva.1792765669727@evidencia.test","password":"********"}
+← 401
+  intento 3: 401
+→ POST /auth/login
+  body: {"email":"eva.1792765669727@evidencia.test","password":"********"}
+← 401
+  intento 4: 401
+→ POST /auth/login
+  body: {"email":"eva.1792765669727@evidencia.test","password":"********"}
+← 401
+  intento 5: 401
+
+=== 2. Alerta automática + bloqueo de 15 min: ni la contraseña correcta entra (mismo 401 genérico) ===
+→ POST /auth/login
+  body: {"email":"eva.1792765669727@evidencia.test","password":"********"}
+← 401 {
+  "message": "Invalid email or password",
+  "error": "Unauthorized",
+  "statusCode": 401
+}
+SQL> SELECT rule, severity, status, "subjectPseudonym", details FROM security_alerts ORDER BY "createdAt"
+  {"rule":"auth.bruteforce","severity":"HIGH","status":"OPEN","subjectPseudonym":"u_ae0365ff1728b86f","details":{"events":5,"threshold":5,"windowMinutes":15,"automaticContainment":"lock-account"}}
+SQL> SELECT "lockedUntil" > now() AS bloqueada FROM users WHERE id = $1
+  {"bloqueada":true}
+
+=== 3. Login con un correo que no existe: se audita como "anonymous", sin guardar el correo ===
+→ POST /auth/login
+  body: {"email":"no.existe.1792765669727@evidencia.test","password":"********"}
+← 401 {
+  "message": "Invalid email or password",
+  "error": "Unauthorized",
+  "statusCode": 401
+}
+
+=== 4. Sondeo de rutas de administración por un USER → 403 auditados → alerta access.denied.burst ===
+→ GET /admin/audit-logs  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 403
+→ GET /admin/audit-logs  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 403
+→ GET /admin/audit-logs  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 403
+→ GET /admin/audit-logs  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 403
+→ GET /admin/audit-logs  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 403
+
+=== 5. Sesión robada: 3 step-up fallidos → alerta + todas las sesiones revocadas ===
+→ POST /users/register
+  body: {"email":"franco.1792765669727@evidencia.test","password":"********","displayName":"Franco Robado","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login
+  body: {"email":"franco.1792765669727@evidencia.test","password":"********"}
+← 201
+→ POST /auth/step-up  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"password":"********"}
+← 401
+→ POST /auth/step-up  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"password":"********"}
+← 401
+→ POST /auth/step-up  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"password":"********"}
+← 401
+→ GET /consents/me  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 401 {
+  "message": "Invalid token",
+  "error": "Unauthorized",
+  "statusCode": 401
+}
+
+=== 6. Triage del ADMIN: alerta → evento sospechoso → incidente confirmado ===
+→ GET /admin/security/alerts  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+  97a0b994 auth.step-up.failures    HIGH   OPEN
+  335494e1 access.denied.burst      MEDIUM OPEN
+  c4434550 auth.bruteforce          HIGH   OPEN
+→ PATCH /admin/security/alerts/c4434550-7801-4ecc-aa4e-781baead77e7  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"status":"CLOSED","reason":"intento de saltarse el análisis"}
+← 409 {
+  "message": "Cannot go from OPEN to CLOSED",
+  "error": "Conflict",
+  "statusCode": 409
+}
+→ PATCH /admin/security/alerts/c4434550-7801-4ecc-aa4e-781baead77e7  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"status":"INVESTIGATING","reason":"revisando intentos contra la cuenta"}
+← 200 {
+  "id": "c4434550-7801-4ecc-aa4e-781baead77e7",
+  "rule": "auth.bruteforce",
+  "severity": "HIGH",
+  "status": "INVESTIGATING",
+  "subjectPseudonym": "u_ae0365ff1728b86f",
+  "details": {
+    "events": 5,
+    "threshold": 5,
+    "windowMinutes": 15,
+    "automaticContainment": "lock-account"
+  },
+  "resolutionNote": "revisando intentos contra la cuenta",
+  "handledBy": "u_e0be39860446ca40",
+  "createdAt": "2026-10-23T14:28:45.410Z",
+  "updatedAt": "2026-10-23T14:28:51.672Z"
+}
+→ PATCH /admin/security/alerts/c4434550-7801-4ecc-aa4e-781baead77e7  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"status":"CONFIRMED","reason":"patrón de diccionario confirmado, ticket INC-1"}
+← 200 {
+  "id": "c4434550-7801-4ecc-aa4e-781baead77e7",
+  "rule": "auth.bruteforce",
+  "severity": "HIGH",
+  "status": "CONFIRMED",
+  "subjectPseudonym": "u_ae0365ff1728b86f",
+  "details": {
+    "events": 5,
+    "threshold": 5,
+    "windowMinutes": 15,
+    "automaticContainment": "lock-account"
+  },
+  "resolutionNote": "patrón de diccionario confirmado, ticket INC-1",
+  "handledBy": "u_e0be39860446ca40",
+  "createdAt": "2026-10-23T14:28:45.410Z",
+  "updatedAt": "2026-10-23T14:28:51.713Z"
+}
+
+=== 7. Contención manual (solo ADMIN, con motivo): SUPPORT → 403; sin motivo → 400 ===
+→ POST /admin/security/users/<id:eva>/disable  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"reason":"intento sin permiso"}
+← 403 {
+  "message": "Insufficient permissions",
+  "error": "Forbidden",
+  "statusCode": 403
+}
+→ POST /admin/security/users/<id:eva>/disable  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {}
+← 400 {
+  "message": [
+    "reason must be shorter than or equal to 200 characters",
+    "reason must be longer than or equal to 10 characters",
+    "reason must be a string"
+  ],
+  "error": "Bad Request",
+  "statusCode": 400
+}
+→ POST /admin/security/users/<id:eva>/disable  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"reason":"INC-1: cuenta bajo ataque"}
+← 201 {
+  "targetId": "<id:eva>",
+  "disabled": true
+}
+→ POST /admin/security/users/<id:eva>/revoke-sessions  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"reason":"INC-1: cerrar sesiones abiertas"}
+← 201 {
+  "targetId": "<id:eva>",
+  "sessionsRevoked": true
+}
+  (token de eva emitido antes de la contención:)
+→ GET /consents/me  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 401 {
+  "message": "Invalid token",
+  "error": "Unauthorized",
+  "statusCode": 401
+}
+
+=== 8. Recuperación: el ADMIN rehabilita (levanta también el bloqueo) y eva vuelve a entrar ===
+→ POST /admin/security/users/<id:eva>/enable  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"reason":"INC-1: titular verificado, clave cambiada"}
+← 201 {
+  "targetId": "<id:eva>",
+  "disabled": false
+}
+→ POST /auth/login
+  body: {"email":"eva.1792765669727@evidencia.test","password":"********"}
+← 201
+→ POST /admin/security/users/<id:admin>/disable  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"reason":"auto-contención de prueba"}
+← 400 {
+  "message": "You cannot apply containment to your own account",
+  "error": "Bad Request",
+  "statusCode": 400
+}
+
+=== 9. Preservación de evidencia ANTES de contener: snapshot con manifiesto SHA-256 ===
+snapshot written to <tmp>\incident-2026-10-23T14-28-54-678Z
+manifest sha256: 03eb8b2d17859a535521a0fb2134ba0c6a4e8f54d001b1e587ddbe17a331a5b3
+
+
+=== 10. Contención global (JWT_SECRET filtrado): revocar TODAS las sesiones ===
+revoked: 5 refresh token(s) deleted, 7 account(s) stamped.
+
+→ GET /consents/me  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 401 {
+  "message": "Invalid token",
+  "error": "Unauthorized",
+  "statusCode": 401
+}
+→ POST /auth/login
+  body: {"email":"admin.1792765669727@evidencia.test","password":"********"}
+← 201
+→ POST /auth/login
+  body: {"email":"sofia.1792765669727@evidencia.test","password":"********"}
+← 201

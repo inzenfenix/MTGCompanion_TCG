@@ -1,0 +1,187 @@
+# Actividad N°5 — Registro de auditoría: eventos reales, integridad y retención
+# Generado por apps/backend/test/evidence/actividad5.mjs — 2026-10-23T14:29:01.705Z
+# Backend compilado (dist/main.js) + PostgreSQL 16 embebido. Tokens truncados.
+
+=== 1. Eventos generados durante las corridas anteriores (registro completo, en orden) ===
+SQL> audit_logs (seudonimizado, encadenado)
+  {"seq":"1","hora":"14:28:22.338","actor":"u_14577fde050acb8b","rol":"USER","action":"auth.login","objetivo":null,"recurso":null,"ref":null,"reason":null,"outcome":"ALLOWED","prev":null,"hash":"f8e53944b4"}
+  {"seq":"2","hora":"14:28:22.511","actor":"u_14577fde050acb8b","rol":"USER","action":"consent.grant","objetivo":null,"recurso":"consent","ref":"LOCATION_DISTANCE","reason":"v1 via app","outcome":"ALLOWED","prev":"f8e53944b4","hash":"bebcdb499b"}
+  {"seq":"3","hora":"14:28:22.608","actor":"u_14577fde050acb8b","rol":"USER","action":"consent.grant","objetivo":null,"recurso":"consent","ref":"EMAIL_NOTIFICATION","reason":"v1 via app","outcome":"ALLOWED","prev":"bebcdb499b","hash":"ace8fc66f0"}
+  {"seq":"4","hora":"14:28:22.646","actor":"u_14577fde050acb8b","rol":"USER","action":"consent.revoke","objetivo":null,"recurso":"consent","ref":"LOCATION_DISTANCE","reason":"v1 via app","outcome":"ALLOWED","prev":"ace8fc66f0","hash":"763c3fb2ad"}
+  {"seq":"5","hora":"14:28:24.411","actor":"u_0edde92c3c32766a","rol":"USER","action":"auth.login","objetivo":null,"recurso":null,"ref":null,"reason":null,"outcome":"ALLOWED","prev":"763c3fb2ad","hash":"fff18ee055"}
+  {"seq":"6","hora":"14:28:24.516","actor":"u_14577fde050acb8b","rol":"USER","action":"data.export","objetivo":"u_14577fde050acb8b","recurso":"data-rights-request","ref":"c932fbeb-f1b7-42ac","reason":"IDENTITY_NOT_VERIFIED","outcome":"DENIED","prev":"fff18ee055","hash":"29ae6f78f7"}
+  {"seq":"7","hora":"14:28:25.299","actor":"u_14577fde050acb8b","rol":"USER","action":"auth.step-up","objetivo":null,"recurso":null,"ref":null,"reason":"bad-password","outcome":"FAILED","prev":"29ae6f78f7","hash":"4b733e28ce"}
+  {"seq":"8","hora":"14:28:26.125","actor":"u_14577fde050acb8b","rol":"USER","action":"auth.step-up","objetivo":null,"recurso":null,"ref":null,"reason":"password","outcome":"ALLOWED","prev":"4b733e28ce","hash":"83ff2d2353"}
+  {"seq":"9","hora":"14:28:26.441","actor":"u_14577fde050acb8b","rol":"USER","action":"data.export","objetivo":"u_14577fde050acb8b","recurso":"data-rights-request","ref":"ff67a629-04c7-4c77","reason":null,"outcome":"ALLOWED","prev":"83ff2d2353","hash":"1110b49408"}
+  {"seq":"10","hora":"14:28:26.525","actor":"u_14577fde050acb8b","rol":"USER","action":"data.export","objetivo":"u_14577fde050acb8b","recurso":"data-rights-request","ref":"49858f22-e0f7-4af0","reason":"STEP_UP_REUSED","outcome":"DENIED","prev":"1110b49408","hash":"6cfae475fc"}
+  {"seq":"11","hora":"14:28:26.588","actor":"u_14577fde050acb8b","rol":"USER","action":"data.rectify","objetivo":"u_14577fde050acb8b","recurso":"data-rights-request","ref":"e6734201-011b-4f92","reason":"displayName","outcome":"ALLOWED","prev":"6cfae475fc","hash":"a5f60a15d5"}
+  {"seq":"12","hora":"14:28:26.635","actor":"u_14577fde050acb8b","rol":"USER","action":"data.rectify","objetivo":"u_14577fde050acb8b","recurso":"data-rights-request","ref":"d9543ba8-d986-40c5","reason":"IDENTITY_NOT_VERIFIED","outcome":"DENIED","prev":"a5f60a15d5","hash":"782bc4f9f3"}
+  {"seq":"13","hora":"14:28:27.406","actor":"u_14577fde050acb8b","rol":"USER","action":"auth.step-up","objetivo":null,"recurso":null,"ref":null,"reason":"password","outcome":"ALLOWED","prev":"782bc4f9f3","hash":"4801c7576b"}
+  {"seq":"14","hora":"14:28:27.467","actor":"u_14577fde050acb8b","rol":"USER","action":"data.rectify","objetivo":"u_14577fde050acb8b","recurso":"data-rights-request","ref":"cda77d4f-5ace-4860","reason":"email","outcome":"ALLOWED","prev":"4801c7576b","hash":"9ca3c49a25"}
+  {"seq":"15","hora":"14:28:29.397","actor":"u_14577fde050acb8b","rol":"USER","action":"auth.login","objetivo":null,"recurso":null,"ref":null,"reason":null,"outcome":"ALLOWED","prev":"9ca3c49a25","hash":"6d9b8ca4ba"}
+  {"seq":"16","hora":"14:28:31.014","actor":"u_a51ca162e6320f9f","rol":"USER","action":"auth.login","objetivo":null,"recurso":null,"ref":null,"reason":null,"outcome":"ALLOWED","prev":"6d9b8ca4ba","hash":"0a80c43b92"}
+  {"seq":"17","hora":"14:28:31.853","actor":"u_a51ca162e6320f9f","rol":"USER","action":"auth.step-up","objetivo":null,"recurso":null,"ref":null,"reason":"password","outcome":"ALLOWED","prev":"0a80c43b92","hash":"ecb57ba220"}
+  {"seq":"18","hora":"14:28:31.921","actor":"u_a51ca162e6320f9f","rol":"USER","action":"data.erase","objetivo":"u_a51ca162e6320f9f","recurso":"data-rights-request","ref":"4667fa1a-c99c-4ee0","reason":"OPEN_TRANSACTIONS","outcome":"DENIED","prev":"ecb57ba220","hash":"925a10dc6f"}
+  {"seq":"19","hora":"14:28:33.616","actor":"u_e9bd5cb9b8f5b05c","rol":"USER","action":"auth.login","objetivo":null,"recurso":null,"ref":null,"reason":null,"outcome":"ALLOWED","prev":"925a10dc6f","hash":"4ead0dc7ca"}
+  {"seq":"20","hora":"14:28:34.444","actor":"u_e9bd5cb9b8f5b05c","rol":"USER","action":"auth.step-up","objetivo":null,"recurso":null,"ref":null,"reason":"password","outcome":"ALLOWED","prev":"4ead0dc7ca","hash":"239dd84656"}
+  {"seq":"21","hora":"14:28:34.569","actor":"u_e9bd5cb9b8f5b05c","rol":"USER","action":"data.erase","objetivo":"u_e9bd5cb9b8f5b05c","recurso":"data-rights-request","ref":"44bd0472-06e1-409f","reason":"delete","outcome":"ALLOWED","prev":"239dd84656","hash":"e42cc2aed2"}
+  {"seq":"22","hora":"14:28:35.384","actor":"u_14577fde050acb8b","rol":"USER","action":"auth.step-up","objetivo":null,"recurso":null,"ref":null,"reason":"password","outcome":"ALLOWED","prev":"e42cc2aed2","hash":"8144b716af"}
+  {"seq":"23","hora":"14:28:35.515","actor":"u_14577fde050acb8b","rol":"USER","action":"data.erase","objetivo":"u_14577fde050acb8b","recurso":"data-rights-request","ref":"a2032c47-9edb-4e7a","reason":"tombstone","outcome":"ALLOWED","prev":"8144b716af","hash":"75e40baab5"}
+  {"seq":"24","hora":"14:28:36.316","actor":"anonymous","rol":null,"action":"auth.login","objetivo":null,"recurso":null,"ref":null,"reason":"unknown-email","outcome":"DENIED","prev":"75e40baab5","hash":"aac2a5bcb7"}
+  {"seq":"25","hora":"14:28:38.059","actor":"u_a30fd3c1d4a45a35","rol":"USER","action":"auth.login","objetivo":null,"recurso":null,"ref":null,"reason":null,"outcome":"ALLOWED","prev":"aac2a5bcb7","hash":"ab0cc9bf08"}
+  {"seq":"26","hora":"14:28:38.085","actor":"u_0edde92c3c32766a","rol":"USER","action":"denied GET /admin/data-rights/requests","objetivo":null,"recurso":null,"ref":null,"reason":null,"outcome":"DENIED","prev":"ab0cc9bf08","hash":"58f6196f07"}
+  {"seq":"27","hora":"14:28:38.106","actor":"u_a30fd3c1d4a45a35","rol":"SUPPORT","action":"admin.data-rights.list","objetivo":null,"recurso":null,"ref":null,"reason":null,"outcome":"ALLOWED","prev":"58f6196f07","hash":"b5dd40d392"}
+  {"seq":"28","hora":"14:28:39.740","actor":"u_e0be39860446ca40","rol":"USER","action":"auth.login","objetivo":null,"recurso":null,"ref":null,"reason":null,"outcome":"ALLOWED","prev":"b5dd40d392","hash":"1c32085f44"}
+  {"seq":"29","hora":"14:28:41.416","actor":"u_ae0365ff1728b86f","rol":"USER","action":"auth.login","objetivo":null,"recurso":null,"ref":null,"reason":null,"outcome":"ALLOWED","prev":"1c32085f44","hash":"973fb1742f"}
+  {"seq":"30","hora":"14:28:42.197","actor":"u_ae0365ff1728b86f","rol":"USER","action":"auth.login","objetivo":null,"recurso":null,"ref":null,"reason":"bad-password","outcome":"FAILED","prev":"973fb1742f","hash":"30ffa1547f"}
+  {"seq":"31","hora":"14:28:42.989","actor":"u_ae0365ff1728b86f","rol":"USER","action":"auth.login","objetivo":null,"recurso":null,"ref":null,"reason":"bad-password","outcome":"FAILED","prev":"30ffa1547f","hash":"1db6d67d19"}
+  {"seq":"32","hora":"14:28:43.770","actor":"u_ae0365ff1728b86f","rol":"USER","action":"auth.login","objetivo":null,"recurso":null,"ref":null,"reason":"bad-password","outcome":"FAILED","prev":"1db6d67d19","hash":"31e228998a"}
+  {"seq":"33","hora":"14:28:44.566","actor":"u_ae0365ff1728b86f","rol":"USER","action":"auth.login","objetivo":null,"recurso":null,"ref":null,"reason":"bad-password","outcome":"FAILED","prev":"31e228998a","hash":"b0ad56c2a2"}
+  {"seq":"34","hora":"14:28:45.386","actor":"u_ae0365ff1728b86f","rol":"USER","action":"auth.login","objetivo":null,"recurso":null,"ref":null,"reason":"bad-password","outcome":"FAILED","prev":"b0ad56c2a2","hash":"c90291fbd2"}
+  {"seq":"35","hora":"14:28:45.413","actor":"system","rol":null,"action":"security.alert.raised","objetivo":"u_ae0365ff1728b86f","recurso":"security-alert","ref":"c4434550-7801-4ecc","reason":"auth.bruteforce (HIGH)","outcome":"ALLOWED","prev":"c90291fbd2","hash":"450c697d5e"}
+  {"seq":"36","hora":"14:28:45.426","actor":"system","rol":null,"action":"security.containment.lock","objetivo":"u_ae0365ff1728b86f","recurso":"security-alert","ref":"c4434550-7801-4ecc","reason":null,"outcome":"ALLOWED","prev":"450c697d5e","hash":"1ab2c08147"}
+  {"seq":"37","hora":"14:28:45.444","actor":"u_ae0365ff1728b86f","rol":"USER","action":"auth.login","objetivo":null,"recurso":null,"ref":null,"reason":"locked","outcome":"DENIED","prev":"1ab2c08147","hash":"4e779d3153"}
+  {"seq":"38","hora":"14:28:46.338","actor":"anonymous","rol":null,"action":"auth.login","objetivo":null,"recurso":null,"ref":null,"reason":"unknown-email","outcome":"DENIED","prev":"4e779d3153","hash":"c3c0e72fd0"}
+  {"seq":"39","hora":"14:28:46.353","actor":"u_0edde92c3c32766a","rol":"USER","action":"denied GET /admin/audit-logs","objetivo":null,"recurso":null,"ref":null,"reason":null,"outcome":"DENIED","prev":"c3c0e72fd0","hash":"4976bc112e"}
+  {"seq":"40","hora":"14:28:46.371","actor":"u_0edde92c3c32766a","rol":"USER","action":"denied GET /admin/audit-logs","objetivo":null,"recurso":null,"ref":null,"reason":null,"outcome":"DENIED","prev":"4976bc112e","hash":"abbbf6103a"}
+  {"seq":"41","hora":"14:28:46.386","actor":"u_0edde92c3c32766a","rol":"USER","action":"denied GET /admin/audit-logs","objetivo":null,"recurso":null,"ref":null,"reason":null,"outcome":"DENIED","prev":"abbbf6103a","hash":"e7338b24eb"}
+  {"seq":"42","hora":"14:28:46.402","actor":"u_0edde92c3c32766a","rol":"USER","action":"denied GET /admin/audit-logs","objetivo":null,"recurso":null,"ref":null,"reason":null,"outcome":"DENIED","prev":"e7338b24eb","hash":"1fe83a30b8"}
+  {"seq":"43","hora":"14:28:46.417","actor":"system","rol":null,"action":"security.alert.raised","objetivo":"u_0edde92c3c32766a","recurso":"security-alert","ref":"335494e1-959f-474b","reason":"access.denied.burst (MEDIUM)","outcome":"ALLOWED","prev":"1fe83a30b8","hash":"22b9db723f"}
+  {"seq":"44","hora":"14:28:46.431","actor":"u_0edde92c3c32766a","rol":"USER","action":"denied GET /admin/audit-logs","objetivo":null,"recurso":null,"ref":null,"reason":null,"outcome":"DENIED","prev":"22b9db723f","hash":"df6f66f0b3"}
+  {"seq":"45","hora":"14:28:48.037","actor":"u_93fa697431367c6b","rol":"USER","action":"auth.login","objetivo":null,"recurso":null,"ref":null,"reason":null,"outcome":"ALLOWED","prev":"df6f66f0b3","hash":"cfd225de3a"}
+  {"seq":"46","hora":"14:28:48.899","actor":"u_93fa697431367c6b","rol":"USER","action":"auth.step-up","objetivo":null,"recurso":null,"ref":null,"reason":"bad-password","outcome":"FAILED","prev":"cfd225de3a","hash":"ded5f80506"}
+  {"seq":"47","hora":"14:28:49.684","actor":"u_93fa697431367c6b","rol":"USER","action":"auth.step-up","objetivo":null,"recurso":null,"ref":null,"reason":"bad-password","outcome":"FAILED","prev":"ded5f80506","hash":"4f758c4a44"}
+  {"seq":"48","hora":"14:28:50.474","actor":"u_93fa697431367c6b","rol":"USER","action":"auth.step-up","objetivo":null,"recurso":null,"ref":null,"reason":"bad-password","outcome":"FAILED","prev":"4f758c4a44","hash":"af44b10127"}
+  {"seq":"49","hora":"14:28:50.489","actor":"system","rol":null,"action":"security.alert.raised","objetivo":"u_93fa697431367c6b","recurso":"security-alert","ref":"97a0b994-dfb0-484e","reason":"auth.step-up.failures (HIGH)","outcome":"ALLOWED","prev":"af44b10127","hash":"8f28595fb7"}
+  {"seq":"50","hora":"14:28:50.499","actor":"system","rol":null,"action":"security.containment.revoke-sessions","objetivo":"u_93fa697431367c6b","recurso":"security-alert","ref":"97a0b994-dfb0-484e","reason":null,"outcome":"ALLOWED","prev":"8f28595fb7","hash":"ef1ff0bd2b"}
+  {"seq":"51","hora":"14:28:51.678","actor":"u_e0be39860446ca40","rol":"ADMIN","action":"security.alert.update","objetivo":null,"recurso":"security-alert","ref":"c4434550-7801-4ecc","reason":"OPEN -> INVESTIGATING: revisando intentos contra la cuenta","outcome":"ALLOWED","prev":"ef1ff0bd2b","hash":"907b3798a1"}
+  {"seq":"52","hora":"14:28:51.716","actor":"u_e0be39860446ca40","rol":"ADMIN","action":"security.alert.update","objetivo":null,"recurso":"security-alert","ref":"c4434550-7801-4ecc","reason":"INVESTIGATING -> CONFIRMED: patrón de diccionario confirmado, ticket INC-1","outcome":"ALLOWED","prev":"907b3798a1","hash":"3170ea7278"}
+  {"seq":"53","hora":"14:28:51.734","actor":"u_a30fd3c1d4a45a35","rol":"SUPPORT","action":"denied POST /admin/security/users/:id/disable","objetivo":null,"recurso":null,"ref":null,"reason":null,"outcome":"DENIED","prev":"3170ea7278","hash":"f8bf5e04fe"}
+  {"seq":"54","hora":"14:28:51.771","actor":"u_e0be39860446ca40","rol":"ADMIN","action":"security.containment.disable","objetivo":"u_ae0365ff1728b86f","recurso":"user","ref":null,"reason":"INC-1: cuenta bajo ataque","outcome":"ALLOWED","prev":"f8bf5e04fe","hash":"129f81a67c"}
+  {"seq":"55","hora":"14:28:51.795","actor":"u_e0be39860446ca40","rol":"ADMIN","action":"security.containment.revoke-sessions","objetivo":"u_ae0365ff1728b86f","recurso":"user","ref":null,"reason":"INC-1: cerrar sesiones abiertas","outcome":"ALLOWED","prev":"129f81a67c","hash":"3449b1389b"}
+  {"seq":"56","hora":"14:28:52.945","actor":"u_e0be39860446ca40","rol":"ADMIN","action":"security.recovery.enable","objetivo":"u_ae0365ff1728b86f","recurso":"user","ref":null,"reason":"INC-1: titular verificado, clave cambiada","outcome":"ALLOWED","prev":"3449b1389b","hash":"9e2b22feb5"}
+  {"seq":"57","hora":"14:28:53.771","actor":"u_ae0365ff1728b86f","rol":"USER","action":"auth.login","objetivo":null,"recurso":null,"ref":null,"reason":null,"outcome":"ALLOWED","prev":"9e2b22feb5","hash":"0aa8da964d"}
+  {"seq":"58","hora":"14:28:54.692","actor":"system","rol":null,"action":"incident.snapshot","objetivo":null,"recurso":"evidence","ref":"03eb8b2d17859a53","reason":"57 audit row(s), 3 alert(s), chain ok","outcome":"ALLOWED","prev":"0aa8da964d","hash":"bd642a8a97"}
+  {"seq":"59","hora":"14:28:55.905","actor":"system","rol":null,"action":"security.containment.revoke-all-sessions","objetivo":null,"recurso":"session","ref":null,"reason":"7 account(s), 5 refresh token(s)","outcome":"ALLOWED","prev":"bd642a8a97","hash":"1aad8e1e8d"}
+  {"seq":"60","hora":"14:28:58.205","actor":"u_e0be39860446ca40","rol":"ADMIN","action":"auth.login","objetivo":null,"recurso":null,"ref":null,"reason":null,"outcome":"ALLOWED","prev":"1aad8e1e8d","hash":"725418628e"}
+  {"seq":"61","hora":"14:28:59.065","actor":"u_a30fd3c1d4a45a35","rol":"SUPPORT","action":"auth.login","objetivo":null,"recurso":null,"ref":null,"reason":null,"outcome":"ALLOWED","prev":"725418628e","hash":"0e190dffb5"}
+
+=== 2. Lo que NO está en el log: correos, ids de usuario, tokens, contraseñas ===
+  filas revisadas: 61
+  contiene algún correo (@): false
+  contiene algún id de usuario real: false
+  contiene algún JWT (eyJ…): false
+  contiene "Evidencia-2026!": false
+
+=== 3. Verificación de integridad de la cadena (GET /admin/security/audit/verify) ===
+→ GET /admin/security/audit/verify  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200 {
+  "ok": true,
+  "checked": 61,
+  "firstSeq": "1",
+  "lastSeq": "61"
+}
+
+=== 4. Manipulación detectada: alguien con acceso de dueño desactiva el trigger y edita una fila ===
+  (fila seq=30: outcome FAILED → ALLOWED, "borrando" un intento fallido)
+→ GET /admin/security/audit/verify  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200 {
+  "ok": false,
+  "checked": 29,
+  "firstSeq": "1",
+  "lastSeq": "29",
+  "brokenAt": {
+    "seq": "30",
+    "problem": "hash-mismatch"
+  }
+}
+SQL> SELECT rule, severity, status, details FROM security_alerts WHERE rule = 'audit.chain.broken'
+  {"rule":"audit.chain.broken","severity":"HIGH","status":"OPEN","details":{"seq":"30","problem":"hash-mismatch"}}
+  (restaurado el valor original)
+→ GET /admin/security/audit/verify  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200 {
+  "ok": true,
+  "checked": 64,
+  "firstSeq": "1",
+  "lastSeq": "64"
+}
+
+=== 5. Protección en la BD: UPDATE/DELETE/TRUNCATE rechazados para cualquier conexión ===
+SQL> UPDATE audit_logs SET reason = 'x'
+  ERROR: audit_logs is append-only (UPDATE rejected)
+SQL> DELETE FROM audit_logs
+  ERROR: audit_logs is append-only (DELETE rejected)
+SQL> TRUNCATE audit_logs
+  ERROR: audit_logs is append-only (TRUNCATE rejected)
+
+=== 6. Retención: solo la tarea de purga borra, y solo filas más antiguas que el plazo ===
+SQL> DELETE directo de una fila de 800 días (sin la marca de la tarea)
+  ERROR: audit_logs is append-only (DELETE rejected)
+SQL> con la marca de la tarea, pero filas de hoy
+  ERROR: audit_logs is append-only (DELETE rejected)
+retention: deleted 0 expired refresh token(s), erased 0 location(s) older than 30 days, 1 audit row(s), 0 closed request(s) and 0 closed alert(s) older than 730 days.
+
+SQL> SELECT count(*) AS antiguas FROM audit_logs WHERE action = 'evidencia.fila-antigua'
+  {"antiguas":"0"}
+SQL> SELECT action, reason FROM audit_logs WHERE action = 'audit.retention.purge'
+  {"action":"audit.retention.purge","reason":"1 row(s) older than 730 days"}
+→ GET /admin/security/audit/verify  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200 {
+  "ok": true,
+  "checked": 66,
+  "firstSeq": "1",
+  "lastSeq": "67"
+}
+
+=== 7. Quién puede leer el log: solo ADMIN (SUPPORT y USER → 403, y el intento queda auditado) ===
+→ GET /admin/audit-logs?limit=3  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 403 {
+  "message": "Insufficient permissions",
+  "error": "Forbidden",
+  "statusCode": 403
+}
+→ GET /admin/audit-logs?limit=3  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200 [
+  {
+    "id": "3c48749f-563b-484c-baef-bab7f30355f9",
+    "seq": "70",
+    "actorPseudonym": "u_e0be39860446ca40",
+    "actorRole": "ADMIN",
+    "action": "admin.audit.read",
+    "targetPseudonym": null,
+    "resourceType": null,
+    "resourceRef": null,
+    "reason": null,
+    "outcome": "ALLOWED",
+    "createdAt": "2026-10-23T14:29:01.692Z",
+    "hash": "b16ec4651f259b23e1a7e549344668db916fc9c10bbfe40ebfb749e38cb8c36f"
+  },
+  {
+    "id": "35004bc2-9a89-4fde-b787-ebde0b8b7849",
+    "seq": "69",
+    "actorPseudonym": "u_a30fd3c1d4a45a35",
+    "actorRole": "SUPPORT",
+    "action": "denied GET /admin/audit-logs",
+    "targetPseudonym": null,
+    "resourceType": null,
+    "resourceRef": null,
+    "reason": null,
+    "outcome": "DENIED",
+    "createdAt": "2026-10-23T14:29:01.674Z",
+    "hash": "873c130ca0bf5abf994c40b13992c0e42b00a827e2c09c291a61dc8b47946ba8"
+  },
+  {
+    "id": "beea04ad-552c-416e-a071-7a1fbdbb007d",
+    "seq": "68",
+    "actorPseudonym": "u_e0be39860446ca40",
+    "actorRole": "ADMIN",
+    "action": "admin.audit.verify",
+    "targetPseudonym": null,
+    "resourceType": null,
+    "resourceRef": null,
+    "reason": "ok (66 rows)",
+    "outcome": "ALLOWED",
+    "createdAt": "2026-10-23T14:29:01.654Z",
+    "hash": "da8654c3139006208bbc8116e4285a7d0cbf2ebd1e1054fc86f41918cc161b5c"
+  }
+]
