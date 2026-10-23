@@ -33,8 +33,19 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO mtg_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO mtg_app;
 
--- Audit log: append and read, nothing else.
+-- Audit log: append and read, nothing else. (Retention deletes run as the
+-- owner, from purge-expired-data, and the trigger still checks them.)
 REVOKE UPDATE, DELETE, TRUNCATE ON "audit_logs" FROM mtg_app;
+
+-- O15 (ACTIVIDAD_5.md §5). Consent history: append + read; DELETE stays
+-- because erasing an account cascades through consents -> consent_events
+-- (the trigger rejects UPDATE for everyone anyway).
+REVOKE UPDATE, TRUNCATE ON "consent_events" FROM mtg_app;
+-- Rights requests are the proof a request was answered (art. 11): the API
+-- creates and advances them but never deletes them — retention does, as owner.
+REVOKE DELETE, TRUNCATE ON "data_rights_requests" FROM mtg_app;
+-- Alerts get triaged (UPDATE) but never deleted by the API.
+REVOKE DELETE, TRUNCATE ON "security_alerts" FROM mtg_app;
 
 -- Prisma's migration history is the owner's business only.
 REVOKE ALL ON "_prisma_migrations" FROM mtg_app;

@@ -27,6 +27,7 @@ const CardDetails = lazy(() => import('./pages/CardDetails'));
 const AccountSettings = lazy(() => import('./pages/AccountSettings'));
 const PaymentSettings = lazy(() => import('./pages/PaymentSettings'));
 const SecuritySettings = lazy(() => import('./pages/SecuritySettings'));
+const Privacy = lazy(() => import('./pages/Privacy'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
 const ListCard = lazy(() => import('./pages/ListCard'));
 const EditCard = lazy(() => import('./pages/EditCard'));
@@ -161,6 +162,9 @@ const App: React.FC = () => {
           </Route>
           <Route path="/security">
             <Suspense fallback={null}><SecuritySettings /></Suspense>
+          </Route>
+          <Route path="/privacy">
+            <Suspense fallback={null}><Privacy /></Suspense>
           </Route>
           <Route exact path="/">
             <Redirect to="/tab1" />

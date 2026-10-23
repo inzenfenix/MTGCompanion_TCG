@@ -101,11 +101,14 @@ const Tab4: React.FC = () => {
                 </IonItem>
               </motion.div>
               
+              {/* ROADMAP.md O15 — this used to be a static, pre-checked
+                  "Notifications" toggle that did nothing. Optional emails
+                  are now the EMAIL_NOTIFICATIONS consent, off by default,
+                  managed with the other consents in Privacy. */}
               <motion.div variants={itemVariants}>
-                <IonItem className="mtg-list-item-row" lines="full">
+                <IonItem className="mtg-list-item-row" lines="full" button routerLink="/privacy">
                   <IonIcon icon={notificationsOutline} slot="start" />
-                  <IonLabel>{t('trade_notifications')}</IonLabel>
-                  <IonToggle slot="end" checked={true} style={{'--handle-background-checked': '#d4af37', '--background-checked': '#8b0000'}} />
+                  <IonLabel>{t('privacy_title')}</IonLabel>
                 </IonItem>
               </motion.div>
               

@@ -17,7 +17,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../lib/auth/AuthContext';
 import * as api from '../lib/api';
-import { isLocationSharingOptedOut } from '../lib/locationConsent';
+import { hasLocationConsent } from '../lib/locationConsent';
 
 // How long to wait after the user stops typing before hitting the backend —
 // matches CatalogService's MIN_QUERY_LENGTH reasoning: a global search over
@@ -45,9 +45,10 @@ const TabSearch: React.FC = () => {
   // `trimmed` hasn't changed (setSearchText to its own value wouldn't).
   const [retryToken, setRetryToken] = useState(0);
 
-  // Tinder-style prompt: ask once when the Bazaar opens. Granting is the
-  // only consent PATCH /users/me/location needs (see api.ts) — no separate
-  // settings toggle exists or is needed.
+  // Ask the browser once when the Bazaar opens: the position always serves
+  // this search's distances. Storing it (so *others* see a distance to
+  // this player) additionally needs the LOCATION_DISTANCE consent from the
+  // Privacy screen (ROADMAP.md O15) — the OS prompt alone isn't consent.
   useEffect(() => {
     if (!('geolocation' in navigator)) {
       setGeo({ status: 'unsupported' });
@@ -57,11 +58,12 @@ const TabSearch: React.FC = () => {
       (pos) => {
         const { latitude, longitude } = pos.coords;
         setGeo({ status: 'granted', lat: latitude, lng: longitude });
-        if (user && !isLocationSharingOptedOut()) {
+        if (user) {
           // Fire-and-forget: a failed location save shouldn't block search,
           // it just means other users won't see a distance to this one yet.
-          // Skipped once the player withdrew sharing (O14, SecuritySettings).
-          api.updateMyLocation(latitude, longitude).catch(() => {});
+          void hasLocationConsent().then((ok) => {
+            if (ok) api.updateMyLocation(latitude, longitude).catch(() => {});
+          });
         }
       },
       () => setGeo({ status: 'denied' }),

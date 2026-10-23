@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   UnauthorizedException,
@@ -14,7 +15,13 @@ import {
   UserCreatedEvent,
 } from '../../common/events/user-created.event';
 import {
+  EMAIL_CHANGED_EVENT,
+  EmailChangedEvent,
+} from '../../common/events/email-changed.event';
+import { ConsentService } from '../../consent/application/consent.service';
+import {
   USER_REPOSITORY,
+  type ProfileUpdate,
   type UserRepository,
 } from '../domain/user.repository';
 import type { UserEntity } from '../domain/user.entity';
@@ -51,7 +58,27 @@ export interface AuthContext {
   id: string;
   email: string;
   role: Role;
+  /** Access tokens issued before this are rejected (O15 containment). */
+  sessionsRevokedAt: Date | null;
 }
+
+/**
+ * Outcome of a login attempt (O15). Callers turn every failure into the
+ * same generic 401 — the reason only feeds the audit log and detection.
+ */
+export type CredentialCheck =
+  | { ok: true; user: UserResponseDto }
+  | {
+      ok: false;
+      reason: 'unknown-email' | 'bad-password' | 'locked' | 'disabled';
+      userId: string | null;
+      role: Role | null;
+    };
+
+// Compared against when the email doesn't exist, so a login for an unknown
+// email costs the same bcrypt time as a wrong password — response timing
+// doesn't reveal which emails have accounts.
+const DUMMY_HASH = bcrypt.hashSync('timing-equalizer-not-a-password', 12);
 
 export interface TwoFactorSetup {
   secret: string;
@@ -67,6 +94,7 @@ export class UsersService {
   constructor(
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
     private readonly events: EventEmitter2,
+    private readonly consent: ConsentService,
   ) {}
 
   async register(dto: RegisterUserDto): Promise<UserResponseDto> {
@@ -108,7 +136,14 @@ export class UsersService {
    */
   async findAuthContext(id: string): Promise<AuthContext | null> {
     const user = await this.users.findById(id);
-    return user ? { id: user.id, email: user.email, role: user.role } : null;
+    // Erased or disabled (O15) = no session works, from the next request on.
+    if (!user || user.deletedAt || user.disabledAt) return null;
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      sessionsRevokedAt: user.sessionsRevokedAt,
+    };
   }
 
   /** Another user's public profile — id + displayName only (issue #146). */
@@ -124,14 +159,105 @@ export class UsersService {
    * wrong-password outcome (null either way) on purpose: doesn't leak which
    * emails are registered.
    */
-  async validateCredentials(
+  async checkCredentials(
     email: string,
     password: string,
-  ): Promise<UserResponseDto | null> {
+  ): Promise<CredentialCheck> {
     const user = await this.users.findByEmail(email);
-    if (!user) return null;
+    if (!user || user.deletedAt) {
+      await bcrypt.compare(password, DUMMY_HASH);
+      return { ok: false, reason: 'unknown-email', userId: null, role: null };
+    }
+    const fail = (reason: 'bad-password' | 'locked' | 'disabled') =>
+      ({ ok: false, reason, userId: user.id, role: user.role }) as const;
+    if (user.disabledAt) return fail('disabled');
+    // While locked the password isn't even evaluated, so guessing during
+    // the lock teaches the attacker nothing.
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      return fail('locked');
+    }
     const matches = await bcrypt.compare(password, user.passwordHash);
-    return matches ? this.toResponseDto(user) : null;
+    return matches
+      ? { ok: true, user: this.toResponseDto(user) }
+      : fail('bad-password');
+  }
+
+  /** Step-up re-authentication (O15): the password of an already-logged-in account. */
+  async verifyPassword(userId: string, password: string): Promise<boolean> {
+    const user = await this.users.findById(userId);
+    if (!user || user.deletedAt || user.disabledAt) return false;
+    return bcrypt.compare(password, user.passwordHash);
+  }
+
+  /**
+   * Rectification (O15, ACTIVIDAD_5.md §2.3). Values were already validated
+   * by the DTO (same rules as registration); this adds the rules that need
+   * the database. An email change must be unique, drops the verification
+   * mark, ends every session and tells the *old* address — if someone else
+   * made the change, that's how the owner finds out.
+   * Returns the names of the fields that actually changed (never values).
+   */
+  async rectifyProfile(
+    userId: string,
+    update: ProfileUpdate,
+  ): Promise<string[]> {
+    const user = await this.users.findById(userId);
+    if (!user || user.deletedAt) {
+      throw new BadRequestException('User not found');
+    }
+    const changes: ProfileUpdate = {};
+    if (
+      update.displayName !== undefined &&
+      update.displayName !== user.displayName
+    ) {
+      changes.displayName = update.displayName;
+    }
+    if (
+      update.language !== undefined &&
+      update.language !== user.settings?.language
+    ) {
+      changes.language = update.language;
+    }
+    // Compared and stored exactly like registration does (no case folding),
+    // so the @unique email and findByEmail keep meaning the same thing.
+    const newEmail = update.email?.trim();
+    if (newEmail !== undefined && newEmail !== user.email) {
+      if (await this.users.findByEmail(newEmail)) {
+        throw new ConflictException(
+          'An account with this email already exists',
+        );
+      }
+      changes.email = newEmail;
+    }
+    const fields = Object.keys(changes);
+    if (fields.length === 0) return [];
+
+    await this.users.updateProfile(userId, changes);
+    if (changes.email) {
+      await this.users.revokeSessions(userId, new Date());
+      this.events.emit(
+        EMAIL_CHANGED_EVENT,
+        new EmailChangedEvent(
+          user.email,
+          changes.displayName ?? user.displayName,
+        ),
+      );
+    }
+    return fields;
+  }
+
+  /** Containment (O15): refresh tokens deleted, every access token issued so far rejected. */
+  revokeSessions(userId: string): Promise<void> {
+    return this.users.revokeSessions(userId, new Date());
+  }
+
+  async setDisabled(userId: string, disabled: boolean): Promise<void> {
+    await this.users.setDisabled(userId, disabled ? new Date() : null);
+    if (disabled) await this.users.revokeSessions(userId, new Date());
+  }
+
+  lockUntil(userId: string, until: Date | null): Promise<void> {
+    return this.users.setLockedUntil(userId, until);
   }
 
   /**
@@ -178,6 +304,9 @@ export class UsersService {
     }
 
     await this.users.updateTwoFactor(userId, { secret, enabled: true });
+    // Enabling 2FA *is* the consent to keep the secret (O15) — recorded by
+    // the flow that proved a code, never by a bare toggle.
+    await this.consent.change(user, 'TWO_FACTOR', 'GRANTED', 'two-factor');
     return this.toResponseDto({
       ...user,
       settings: { ...user.settings!, twoFactorEnabled: true },
@@ -199,6 +328,7 @@ export class UsersService {
     }
 
     await this.users.updateTwoFactor(userId, { secret: null, enabled: false });
+    await this.consent.change(user, 'TWO_FACTOR', 'REVOKED', 'two-factor');
     return this.toResponseDto({
       ...user,
       settings: {
@@ -218,9 +348,9 @@ export class UsersService {
   }
 
   /**
-   * Bazaar distance (E6/F6, ROADMAP.md). Calling this endpoint at all is the
-   * consent — there's no separate "share my location" toggle, same pattern
-   * a dating-app-style location prompt uses. Raw lat/lng never leave this
+   * Bazaar distance (E6/F6, ROADMAP.md). Since O15 the consent is explicit
+   * and separate (POST /consents/me/LOCATION_DISTANCE): without a current
+   * one this refuses with 403 instead of storing anything. Raw lat/lng never leave this
    * boundary via UserResponseDto (see toResponseDto below); only
    * CardsService's searchListings() ever reads them back out, and only to
    * compute a distance, never to return the coordinates themselves.
@@ -240,6 +370,11 @@ export class UsersService {
     ) {
       throw new BadRequestException('Invalid lat/lng');
     }
+    if (!(await this.consent.hasConsent(userId, 'LOCATION_DISTANCE'))) {
+      throw new ForbiddenException(
+        'Location consent required (POST /consents/me/LOCATION_DISTANCE)',
+      );
+    }
     // Minimization (O14): coarsened to ~1 km *before* it reaches the
     // repository (and its encryption), see domain/location-precision.ts.
     await this.users.updateLocation(
@@ -252,10 +387,16 @@ export class UsersService {
     return this.toResponseDto(user);
   }
 
-  /** DELETE /users/me/location — withdraws the consent given by sharing it. */
-  async revokeLocation(userId: string): Promise<UserResponseDto> {
-    await this.users.clearLocation(userId);
-    const user = await this.users.findById(userId);
+  /**
+   * DELETE /users/me/location — kept for older app builds; same as DELETE
+   * /consents/me/LOCATION_DISTANCE (revokes, and erases the coordinates).
+   */
+  async revokeLocation(actor: {
+    id: string;
+    role: Role;
+  }): Promise<UserResponseDto> {
+    await this.consent.change(actor, 'LOCATION_DISTANCE', 'REVOKED', 'app');
+    const user = await this.users.findById(actor.id);
     if (!user) throw new BadRequestException('User not found');
     return this.toResponseDto(user);
   }

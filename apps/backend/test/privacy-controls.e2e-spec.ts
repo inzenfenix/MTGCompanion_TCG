@@ -9,6 +9,7 @@ import type { UserResponseDto } from './../src/users/presentation/dto/user-respo
 import {
   cleanupUsers,
   createApp,
+  grantConsent,
   registerAndLogin,
   type TestAccount,
 } from './helpers/o14-helpers';
@@ -125,6 +126,13 @@ describe('Privacy controls — minimization, pseudonymization, logs (e2e)', () =
   });
 
   describe('location: coarsened, encrypted, expiring, revocable', () => {
+    // O15: storing a location now needs an explicit consent first
+    // (consent.e2e-spec.ts covers the 403 without it).
+    beforeAll(async () => {
+      await grantConsent(app, seller.token, 'LOCATION_DISTANCE');
+      await grantConsent(app, bidder.token, 'LOCATION_DISTANCE');
+    });
+
     it('is stored rounded to ~1 km and encrypted', async () => {
       await http()
         .patch('/users/me/location')

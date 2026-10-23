@@ -45,8 +45,23 @@ model User {
   // they were born — so this is the moment they ticked that box, never a
   // birth date. Null only for accounts created before O14.
   adultConfirmedAt DateTime?
+  // ROADMAP.md O15 (docs/security/ACTIVIDAD_5.md). Account state used by
+  // JwtStrategy on every request, so each one takes effect immediately:
+  //   deletedAt         — erasure tombstone (POST /data-rights/requests ERASURE)
+  //                       for accounts that must keep their closed transactions;
+  //                       email/name/password are overwritten, login impossible.
+  //   disabledAt        — incident containment (POST /admin/security/users/:id/disable).
+  //   sessionsRevokedAt — access tokens issued before this instant are rejected
+  //                       and refresh tokens are deleted (containment, email change).
+  //   lockedUntil       — temporary lock after repeated failed logins (SecurityService).
+  deletedAt         DateTime?
+  disabledAt        DateTime?
+  sessionsRevokedAt DateTime?
+  lockedUntil       DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  consents      Consent[]
 
   settings      UserSettings?
   cards         Card[]         @relation("CardOwner")
@@ -76,7 +91,10 @@ model UserSettings {
   // O2) by PrismaUserRepository; never returned by any endpoint.
   twoFactorSecret  String?
 
-  notifyByEmail Boolean @default(true)
+  // Mirror of the EMAIL_NOTIFICATIONS consent (O15), kept in sync by
+  // ConsentService only — never written by anything else. Off by default:
+  // optional emails need an affirmative act, not a pre-ticked box.
+  notifyByEmail Boolean @default(false)
 
   // Bazaar "how far are they" distance (see TabSearch.tsx / F6-E6 in
   // ROADMAP.md). Calling PATCH /users/me/location *is* the consent — there's
@@ -126,20 +144,203 @@ model RefreshToken {
 // do, through POST /admin/pseudonyms/resolve, which itself gets logged here.
 // Append-only at the database level: migration 20261023120000 adds a trigger
 // that rejects UPDATE, DELETE and TRUNCATE on this table.
+//
+// O15 (ACTIVIDAD_5.md §3) adds:
+//   - seq + prevHash/hash: a keyed hash chain (HMAC-SHA256, key derived from
+//     PSEUDONYM_KEY) written under an advisory lock by AuditService, so
+//     editing, inserting or deleting a row in the middle — even by someone
+//     who can bypass the trigger — breaks GET /admin/audit/verify. Rows
+//     written before O15 have no hash and sit outside the chain.
+//   - resourceType/resourceRef: *what* was touched, as an internal id or a
+//     pseudonym — never a copy of the personal data itself.
+//   - actorRole nullable: failed logins for unknown emails have no account.
+//   - the trigger now lets purge-expired-data delete rows past the
+//     retention period (AUDIT_RETENTION_DAYS), and only those.
 model AuditLog {
   id              String   @id @default(uuid())
+  seq             BigInt   @unique @default(autoincrement())
   actorPseudonym  String
-  actorRole       Role
-  action          String // e.g. "admin.role.change", "support.transactions.read"
+  actorRole       Role?
+  action          String // e.g. "admin.role.change", "consent.revoke", "data.export"
   targetPseudonym String?
+  resourceType    String?
+  resourceRef     String?
   // Mandatory justification for support access to someone else's data
   // (validated in the DTO, which also rejects contact data inside it).
   reason          String?
-  outcome         String // "ALLOWED" | "DENIED"
+  outcome         String // "ALLOWED" | "DENIED" | "FAILED"
   createdAt       DateTime @default(now())
+  prevHash        String?
+  hash            String?
 
   @@index([createdAt])
+  @@index([actorPseudonym, action, createdAt])
   @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Consent (ROADMAP.md O15, docs/security/ACTIVIDAD_5.md §1). One row per
+// user × purpose — granting one purpose never touches another. Which
+// purposes exist, their current version and the exact text shown live in
+// code (src/consent/domain/consent-purposes.ts), not in a table: changing
+// the text is a code change with a version bump, reviewed like any other.
+// `status`/`version` are the current state (what ConsentService.hasConsent
+// reads); ConsentEvent is the history.
+// ─────────────────────────────────────────────────────────────────────────
+
+enum ConsentStatus {
+  GRANTED
+  REVOKED
+
+  @@map("consent_status")
+}
+
+model Consent {
+  id        String        @id @default(uuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   String
+  version   String
+  status    ConsentStatus
+  grantedAt DateTime
+  revokedAt DateTime?
+  updatedAt DateTime      @updatedAt
+
+  events ConsentEvent[]
+
+  @@unique([userId, purpose])
+  @@map("consents")
+}
+
+// History of every grant/revocation (art. 12: the controller must be able to
+// prove consent). Only what proves it: which version, the SHA-256 of the
+// exact text shown, when, and through which channel — no IP, no device or
+// browser fingerprint. A DB trigger rejects UPDATE (history can't be
+// rewritten); DELETE only happens through the cascade when the account
+// itself is erased.
+model ConsentEvent {
+  id        String        @id @default(uuid())
+  consentId String
+  consent   Consent       @relation(fields: [consentId], references: [id], onDelete: Cascade)
+  action    ConsentStatus
+  version   String
+  textHash  String
+  // "app" | "two-factor" | "migration" | "retention" | "erasure"
+  source    String
+  createdAt DateTime      @default(now())
+
+  @@index([consentId, createdAt])
+  @@map("consent_events")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Data-subject rights requests (ROADMAP.md O15, ACTIVIDAD_5.md §2). Every
+// request walks RECEIVED → VERIFIED → IN_EVALUATION → CLOSED with the
+// timestamp of each step, and closes as FULFILLED or DENIED (with a reason
+// code, art. 11: a denial must be grounded). dueAt = receivedAt + 30
+// calendar days (Ley 19.628 texto Ley 21.719, art. 11).
+//
+// userId has no FK on purpose: when an account with no transactions is
+// erased the user row disappears, and this row — proof that the request was
+// answered — must survive it without pointing at anyone. It never stores
+// the data itself: an access request's export is returned once and not
+// kept; a rectification stores which fields changed, never their values.
+// ─────────────────────────────────────────────────────────────────────────
+
+enum DataRightsType {
+  ACCESS
+  RECTIFICATION
+  ERASURE
+
+  @@map("data_rights_type")
+}
+
+enum DataRightsStatus {
+  RECEIVED
+  VERIFIED
+  IN_EVALUATION
+  CLOSED
+
+  @@map("data_rights_status")
+}
+
+enum DataRightsOutcome {
+  FULFILLED
+  DENIED
+
+  @@map("data_rights_outcome")
+}
+
+model DataRightsRequest {
+  id     String           @id @default(uuid())
+  userId String
+  type   DataRightsType
+  status DataRightsStatus @default(RECEIVED)
+  outcome DataRightsOutcome?
+
+  // "session" | "password" | "password+totp" — how identity was verified.
+  verificationMethod String?
+  // jti of the step-up token consumed by this request; @unique makes a
+  // replayed step-up token fail at the database, not just in code.
+  stepUpJti          String? @unique
+  // Field names only for RECTIFICATION (["displayName"]), a reason code for
+  // DENIED ("OPEN_TRANSACTIONS"), counts for ERASURE — never personal values.
+  details            Json?
+
+  receivedAt  DateTime  @default(now())
+  verifiedAt  DateTime?
+  evaluatedAt DateTime?
+  executedAt  DateTime?
+  closedAt    DateTime?
+  dueAt       DateTime
+
+  @@index([userId])
+  @@index([status, dueAt])
+  @@map("data_rights_requests")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Security alerts (ROADMAP.md O15, ACTIVIDAD_5.md §4–5). Raised automatically
+// by SecurityService's detection rules (status OPEN = "alerta"); an ADMIN
+// triages it to INVESTIGATING ("evento sospechoso"), then CONFIRMED
+// ("incidente confirmado", which starts the incident response plan) or
+// DISMISSED, and finally CLOSED. Subject is a pseudonym, details are counts
+// and windows — never an email, IP or token.
+// ─────────────────────────────────────────────────────────────────────────
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+
+  @@map("alert_severity")
+}
+
+enum AlertStatus {
+  OPEN
+  INVESTIGATING
+  CONFIRMED
+  DISMISSED
+  CLOSED
+
+  @@map("alert_status")
+}
+
+model SecurityAlert {
+  id               String        @id @default(uuid())
+  rule             String // e.g. "auth.bruteforce", "data.export.burst"
+  severity         AlertSeverity
+  status           AlertStatus   @default(OPEN)
+  subjectPseudonym String?
+  details          Json?
+  resolutionNote   String?
+  handledBy        String? // pseudonym of the ADMIN who last changed status
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([status, createdAt])
+  @@index([rule, subjectPseudonym, createdAt])
+  @@map("security_alerts")
 }
 
 // ─────────────────────────────────────────────────────────────────────────

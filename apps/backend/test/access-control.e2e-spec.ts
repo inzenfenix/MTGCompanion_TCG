@@ -178,7 +178,11 @@ describe('Access control — authentication, ownership and RBAC (e2e)', () => {
         },
       });
       expect(rows.length).toBeGreaterThanOrEqual(4);
-      const everything = JSON.stringify(await prisma.auditLog.findMany());
+      // seq (O15) is a BigInt — stringify it.
+      const everything = JSON.stringify(
+        await prisma.auditLog.findMany(),
+        (_k, v: unknown) => (typeof v === 'bigint' ? v.toString() : v),
+      );
       expect(everything).not.toContain(outsider.id);
       expect(everything).not.toContain(outsider.email);
     });

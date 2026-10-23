@@ -49,6 +49,15 @@ export interface AppConfig {
     pseudonymKey: string;
     locationTtlDays: number;
   };
+  // ROADMAP.md O15 (ACTIVIDAD_5.md §3–4). alertEmail: where SecurityService
+  // sends a heads-up for every new alert (the security on-call mailbox);
+  // unset = alerts only land in security_alerts. auditRetentionDays: how
+  // long audit rows and closed requests/alerts are kept before
+  // purge-expired-data deletes them (the DB trigger refuses < 365).
+  security: {
+    alertEmail?: string;
+    auditRetentionDays: number;
+  };
   payments: {
     mercadopago: {
       accessToken?: string;
@@ -141,6 +150,10 @@ const buildConfig = (): AppConfig => ({
   privacy: {
     pseudonymKey: process.env.PSEUDONYM_KEY ?? '',
     locationTtlDays: parseInt(process.env.LOCATION_TTL_DAYS ?? '30', 10),
+  },
+  security: {
+    alertEmail: process.env.SECURITY_ALERT_EMAIL || undefined,
+    auditRetentionDays: parseInt(process.env.AUDIT_RETENTION_DAYS ?? '730', 10),
   },
   payments: {
     mercadopago: {

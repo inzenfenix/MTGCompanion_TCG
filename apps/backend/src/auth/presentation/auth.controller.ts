@@ -6,6 +6,7 @@ import { TwoFactorCodeDto } from './dto/two-factor-code.dto';
 import { TwoFactorVerifyDto } from './dto/two-factor-verify.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { StepUpDto } from './dto/step-up.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import type { RequestUser } from './jwt.strategy';
 
@@ -32,6 +33,14 @@ export class AuthController {
   @Post('2fa/verify')
   verifyTwoFactor(@Body() dto: TwoFactorVerifyDto) {
     return this.auth.verifyTwoFactor(dto.twoFactorToken, dto.code);
+  }
+
+  // ROADMAP.md O15 — re-authentication for high-risk rights requests
+  // (export, email change, erasure). Returns a 5-minute, single-use token.
+  @UseGuards(JwtAuthGuard)
+  @Post('step-up')
+  stepUp(@CurrentUser() user: RequestUser, @Body() dto: StepUpDto) {
+    return this.auth.stepUp(user, dto.password, dto.code);
   }
 
   // Enrollment (all three require an existing session — you can only turn

@@ -17,6 +17,11 @@ export interface UserEntity {
   role: Role;
   // When the 18+ declaration was made — never a birth date (ACTIVIDAD_4.md §1).
   adultConfirmedAt: Date | null;
+  // Account state (ROADMAP.md O15) — see the User model in schema.prisma.
+  deletedAt: Date | null;
+  disabledAt: Date | null;
+  sessionsRevokedAt: Date | null;
+  lockedUntil: Date | null;
   createdAt: Date;
   settings: {
     language: string;

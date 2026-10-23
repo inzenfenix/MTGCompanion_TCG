@@ -114,6 +114,13 @@ describe('Database-level controls (e2e)', () => {
         ['CREATE a table', `CREATE TABLE "exfil" (x text)`],
         ['read migration history', `SELECT * FROM "_prisma_migrations"`],
         ['write the catalog', `DELETE FROM "catalog_cards"`],
+        // O15 (ACTIVIDAD_5.md §5)
+        [
+          'rewrite consent history',
+          `UPDATE "consent_events" SET "action" = 'GRANTED'`,
+        ],
+        ['delete rights requests', `DELETE FROM "data_rights_requests"`],
+        ['delete security alerts', `DELETE FROM "security_alerts"`],
       ])('cannot %s', async (_what, sql) => {
         await expect(appDb.query(sql)).rejects.toThrow(
           /permission denied|must be owner/,

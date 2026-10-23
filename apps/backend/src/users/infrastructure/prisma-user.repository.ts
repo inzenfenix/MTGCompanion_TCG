@@ -4,6 +4,7 @@ import type { Prisma } from '../../../generated/prisma';
 import { PrismaService } from '../../prisma/prisma.service';
 import type {
   CreateUserData,
+  ProfileUpdate,
   TwoFactorUpdate,
   UserRepository,
 } from '../domain/user.repository';
@@ -101,15 +102,44 @@ export class PrismaUserRepository implements UserRepository {
     });
   }
 
-  async clearLocation(userId: string): Promise<void> {
-    await this.prisma.userSettings.update({
-      where: { userId },
+  async updateProfile(userId: string, data: ProfileUpdate): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
       data: {
-        shareLocation: false,
-        lastLat: null,
-        lastLng: null,
-        locationUpdatedAt: null,
+        ...(data.displayName !== undefined
+          ? { displayName: data.displayName }
+          : {}),
+        ...(data.email !== undefined
+          ? { email: data.email, emailVerifiedAt: null }
+          : {}),
+        ...(data.language !== undefined
+          ? { settings: { update: { language: data.language } } }
+          : {}),
       },
+    });
+  }
+
+  async revokeSessions(userId: string, at: Date): Promise<void> {
+    await this.prisma.$transaction([
+      this.prisma.refreshToken.deleteMany({ where: { userId } }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { sessionsRevokedAt: at },
+      }),
+    ]);
+  }
+
+  async setDisabled(userId: string, disabledAt: Date | null): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { disabledAt },
+    });
+  }
+
+  async setLockedUntil(userId: string, until: Date | null): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { lockedUntil: until },
     });
   }
 }

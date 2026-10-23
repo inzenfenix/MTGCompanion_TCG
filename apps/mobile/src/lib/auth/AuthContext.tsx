@@ -25,6 +25,8 @@ type AuthContextValue = {
   register: (input: api.RegisterUserInput) => Promise<api.User>;
   login: (input: api.LoginInput) => Promise<api.User>;
   logout: () => void;
+  /** After a rectification (ROADMAP.md O15) — keeps the cached user in sync. */
+  updateUser: (patch: Partial<api.User>) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -94,9 +96,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     clearSession();
   }, [clearSession]);
 
+  const updateUser = useCallback((patch: Partial<api.User>) => {
+    const stored = readStoredSession();
+    if (!stored) return;
+    persistSession({ ...stored, user: { ...stored.user, ...patch } });
+  }, [persistSession]);
+
   const value = useMemo(
-    () => ({ user, isLoading, register, login, logout }),
-    [user, isLoading, register, login, logout],
+    () => ({ user, isLoading, register, login, logout, updateUser }),
+    [user, isLoading, register, login, logout, updateUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

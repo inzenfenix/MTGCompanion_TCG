@@ -16,6 +16,10 @@ import {
   OFFER_PLACED_EVENT,
   OfferPlacedEvent,
 } from '../../common/events/offer-placed.event';
+import {
+  OFFER_RECEIVED_EVENT,
+  OfferReceivedEvent,
+} from '../../common/events/offer-received.event';
 
 /**
  * Every new offer extends a card's auction by this much (ROADMAP.md J12,
@@ -102,6 +106,10 @@ export class OffersService {
     this.events.emit(
       OFFER_PLACED_EVENT,
       new OfferPlacedEvent(cardId, this.toPublic(offer), closesAt),
+    );
+    this.events.emit(
+      OFFER_RECEIVED_EVENT,
+      new OfferReceivedEvent(card.ownerId, card.title, amount),
     );
     return { offer: this.toPublic(offer, bidderId), closesAt };
   }

@@ -24,6 +24,9 @@ const EXPECTED: Record<Permission, Record<Role, boolean>> = {
   [Permission.AUDIT_READ]: { USER: false, SUPPORT: false, ADMIN: true },
   [Permission.REPORTS_READ]: { USER: false, SUPPORT: false, ADMIN: true },
   [Permission.PSEUDONYM_RESOLVE]: { USER: false, SUPPORT: false, ADMIN: true },
+  // ROADMAP.md O15 / ACTIVIDAD_5.md
+  [Permission.DATA_REQUESTS_READ]: { USER: false, SUPPORT: true, ADMIN: true },
+  [Permission.INCIDENT_RESPONSE]: { USER: false, SUPPORT: false, ADMIN: true },
 };
 
 describe('RBAC matrix (ROADMAP.md O14)', () => {

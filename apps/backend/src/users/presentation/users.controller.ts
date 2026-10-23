@@ -27,8 +27,8 @@ export class UsersController {
     return this.users.register(dto);
   }
 
-  // Bazaar distance (E6/F6, ROADMAP.md) — sending this at all is the
-  // consent (Tinder-style location prompt, no separate settings toggle).
+  // Bazaar distance (E6/F6, ROADMAP.md) — 403 unless the caller holds a
+  // current LOCATION_DISTANCE consent (O15, POST /consents/me/:purpose).
   @UseGuards(JwtAuthGuard)
   @Patch('me/location')
   updateLocation(
@@ -38,12 +38,12 @@ export class UsersController {
     return this.users.updateLocation(user.id, dto.lat, dto.lng);
   }
 
-  // Revocation (ROADMAP.md O14): sharing location was the consent, this
-  // withdraws it — the coordinates are erased, not just hidden.
+  // Revocation (ROADMAP.md O14/O15): same as DELETE
+  // /consents/me/LOCATION_DISTANCE — the coordinates are erased, not hidden.
   @UseGuards(JwtAuthGuard)
   @Delete('me/location')
   revokeLocation(@CurrentUser() user: RequestUser) {
-    return this.users.revokeLocation(user.id);
+    return this.users.revokeLocation(user);
   }
 
   // Another user's public profile (seller name on the Buy page, counterparty

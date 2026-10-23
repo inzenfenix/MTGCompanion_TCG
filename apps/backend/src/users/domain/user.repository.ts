@@ -24,10 +24,24 @@ export interface UserRepository {
   findById(id: string): Promise<UserEntity | null>;
   create(data: CreateUserData): Promise<UserEntity>;
   updateTwoFactor(userId: string, data: TwoFactorUpdate): Promise<void>;
-  /** Calling this at all is the consent — see UserSettings.shareLocation's doc comment in schema.prisma. */
+  /** Only reachable with a current LOCATION_DISTANCE consent (UsersService.updateLocation, O15). */
   updateLocation(userId: string, lat: number, lng: number): Promise<void>;
-  /** Revokes location sharing (O14): flag off *and* the stored coordinates erased, not just hidden. */
-  clearLocation(userId: string): Promise<void>;
+  /** Rectification (O15). An email change also clears emailVerifiedAt. */
+  updateProfile(userId: string, data: ProfileUpdate): Promise<void>;
+  /**
+   * Account state (O15). revokeSessions deletes every refresh token and
+   * stamps sessionsRevokedAt, which JwtStrategy compares with each access
+   * token's `iat` — so already-issued access tokens die too.
+   */
+  revokeSessions(userId: string, at: Date): Promise<void>;
+  setDisabled(userId: string, disabledAt: Date | null): Promise<void>;
+  setLockedUntil(userId: string, until: Date | null): Promise<void>;
+}
+
+export interface ProfileUpdate {
+  displayName?: string;
+  email?: string;
+  language?: string;
 }
 
 export const USER_REPOSITORY = Symbol('USER_REPOSITORY');

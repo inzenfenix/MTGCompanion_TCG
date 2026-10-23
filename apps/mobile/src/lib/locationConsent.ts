@@ -1,24 +1,16 @@
-// ROADMAP.md O14 — remembers on this device that the player withdrew
-// location sharing (Security settings), so TabSearch stops re-sending it on
-// every Bazaar visit. The backend already erased the stored value
-// (DELETE /users/me/location); this only stops the client from re-sharing.
-// The searcher's own position is still used for that one search's
+import * as api from './api';
+
+// ROADMAP.md O15 — the server is the only source of truth for location
+// consent (it used to be a localStorage opt-out flag, O14). TabSearch asks
+// here before saving a position: without a current LOCATION_DISTANCE
+// consent nothing is sent at all (the backend would refuse it with 403
+// anyway). The searcher's own position is still used for that one search's
 // distances — sent as a query parameter, never stored server-side.
-const KEY = 'mtg.location.optOut';
-
-export function isLocationSharingOptedOut(): boolean {
+export async function hasLocationConsent(): Promise<boolean> {
   try {
-    return localStorage.getItem(KEY) === '1';
+    const consents = await api.getMyConsents();
+    return consents.some((c) => c.purpose === 'LOCATION_DISTANCE' && c.effective);
   } catch {
-    return false;
-  }
-}
-
-export function setLocationSharingOptedOut(optedOut: boolean): void {
-  try {
-    if (optedOut) localStorage.setItem(KEY, '1');
-    else localStorage.removeItem(KEY);
-  } catch {
-    /* private mode / storage blocked — the server-side revoke still happened */
+    return false; // fail closed
   }
 }

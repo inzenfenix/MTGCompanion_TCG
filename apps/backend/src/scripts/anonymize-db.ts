@@ -15,7 +15,8 @@
  *     every password → the same known dev password (so devs can log in);
  *     createdAt/adultConfirmedAt/emailVerifiedAt truncated to the day.
  *   - user_settings: 2FA secret, location and its timestamp erased.
- *   - refresh_tokens, card_photos: deleted. audit_logs: emptied (its
+ *   - refresh_tokens, card_photos, data_rights_requests, security_alerts
+ *     (O15): deleted. audit_logs: emptied (its
  *     append-only trigger is disabled for that one statement — possible
  *     only as the table owner, which the app's runtime role shouldn't be).
  *   - cards.description (free text) → null; transactions.paymentRef (a
@@ -60,6 +61,10 @@ export async function anonymizeDatabase(prisma: PrismaClient) {
          SET "paymentRef" = NULL,
              "createdAt"  = date_trunc('day', "createdAt"),
              "updatedAt"  = date_trunc('day', "updatedAt")`;
+    // O15: rights requests and alerts tie pseudonyms/ids to dates of
+    // specific actions a developer never needs — dropped, like the log.
+    await tx.$executeRaw`DELETE FROM "data_rights_requests"`;
+    await tx.$executeRaw`DELETE FROM "security_alerts"`;
     await tx.$executeRaw`ALTER TABLE "audit_logs" DISABLE TRIGGER "audit_logs_no_truncate"`;
     await tx.$executeRaw`TRUNCATE "audit_logs"`;
     await tx.$executeRaw`ALTER TABLE "audit_logs" ENABLE TRIGGER "audit_logs_no_truncate"`;

@@ -349,9 +349,11 @@ export function searchCatalogByText(q: string, limit = 10): Promise<CatalogEntry
   return request<CatalogEntry[]>(`/catalog/search-by-text?${qs.toString()}`);
 }
 
-// Sending this at all is the consent — see users.controller.ts's doc
-// comment. Only called after the browser's own geolocation permission
-// prompt has already succeeded.
+// Since ROADMAP.md O15 the backend answers 403 unless the player holds a
+// current LOCATION_DISTANCE consent (Privacy screen) — the browser's
+// geolocation prompt alone is no longer treated as consent. Only called
+// after that prompt succeeded, and only when the consent is effective
+// (see lib/locationConsent.ts).
 export function updateMyLocation(lat: number, lng: number): Promise<User> {
   return request<User>('/users/me/location', {
     method: 'PATCH',
@@ -359,10 +361,116 @@ export function updateMyLocation(lat: number, lng: number): Promise<User> {
   });
 }
 
-// Withdraws that consent (ROADMAP.md O14): the backend erases the stored
-// coordinates. See lib/locationConsent.ts for not re-sharing afterwards.
-export function revokeMyLocation(): Promise<User> {
-  return request<User>('/users/me/location', { method: 'DELETE' });
+// ── Consent (ROADMAP.md O15, docs/security/ACTIVIDAD_5.md §1) ─────────────
+
+export type ConsentPurposeCode = 'LOCATION_DISTANCE' | 'EMAIL_NOTIFICATIONS' | 'TWO_FACTOR';
+
+export type ConsentPurpose = {
+  code: ConsentPurposeCode;
+  version: string;
+  title: string;
+  text: string;
+  dataCategories: string[];
+  retention: string;
+  onRevoke: string;
+  selfService: boolean;
+  managedBy?: string;
+  textHash: string;
+};
+
+export type ConsentState = {
+  purpose: ConsentPurposeCode;
+  title: string;
+  currentVersion: string;
+  status: 'GRANTED' | 'REVOKED' | 'NONE';
+  acceptedVersion: string | null;
+  requiresReconsent: boolean;
+  effective: boolean;
+  grantedAt: string | null;
+  revokedAt: string | null;
+  selfService: boolean;
+};
+
+export type ConsentHistoryEntry = {
+  purpose: ConsentPurposeCode;
+  action: 'GRANTED' | 'REVOKED';
+  version: string;
+  textHash: string;
+  source: string;
+  createdAt: string;
+};
+
+/** Public: the exact text of each purpose, readable before deciding. */
+export function getConsentPurposes(): Promise<ConsentPurpose[]> {
+  return request<ConsentPurpose[]>('/consents/purposes');
+}
+
+export function getMyConsents(): Promise<ConsentState[]> {
+  return request<ConsentState[]>('/consents/me');
+}
+
+export function getMyConsentHistory(): Promise<ConsentHistoryEntry[]> {
+  return request<ConsentHistoryEntry[]>('/consents/me/history');
+}
+
+/** `version` = the version of the text this screen displayed. */
+export function grantConsent(purpose: ConsentPurposeCode, version: string): Promise<ConsentState> {
+  return request<ConsentState>(`/consents/me/${purpose}`, {
+    method: 'POST',
+    body: JSON.stringify({ version }),
+  });
+}
+
+export function revokeConsent(purpose: ConsentPurposeCode): Promise<ConsentState> {
+  return request<ConsentState>(`/consents/me/${purpose}`, { method: 'DELETE' });
+}
+
+// ── Data-subject rights (ROADMAP.md O15, ACTIVIDAD_5.md §2) ───────────────
+
+/**
+ * Re-authentication for risky requests (export, email change, erasure):
+ * returns a 5-minute, single-use token. `code` only when 2FA is enabled.
+ */
+export function stepUp(password: string, code?: string): Promise<{ stepUpToken: string; method: string }> {
+  return request('/auth/step-up', {
+    method: 'POST',
+    body: JSON.stringify(code ? { password, code } : { password }),
+  });
+}
+
+export type RightsType = 'ACCESS' | 'RECTIFICATION' | 'ERASURE';
+
+export type RightsRequest = {
+  id: string;
+  type: RightsType;
+  status: 'RECEIVED' | 'VERIFIED' | 'IN_EVALUATION' | 'CLOSED';
+  outcome: 'FULFILLED' | 'DENIED' | null;
+  message: string | null;
+  verificationMethod: string | null;
+  details: Record<string, unknown> | null;
+  receivedAt: string;
+  verifiedAt: string | null;
+  evaluatedAt: string | null;
+  executedAt: string | null;
+  closedAt: string | null;
+  dueAt: string;
+};
+
+export type RightsRequestInput = {
+  type: RightsType;
+  stepUpToken?: string;
+  rectification?: { displayName?: string; email?: string; language?: string };
+  confirmErasure?: boolean;
+};
+
+export function submitRightsRequest(
+  input: RightsRequestInput,
+): Promise<{ request: RightsRequest; export?: Record<string, unknown> }> {
+  return request('/data-rights/requests', { method: 'POST', body: JSON.stringify(input) });
+}
+
+export function listMyRightsRequests(): Promise<RightsRequest[]> {
+  return request<RightsRequest[]>('/data-rights/requests');
 }
 
 export function getCard(id: string): Promise<Card> {

@@ -22,6 +22,9 @@ import { OffersModule } from './offers/offers.module';
 import { DecksModule } from './decks/decks.module';
 import { CouponsModule } from './coupons/coupons.module';
 import { AdminModule } from './admin/admin.module';
+import { ConsentModule } from './consent/consent.module';
+import { DataRightsModule } from './data-rights/data-rights.module';
+import { SecurityModule } from './security/security.module';
 
 @Module({
   imports: [
@@ -43,6 +46,10 @@ import { AdminModule } from './admin/admin.module';
     DecksModule,
     CouponsModule,
     AdminModule,
+    // ROADMAP.md O15 (docs/security/ACTIVIDAD_5.md)
+    ConsentModule,
+    DataRightsModule,
+    SecurityModule,
   ],
   controllers: [AppController],
   providers: [

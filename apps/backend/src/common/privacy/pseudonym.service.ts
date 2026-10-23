@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, hkdfSync, timingSafeEqual } from 'node:crypto';
 
 /**
  * Pseudonymization (ROADMAP.md O14, docs/security/ACTIVIDAD_4.md §2): turns
@@ -48,6 +48,18 @@ export class PseudonymService {
       );
     }
     this.key = key;
+  }
+
+  /**
+   * A separate 32-byte key for another purpose (HKDF-SHA256, `label` as
+   * info) — e.g. the audit log's hash chain (O15). Derived rather than a new
+   * secret so deploys don't need another Secrets Manager entry, while still
+   * never using the same key bytes for two different jobs.
+   */
+  deriveKey(label: string): Buffer {
+    return Buffer.from(
+      hkdfSync('sha256', this.key, Buffer.alloc(0), label, 32),
+    );
   }
 
   pseudonymize(userId: string, scope: string = AUDIT_SCOPE): string {

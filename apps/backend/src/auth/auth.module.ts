@@ -40,6 +40,9 @@ import { JwtStrategy } from './presentation/jwt.strategy';
       useClass: PrismaRefreshTokenRepository,
     },
   ],
-  exports: [JwtModule], // so other modules' guards (JwtAuthGuard -> JwtStrategy) resolve without re-registering JwtModule
+  // JwtModule: so other modules' guards (JwtAuthGuard -> JwtStrategy) resolve
+  // without re-registering it. AuthService: DataRightsModule checks step-up
+  // tokens with it (ROADMAP.md O15).
+  exports: [JwtModule, AuthService],
 })
 export class AuthModule {}

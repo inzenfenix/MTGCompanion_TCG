@@ -1,9 +1,19 @@
-import { createHash, randomBytes } from 'node:crypto';
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import ms from 'ms';
 import type { AppConfig } from '../../config/configuration';
+import {
+  ANONYMOUS_ACTOR,
+  AuditService,
+} from '../../common/audit/audit.service';
+import type { Role } from '../../common/auth/permissions';
 import { UsersService } from '../../users/application/users.service';
 import type { UserResponseDto } from '../../users/presentation/dto/user-response.dto';
 import {
@@ -15,6 +25,31 @@ import type { LoginDto } from '../presentation/dto/login.dto';
 export interface JwtPayload {
   sub: string; // userId
   email: string;
+  iat?: number; // set by jsonwebtoken — compared with User.sessionsRevokedAt (O15)
+}
+
+/**
+ * Step-up re-authentication (ROADMAP.md O15, ACTIVIDAD_5.md §2.1): proof
+ * that the person holding a session *right now* knows the password (and
+ * the TOTP code, when 2FA is on). Required for the riskiest rights requests
+ * — exporting everything, changing the email, erasing the account — so a
+ * stolen access token alone isn't enough. 5 minutes, one use: the jti is
+ * stored @unique on the request that consumes it. JwtStrategy rejects
+ * `typ: 'step-up'`, so it can't be used as a bearer token either.
+ */
+export interface StepUpPayload {
+  sub: string;
+  typ: 'step-up';
+  jti: string;
+  amr: StepUpMethod;
+}
+export type StepUpMethod = 'password' | 'password+totp';
+export const STEP_UP_TTL_SECONDS = 300;
+
+export interface StepUpResult {
+  stepUpToken: string;
+  method: StepUpMethod;
+  expiresIn: number;
 }
 
 // Signed with the same secret as a real access token but deliberately
@@ -54,15 +89,27 @@ export class AuthService {
     private readonly config: ConfigService<AppConfig, true>,
     @Inject(REFRESH_TOKEN_REPOSITORY)
     private readonly refreshTokens: RefreshTokenRepository,
+    private readonly audit: AuditService,
   ) {}
 
   async login(dto: LoginDto): Promise<LoginResult | TwoFactorChallengeResult> {
-    const user = await this.users.validateCredentials(dto.email, dto.password);
-    if (!user) {
-      // Same message for "no such email" and "wrong password" — see the
-      // comment on UsersService.validateCredentials for why.
+    const check = await this.users.checkCredentials(dto.email, dto.password);
+    if (!check.ok) {
+      // Audited (O15) with the account's pseudonym when there is one —
+      // that's what SecurityService counts to detect brute force — and
+      // never with the email typed in. The response stays the same generic
+      // 401 for every reason, so it doesn't reveal which emails exist or
+      // that an account is locked.
+      await this.audit.record({
+        actorId: check.userId ?? ANONYMOUS_ACTOR,
+        actorRole: check.role,
+        action: 'auth.login',
+        reason: check.reason,
+        outcome: check.reason === 'bad-password' ? 'FAILED' : 'DENIED',
+      });
       throw new UnauthorizedException('Invalid email or password');
     }
+    const user = check.user;
 
     if (user.settings.twoFactorEnabled) {
       const twoFactorToken = this.jwt.sign(
@@ -97,16 +144,24 @@ export class AuthService {
       );
     }
 
-    const valid = await this.users.verifyTwoFactorCode(payload.sub, code);
-    if (!valid) {
-      throw new UnauthorizedException('Invalid two-factor code');
-    }
-
     const user = await this.users.findById(payload.sub);
-    if (!user) {
+    // Disabled/erased between the two steps → same answer as a bad challenge.
+    const ctx = await this.users.findAuthContext(payload.sub);
+    if (!user || !ctx) {
       throw new UnauthorizedException(
         'Invalid or expired two-factor challenge',
       );
+    }
+
+    const valid = await this.users.verifyTwoFactorCode(payload.sub, code);
+    if (!valid) {
+      await this.audit.record({
+        actorId: user.id,
+        actorRole: user.role,
+        action: 'auth.2fa',
+        outcome: 'FAILED',
+      });
+      throw new UnauthorizedException('Invalid two-factor code');
     }
     return this.issueLoginResult(user);
   }
@@ -114,7 +169,85 @@ export class AuthService {
   private async issueLoginResult(user: UserResponseDto): Promise<LoginResult> {
     const accessToken = this.signAccessToken(user.id, user.email);
     const refreshToken = await this.issueRefreshToken(user.id);
+    await this.audit.record({
+      actorId: user.id,
+      actorRole: user.role,
+      action: 'auth.login',
+      outcome: 'ALLOWED',
+    });
     return { accessToken, refreshToken, user };
+  }
+
+  /** POST /auth/step-up — see StepUpPayload. */
+  async stepUp(
+    actor: { id: string; role: Role },
+    password: string,
+    code?: string,
+  ): Promise<StepUpResult> {
+    const user = await this.users.findById(actor.id);
+    const fail = async (reason: string) => {
+      await this.audit.record({
+        actorId: actor.id,
+        actorRole: actor.role,
+        action: 'auth.step-up',
+        reason,
+        outcome: 'FAILED',
+      });
+      throw new UnauthorizedException('Re-authentication failed');
+    };
+    if (!user) return fail('no-account');
+    if (!(await this.users.verifyPassword(actor.id, password))) {
+      return fail('bad-password');
+    }
+    let method: StepUpMethod = 'password';
+    if (user.settings.twoFactorEnabled) {
+      // Proportional to risk: an account that chose 2FA gets the same bar
+      // here as at login.
+      if (!code) {
+        throw new BadRequestException('Two-factor code required');
+      }
+      if (!(await this.users.verifyTwoFactorCode(actor.id, code))) {
+        return fail('bad-2fa-code');
+      }
+      method = 'password+totp';
+    }
+    const payload: StepUpPayload = {
+      sub: actor.id,
+      typ: 'step-up',
+      jti: randomUUID(),
+      amr: method,
+    };
+    await this.audit.record({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'auth.step-up',
+      reason: method,
+      outcome: 'ALLOWED',
+    });
+    return {
+      stepUpToken: this.jwt.sign(payload, { expiresIn: STEP_UP_TTL_SECONDS }),
+      method,
+      expiresIn: STEP_UP_TTL_SECONDS,
+    };
+  }
+
+  /**
+   * Validates a step-up token for `userId`. Returns its jti so the caller can
+   * store it (single use) — or null if it's missing, expired, forged or
+   * belongs to a different account.
+   */
+  checkStepUp(
+    token: string | undefined,
+    userId: string,
+  ): { jti: string; method: StepUpMethod } | null {
+    if (!token) return null;
+    try {
+      const p = this.jwt.verify<StepUpPayload>(token);
+      if (p.typ !== 'step-up' || p.sub !== userId || !p.jti) return null;
+      return { jti: p.jti, method: p.amr };
+    } catch {
+      return null;
+    }
   }
 
   // Rotates on every use: the presented token is deleted and a fresh one
@@ -134,10 +267,9 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
-    const user = await this.users.findById(stored.userId);
-    // Shouldn't normally happen — onDelete: Cascade removes a user's
-    // refresh tokens when the user itself is deleted — but don't sign a
-    // fresh access token for a user that turned out not to exist.
+    // findAuthContext, not findById: a disabled or erased account (O15)
+    // can't refresh its way back in either.
+    const user = await this.users.findAuthContext(stored.userId);
     if (!user) {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }

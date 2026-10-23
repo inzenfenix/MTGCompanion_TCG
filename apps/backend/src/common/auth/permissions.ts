@@ -33,6 +33,10 @@ export enum Permission {
   REPORTS_READ = 'reports:read',
   /** Re-link an audit-log pseudonym to an account — with a stated reason, audited. */
   PSEUDONYM_RESOLVE = 'pseudonym:resolve',
+  /** Track data-subject requests and their legal deadlines (O15) — pseudonymized, no request contents. */
+  DATA_REQUESTS_READ = 'data-requests:read',
+  /** Security alerts + containment: revoke sessions, disable/enable accounts (O15, incident response plan). */
+  INCIDENT_RESPONSE = 'security:incident',
 }
 
 export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
@@ -40,8 +44,13 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
   // "Personal autorizado": resolves disputes between buyer and seller, so it
   // may see who bought what (with a reason) and find the accounts involved
   // — but it can't change roles, read the audit log, run reports or undo
-  // pseudonyms.
-  SUPPORT: [Permission.USERS_LIST, Permission.TRANSACTIONS_READ_ANY],
+  // pseudonyms. O15: it also follows up data-subject requests (deadlines),
+  // but can't run incident containment.
+  SUPPORT: [
+    Permission.USERS_LIST,
+    Permission.TRANSACTIONS_READ_ANY,
+    Permission.DATA_REQUESTS_READ,
+  ],
   ADMIN: [
     Permission.USERS_LIST,
     Permission.ROLES_MANAGE,
@@ -49,6 +58,8 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     Permission.AUDIT_READ,
     Permission.REPORTS_READ,
     Permission.PSEUDONYM_RESOLVE,
+    Permission.DATA_REQUESTS_READ,
+    Permission.INCIDENT_RESPONSE,
   ],
 };
 
