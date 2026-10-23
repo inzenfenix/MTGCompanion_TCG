@@ -1,0 +1,76 @@
+# npx jest  (apps/backend, pruebas unitarias — sin base de datos)
+# Resultado por caso: [OK] pasó · [FALLA] falló.  61 pasaron, 0 fallaron, 61 en total; 6/6 suites OK.
+
+## minimization.spec.ts  (7/7)
+  [OK]    coarsens a GPS fix to 2 decimals (~1 km)
+  [OK]    treats a location older than the TTL as absent
+  [OK]    accepts the minimal set with the 18+ declaration
+  [OK]    requires the 18+ declaration to be exactly true (no birth date asked)
+  [OK]    rejects contact data in the public alias and overlong values
+  [OK]    publishes only cells backed by ≥ k=5 distinct buyers AND sellers
+  [OK]    carries no identifiers, no per-person counts, rounded totals
+
+## app.controller.spec.ts  (1/1)
+  [OK]    root › should return "Hello World!"
+
+## permissions.spec.ts  (25/25)
+  [OK]    USER may NOT users:list
+  [OK]    SUPPORT may users:list
+  [OK]    ADMIN may users:list
+  [OK]    USER may NOT roles:manage
+  [OK]    SUPPORT may NOT roles:manage
+  [OK]    ADMIN may roles:manage
+  [OK]    USER may NOT transactions:read:any
+  [OK]    SUPPORT may transactions:read:any
+  [OK]    ADMIN may transactions:read:any
+  [OK]    USER may NOT audit:read
+  [OK]    SUPPORT may NOT audit:read
+  [OK]    ADMIN may audit:read
+  [OK]    USER may NOT reports:read
+  [OK]    SUPPORT may NOT reports:read
+  [OK]    ADMIN may reports:read
+  [OK]    USER may NOT pseudonym:resolve
+  [OK]    SUPPORT may NOT pseudonym:resolve
+  [OK]    ADMIN may pseudonym:resolve
+  [OK]    USER holds no elevated permission at all (self-service is ownership, not RBAC)
+  [OK]    an unknown role gets nothing (fail closed)
+  [OK]    lets through a route that declares no permission
+  [OK]    allows a role that holds the permission, without auditing
+  [OK]    denies a role without it with a generic 403 and records the attempt
+  [OK]    requires every listed permission (AND)
+  [OK]    fails closed when no authenticated user is on the request
+
+## field-encryption.service.spec.ts  (14/14)
+  [OK]    round-trips: decrypt(encrypt(x)) === x
+  [OK]    stores v1:<iv>:<tag>:<ciphertext>, never the plaintext
+  [OK]    uses a fresh random IV: same value twice gives two different ciphertexts
+  [OK]    rejects a tampered ciphertext (GCM authentication)
+  [OK]    rejects a tampered auth tag
+  [OK]    cannot be decrypted with a different key
+  [OK]    refuses plaintext where an envelope is expected
+  [OK]    round-trips coordinates as numbers, nulls stay null
+  [OK]    rejects keys that are not 32 bytes, without echoing the key
+  [OK]    key rotation › still reads values written under the retired key
+  [OK]    key rotation › writes new values under the current key and flags old ones for re-encryption
+  [OK]    refuses to boot in production without JWT_SECRET / FIELD_ENCRYPTION_KEY, naming only the variables
+  [OK]    also requires PSEUDONYM_KEY in production (ROADMAP.md O14)
+  [OK]    boots in production when all are set, and never checks outside production
+
+## safe-exception.filter.spec.ts  (3/3)
+  [OK]    passes deliberate HTTP errors through unchanged
+  [OK]    wraps a string-bodied HttpException in the usual {statusCode, message} shape
+  [OK]    turns an internal error into a generic 500 that leaks nothing
+
+## privacy.spec.ts  (11/11)
+  [OK]    is stable: same id + scope → same pseudonym
+  [OK]    looks like u_<16 hex> and never contains the id
+  [OK]    is scoped: the same bidder gets unlinkable aliases on two different auctions
+  [OK]    is keyed: without the key the pseudonym cannot be recomputed
+  [OK]    resolve() re-identifies only with the key and the list of real ids
+  [OK]    refuses a short key, without echoing it
+  [OK]    masks an email down to first letters + TLD
+  [OK]    redacts emails, phone numbers, RUTs and JWTs in free text
+  [OK]    does not flag a CLP price as a phone number
+  [OK]    accepts a plain alias
+  [OK]    rejects an alias carrying an email or a phone
+
