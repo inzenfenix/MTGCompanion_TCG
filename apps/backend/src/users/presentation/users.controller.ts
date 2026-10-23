@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   NotFoundException,
   Param,
@@ -35,6 +36,14 @@ export class UsersController {
     @Body() dto: UpdateLocationDto,
   ) {
     return this.users.updateLocation(user.id, dto.lat, dto.lng);
+  }
+
+  // Revocation (ROADMAP.md O14): sharing location was the consent, this
+  // withdraws it — the coordinates are erased, not just hidden.
+  @UseGuards(JwtAuthGuard)
+  @Delete('me/location')
+  revokeLocation(@CurrentUser() user: RequestUser) {
+    return this.users.revokeLocation(user.id);
   }
 
   // Another user's public profile (seller name on the Buy page, counterparty

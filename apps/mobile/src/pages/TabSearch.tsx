@@ -17,6 +17,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../lib/auth/AuthContext';
 import * as api from '../lib/api';
+import { isLocationSharingOptedOut } from '../lib/locationConsent';
 
 // How long to wait after the user stops typing before hitting the backend —
 // matches CatalogService's MIN_QUERY_LENGTH reasoning: a global search over
@@ -56,9 +57,10 @@ const TabSearch: React.FC = () => {
       (pos) => {
         const { latitude, longitude } = pos.coords;
         setGeo({ status: 'granted', lat: latitude, lng: longitude });
-        if (user) {
+        if (user && !isLocationSharingOptedOut()) {
           // Fire-and-forget: a failed location save shouldn't block search,
           // it just means other users won't see a distance to this one yet.
+          // Skipped once the player withdrew sharing (O14, SecuritySettings).
           api.updateMyLocation(latitude, longitude).catch(() => {});
         }
       },

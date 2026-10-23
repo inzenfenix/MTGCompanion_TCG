@@ -141,7 +141,8 @@ const Buy: React.FC = () => {
   const resolvedOffer = auction?.wonOfferId
     ? auction.offers.find((o) => o.id === auction.wonOfferId)
     : null;
-  const didIWin = !!(resolvedOffer && user && resolvedOffer.bidderId === user.id);
+  // `mine` comes from the backend (bidder ids are no longer sent, O14).
+  const didIWin = !!(resolvedOffer && user && resolvedOffer.mine);
 
   // Preview only — matches CouponsService.validateAndPrice()'s own math
   // (min of the raw %, the flat cap, and the price itself) so what the

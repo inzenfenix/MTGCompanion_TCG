@@ -6,7 +6,7 @@ const API_BASE_URL: string =
 
 export interface AuctionUpdate {
   cardId: string;
-  offer: { id: string; cardId: string; bidderId: string; amount: number; createdAt: string };
+  offer: { id: string; cardId: string; bidderAlias: string; amount: number; createdAt: string };
   closesAt: string;
 }
 

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { maskEmail } from '../../common/privacy/redact';
 import { OnEvent } from '@nestjs/event-emitter';
 import {
   TRANSACTION_PAID_EVENT,
@@ -31,7 +32,7 @@ export class TransactionPaidListener {
         await this.notifications.sendPaymentReceiptEmail(to, params);
       } catch (err) {
         this.logger.error(
-          `Failed to send payment receipt to ${to} for transaction ${event.transactionId}`,
+          `Failed to send payment receipt to ${maskEmail(to)} for transaction ${event.transactionId}`,
           err instanceof Error ? err.stack : err,
         );
       }

@@ -1,0 +1,66 @@
+# Evidencia de esquema — node test/embedded-db/schema-evidence.mjs (2026-10-23 10:08)
+# Columnas antes / después de 20261023120000_rbac_audit_minimization
+# (PostgreSQL 16, information_schema.columns; "+" = columna nueva, "-" = eliminada)
+
+## users
+    id text
+    email text
+    passwordHash text
+    displayName text
+    emailVerifiedAt timestamp without time zone (nullable)
+    createdAt timestamp without time zone
+    updatedAt timestamp without time zone
+  + role USER-DEFINED
+  + adultConfirmedAt timestamp without time zone (nullable)
+
+## user_settings
+    id text
+    userId text
+    language text
+    theme text
+    twoFactorEnabled boolean
+    twoFactorSecret text (nullable)
+    notifyByEmail boolean
+    lastLat text (nullable)
+    lastLng text (nullable)
+    locationUpdatedAt timestamp without time zone (nullable)
+    shareLocation boolean
+
+## refresh_tokens
+    id text
+    tokenHash text
+    userId text
+    expiresAt timestamp without time zone
+    createdAt timestamp without time zone
+
+## transactions
+    id text
+    cardId text
+    buyerId text
+    sellerId text
+    amount numeric
+    status USER-DEFINED
+    paymentProvider text (nullable)
+    paymentRef text (nullable)
+    createdAt timestamp without time zone
+    updatedAt timestamp without time zone
+    paymentMethod USER-DEFINED
+
+## offers
+    id text
+    cardId text
+    bidderId text
+    amount numeric
+    createdAt timestamp without time zone
+
+## audit_logs  (tabla NUEVA)
+  + id text
+  + actorPseudonym text
+  + actorRole USER-DEFINED
+  + action text
+  + targetPseudonym text (nullable)
+  + reason text (nullable)
+  + outcome text
+  + createdAt timestamp without time zone
+
+# Drift migraciones <-> schema.prisma: sin diferencias (exit 0)

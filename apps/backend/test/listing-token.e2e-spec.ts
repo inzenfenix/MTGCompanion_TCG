@@ -34,7 +34,12 @@ describe('Listing token (e2e)', () => {
   ): Promise<{ id: string; accessToken: string }> {
     const register = await request(app.getHttpServer())
       .post('/users/register')
-      .send({ email: user.email, password: user.password, displayName })
+      .send({
+        email: user.email,
+        password: user.password,
+        displayName,
+        adultConfirmed: true,
+      })
       .expect(201);
     const login = await request(app.getHttpServer())
       .post('/auth/login')

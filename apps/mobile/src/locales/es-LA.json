@@ -269,5 +269,10 @@
   "photo_mode_manual": "Manual",
   "photo_mode_auto": "Auto-detectar (IA)",
   "auto_capture_intro": "Apunta la cámara a la carta y detéctala — esto confirma que es una carta de Magic, pero todavía no identifica exactamente cuál es.",
-  "use_this_photo": "Usar Este Cuadro"
+  "use_this_photo": "Usar Este Cuadro",
+
+  "register_adult_confirm": "Confirmo que soy mayor de 18 años",
+  "privacy_share_location": "Compartir mi ubicación aproximada en el Bazar",
+  "privacy_share_location_help": "Solo se usa para mostrar a qué distancia estás (redondeada a ~1 km, cifrada, se borra a los 30 días). Al desactivarlo se elimina.",
+  "privacy_share_location_error": "No se pudo actualizar. Intenta de nuevo."
 }

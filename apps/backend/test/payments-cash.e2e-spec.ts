@@ -54,7 +54,12 @@ describe('Payments — CASH (e2e)', () => {
   ): Promise<{ id: string; accessToken: string }> {
     const register = await request(app.getHttpServer())
       .post('/users/register')
-      .send({ email: user.email, password: user.password, displayName })
+      .send({
+        email: user.email,
+        password: user.password,
+        displayName,
+        adultConfirmed: true,
+      })
       .expect(201);
     const login = await request(app.getHttpServer())
       .post('/auth/login')
@@ -172,6 +177,8 @@ describe('Payments — CASH (e2e)', () => {
 
     const receipt = await request(app.getHttpServer())
       .get(`/transactions/${createdId}/receipt`)
+      // O14: the receipt is only for the two parties now.
+      .set('Authorization', `Bearer ${buyerToken}`)
       .expect(200);
     const receiptBody = receipt.body as ReceiptResponse;
 
@@ -212,6 +219,7 @@ describe('Payments — CASH (e2e)', () => {
 
     await request(app.getHttpServer())
       .get(`/transactions/${createdBody.id}/receipt`)
+      .set('Authorization', `Bearer ${buyerToken}`)
       .expect(400);
   });
 });

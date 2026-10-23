@@ -97,9 +97,20 @@ describe('assertProductionSecrets (ROADMAP.md O4)', () => {
     ).toThrow(/FIELD_ENCRYPTION_KEY/);
   });
 
-  it('boots in production when both are set, and never checks outside production', () => {
+  it('also requires PSEUDONYM_KEY in production (ROADMAP.md O14)', () => {
     expect(() =>
       assertProductionSecrets({ NODE_ENV: 'production', JWT_SECRET: 'x', FIELD_ENCRYPTION_KEY: key() }),
+    ).toThrow(/PSEUDONYM_KEY/);
+  });
+
+  it('boots in production when all are set, and never checks outside production', () => {
+    expect(() =>
+      assertProductionSecrets({
+        NODE_ENV: 'production',
+        JWT_SECRET: 'x',
+        FIELD_ENCRYPTION_KEY: key(),
+        PSEUDONYM_KEY: key(),
+      }),
     ).not.toThrow();
     expect(() => assertProductionSecrets({ NODE_ENV: 'development' })).not.toThrow();
   });

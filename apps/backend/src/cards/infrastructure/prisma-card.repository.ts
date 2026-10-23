@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { AppConfig } from '../../config/configuration';
 import { FieldEncryptionService } from '../../common/crypto/field-encryption.service';
+import { isLocationFresh } from '../../users/domain/location-precision';
 import { PrismaService } from '../../prisma/prisma.service';
 import type {
   AuctionStateUpdate,
@@ -23,6 +26,7 @@ export class PrismaCardRepository implements CardRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly fieldEncryption: FieldEncryptionService,
+    private readonly config: ConfigService<AppConfig, true>,
   ) {}
 
   async create(data: CreateCardData): Promise<CardEntity> {
@@ -110,7 +114,12 @@ export class PrismaCardRepository implements CardRepository {
           select: {
             displayName: true,
             settings: {
-              select: { lastLat: true, lastLng: true, shareLocation: true },
+              select: {
+                lastLat: true,
+                lastLng: true,
+                shareLocation: true,
+                locationUpdatedAt: true,
+              },
             },
           },
         },
@@ -119,8 +128,13 @@ export class PrismaCardRepository implements CardRepository {
       take: limit,
     });
 
+    const { locationTtlDays } = this.config.get('privacy', { infer: true });
     return cards.map(({ owner, ...card }) => {
-      const shares = owner.settings?.shareLocation ?? false;
+      // A location past LOCATION_TTL_DAYS (O14) counts as no location: an
+      // old fix is no longer "where the seller is", only where they were.
+      const shares =
+        (owner.settings?.shareLocation ?? false) &&
+        isLocationFresh(owner.settings?.locationUpdatedAt, locationTtlDays);
       return {
         ...card,
         guessedPrice: Number(card.guessedPrice),

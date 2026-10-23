@@ -269,5 +269,10 @@
   "photo_mode_manual": "Manuel",
   "photo_mode_auto": "Détection auto (IA)",
   "auto_capture_intro": "Pointez la caméra vers la carte et détectez-la — cela confirme que c'est une carte Magic, mais ne l'identifie pas encore précisément.",
-  "use_this_photo": "Utiliser Cette Image"
+  "use_this_photo": "Utiliser Cette Image",
+
+  "register_adult_confirm": "Je confirme avoir 18 ans ou plus",
+  "privacy_share_location": "Partager ma position approximative dans le Bazar",
+  "privacy_share_location_help": "Sert uniquement à afficher la distance aux acheteurs (arrondie à ~1 km, chiffrée, supprimée après 30 jours). La désactiver l’efface.",
+  "privacy_share_location_error": "Impossible de mettre à jour. Réessayez."
 }

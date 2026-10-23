@@ -269,5 +269,10 @@
   "photo_mode_manual": "Manual",
   "photo_mode_auto": "Auto-detect (AI)",
   "auto_capture_intro": "Point the camera at the card and detect it — this confirms it's a Magic card, but can't identify exactly which one yet.",
-  "use_this_photo": "Use This Frame"
+  "use_this_photo": "Use This Frame",
+
+  "register_adult_confirm": "I confirm I am 18 or older",
+  "privacy_share_location": "Share my approximate location in the Bazaar",
+  "privacy_share_location_help": "Only used to show buyers how far you are (rounded to ~1 km, encrypted, deleted after 30 days). Turning this off erases it.",
+  "privacy_share_location_error": "Could not update location sharing. Try again."
 }

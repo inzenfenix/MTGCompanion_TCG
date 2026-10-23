@@ -119,6 +119,16 @@ variable "field_encryption_key" {
   }
 }
 
+variable "pseudonym_key" {
+  description = "HMAC-SHA256 key that pseudonymizes user ids in the audit log and auction bidder aliases (PSEUDONYM_KEY env var, ROADMAP.md O14). 32+ random bytes, base64 — `openssl rand -base64 32`. Separate from field_encryption_key on purpose. Changing it changes every pseudonym (old audit entries can no longer be resolved)."
+  type        = string
+  sensitive   = true
+  validation {
+    condition     = can(base64decode(var.pseudonym_key)) && length(base64decode(var.pseudonym_key)) >= 32
+    error_message = "pseudonym_key must be at least 32 bytes, base64-encoded (openssl rand -base64 32)."
+  }
+}
+
 variable "mercadopago_access_token" {
   description = "MercadoPago Checkout Pro access token. Leave blank to keep MercadoPago-method transactions on NoopPaymentProvider (CASH always works regardless)."
   type        = string

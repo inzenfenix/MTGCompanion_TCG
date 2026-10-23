@@ -12,7 +12,7 @@ import type { CardEntity } from './../src/cards/domain/card.entity';
 
 interface AuctionUpdatePayload {
   cardId: string;
-  offer: { id: string; cardId: string; bidderId: string; amount: number };
+  offer: { id: string; cardId: string; bidderAlias: string; amount: number };
   closesAt: string;
 }
 
@@ -43,7 +43,12 @@ describe('Offers real-time (e2e)', () => {
   ): Promise<{ id: string; accessToken: string }> {
     const register = await request(app.getHttpServer())
       .post('/users/register')
-      .send({ email: user.email, password: user.password, displayName })
+      .send({
+        email: user.email,
+        password: user.password,
+        displayName,
+        adultConfirmed: true,
+      })
       .expect(201);
     const login = await request(app.getHttpServer())
       .post('/auth/login')

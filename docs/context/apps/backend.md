@@ -10,7 +10,7 @@ canonical over this summary; this file is the structural map.
 ## Module layout — DDD per module
 
 Every business module (`users`, `auth`, `cards`, `catalog`, `transactions`,
-`offers`, `decks`, `coupons`) follows the same 4-layer split:
+`offers`, `decks`, `coupons`, `admin`) follows the same 4-layer split:
 
 ```
 <module>/
@@ -33,8 +33,26 @@ the Python side.
 
 ## Prisma models (`prisma/schema.prisma`)
 
-`User`, `UserSettings`, `RefreshToken`, `Card`, `Deck`, `Offer`,
-`CardPhoto`, `CatalogCard`, `Transaction`, `Coupon`.
+`User` (with `role`: USER/SUPPORT/ADMIN), `UserSettings`, `RefreshToken`,
+`AuditLog` (pseudonymized, append-only by DB trigger), `Card`, `Deck`,
+`Offer`, `CardPhoto`, `CatalogCard`, `Transaction`, `Coupon`.
+
+## Privacy / access control (ROADMAP.md O14, `docs/security/ACTIVIDAD_4.md`)
+
+- **RBAC**: role → permission table in `src/common/auth/permissions.ts`
+  (the only place to change it); routes use
+  `@UseGuards(JwtAuthGuard, PermissionsGuard)` +
+  `@RequirePermissions(...)`. The role is re-read from the DB on every
+  request by `JwtStrategy` (not a JWT claim). Admin/support routes live in
+  `src/admin/`. First ADMIN: `npm run user:set-role -- <email> ADMIN`.
+- **Own-data rule**: `GET /transactions*` requires a session and only
+  returns the caller's own (403 otherwise).
+- **Global**: `PrivacyModule` (`PseudonymService`, needs `PSEUDONYM_KEY`),
+  `AuditModule` (`AuditService`, `PermissionsGuard`), `SafeExceptionFilter`
+  (APP_FILTER — generic 500s, redacted logs). Never log a full email:
+  use `maskEmail()` / `redactPersonalData()` from `common/privacy/redact.ts`.
+- **E2E without Docker**: `npm run test:e2e:embedded` (throwaway
+  PostgreSQL 16 from the `embedded-postgres` dev dependency).
 
 ## What's real vs. stubbed (as of this writing — check `backend/README.md` for current state)
 

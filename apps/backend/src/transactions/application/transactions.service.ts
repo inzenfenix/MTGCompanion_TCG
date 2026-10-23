@@ -155,6 +155,37 @@ export class TransactionsService {
     return transaction;
   }
 
+  /**
+   * GET /transactions/:id (ROADMAP.md O14). Used to answer anyone, logged in
+   * or not, with buyer/seller ids and the amount of any transaction whose id
+   * they had. Now only the two parties may read it; SUPPORT/ADMIN go through
+   * GET /admin/users/:id/transactions, which requires a reason and is audited.
+   */
+  async findOneForParticipant(id: string, requesterId: string) {
+    const transaction = await this.findOne(id);
+    if (
+      transaction.buyerId !== requesterId &&
+      transaction.sellerId !== requesterId
+    ) {
+      throw new ForbiddenException('Not a party to this transaction');
+    }
+    return transaction;
+  }
+
+  /**
+   * GET /transactions — the caller's own transactions only. `?userId=` is
+   * still accepted (the app sends its own id) but naming anyone else is a
+   * 403, not a lookup: it used to return any user's purchase/sale history to
+   * an anonymous caller.
+   */
+  findOwn(requesterId: string, userId?: string) {
+    if (userId && userId !== requesterId) {
+      throw new ForbiddenException('You can only list your own transactions');
+    }
+    return this.transactions.findForUser(requesterId);
+  }
+
+  /** Support/admin access — only reachable through AdminService, which audits it. */
   findForUser(userId: string) {
     return this.transactions.findForUser(userId);
   }
@@ -167,8 +198,8 @@ export class TransactionsService {
    * invoicing system requires SII registration/certification this project
    * doesn't have — hence the explicit disclaimer field.
    */
-  async getReceipt(id: string) {
-    const transaction = await this.findOne(id);
+  async getReceipt(id: string, requesterId: string) {
+    const transaction = await this.findOneForParticipant(id, requesterId);
     if (transaction.status !== 'PAID') {
       throw new BadRequestException(
         'Transaction not paid yet — no receipt to issue',

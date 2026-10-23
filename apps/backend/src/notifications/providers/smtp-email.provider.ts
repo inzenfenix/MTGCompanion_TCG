@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { maskEmail } from '../../common/privacy/redact';
 import { ConfigService } from '@nestjs/config';
 import { createTransport, type Transporter } from 'nodemailer';
 import type { AppConfig } from '../../config/configuration';
@@ -31,7 +32,8 @@ export class SmtpEmailProvider implements EmailProvider {
   async send(input: SendEmailInput): Promise<void> {
     await this.transporter.sendMail({ from: this.from, ...input });
     this.logger.log(
-      `(mailhog) sent "${input.subject}" to ${input.to} — view at http://localhost:8025`,
+      // Masked (ROADMAP.md O14): logs never carry a full email address.
+      `(mailhog) sent "${input.subject}" to ${maskEmail(input.to)} — view at http://localhost:8025`,
     );
   }
 }

@@ -20,12 +20,31 @@ datasource db {
 // Users
 // ─────────────────────────────────────────────────────────────────────────
 
+// RBAC (ROADMAP.md O14, docs/security/ACTIVIDAD_4.md §3). Which actions each
+// role may perform lives in code (src/common/auth/permissions.ts), not here —
+// this is only who holds which role. Every account starts as USER; the only
+// ways up are PATCH /admin/users/:id/role (an ADMIN, audited) or the
+// operator-only src/scripts/set-role.ts for the very first ADMIN.
+enum Role {
+  USER
+  SUPPORT
+  ADMIN
+
+  @@map("user_role")
+}
+
 model User {
   id              String    @id @default(uuid())
   email           String    @unique
   passwordHash    String
   displayName     String
   emailVerifiedAt DateTime?
+  role            Role      @default(USER)
+  // Data minimization (ACTIVIDAD_4.md §1): the app only needs to know the
+  // player declared being 18+ (marketplace with real payments), not *when*
+  // they were born — so this is the moment they ticked that box, never a
+  // birth date. Null only for accounts created before O14.
+  adultConfirmedAt DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -67,6 +86,9 @@ model UserSettings {
   shareLocation     Boolean   @default(false)
   // Personal data (Ley 21.719): stored AES-256-GCM encrypted as text
   // (ROADMAP.md O3), decrypted in the repositories only to compute distance.
+  // Minimized (O14): rounded to 2 decimals (~1 km) before encrypting, ignored
+  // by search once older than LOCATION_TTL_DAYS and wiped by
+  // src/scripts/purge-expired-data.ts; DELETE /users/me/location revokes it.
   lastLat           String?
   lastLng           String?
   locationUpdatedAt DateTime?
@@ -93,6 +115,31 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+// Activity log for sensitive/administrative operations (ROADMAP.md O14).
+// Pseudonymized on purpose: actor/target are HMAC-SHA256(userId,
+// PSEUDONYM_KEY) — see src/common/privacy/pseudonym.service.ts — never the
+// raw user id or email, and there is no FK to users, so reading this table
+// alone doesn't say who did what. Linking a pseudonym back to a person needs
+// the key (backend process only) + the users table, which only an ADMIN can
+// do, through POST /admin/pseudonyms/resolve, which itself gets logged here.
+// Append-only at the database level: migration 20261023120000 adds a trigger
+// that rejects UPDATE, DELETE and TRUNCATE on this table.
+model AuditLog {
+  id              String   @id @default(uuid())
+  actorPseudonym  String
+  actorRole       Role
+  action          String // e.g. "admin.role.change", "support.transactions.read"
+  targetPseudonym String?
+  // Mandatory justification for support access to someone else's data
+  // (validated in the DTO, which also rejects contact data inside it).
+  reason          String?
+  outcome         String // "ALLOWED" | "DENIED"
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("audit_logs")
 }
 
 // ─────────────────────────────────────────────────────────────────────────

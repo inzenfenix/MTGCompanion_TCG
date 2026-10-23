@@ -5,6 +5,7 @@ export interface CreateUserData {
   passwordHash: string;
   displayName: string;
   language: string;
+  adultConfirmedAt: Date;
 }
 
 /**
@@ -25,6 +26,8 @@ export interface UserRepository {
   updateTwoFactor(userId: string, data: TwoFactorUpdate): Promise<void>;
   /** Calling this at all is the consent — see UserSettings.shareLocation's doc comment in schema.prisma. */
   updateLocation(userId: string, lat: number, lng: number): Promise<void>;
+  /** Revokes location sharing (O14): flag off *and* the stored coordinates erased, not just hidden. */
+  clearLocation(userId: string): Promise<void>;
 }
 
 export const USER_REPOSITORY = Symbol('USER_REPOSITORY');

@@ -18,8 +18,13 @@ import {
   type UserRepository,
 } from '../domain/user.repository';
 import type { UserEntity } from '../domain/user.entity';
+import { coarsenCoordinate } from '../domain/location-precision';
+import type { Role } from '../../common/auth/permissions';
 import type { RegisterUserDto } from '../presentation/dto/register-user.dto';
-import type { UserResponseDto, PublicUserDto } from '../presentation/dto/user-response.dto';
+import type {
+  UserResponseDto,
+  PublicUserDto,
+} from '../presentation/dto/user-response.dto';
 
 const SALT_ROUNDS = 12;
 
@@ -39,6 +44,13 @@ async function checkTotpCode(secret: string, code: string): Promise<boolean> {
     epochTolerance: TOTP_EPOCH_TOLERANCE_SECONDS,
   });
   return result.valid;
+}
+
+/** What JwtStrategy attaches to every authenticated request (role re-read from the DB each time). */
+export interface AuthContext {
+  id: string;
+  email: string;
+  role: Role;
 }
 
 export interface TwoFactorSetup {
@@ -69,6 +81,9 @@ export class UsersService {
       passwordHash,
       displayName: dto.displayName,
       language: dto.language ?? 'en',
+      // RegisterUserDto only lets this through as `true` (@Equals) — what's
+      // stored is when the declaration was made, never a birth date.
+      adultConfirmedAt: new Date(),
     });
 
     // Login/JWT/2FA are a later pass — this phase only registers the user
@@ -84,6 +99,16 @@ export class UsersService {
   async findById(id: string): Promise<UserResponseDto | null> {
     const user = await this.users.findById(id);
     return user ? this.toResponseDto(user) : null;
+  }
+
+  /**
+   * Called by JwtStrategy on every authenticated request — the role comes
+   * from here, not from the token, so a demotion (PATCH /admin/users/:id/role)
+   * applies on the very next request instead of when the access token expires.
+   */
+  async findAuthContext(id: string): Promise<AuthContext | null> {
+    const user = await this.users.findById(id);
+    return user ? { id: user.id, email: user.email, role: user.role } : null;
   }
 
   /** Another user's public profile — id + displayName only (issue #146). */
@@ -215,7 +240,21 @@ export class UsersService {
     ) {
       throw new BadRequestException('Invalid lat/lng');
     }
-    await this.users.updateLocation(userId, lat, lng);
+    // Minimization (O14): coarsened to ~1 km *before* it reaches the
+    // repository (and its encryption), see domain/location-precision.ts.
+    await this.users.updateLocation(
+      userId,
+      coarsenCoordinate(lat),
+      coarsenCoordinate(lng),
+    );
+    const user = await this.users.findById(userId);
+    if (!user) throw new BadRequestException('User not found');
+    return this.toResponseDto(user);
+  }
+
+  /** DELETE /users/me/location — withdraws the consent given by sharing it. */
+  async revokeLocation(userId: string): Promise<UserResponseDto> {
+    await this.users.clearLocation(userId);
     const user = await this.users.findById(userId);
     if (!user) throw new BadRequestException('User not found');
     return this.toResponseDto(user);
@@ -227,6 +266,7 @@ export class UsersService {
       email: user.email,
       displayName: user.displayName,
       emailVerifiedAt: user.emailVerifiedAt,
+      role: user.role,
       createdAt: user.createdAt,
       settings: {
         language: user.settings?.language ?? 'en',

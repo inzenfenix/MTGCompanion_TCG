@@ -1,0 +1,15 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testTimeout": 30000,
+  "testRegex": ".e2e-spec.ts$",
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "transformIgnorePatterns": [
+    "node_modules/(?!(?:otplib|@otplib|@scure|@noble)/)"
+  ],
+  "globalSetup": "<rootDir>/embedded-db/global-setup.mjs",
+  "globalTeardown": "<rootDir>/embedded-db/global-teardown.mjs"
+}

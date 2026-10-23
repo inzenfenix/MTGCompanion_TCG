@@ -3,9 +3,11 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
   MinLength,
 } from 'class-validator';
+import { NoContactInfo } from '../../../common/privacy/no-contact-info.validator';
 import { CardCondition } from '../../../../generated/prisma';
 
 // Hand-rolled instead of `PartialType(OmitType(CreateCardDto, ...))` from
@@ -21,6 +23,10 @@ export class UpdateCardDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
+  // Public listing text (ROADMAP.md O14): seen by every buyer, so no
+  // emails/phone numbers — trades are arranged in-app, not off-platform.
+  @NoContactInfo()
   description?: string;
 
   @IsOptional()

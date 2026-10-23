@@ -92,6 +92,7 @@ async function main() {
         passwordHash,
         displayName: 'Test Collector',
         emailVerifiedAt: new Date(),
+        adultConfirmedAt: new Date(),
         settings: { create: { language: 'en', theme: 'dark' } },
       },
     });
@@ -105,13 +106,38 @@ async function main() {
         passwordHash,
         displayName: 'Test Buyer',
         emailVerifiedAt: new Date(),
+        adultConfirmedAt: new Date(),
         settings: { create: { language: 'en', theme: 'light' } },
       },
     });
 
+    // RBAC (ROADMAP.md O14) — one account per elevated role, so the admin
+    // and support routes can be tried locally. Never seeded in production:
+    // the first real ADMIN comes from src/scripts/set-role.ts.
+    const staff = [
+      { email: 'admin@example.com', displayName: 'Test Admin', role: 'ADMIN' as const },
+      { email: 'support@example.com', displayName: 'Test Support', role: 'SUPPORT' as const },
+    ];
+    for (const s of staff) {
+      await prisma.user.upsert({
+        where: { email: s.email },
+        update: { role: s.role },
+        create: {
+          email: s.email,
+          passwordHash,
+          displayName: s.displayName,
+          role: s.role,
+          emailVerifiedAt: new Date(),
+          adultConfirmedAt: new Date(),
+          settings: { create: { language: 'es-LA', theme: 'dark' } },
+        },
+      });
+    }
+
     console.log(`Seed users ready — log in with any of them, password "${SEED_PASSWORD}":`);
     console.log(`  ${seller.email} (owns the cards below)`);
     console.log(`  ${buyer.email} (buyer in the sample transaction)`);
+    console.log(`  admin@example.com (ADMIN), support@example.com (SUPPORT)`);
 
     // Real MTG cards with plausible prices/conditions. Deliberately mixed:
     // some have oracleText/setName/rarity filled in (cards that would've
@@ -280,6 +306,7 @@ async function main() {
           passwordHash,
           displayName: account.displayName,
           emailVerifiedAt: new Date(),
+          adultConfirmedAt: new Date(),
           settings: { create: { language: account.language, theme: account.theme } },
         },
       });
@@ -304,6 +331,7 @@ async function main() {
         passwordHash,
         displayName: 'Myr',
         emailVerifiedAt: new Date(),
+        adultConfirmedAt: new Date(),
         settings: { create: { language: 'en', theme: 'dark' } },
       },
     });

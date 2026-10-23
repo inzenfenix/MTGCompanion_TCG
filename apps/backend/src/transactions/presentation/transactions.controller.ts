@@ -24,20 +24,26 @@ export class TransactionsController {
     return this.transactions.create(user.id, dto);
   }
 
-  // ?userId=... returns transactions where the user is buyer or seller.
+  // ROADMAP.md O14 — these three were public: anyone holding a user id or
+  // a transaction id could read who bought what from whom, for how much.
+  // Now: logged in, and only your own (buyer or seller). ?userId= other than
+  // your own is a 403 — staff access is GET /admin/users/:id/transactions.
+  @UseGuards(JwtAuthGuard)
   @Get()
-  findForUser(@Query('userId') userId: string) {
-    return this.transactions.findForUser(userId);
+  findOwn(@CurrentUser() user: RequestUser, @Query('userId') userId?: string) {
+    return this.transactions.findOwn(user.id, userId);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.transactions.findOne(id);
+  findOne(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.transactions.findOneForParticipant(id, user.id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get(':id/receipt')
-  getReceipt(@Param('id') id: string) {
-    return this.transactions.getReceipt(id);
+  getReceipt(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.transactions.getReceipt(id, user.id);
   }
 
   // ROADMAP.md J6/J7 — seller-only, flips a PENDING cash transaction to PAID.

@@ -40,6 +40,15 @@ export interface AppConfig {
     currentKeyId: string;
     keys: Record<string, string>;
   };
+  // ROADMAP.md O14 — see common/privacy/pseudonym.service.ts. Separate from
+  // the field-encryption key on purpose: rotating one must not touch the
+  // other, and leaking the pseudonym key doesn't expose encrypted columns.
+  // locationTtlDays: how long a stored location stays usable for distance
+  // search before it counts as stale (and gets wiped by purge-expired-data).
+  privacy: {
+    pseudonymKey: string;
+    locationTtlDays: number;
+  };
   payments: {
     mercadopago: {
       accessToken?: string;
@@ -57,7 +66,11 @@ export interface AppConfig {
 // O4). A dev-only fallback for JWT_SECRET is tolerated outside production
 // so `npm run start:dev` works out of the box; in production a missing one
 // stops the boot instead of silently signing tokens with a public value.
-const REQUIRED_IN_PRODUCTION = ['JWT_SECRET', 'FIELD_ENCRYPTION_KEY'] as const;
+const REQUIRED_IN_PRODUCTION = [
+  'JWT_SECRET',
+  'FIELD_ENCRYPTION_KEY',
+  'PSEUDONYM_KEY',
+] as const;
 
 export function assertProductionSecrets(env: NodeJS.ProcessEnv): void {
   if (env.NODE_ENV !== 'production') return;
@@ -75,7 +88,9 @@ export function assertProductionSecrets(env: NodeJS.ProcessEnv): void {
 // every new value is encrypted with. During a rotation, the previous key(s)
 // stay readable via FIELD_ENCRYPTION_RETIRED_KEYS="v1=<base64>,v2=<base64>"
 // until src/scripts/encrypt-existing-fields.ts --rotate has rewritten every row.
-function fieldEncryptionKeyring(env: NodeJS.ProcessEnv): AppConfig['fieldEncryption'] {
+function fieldEncryptionKeyring(
+  env: NodeJS.ProcessEnv,
+): AppConfig['fieldEncryption'] {
   const currentKeyId = env.FIELD_ENCRYPTION_KEY_ID || 'v1';
   const keys: Record<string, string> = {};
   for (const entry of (env.FIELD_ENCRYPTION_RETIRED_KEYS ?? '').split(',')) {
@@ -123,6 +138,10 @@ const buildConfig = (): AppConfig => ({
     refreshTtl: process.env.JWT_REFRESH_TTL ?? '30d',
   },
   fieldEncryption: fieldEncryptionKeyring(process.env),
+  privacy: {
+    pseudonymKey: process.env.PSEUDONYM_KEY ?? '',
+    locationTtlDays: parseInt(process.env.LOCATION_TTL_DAYS ?? '30', 10),
+  },
   payments: {
     mercadopago: {
       accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || undefined,

@@ -5,12 +5,18 @@
  * infrastructure/prisma-user.repository.ts, so swapping the ORM (or adding
  * a second data source) never touches UsersService or the controller.
  */
+import type { Role } from '../../common/auth/permissions';
+
 export interface UserEntity {
   id: string;
   email: string;
   passwordHash: string;
   displayName: string;
   emailVerifiedAt: Date | null;
+  // RBAC (ROADMAP.md O14) — see common/auth/permissions.ts.
+  role: Role;
+  // When the 18+ declaration was made — never a birth date (ACTIVIDAD_4.md §1).
+  adultConfirmedAt: Date | null;
   createdAt: Date;
   settings: {
     language: string;
@@ -27,5 +33,6 @@ export interface UserEntity {
     shareLocation: boolean;
     lastLat: number | null;
     lastLng: number | null;
+    locationUpdatedAt: Date | null;
   } | null;
 }

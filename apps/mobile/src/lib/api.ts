@@ -100,6 +100,8 @@ export type User = {
   email: string;
   displayName: string;
   emailVerifiedAt: string | null;
+  // RBAC (ROADMAP.md O14) — only to decide what to show; the backend enforces it.
+  role: 'USER' | 'SUPPORT' | 'ADMIN';
   createdAt: string;
   settings: UserSettings;
 };
@@ -108,6 +110,8 @@ export type RegisterUserInput = {
   email: string;
   password: string;
   displayName: string;
+  // 18+ declaration, instead of a birth date (ROADMAP.md O14). Must be true.
+  adultConfirmed: boolean;
   language?: string;
 };
 
@@ -239,12 +243,16 @@ export function deleteDeck(id: string): Promise<void> {
 
 // ── Offers / auction (J12, ROADMAP.md) ────────────────────────────────────
 
+// Bidders are pseudonymized per auction (ROADMAP.md O14): `bidderAlias` is
+// stable within one card's auction only, and the raw user id is never sent.
+// `mine` is present when the request carried a session.
 export type Offer = {
   id: string;
   cardId: string;
-  bidderId: string;
+  bidderAlias: string;
   amount: number;
   createdAt: string;
+  mine?: boolean;
 };
 
 export type AuctionState = {
@@ -349,6 +357,12 @@ export function updateMyLocation(lat: number, lng: number): Promise<User> {
     method: 'PATCH',
     body: JSON.stringify({ lat, lng }),
   });
+}
+
+// Withdraws that consent (ROADMAP.md O14): the backend erases the stored
+// coordinates. See lib/locationConsent.ts for not re-sharing afterwards.
+export function revokeMyLocation(): Promise<User> {
+  return request<User>('/users/me/location', { method: 'DELETE' });
 }
 
 export function getCard(id: string): Promise<Card> {

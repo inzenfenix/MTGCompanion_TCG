@@ -1,0 +1,23 @@
+# Logs del servidor durante la corrida e2e completa (02_tests_e2e.txt) — ¿quedan datos personales?
+# Fuente: salida de Nest (Logger) de 'npm run test:e2e:embedded', 2026-10-23 10:15.
+
+Líneas de log del servidor:                         64
+…que contienen un email completo (*@example.com):   0
+…que contienen un email enmascarado (x***@y***.tld): 32
+
+## Mensajes distintos (agrupados; los correos fallan porque MailHog no corre en este equipo)
+     20 ERROR [UserCreatedListener] Error: connect ECONNREFUSED ::1:1025
+      8 ERROR [UserCreatedListener] Failed to send welcome email to a***@e***.com
+      8 ERROR [UserCreatedListener] Error: connect ECONNREFUSED 127.0.0.1:1025
+      7 ERROR [UserCreatedListener] Failed to send welcome email to l***@e***.com
+      4 ERROR [UserCreatedListener] Failed to send welcome email to p***@e***.com
+      4 ERROR [UserCreatedListener] Failed to send welcome email to j***@e***.com
+      4 ERROR [TransactionPaidListener] Failed to send payment receipt to g***@e***.com for transaction <id>
+      3 ERROR [UserCreatedListener] Failed to send welcome email to g***@e***.com
+      2 ERROR [UserCreatedListener] Failed to send welcome email to k***@e***.com
+      2 ERROR [TransactionPaidListener] Error: connect ECONNREFUSED 127.0.0.1:1025
+      2 ERROR [TransactionPaidListener] Error: connect ECONNREFUSED ::1:1025
+
+## Comparación: antes de O14 la misma línea era
+   ERROR [UserCreatedListener] Failed to send welcome email to ana.torres@example.com
+   (src/notifications/listeners/user-created.listener.ts, versión anterior: `to ${event.email}`)

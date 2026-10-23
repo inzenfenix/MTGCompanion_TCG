@@ -3,6 +3,7 @@ import {
   IonContent,
   IonPage,
   IonButton,
+  IonCheckbox,
   IonIcon,
   IonInput,
   IonItem,
@@ -30,6 +31,9 @@ const Onboarding: React.FC = () => {
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // ROADMAP.md O14 — the backend asks for an 18+ declaration instead of a
+  // birth date (data minimization); registration 400s without it.
+  const [adultConfirmed, setAdultConfirmed] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +42,7 @@ const Onboarding: React.FC = () => {
     setError(null);
     setIsSubmitting(true);
     try {
-      await register({ email, password, displayName });
+      await register({ email, password, displayName, adultConfirmed });
       // On success, useAuth's `user` flips to non-null and App.tsx swaps
       // this screen out for the tabs — no navigation call needed here.
     } catch (err) {
@@ -118,11 +122,24 @@ const Onboarding: React.FC = () => {
             />
           </IonItem>
 
+          {mode === 'register' && (
+            <IonItem className="mtg-list-item-row" lines="none" style={{ marginBottom: '20px', borderRadius: '8px' }}>
+              <IonCheckbox
+                checked={adultConfirmed}
+                onIonChange={(e) => setAdultConfirmed(e.detail.checked)}
+                labelPlacement="end"
+                justify="start"
+              >
+                <span style={{ color: '#c2b5b5', whiteSpace: 'normal' }}>{t('register_adult_confirm')}</span>
+              </IonCheckbox>
+            </IonItem>
+          )}
+
           {mode === 'register' ? (
             <IonButton
               expand="block"
               className="mtg-btn"
-              disabled={isSubmitting || !displayName || !email || password.length < 8}
+              disabled={isSubmitting || !displayName || !email || password.length < 8 || !adultConfirmed}
               onClick={handleRegister}
             >
               <div className="mtg-btn-content">

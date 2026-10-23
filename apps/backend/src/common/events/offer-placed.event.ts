@@ -1,4 +1,4 @@
-import type { OfferEntity } from '../../offers/domain/offer.entity';
+import type { PublicOfferView } from '../../offers/domain/public-offer';
 
 export const OFFER_PLACED_EVENT = 'offer.placed';
 
@@ -8,11 +8,13 @@ export const OFFER_PLACED_EVENT = 'offer.placed';
  * TransactionPaidEvent already established for J8. Carries the full new
  * auction window (closesAt) so every connected client's countdown resets
  * off the same server-authoritative value, never a client-computed one.
+ * The offer is the public, pseudonymized view (no bidder id, ROADMAP.md
+ * O14) — this goes out to every socket in the card's room.
  */
 export class OfferPlacedEvent {
   constructor(
     public readonly cardId: string,
-    public readonly offer: OfferEntity,
+    public readonly offer: PublicOfferView,
     public readonly closesAt: Date,
   ) {}
 }

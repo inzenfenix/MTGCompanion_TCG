@@ -41,7 +41,12 @@ describe('Auth refresh (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/users/register')
-      .send({ email, password, displayName: 'G2 Auth Test' })
+      .send({
+        email,
+        password,
+        displayName: 'G2 Auth Test',
+        adultConfirmed: true,
+      })
       .expect(201);
   });
 

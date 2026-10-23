@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { maskEmail } from '../../common/privacy/redact';
 import { ConfigService } from '@nestjs/config';
 import { SendEmailCommand, SESClient } from '@aws-sdk/client-ses';
 import type { AppConfig } from '../../config/configuration';
@@ -48,6 +49,7 @@ export class SesEmailProvider implements EmailProvider {
         },
       }),
     );
-    this.logger.log(`(ses) sent "${input.subject}" to ${input.to}`);
+    // Masked (ROADMAP.md O14): logs never carry a full email address.
+    this.logger.log(`(ses) sent "${input.subject}" to ${maskEmail(input.to)}`);
   }
 }

@@ -3,6 +3,12 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { CardEntity } from '../../cards/domain/card.entity';
 import { CardsService } from '../../cards/application/cards.service';
 import {
+  bidScope,
+  PseudonymService,
+} from '../../common/privacy/pseudonym.service';
+import type { OfferEntity } from '../domain/offer.entity';
+import type { PublicOfferView } from '../domain/public-offer';
+import {
   OFFER_REPOSITORY,
   type OfferRepository,
 } from '../domain/offer.repository';
@@ -26,7 +32,23 @@ export class OffersService {
     @Inject(OFFER_REPOSITORY) private readonly offers: OfferRepository,
     private readonly cards: CardsService,
     private readonly events: EventEmitter2,
+    private readonly pseudonyms: PseudonymService,
   ) {}
+
+  /** See domain/public-offer.ts — the only shape an offer leaves this service in. */
+  private toPublic(offer: OfferEntity, viewerId?: string): PublicOfferView {
+    return {
+      id: offer.id,
+      cardId: offer.cardId,
+      bidderAlias: this.pseudonyms.pseudonymize(
+        offer.bidderId,
+        bidScope(offer.cardId),
+      ),
+      amount: offer.amount,
+      createdAt: offer.createdAt,
+      ...(viewerId ? { mine: offer.bidderId === viewerId } : {}),
+    };
+  }
 
   /**
    * Places a bid and extends the auction window. Rejects: bidding on your
@@ -79,9 +101,9 @@ export class OffersService {
     // not a missing piece.
     this.events.emit(
       OFFER_PLACED_EVENT,
-      new OfferPlacedEvent(cardId, offer, closesAt),
+      new OfferPlacedEvent(cardId, this.toPublic(offer), closesAt),
     );
-    return { offer, closesAt };
+    return { offer: this.toPublic(offer, bidderId), closesAt };
   }
 
   /**
@@ -90,10 +112,12 @@ export class OffersService {
    * so, locks the winner in before doing anything else. Safe to call
    * repeatedly: once wonOfferId is set, resolution is a no-op.
    */
-  async getAuctionState(cardId: string) {
+  async getAuctionState(cardId: string, viewerId?: string) {
     const card = await this.cards.findOne(cardId);
     const resolved = await this.resolveIfExpired(card);
-    const offers = await this.offers.findAllForCard(cardId);
+    const offers = (await this.offers.findAllForCard(cardId)).map((o) =>
+      this.toPublic(o, viewerId),
+    );
     return {
       cardId,
       offers,
@@ -103,7 +127,11 @@ export class OffersService {
     };
   }
 
-  /** Used by TransactionsService.create() to price a purchase off the auction's winning offer (ROADMAP.md J9). */
+  /**
+   * Used by TransactionsService.create() to price a purchase off the
+   * auction's winning offer (ROADMAP.md J9). Internal: returns the raw
+   * entity (bidderId included) and is never exposed by a controller.
+   */
   findById(offerId: string) {
     return this.offers.findById(offerId);
   }

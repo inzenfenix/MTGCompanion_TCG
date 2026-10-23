@@ -81,6 +81,7 @@ output "secrets_manager_secret_arns" {
     postgres_password          = aws_secretsmanager_secret.postgres_password.arn
     jwt_secret                 = aws_secretsmanager_secret.jwt_secret.arn
     field_encryption_key       = aws_secretsmanager_secret.field_encryption_key.arn
+    pseudonym_key              = aws_secretsmanager_secret.pseudonym_key.arn
     mercadopago_access_token   = aws_secretsmanager_secret.mercadopago_access_token.arn
     mercadopago_webhook_secret = aws_secretsmanager_secret.mercadopago_webhook_secret.arn
   }

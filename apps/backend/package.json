@@ -27,7 +27,11 @@
     "prisma:studio": "prisma studio",
     "db:seed": "prisma db seed",
     "db:import-catalog": "ts-node -r dotenv/config prisma/import-catalog.ts",
-    "db:encrypt-fields": "ts-node -r dotenv/config src/scripts/encrypt-existing-fields.ts"
+    "db:encrypt-fields": "ts-node -r dotenv/config src/scripts/encrypt-existing-fields.ts",
+    "db:purge-expired": "ts-node -r dotenv/config src/scripts/purge-expired-data.ts",
+    "db:anonymize": "ts-node -r dotenv/config src/scripts/anonymize-db.ts",
+    "user:set-role": "ts-node -r dotenv/config src/scripts/set-role.ts",
+    "test:e2e:embedded": "jest --config ./test/jest-e2e.embedded.json --runInBand"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1109.0",
@@ -75,6 +79,7 @@
     "@types/pg": "^8.21.0",
     "@types/qrcode": "^1.5.6",
     "@types/supertest": "^7.0.0",
+    "embedded-postgres": "16.14.0-beta.17",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",

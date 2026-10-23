@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { maskEmail } from '../../common/privacy/redact';
 import { OnEvent } from '@nestjs/event-emitter';
 import {
   USER_CREATED_EVENT,
@@ -23,7 +24,8 @@ export class UserCreatedListener {
       await this.notifications.sendWelcomeEmail(event.email, event.displayName);
     } catch (err) {
       this.logger.error(
-        `Failed to send welcome email to ${event.email}`,
+        // Masked (ROADMAP.md O14): logs never carry a full email address.
+        `Failed to send welcome email to ${maskEmail(event.email)}`,
         err instanceof Error ? err.stack : err,
       );
     }

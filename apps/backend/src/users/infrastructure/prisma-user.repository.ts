@@ -36,7 +36,9 @@ export class PrismaUserRepository implements UserRepository {
       ...user,
       settings: settings && {
         ...settings,
-        twoFactorSecret: this.fieldEncryption.decryptNullable(settings.twoFactorSecret),
+        twoFactorSecret: this.fieldEncryption.decryptNullable(
+          settings.twoFactorSecret,
+        ),
         lastLat: this.fieldEncryption.decryptNumber(settings.lastLat),
         lastLng: this.fieldEncryption.decryptNumber(settings.lastLng),
       },
@@ -65,6 +67,7 @@ export class PrismaUserRepository implements UserRepository {
         email: data.email,
         passwordHash: data.passwordHash,
         displayName: data.displayName,
+        adultConfirmedAt: data.adultConfirmedAt,
         settings: { create: { language: data.language } },
       },
       include: INCLUDE_SETTINGS,
@@ -94,6 +97,18 @@ export class PrismaUserRepository implements UserRepository {
         lastLat: this.fieldEncryption.encryptNumber(lat),
         lastLng: this.fieldEncryption.encryptNumber(lng),
         locationUpdatedAt: new Date(),
+      },
+    });
+  }
+
+  async clearLocation(userId: string): Promise<void> {
+    await this.prisma.userSettings.update({
+      where: { userId },
+      data: {
+        shareLocation: false,
+        lastLat: null,
+        lastLng: null,
+        locationUpdatedAt: null,
       },
     });
   }
