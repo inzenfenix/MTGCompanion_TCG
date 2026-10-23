@@ -47,6 +47,20 @@ narrated with exact ROADMAP.md item references.
 marketplace flow; `Onboarding.tsx`, `AccountSettings.tsx`,
 `PaymentSettings.tsx`, `SecuritySettings.tsx` are account-side.
 
+Privacy-related client behavior (ROADMAP.md O14, 23 oct):
+
+- `Onboarding.tsx` sends `adultConfirmed: true` (18+ checkbox) — the backend
+  400s registration without it; no birth date is ever asked.
+- Auction offers carry `bidderAlias` (per-card pseudonym) and `mine`, never
+  `bidderId`; `Buy.tsx`'s "did I win" uses `mine` from the REST re-fetch
+  (socket updates don't carry `mine`).
+- `SecuritySettings.tsx` has a real "share my location" toggle: off →
+  `DELETE /users/me/location` + `lib/locationConsent.ts` opt-out flag, which
+  `TabSearch.tsx` checks before re-sending the location. The rest of that
+  page (2FA, password) is still the static mock.
+- `User.role` comes back on login; no admin/support screens exist yet (the
+  `/admin/*` API is backend-only for now).
+
 ## Model loading convention
 
 ONNX files are fetched from `public/models/` (or wherever

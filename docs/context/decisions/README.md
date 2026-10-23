@@ -82,3 +82,29 @@ train/val set by row leaks the same card's other rows across the split.
 `split_por_carta()` in `10_condition_grader.py`/`14_text_validator.py` is
 the reference implementation; any new per-card multi-row dataset should
 reuse this pattern, not `sklearn.train_test_split` directly on rows.
+
+## Privacy & access control (ROADMAP.md O14, 23 oct) — `docs/security/ACTIVIDAD_4.md`
+
+- **Role is read from the DB on every request, not a JWT claim.** Demoting
+  someone or deleting their account must take effect on the next request,
+  not when the 15-min access token expires. Costs one user lookup per
+  authenticated request — accepted. Don't "optimize" it into a token claim.
+- **Pseudonyms are keyed HMAC, not a plain hash.** User ids (UUIDs) already
+  circulate in listings/transactions, so `SHA-256(id)` could be reversed by
+  hashing known ids. Scoped too: `audit` (stable, follow one actor) vs.
+  `bid:<cardId>` (unlinkable across auctions). `PSEUDONYM_KEY` is separate
+  from `FIELD_ENCRYPTION_KEY` on purpose.
+- **`audit_logs` has no FK to `users` and is append-only by DB trigger**
+  (UPDATE/DELETE/TRUNCATE raise). Tests and cleanup can't delete audit rows —
+  that's intended, not a bug to work around (only `anonymize-db.ts`, as table
+  owner on a dev copy, disables the trigger for one TRUNCATE).
+- **Transactions: 403 for non-parties** (same as `confirm-cash-received`),
+  unlike cards/decks which 404 to a non-owner. Staff access goes only
+  through `GET /admin/users/:id/transactions?reason=…` (audited).
+- **18+ declaration (`adultConfirmedAt`) instead of a birth date** — the
+  marketplace is adults-only, so the age itself isn't needed (minimization).
+  Self-declared, not verified; verifying would mean collecting more data.
+- **Location: 2 decimals (~1 km) before encryption + 30-day TTL + revocable.**
+  The app only shows km; exact GPS was disproportionate.
+- **k = 5 suppression and no grand total** in the anonymized sales report —
+  a grand total would let a suppressed cell be recovered by subtraction.

@@ -25,6 +25,7 @@ Companion" (the commercial app) instead of the ML coursework.
 | [`decisions/`](decisions/README.md) | The "why" behind non-obvious choices and hard-won bugs — read this before you re-derive (and possibly re-break) something already settled. |
 | [`roadmap-snapshot.md`](roadmap-snapshot.md) | A dated, mechanically-generated status snapshot of `ROADMAP.md`'s workstreams. Not a substitute for `ROADMAP.md` — see its own header. |
 | [`../MAPEO_CIA.md`](../security/MAPEO_CIA.md) | Actor/data/CIA-risk mapping exercise for the whole system (client, backend, desktop-runner, infra, third parties) — a security-course deliverable, built from this same context. |
+| [`../security/`](../security/) | The other security-course deliverables, each with code + evidence: `CIFRADO_CAMPOS.md` / `ACTIVIDAD_2.md` (field encryption, O1–O10), `hito1/` (personal-data inventory, O11–O12), `ACTIVIDAD_4.md` (DB minimization, pseudonymization/anonymization, RBAC — O14, 23 oct). |
 
 ## Freshness policy — read before trusting anything here
 

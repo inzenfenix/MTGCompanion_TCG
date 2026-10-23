@@ -43,6 +43,24 @@ tokens, another cloud provider, etc.), not a one-off AWS-only widget. See
 `ScriptsService`'s existing process-spawn/stream/kill primitives, same as
 Terraform commands themselves).
 
+## Application secrets (Secrets Manager → backend `.env`)
+
+`secrets.tf` holds the backend's runtime secrets; `scripts/deploy-backend.sh`
+fetches them with the instance's role and writes the container `.env`. Three
+keys are **separate on purpose** (leaking one doesn't compromise the others):
+`jwt_secret` (token signing), `field_encryption_key` (AES-256-GCM columns,
+ROADMAP.md O1–O4) and `pseudonym_key` (HMAC for audit-log pseudonyms and
+bidder aliases, O14, added 23 oct). The backend refuses to boot in
+production without any of them, and **`terraform apply` fails if
+`pseudonym_key`/`field_encryption_key` are missing from `terraform.tfvars`**
+(`openssl rand -base64 32` each, different values). Rotating `pseudonym_key`
+changes every pseudonym, so old audit entries can no longer be resolved —
+treat it like the encryption key.
+
+Not wired yet (O14 follow-up): the API still connects to Postgres as the
+table owner; `apps/backend/prisma/sql/least-privilege-role.sql` creates the
+least-privilege `mtg_app` role it should use instead.
+
 ## Local tooling
 
 Terraform and the AWS CLI are installed **user-local** (no `dnf`/sudo

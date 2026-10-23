@@ -31,3 +31,19 @@ hard rule 1).
   (keystore + `signingConfigs`) is tracked separately — ROADMAP.md item E3d.
 - **Terraform + AWS CLI** are user-local installs too, same no-sudo
   rationale — see `docs/context/infra/README.md`.
+
+### Second checkout: Windows 11 (noted 23 oct, O14)
+
+The user also works from a Windows checkout (OneDrive path) with **no
+Docker, no Postgres, no `python`, no `terraform`, no poppler**; Node 24 +
+npm 11 (blocks dependency install scripts by default) and Edge are there.
+Working-tree files are CRLF (`* text=auto`).
+
+- Backend e2e: `npm run test:e2e:embedded` (throwaway PostgreSQL 16 from the
+  `embedded-postgres` dev dependency; random keys per run). It also runs the
+  destructive suites (anonymizer, DB-role creation) that `npm run test:e2e`
+  skips on the shared Docker dev DB. `catalog.e2e-spec` fails there only
+  because `ml/training/data/cards.json` (gitignored) isn't on that box.
+- Mobile unit tests: `stage1Detector.test.ts` needs
+  `public/models/stage1-detector.onnx` (gitignored, absent there).
+- Markdown → PDF: Edge headless `--print-to-pdf` (how `ACTIVIDAD_4.pdf` was built).
