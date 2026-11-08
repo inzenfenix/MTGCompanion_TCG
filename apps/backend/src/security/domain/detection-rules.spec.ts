@@ -86,4 +86,62 @@ describe('detection rules', () => {
       expect(canTransition(from, to)).toBe(ok);
     });
   });
+
+  // ── O17 (ACTIVIDAD_7.md §4): alerts specific to this system ────────────
+  describe('system-specific rules', () => {
+    const sig = (action: string, outcome = 'ALLOWED') => ({
+      action,
+      outcome,
+      actorPseudonym: 'u_1',
+    });
+
+    it.each([
+      ['bazaar.location.triangulation', sig('access.location.distance'), true],
+      [
+        'bazaar.location.triangulation',
+        sig('access.location.distance', 'DENIED'),
+        false,
+      ],
+      ['account.takeover.sequence', sig('data.export'), true],
+      ['account.takeover.sequence', sig('data.erase'), true],
+      ['account.takeover.sequence', sig('data.export', 'DENIED'), false],
+      [
+        'transactions.enumeration',
+        sig('access.transaction.read', 'DENIED'),
+        true,
+      ],
+      ['transactions.enumeration', sig('access.receipt.read', 'DENIED'), true],
+      ['transactions.enumeration', sig('access.transaction.read'), false],
+      ['admin.reidentification.burst', sig('admin.pseudonym.resolve'), true],
+    ])('%s matches %j → %s', (id, e, expected) => {
+      expect(rule(id).matches(e)).toBe(expected);
+    });
+
+    it('the takeover rule is a sequence: it fires on an export but counts earlier email changes', () => {
+      const r = rule('account.takeover.sequence');
+      expect(r.count).toEqual({
+        action: 'data.rectify',
+        outcome: 'ALLOWED',
+        reasonContains: 'email',
+      });
+      expect(r.threshold).toBe(1);
+      expect(r.windowMinutes).toBe(60);
+    });
+
+    it('triangulation counts jumps between positions, not plain searches', () => {
+      expect(rule('bazaar.location.triangulation').count.reasonContains).toBe(
+        'new-position',
+      );
+    });
+
+    it('high-severity session-level threats contain automatically; staff abuse goes to a human', () => {
+      expect(rule('bazaar.location.triangulation').containment).toBe(
+        'revoke-sessions',
+      );
+      expect(rule('account.takeover.sequence').containment).toBe(
+        'revoke-sessions',
+      );
+      expect(rule('admin.reidentification.burst').containment).toBe('none');
+    });
+  });
 });

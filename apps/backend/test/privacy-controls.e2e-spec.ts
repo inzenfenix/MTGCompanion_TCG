@@ -159,6 +159,8 @@ describe('Privacy controls — minimization, pseudonymization, logs (e2e)', () =
         http()
           .get('/cards')
           .query({ q: title, lat: -33.45, lng: -70.6 })
+          // O17: distances are only computed for a logged-in searcher.
+          .set('Authorization', `Bearer ${bidder.token}`)
           .expect(200);
 
       const fresh = (await search()).body as { distanceKm: number | null }[];

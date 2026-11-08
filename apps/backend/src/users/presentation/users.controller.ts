@@ -9,6 +9,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { AuditAccess } from '../../common/audit/audit-access.decorator';
 import { UsersService } from '../application/users.service';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
@@ -23,6 +24,11 @@ export class UsersController {
   // No /login yet on purpose — this phase covers registration + the welcome
   // email only, see backend/README.md "What's next" for the auth/JWT/2FA pass.
   @Post('register')
+  @AuditAccess({
+    action: 'account.register',
+    resourceType: 'user',
+    actor: (r) => (r as { id?: string }).id,
+  })
   register(@Body() dto: RegisterUserDto) {
     return this.users.register(dto);
   }
@@ -31,6 +37,7 @@ export class UsersController {
   // current LOCATION_DISTANCE consent (O15, POST /consents/me/:purpose).
   @UseGuards(JwtAuthGuard)
   @Patch('me/location')
+  @AuditAccess({ action: 'account.location.update', resourceType: 'user' })
   updateLocation(
     @CurrentUser() user: RequestUser,
     @Body() dto: UpdateLocationDto,
@@ -42,6 +49,7 @@ export class UsersController {
   // /consents/me/LOCATION_DISTANCE — the coordinates are erased, not hidden.
   @UseGuards(JwtAuthGuard)
   @Delete('me/location')
+  @AuditAccess({ action: 'account.location.erase', resourceType: 'user' })
   revokeLocation(@CurrentUser() user: RequestUser) {
     return this.users.revokeLocation(user);
   }
@@ -52,6 +60,11 @@ export class UsersController {
   // listing exposes ownerIds (issue #146).
   @UseGuards(JwtAuthGuard)
   @Get(':id')
+  @AuditAccess({
+    action: 'access.profile.read',
+    resourceType: 'user',
+    target: (r) => (r as { id?: string }).id,
+  })
   async findOne(@Param('id') id: string) {
     const profile = await this.users.findPublicProfile(id);
     if (!profile) throw new NotFoundException('User not found');

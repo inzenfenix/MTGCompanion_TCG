@@ -3,6 +3,7 @@ import { JwtAuthGuard } from '../../auth/presentation/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../../auth/presentation/optional-jwt-auth.guard';
 import { CurrentUser } from '../../auth/presentation/current-user.decorator';
 import type { RequestUser } from '../../auth/presentation/jwt.strategy';
+import { AuditAccess } from '../../common/audit/audit-access.decorator';
 import { OffersService } from '../application/offers.service';
 import { CreateOfferDto } from './dto/create-offer.dto';
 
@@ -14,6 +15,11 @@ export class OffersController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
+  @AuditAccess({
+    action: 'market.offer.place',
+    resourceType: 'card',
+    param: 'cardId',
+  })
   placeOffer(
     @Param('cardId') cardId: string,
     @CurrentUser() user: RequestUser,

@@ -29,6 +29,10 @@ import {
   type Severity,
 } from '../domain/detection-rules';
 import {
+  buildIncidentTimeline,
+  type IncidentTimeline,
+} from '../domain/incident-timeline';
+import {
   SECURITY_REPOSITORY,
   type SecurityAlertEntity,
   type SecurityRepository,
@@ -93,22 +97,34 @@ export class SecurityService {
     );
 
     if (event.actorId === ANONYMOUS) return;
+    try {
+      await this.contain(rule, event.actorId, alert.id);
+    } catch (err) {
+      // e.g. the account no longer exists (a takeover that ended in an
+      // erasure): the alert stands, the containment step just can't apply.
+      this.logger.warn(
+        `containment "${rule.containment}" skipped for alert ${alert.id}: ${(err as Error).name}`,
+      );
+    }
+  }
+
+  private async contain(rule: DetectionRule, actorId: string, alertId: string) {
     if (rule.containment === 'lock-account') {
       await this.users.lockUntil(
-        event.actorId,
+        actorId,
         new Date(Date.now() + LOCK_MINUTES * MINUTE),
       );
       await this.recordContainment(
         'security.containment.lock',
-        event.actorId,
-        alert.id,
+        actorId,
+        alertId,
       );
     } else if (rule.containment === 'revoke-sessions') {
-      await this.users.revokeSessions(event.actorId);
+      await this.users.revokeSessions(actorId);
       await this.recordContainment(
         'security.containment.revoke-sessions',
-        event.actorId,
-        alert.id,
+        actorId,
+        alertId,
       );
     }
   }
@@ -230,6 +246,46 @@ export class SecurityService {
       reason,
     );
     return { targetId, disabled };
+  }
+
+  /**
+   * GET /admin/security/incidents/:alertId/timeline (O17, ACTIVIDAD_7.md §6)
+   * — rebuilds what happened around an alert from the audit log alone,
+   * after verifying the chain (a broken chain marks the result as not
+   * trustworthy instead of hiding it). Reading it is itself audited.
+   */
+  async incidentTimeline(
+    actor: RequestUser,
+    alertId: string,
+    hoursBefore = 24,
+    hoursAfter = 24,
+  ): Promise<IncidentTimeline> {
+    const alert = await this.alerts.find(alertId);
+    if (!alert) throw new NotFoundException('Alert not found');
+    const window = {
+      from: new Date(alert.createdAt.getTime() - hoursBefore * 60 * MINUTE),
+      to: new Date(alert.createdAt.getTime() + hoursAfter * 60 * MINUTE),
+    };
+    const [chain, rows] = await Promise.all([
+      this.audit.verifyChain(),
+      this.alerts.auditWindow(
+        alert.subjectPseudonym,
+        alert.id,
+        window.from,
+        window.to,
+      ),
+    ]);
+    const timeline = buildIncidentTimeline({ alert, rows, chain, window });
+    await this.audit.record({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'admin.incident.timeline',
+      resourceType: 'security-alert',
+      resourceRef: alert.id,
+      reason: `${timeline.summary.events} rows, chain ${chain.ok ? 'ok' : 'BROKEN'}`,
+      outcome: 'ALLOWED',
+    });
+    return timeline;
   }
 
   /** GET /admin/security/audit/verify — a broken chain is itself an alert. */

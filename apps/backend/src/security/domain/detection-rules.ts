@@ -23,8 +23,18 @@ export interface DetectionRule {
   id: string;
   description: string;
   matches(e: AuditSignal): boolean;
-  /** What is counted for the same actor inside the window. */
-  count: { action: string; prefix?: boolean; outcome?: string };
+  /**
+   * What is counted for the same actor inside the window. It need not be
+   * the matched event: a *sequence* rule matches one action and counts an
+   * earlier, different one (account.takeover.sequence).
+   */
+  count: {
+    action: string;
+    prefix?: boolean;
+    outcome?: string;
+    /** Only rows whose `reason` contains this (field names, markers). */
+    reasonContains?: string;
+  };
   windowMinutes: number;
   threshold: number;
   severity: Severity;
@@ -100,6 +110,69 @@ export const DETECTION_RULES: readonly DetectionRule[] = [
     windowMinutes: 10,
     threshold: 5,
     severity: 'MEDIUM',
+    containment: 'none',
+  },
+
+  // ── O17 (ACTIVIDAD_7.md §4): anomalies specific to this marketplace ────
+  {
+    id: 'bazaar.location.triangulation',
+    description:
+      'Una cuenta calcula distancias a vendedores desde muchas posiciones distintas en poco tiempo: ' +
+      'con tres o más puntos se puede triangular dónde vive un vendedor (geolocalización, art. 16 sexies)',
+    matches: (e) =>
+      e.action === 'access.location.distance' && e.outcome === 'ALLOWED',
+    // "new-position" = the searcher jumped to a ~1 km cell not used in the
+    // last 10 min (SearchPositionTracker); a person on their phone doesn't.
+    count: {
+      action: 'access.location.distance',
+      reasonContains: 'new-position',
+    },
+    windowMinutes: 10,
+    threshold: 5,
+    severity: 'HIGH',
+    containment: 'revoke-sessions',
+  },
+  {
+    id: 'account.takeover.sequence',
+    description:
+      'Cambio del correo de la cuenta seguido, en menos de 1 h, de una exportación completa o una supresión: ' +
+      'patrón de toma de cuenta (el atacante se queda con el correo y se lleva o borra los datos)',
+    matches: (e) =>
+      (e.action === 'data.export' || e.action === 'data.erase') &&
+      e.outcome === 'ALLOWED',
+    count: {
+      action: 'data.rectify',
+      outcome: 'ALLOWED',
+      reasonContains: 'email',
+    },
+    windowMinutes: 60,
+    threshold: 1,
+    severity: 'HIGH',
+    containment: 'revoke-sessions',
+  },
+  {
+    id: 'transactions.enumeration',
+    description:
+      'Una cuenta pide transacciones, comprobantes o perfiles que no son suyos o no existen: ' +
+      'sondeo de ids para leer compras ajenas (IDOR)',
+    matches: (e) => e.action.startsWith('access.') && e.outcome === 'DENIED',
+    count: { action: 'access.', prefix: true, outcome: 'DENIED' },
+    windowMinutes: 10,
+    threshold: 5,
+    severity: 'MEDIUM',
+    containment: 'none',
+  },
+  {
+    id: 'admin.reidentification.burst',
+    description:
+      'Un ADMIN re-identifica muchos seudónimos del registro en poco tiempo: ' +
+      'deshace la seudonimización a escala (abuso interno o cuenta de personal comprometida)',
+    matches: (e) =>
+      e.action === 'admin.pseudonym.resolve' && e.outcome === 'ALLOWED',
+    count: { action: 'admin.pseudonym.resolve', outcome: 'ALLOWED' },
+    windowMinutes: 60,
+    threshold: 5,
+    severity: 'HIGH',
     containment: 'none',
   },
 ];

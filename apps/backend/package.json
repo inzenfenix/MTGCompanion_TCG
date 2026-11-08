@@ -32,6 +32,7 @@
     "db:anonymize": "ts-node -r dotenv/config src/scripts/anonymize-db.ts",
     "user:set-role": "ts-node -r dotenv/config src/scripts/set-role.ts",
     "incident:snapshot": "ts-node -r dotenv/config src/scripts/incident-snapshot.ts",
+    "incident:timeline": "ts-node -r dotenv/config src/scripts/incident-timeline.ts",
     "incident:revoke-all-sessions": "ts-node -r dotenv/config src/scripts/revoke-all-sessions.ts",
     "test:e2e:embedded": "jest --config ./test/jest-e2e.embedded.json --runInBand"
   },

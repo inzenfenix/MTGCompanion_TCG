@@ -10,6 +10,7 @@ import type {
   SecurityAlertEntity,
   SecurityRepository,
 } from '../domain/security.repository';
+import type { TimelineRow } from '../domain/incident-timeline';
 
 type Row = Prisma.SecurityAlertGetPayload<object>;
 
@@ -34,6 +35,9 @@ export class PrismaSecurityRepository implements SecurityRepository {
         actorPseudonym,
         action: count.prefix ? { startsWith: count.action } : count.action,
         ...(count.outcome ? { outcome: count.outcome } : {}),
+        ...(count.reasonContains
+          ? { reason: { contains: count.reasonContains } }
+          : {}),
         createdAt: { gte: since },
       },
     });
@@ -85,5 +89,28 @@ export class PrismaSecurityRepository implements SecurityRepository {
     return this.toEntity(
       await this.prisma.securityAlert.update({ where: { id }, data }),
     );
+  }
+
+  async auditWindow(
+    subject: string | null,
+    alertId: string,
+    from: Date,
+    to: Date,
+  ): Promise<TimelineRow[]> {
+    const rows = await this.prisma.auditLog.findMany({
+      where: {
+        createdAt: { gte: from, lte: to },
+        OR: [
+          ...(subject
+            ? [{ actorPseudonym: subject }, { targetPseudonym: subject }]
+            : []),
+          { resourceRef: alertId },
+        ],
+      },
+      orderBy: { seq: 'asc' },
+      take: 5000,
+      omit: { prevHash: true, hash: true },
+    });
+    return rows.map((r) => ({ ...r, seq: r.seq.toString() }));
   }
 }

@@ -44,9 +44,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   //
   // O15: same for step-up tokens, and an access token issued before the
   // account's sessionsRevokedAt (containment, email change) is dead even
-  // though its signature and expiry are fine. Compared in whole seconds
-  // (iat has no milliseconds), so a login in the same second as the
-  // revocation still works.
+  // though its signature and expiry are fine. O17: compared in
+  // milliseconds (iatMs claim). With whole seconds, the attacker's token
+  // that triggered an automatic containment was usually minted in the same
+  // second as the revocation and survived it. Tokens without iatMs (issued
+  // before O17, max 15 min) fall back to the start of their second, which
+  // errs on the side of revoking.
   async validate(
     payload:
       | JwtPayload
@@ -59,10 +62,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
     const user = await this.users.findAuthContext(payload.sub);
     if (!user) throw new UnauthorizedException('Invalid token');
-    if (
-      user.sessionsRevokedAt &&
-      (payload.iat ?? 0) < Math.floor(user.sessionsRevokedAt.getTime() / 1000)
-    ) {
+    const issuedMs = payload.iatMs ?? (payload.iat ?? 0) * 1000;
+    if (user.sessionsRevokedAt && issuedMs < user.sessionsRevokedAt.getTime()) {
       throw new UnauthorizedException('Invalid token');
     }
     return { id: user.id, email: user.email, role: user.role };

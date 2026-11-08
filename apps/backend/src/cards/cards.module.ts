@@ -4,6 +4,7 @@ import { AuthModule } from '../auth/auth.module';
 import { DecksModule } from '../decks/decks.module';
 import { CARD_REPOSITORY } from './domain/card.repository';
 import { PrismaCardRepository } from './infrastructure/prisma-card.repository';
+import { SearchPositionTracker } from './application/search-position-tracker';
 import { CardsService } from './application/cards.service';
 import { CardsController } from './presentation/cards.controller';
 
@@ -20,6 +21,7 @@ import { CardsController } from './presentation/cards.controller';
   providers: [
     { provide: CARD_REPOSITORY, useClass: PrismaCardRepository },
     CardsService,
+    SearchPositionTracker, // O17: bazaar.location.triangulation
   ],
   exports: [CardsService],
 })

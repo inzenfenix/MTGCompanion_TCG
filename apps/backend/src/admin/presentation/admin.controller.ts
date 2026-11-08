@@ -1,3 +1,4 @@
+import { AuditAccess } from '../../common/audit/audit-access.decorator';
 import {
   Body,
   Controller,
@@ -34,6 +35,11 @@ export class AdminController {
 
   @Get('users')
   @RequirePermissions(Permission.USERS_LIST)
+  @AuditAccess({
+    action: 'admin.users.list',
+    resourceType: 'user',
+    reason: (r) => `n=${Array.isArray(r) ? r.length : 0}`,
+  })
   listUsers(@Query() query: LimitQueryDto) {
     return this.admin.listUsers(query.limit);
   }

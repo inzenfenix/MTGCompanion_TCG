@@ -25,7 +25,14 @@ import type { LoginDto } from '../presentation/dto/login.dto';
 export interface JwtPayload {
   sub: string; // userId
   email: string;
-  iat?: number; // set by jsonwebtoken — compared with User.sessionsRevokedAt (O15)
+  iat?: number; // set by jsonwebtoken (whole seconds)
+  /**
+   * O17: issue time in milliseconds, compared with User.sessionsRevokedAt.
+   * `iat` alone let a token issued in the same second as an automatic
+   * containment survive it — exactly the token of the attacker whose action
+   * triggered the alert.
+   */
+  iatMs?: number;
 }
 
 /**
@@ -280,7 +287,7 @@ export class AuthService {
   }
 
   private signAccessToken(userId: string, email: string): string {
-    const payload: JwtPayload = { sub: userId, email };
+    const payload: JwtPayload = { sub: userId, email, iatMs: Date.now() };
     return this.jwt.sign(payload);
   }
 

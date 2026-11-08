@@ -1,4 +1,5 @@
-import { IsIn, IsOptional } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
 import { AccessReasonDto } from '../../../admin/presentation/dto/admin.dto';
 import type { AlertStatus } from '../../domain/detection-rules';
 
@@ -22,4 +23,25 @@ export class AlertQueryDto {
   @IsOptional()
   @IsIn(STATUSES)
   status?: AlertStatus;
+}
+
+/** O17 — GET /admin/security/incidents/:alertId/timeline. */
+export class TimelineQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(24 * 30)
+  hoursBefore?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(24 * 30)
+  hoursAfter?: number;
+
+  @IsOptional()
+  @IsIn(['json', 'md'])
+  format?: 'json' | 'md';
 }

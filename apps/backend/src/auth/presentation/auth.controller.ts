@@ -1,4 +1,5 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { AuditAccess } from '../../common/audit/audit-access.decorator';
 import { UsersService } from '../../users/application/users.service';
 import { AuthService } from '../application/auth.service';
 import { CurrentUser } from './current-user.decorator';
@@ -53,6 +54,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Post('2fa/enable')
+  @AuditAccess({ action: 'auth.2fa.enable', resourceType: 'user' })
   enableTwoFactor(
     @CurrentUser() user: RequestUser,
     @Body() dto: TwoFactorCodeDto,
@@ -62,6 +64,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Post('2fa/disable')
+  @AuditAccess({ action: 'auth.2fa.disable', resourceType: 'user' })
   disableTwoFactor(
     @CurrentUser() user: RequestUser,
     @Body() dto: TwoFactorCodeDto,

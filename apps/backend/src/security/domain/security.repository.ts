@@ -1,4 +1,5 @@
 import type { AlertStatus, DetectionRule, Severity } from './detection-rules';
+import type { TimelineRow } from './incident-timeline';
 
 export interface SecurityAlertEntity {
   id: string;
@@ -34,6 +35,16 @@ export interface SecurityRepository {
   }): Promise<SecurityAlertEntity>;
   list(status?: AlertStatus, limit?: number): Promise<SecurityAlertEntity[]>;
   find(id: string): Promise<SecurityAlertEntity | null>;
+  /**
+   * O17 — audit rows in [from, to] where `subject` is the actor or the
+   * target, or the row is about `alertId` (triage, containment).
+   */
+  auditWindow(
+    subject: string | null,
+    alertId: string,
+    from: Date,
+    to: Date,
+  ): Promise<TimelineRow[]>;
   update(
     id: string,
     data: { status: AlertStatus; resolutionNote: string; handledBy: string },

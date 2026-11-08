@@ -7,8 +7,11 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { renderTimelineMarkdown } from '../domain/incident-timeline';
 import { JwtAuthGuard } from '../../auth/presentation/jwt-auth.guard';
 import { CurrentUser } from '../../auth/presentation/current-user.decorator';
 import type { RequestUser } from '../../auth/presentation/jwt.strategy';
@@ -19,6 +22,7 @@ import { SecurityService } from '../application/security.service';
 import {
   AlertQueryDto,
   ContainmentDto,
+  TimelineQueryDto,
   UpdateAlertDto,
 } from './dto/security.dto';
 
@@ -74,6 +78,27 @@ export class SecurityController {
     @Body() dto: ContainmentDto,
   ) {
     return this.security.setDisabled(actor, id, false, dto.reason);
+  }
+
+  // O17 — incident reconstruction from the audit log (?format=md for the
+  // human-readable report used in the incident file).
+  @Get('incidents/:alertId/timeline')
+  @RequirePermissions(Permission.INCIDENT_RESPONSE)
+  async timeline(
+    @CurrentUser() actor: RequestUser,
+    @Param('alertId', ParseUUIDPipe) alertId: string,
+    @Query() q: TimelineQueryDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const t = await this.security.incidentTimeline(
+      actor,
+      alertId,
+      q.hoursBefore,
+      q.hoursAfter,
+    );
+    if (q.format !== 'md') return t;
+    res.type('text/markdown; charset=utf-8');
+    return renderTimelineMarkdown(t);
   }
 
   @Get('audit/verify')
