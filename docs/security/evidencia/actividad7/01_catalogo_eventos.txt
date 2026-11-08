@@ -1,0 +1,149 @@
+# Actividad N°7 — 1. Eventos auditados y campos de cada registro
+# Generado por apps/backend/test/evidence/actividad7.mjs — 2026-11-08T02:11:47.270Z
+# Backend compilado (dist/main.js) + PostgreSQL 16 embebido + SMTP local. Tokens truncados; ids y correos reemplazados por etiquetas.
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:admin>","password":"********","displayName":"Admin Siete","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:admin>","password":"********"}
+← 201
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:soporte>","password":"********","displayName":"Soporte Siete","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:soporte>","password":"********"}
+← 201
+
+=== 1. Campos de cada registro (tabla audit_logs) ===
+SQL> columnas
+  {"column_name":"id","data_type":"text","is_nullable":"NO"}
+  {"column_name":"actorPseudonym","data_type":"text","is_nullable":"NO"}
+  {"column_name":"actorRole","data_type":"USER-DEFINED","is_nullable":"YES"}
+  {"column_name":"action","data_type":"text","is_nullable":"NO"}
+  {"column_name":"targetPseudonym","data_type":"text","is_nullable":"YES"}
+  {"column_name":"reason","data_type":"text","is_nullable":"YES"}
+  {"column_name":"outcome","data_type":"text","is_nullable":"NO"}
+  {"column_name":"createdAt","data_type":"timestamp without time zone","is_nullable":"NO"}
+  {"column_name":"seq","data_type":"bigint","is_nullable":"NO"}
+  {"column_name":"resourceType","data_type":"text","is_nullable":"YES"}
+  {"column_name":"resourceRef","data_type":"text","is_nullable":"YES"}
+  {"column_name":"prevHash","data_type":"text","is_nullable":"YES"}
+  {"column_name":"hash","data_type":"text","is_nullable":"YES"}
+  Qué NO se guarda en ninguna columna: valores de datos personales (correo, alias, ubicación, montos de terceros),
+  contraseñas, tokens, IP. El actor y el afectado son seudónimos HMAC; resourceRef es un id interno; reason es un código.
+
+=== 2. Catálogo de eventos auditados (apps/backend/src/common/audit/audit-events.ts) — 48 acciones + la familia "denied <MÉTODO> <ruta>" ===
+
+  [AUTH]
+  auth.login                             AUTH    datos: credenciales                             Inicio de sesión (correcto, fallido o bloqueado)
+                                                 campos variables: reason: bad-password | unknown-email | locked | disabled; actor "anonymous" si el correo no existe
+  auth.2fa                               AUTH    datos: credenciales                             Segundo factor al iniciar sesión
+                                                 campos variables: outcome FAILED con código inválido
+  auth.step-up                           AUTH    datos: credenciales                             Reautenticación para una operación sensible
+                                                 campos variables: reason: método (password, password+totp) o motivo del fallo
+  auth.2fa.enable                        WRITE   datos: credenciales                             Activación de la verificación en dos pasos
+                                                 campos variables: —
+  auth.2fa.disable                       WRITE   datos: credenciales                             Desactivación de la verificación en dos pasos
+                                                 campos variables: —
+
+  [ACCOUNT]
+  account.register                       WRITE   datos: identificación, credenciales             Creación de una cuenta
+                                                 campos variables: actor = la cuenta creada
+  account.location.update                WRITE   datos: geolocalización                          El titular guarda su ubicación aproximada
+                                                 campos variables: sin coordenadas; outcome DENIED si falta consentimiento o hay bloqueo
+  account.location.erase                 WRITE   datos: geolocalización                          El titular borra su ubicación
+                                                 campos variables: —
+
+  [CONSENT]
+  consent.grant                          WRITE   datos: preferencias                             Otorgamiento de un consentimiento
+                                                 campos variables: resourceRef: finalidad; reason: versión y origen
+  consent.revoke                         WRITE   datos: preferencias                             Revocación de un consentimiento
+                                                 campos variables: resourceRef: finalidad
+
+  [RIGHTS]
+  data.export                            READ    datos: identificación, geolocalización, transacciones, colección, preferencias Acceso y portabilidad: exportación completa
+                                                 campos variables: resourceRef: id de la solicitud; reason: código de denegación
+  data.rectify                           WRITE   datos: identificación, preferencias             Rectificación
+                                                 campos variables: reason: nombres de los campos (nunca los valores)
+  data.erase                             WRITE   datos: identificación, credenciales, geolocalización, transacciones, colección, preferencias Supresión
+                                                 campos variables: reason: delete | tombstone | código de denegación
+  data.object                            WRITE   datos: transacciones                            Oposición a un tratamiento
+                                                 campos variables: reason: finalidad o código de denegación
+  data.block                             WRITE   datos: —                                        Bloqueo temporal del tratamiento
+                                                 campos variables: reason: base del bloqueo o código de denegación
+  data.objection.withdraw                WRITE   datos: —                                        El titular retira una oposición
+                                                 campos variables: resourceRef: id del control
+  data.blocking.lift                     WRITE   datos: —                                        Se levanta un bloqueo
+                                                 campos variables: reason: BLOCKING:<alcance>:<motivo>
+  data.public-request                    WRITE   datos: —                                        Solicitud por el formulario público (sin sesión)
+                                                 campos variables: reason: received:<tipo> | throttled
+  data.public-request.confirm            AUTH    datos: —                                        Confirmación de una solicitud del formulario con el código del correo
+                                                 campos variables: reason: email-link
+
+  [ACCESS]
+  access.transaction.read                READ    datos: transacciones, identificación            Una parte ve el detalle de una transacción (incluye el alias de la contraparte)
+                                                 campos variables: resourceRef: id de la transacción; target: la contraparte; DENIED si no es parte o no existe
+  access.transaction.list                READ    datos: transacciones, identificación            El titular lista sus compras y ventas
+                                                 campos variables: reason: n=<cantidad>
+  access.receipt.read                    READ    datos: transacciones, identificación            Una parte descarga el comprobante
+                                                 campos variables: resourceRef: id de la transacción; target: la contraparte; DENIED si no es parte
+  access.profile.read                    READ    datos: identificación                           Alguien ve el perfil público (alias) de otra cuenta
+                                                 campos variables: target: la cuenta vista
+  access.location.distance               READ    datos: geolocalización                          Búsqueda en el Bazar que calcula distancias a vendedores con su ubicación
+                                                 campos variables: reason: sellers=<n>; new-position cuando el buscador "salta" a otra celda de ~1 km (nunca coordenadas)
+
+  [MARKET]
+  market.card.create                     WRITE   datos: colección                                Publicación o registro de una carta
+                                                 campos variables: resourceRef: id de la carta
+  market.card.delete                     WRITE   datos: colección                                Eliminación de una carta
+                                                 campos variables: resourceRef: id de la carta
+  market.offer.place                     WRITE   datos: transacciones                            Oferta por una carta de otra cuenta
+                                                 campos variables: resourceRef: id de la carta; outcome DENIED si la oferta no procede (409 con bloqueo, 400 bajo el mínimo)
+  market.transaction.create              WRITE   datos: transacciones                            Inicio de una compra
+                                                 campos variables: resourceRef: id de la transacción; target: el vendedor
+  market.cash.confirm                    WRITE   datos: transacciones                            El vendedor confirma un pago en efectivo
+                                                 campos variables: resourceRef: id de la transacción; target: el comprador
+
+  [STAFF]
+  admin.users.list                       READ    datos: identificación                           Listado de cuentas (correos enmascarados)
+                                                 campos variables: reason: n=<cantidad>
+  support.transactions.read              READ    datos: transacciones                            Soporte consulta las transacciones de una cuenta
+                                                 campos variables: target: la cuenta; reason: motivo obligatorio
+  admin.role.change                      CONTROL datos: —                                        Cambio de rol
+                                                 campos variables: target: la cuenta; reason: rol nuevo
+  admin.audit.read                       READ    datos: registro de auditoría                    Lectura del registro de auditoría
+                                                 campos variables: —
+  admin.audit.verify                     CONTROL datos: registro de auditoría                    Verificación de la cadena de integridad
+                                                 campos variables: reason: ok | broken at seq N
+  admin.reports.sales.read               READ    datos: —                                        Informe de ventas anonimizado (k = 5)
+                                                 campos variables: —
+  admin.pseudonym.resolve                READ    datos: identificación                           Re-identificación de un seudónimo
+                                                 campos variables: reason: motivo obligatorio
+  admin.data-rights.list                 READ    datos: —                                        Seguimiento de plazos de solicitudes (seudonimizado)
+                                                 campos variables: —
+  admin.incident.timeline                READ    datos: registro de auditoría                    Reconstrucción de un incidente desde el registro
+                                                 campos variables: resourceRef: id de la alerta; reason: filas y estado de la cadena
+
+  [SECURITY]
+  security.alert.raised                  CONTROL datos: —                                        Una regla de detección levanta una alerta
+                                                 campos variables: resourceRef: id de la alerta; reason: regla (severidad)
+  security.alert.update                  CONTROL datos: —                                        Triage de una alerta
+                                                 campos variables: resourceRef: id de la alerta; reason: estado nuevo y nota
+  security.containment.lock              CONTROL datos: —                                        Bloqueo temporal de la cuenta (automático)
+                                                 campos variables: resourceRef: id de la alerta
+  security.containment.revoke-sessions   CONTROL datos: —                                        Revocación de las sesiones de una cuenta
+                                                 campos variables: resourceRef: id de la alerta o motivo del ADMIN
+  security.containment.disable           CONTROL datos: —                                        Deshabilitación de una cuenta
+                                                 campos variables: reason: motivo
+  security.recovery.enable               CONTROL datos: —                                        Rehabilitación de una cuenta
+                                                 campos variables: reason: motivo
+  security.containment.revoke-all-sessions CONTROL datos: —                                        Revocación global de sesiones (script)
+                                                 campos variables: —
+
+  [SYSTEM]
+  incident.snapshot                      CONTROL datos: registro de auditoría                    Preservación de evidencia con manifiesto SHA-256
+                                                 campos variables: resourceRef: prefijo del hash del manifiesto
+  audit.retention.purge                  CONTROL datos: registro de auditoría                    Purga por plazo de conservación
+                                                 campos variables: reason: filas y plazo
+  system.role.set                        CONTROL datos: —                                        Cambio de rol desde la consola del operador
+                                                 campos variables: reason: rol nuevo

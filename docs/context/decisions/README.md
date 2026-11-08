@@ -140,6 +140,37 @@ reuse this pattern, not `sklearn.train_test_split` directly on rows.
 - **No IPs stored** anywhere by design — distributed attacks are only visible
   by volume; rate limiting belongs at the network layer (not built).
 
+## Traceability and incident reconstruction (ROADMAP.md O17, 7 nov) — `docs/security/ACTIVIDAD_7.md`
+
+- **`common/audit/audit-events.ts` is the definition of what is audited.**
+  Any new `action` must be added there (category, READ/WRITE, inventory data
+  categories, what goes in resourceRef/reason) — `audit-events.spec.ts` scans
+  the source and fails otherwise.
+- **Access logging = `@AuditAccess({...})` on the route** (global
+  `AuditAccessInterceptor`, no-op without it). Records ALLOWED and
+  DENIED (401/403/404/409/400), ids + pseudonyms only; a handler adds the
+  counterparty/reason with `setAuditContext(req, …)`. Use it for any new
+  route that reads/changes personal data instead of calling AuditService.
+- **Bazaar distances need a session** (OptionalJwtAuthGuard on `GET /cards`);
+  each positioned search logs `access.location.distance` with `sellers=N`
+  and `new-position` from the in-memory `SearchPositionTracker` (never
+  coordinates). Single-instance assumption — move it to shared storage if
+  the backend is ever scaled out.
+- **Detection rules can count a different, earlier event** (sequence rules)
+  and filter by `reason` (`count.reasonContains`). Added:
+  `bazaar.location.triangulation`, `account.takeover.sequence`,
+  `transactions.enumeration`, `admin.reidentification.burst`.
+- **Session revocation compares milliseconds** (`iatMs` claim on access
+  tokens; tokens without it fall back to the start of their `iat` second).
+  Whole seconds let the attacker's token that triggered an automatic
+  containment survive it.
+- **Incident reconstruction** is a pure function
+  (`security/domain/incident-timeline.ts`) behind both
+  `GET /admin/security/incidents/:alertId/timeline` (`?format=md`) and
+  `npm run incident:timeline` (offline). It verifies the chain first and
+  reports a broken one instead of hiding it. The incident response plan is
+  now its own file, `docs/security/PLAN_RESPUESTA_INCIDENTES.md` (v2.0).
+
 ## Rights channel, objection, blocking (ROADMAP.md O16, 7 nov) — `docs/security/ACTIVIDAD_6.md`
 
 - **Two channels, one table.** `data_rights_requests.channel` = `APP` |

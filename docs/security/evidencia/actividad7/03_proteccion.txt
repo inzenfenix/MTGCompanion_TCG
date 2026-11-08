@@ -1,0 +1,51 @@
+# Actividad N°7 — 3. Protección de los registros: acceso restringido y conservación
+# Generado por apps/backend/test/evidence/actividad7.mjs — 2026-11-08T02:11:48.404Z
+# Backend compilado (dist/main.js) + PostgreSQL 16 embebido + SMTP local. Tokens truncados; ids y correos reemplazados por etiquetas.
+
+=== 1. Acceso restringido: solo ADMIN lee el registro y reconstruye incidentes (y leerlo también se audita) ===
+→ GET /admin/audit-logs?limit=1  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 403 {
+  "message": "Insufficient permissions",
+  "error": "Forbidden",
+  "statusCode": 403
+}
+→ GET /admin/audit-logs?limit=1  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 403 {
+  "message": "Insufficient permissions",
+  "error": "Forbidden",
+  "statusCode": 403
+}
+→ GET /admin/audit-logs?limit=1  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+→ GET /admin/security/audit/verify  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200 {
+  "ok": true,
+  "checked": 25,
+  "firstSeq": "1",
+  "lastSeq": "25"
+}
+
+=== 2. Solo agregar: ni el dueño de la tabla puede editar o borrar (trigger) ===
+SQL> UPDATE
+  ERROR: audit_logs is append-only (UPDATE rejected)
+SQL> DELETE
+  ERROR: audit_logs is append-only (DELETE rejected)
+SQL> TRUNCATE
+  ERROR: audit_logs is append-only (TRUNCATE rejected)
+
+=== 3. Plazo de conservación: 730 días por defecto (AUDIT_RETENTION_DAYS), mínimo 365 impuesto por la BD ===
+SQL> purga con la marca de retención, pero sobre una fila de hoy → rechazada
+  ERROR: audit_logs is append-only (DELETE rejected)
+  Para probar el plazo se insertan 2 filas sintéticas antiguas (100 y 400 días), FUERA de la cadena (hash NULL),
+  marcadas como evidencia de prueba: insertar sí está permitido (solo agregar); lo que se prueba es quién puede borrar.
+SQL> purga pidiendo un plazo de 30 días sobre la fila de 100 días → rechazada (el piso es 365)
+  ERROR: audit_logs is append-only (DELETE rejected)
+SQL> purga con plazo 365 sobre la fila de 400 días → permitida
+SQL> lo que queda: solo la de 100 días (no venció)
+  {"reason":"fila sintética de prueba (100 días)","createdAt":"2026-07-30T23:11:48.403Z"}
+  En producción la purga la hace únicamente src/scripts/purge-expired-data.ts (al arrancar el contenedor) con AUDIT_RETENTION_DAYS=730,
+  y deja constancia en la propia cadena (audit.retention.purge).
+SQL> triggers de audit_logs
+  {"trigger":"audit_logs_no_update_delete","definicion":"CREATE TRIGGER audit_logs_no_update_delete BEFORE DELETE OR UPDATE ON public.audit_logs FOR EACH ROW EXECUTE FUNCTION audit_logs_append_only()"}
+  {"trigger":"audit_logs_no_truncate","definicion":"CREATE TRIGGER audit_logs_no_truncate BEFORE TRUNCATE ON public.audit_logs FOR EACH STATEMENT EXECUTE FUNCTION audit_logs_append_only()"}
+  Las acciones de seguridad (alertas, contención) y la reconstrucción de incidentes quedan en la misma cadena.

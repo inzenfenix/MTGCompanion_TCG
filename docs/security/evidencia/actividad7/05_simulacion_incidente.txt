@@ -1,0 +1,158 @@
+# Actividad N°7 — 6. Simulación de un incidente y reconstrucción desde los registros
+# Generado por apps/backend/test/evidence/actividad7.mjs — 2026-11-08T02:11:52.944Z
+# Backend compilado (dist/main.js) + PostgreSQL 16 embebido + SMTP local. Tokens truncados; ids y correos reemplazados por etiquetas.
+
+=== ESCENARIO: toma de la cuenta de "marta" (vendedora) con una contraseña filtrada en otro sitio ===
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:marta>","password":"********","displayName":"Marta Vendedora","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:marta>","password":"********"}
+← 201
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:pedro>","password":"********","displayName":"Pedro Comprador","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:pedro>","password":"********"}
+← 201
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:lucia>","password":"********","displayName":"Lucía","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:lucia>","password":"********"}
+← 201
+→ POST /cards  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"title":"Carta Marta 1794103905275","guessedPrice":30}
+← 201
+→ POST /cards  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"title":"Carta Lucía 1794103905275","guessedPrice":8}
+← 201
+  (preparación lista; el ataque empieza 2026-11-08T02:11:51.415Z)
+
+=== Fase 1 — el atacante entra ===
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:marta>","password":"********"}
+← 401
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:marta>","password":"********"}
+← 401
+  [guion 1] 2 contraseñas incorrectas
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:marta>","password":"********"}
+← 201
+  [guion 2] login correcto con la contraseña filtrada
+
+=== Fase 2 — mira las ventas de marta y los datos de sus compradores ===
+→ GET /transactions  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+  [guion 3] lista las transacciones de marta
+→ GET /transactions/0ee0e01b-0cf6-45bd-90ba-c1dbcd087d6a  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+  [guion 4] abre la venta a pedro (ve su alias y el monto)
+→ GET /users/<id:pedro>  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+  [guion 5] mira el perfil de pedro
+
+=== Fase 3 — sondea ids para leer compras ajenas (IDOR) ===
+→ GET /transactions/432266a0-b38f-4a32-8114-1bf2bb3478c6  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 403
+→ GET /transactions/432266a0-b38f-4a32-8114-1bf2bb3478c6/receipt  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 403
+→ GET /transactions/16ce3bc8-ab67-4111-a184-91e44056c8c0  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 404
+→ GET /transactions/aef9bb71-ac4d-4f9e-ad1a-52b1fdfd8502  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 404
+→ GET /transactions/eff44b1d-c77f-4aab-9c1b-2da23041a1bf  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 404
+  [guion 6] 5 intentos sobre transacciones ajenas o inexistentes (403/404)
+
+=== Fase 4 — se queda con la cuenta: cambia el correo ===
+→ POST /auth/step-up  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"password":"********"}
+← 201 {
+  "stepUpToken": "eyJhbGciOiJIUzI1Ni…",
+  "method": "password",
+  "expiresIn": 300
+}
+  [guion 7] reautenticación (step-up) con la contraseña filtrada
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"RECTIFICATION","rectification":{"email":"<correo:correo-del-atacante>"},"stepUpToken":"eyJhbGciOiJIUzI1Ni…"}
+← 201
+  [guion 8] cambia el correo de la cuenta al suyo
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:correo-del-atacante>","password":"********"}
+← 201
+  [guion 9] vuelve a entrar con el correo nuevo
+
+=== Fase 5 — se lleva los datos ===
+→ POST /auth/step-up  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"password":"********"}
+← 201 {
+  "stepUpToken": "eyJhbGciOiJIUzI1Ni…",
+  "method": "password",
+  "expiresIn": 300
+}
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"ACCESS","stepUpToken":"eyJhbGciOiJIUzI1Ni…"}
+← 201
+  [guion 10] exportación completa de la cuenta
+  (la exportación salió: 17 secciones)
+
+=== Fase 6 — el sistema reacciona solo ===
+  alertas sobre la cuenta de marta: [["transactions.enumeration","MEDIUM","OPEN"],["account.takeover.sequence","HIGH","OPEN"]]
+  el token del atacante dejó de servir (revocación automática, en milisegundos):
+→ GET /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 401 {
+  "message": "Invalid token",
+  "error": "Unauthorized",
+  "statusCode": 401
+}
+  [guion 11] intento siguiente del atacante
+  avisos al buzón de seguridad hasta ahora: 5
+  aviso a la dirección ANTERIOR de marta ("El correo de tu cuenta MTG Companion cambió"): así se entera la titular real
+
+=== RESPUESTA (plan §5) — ADMIN de turno ===
+  Paso 1 · triage
+→ PATCH /admin/security/alerts/9f517036-51f3-4205-8945-6289265ec83f  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"status":"INVESTIGATING","reason":"Cambio de correo + exportación; la titular respondió que no fue ella"}
+← 200
+  Paso 2 · preservar evidencia ANTES de tocar nada
+  manifest sha256: 5eddfa8b730fd6b8dc4e8e27ba1830199a8354ce5cb6c1e1b1f5df98e46bd268
+  Paso 3 · reconstruir desde el registro (API) — guardado en 05b_linea_de_tiempo_api.md
+  HTTP 200 · cadena OK · 24 eventos · fases {"MODIFICACION":3,"ACCESO":7,"ACCESO_A_DATOS":4,"RECONOCIMIENTO":5,"DETECCION":2,"EXFILTRACION_O_DESTRUCCION":1,"CONTENCION":2}
+  categorías de datos tocadas: colección, credenciales, geolocalización, identificación, preferencias, transacciones
+  otras cuentas afectadas: u_a57538b4…(pedro) [access.profile.read, access.transaction.read]
+  Paso 4 · confirmar y contener
+→ PATCH /admin/security/alerts/9f517036-51f3-4205-8945-6289265ec83f  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"status":"CONFIRMED","reason":"Toma de cuenta confirmada: exportación de datos de marta y de sus compradores"}
+← 200
+→ POST /admin/security/users/<id:marta>/disable  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"reason":"INC-1: cuenta tomada; se deshabilita mientras se devuelve a la titular"}
+← 201
+  Paso 5 · identificar a quién notificar (auditado, con motivo)
+→ POST /admin/pseudonyms/resolve  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"pseudonym":"u_a57538b47fcd6045","reason":"INC-1: notificar al comprador afectado (art. 14 sexies)"}
+← 201
+  Paso 6 · reconstrucción OFFLINE (sin la API), ya con la contención — guardada en 05c_linea_de_tiempo_offline.md
+
+=== COMPROBACIÓN — ¿el registro permite reconstruir lo ocurrido? (guion del atacante vs. reconstrucción) ===
+  #  paso del guion                                              acción esperada            resultado  esperado  encontrado  seq
+   1 2 contraseñas incorrectas                                  auth.login                 FAILED     2         2           65,66 ✔
+   2 login correcto con la contraseña filtrada                  auth.login                 ALLOWED    1         1           67 ✔
+   3 lista las transacciones de marta                           access.transaction.list    ALLOWED    1         1           68 ✔
+   4 abre la venta a pedro (ve su alias y el monto)             access.transaction.read    ALLOWED    1         1           69 ✔
+   5 mira el perfil de pedro                                    access.profile.read        ALLOWED    1         1           70 ✔
+   6 5 intentos sobre transacciones ajenas o inexistentes (403/404) access.                    DENIED     5         5           71,72,73,74,75 ✔
+   7 reautenticación (step-up) con la contraseña filtrada       auth.step-up               ALLOWED    1         1           77 ✔
+   8 cambia el correo de la cuenta al suyo                      data.rectify               ALLOWED    1         1           78 ✔
+   9 vuelve a entrar con el correo nuevo                        auth.login                 ALLOWED    1         1           79 ✔
+  10 exportación completa de la cuenta                          data.export                ALLOWED    1         1           81 ✔
+  11 intento siguiente del atacante                             (401 en el guard: no llega al registro)
+
+  10/10 pasos del guion reconstruidos desde el registro, en el mismo orden (seq creciente): true
+  fases presentes en la reconstrucción: MODIFICACION, ACCESO, ACCESO_A_DATOS, RECONOCIMIENTO, DETECCION, EXFILTRACION_O_DESTRUCCION, CONTENCION
+  acciones fuera del catálogo: ninguna
+  ¿la reconstrucción por API y la offline coinciden en el número de eventos del ataque? true
+
+  Lo que el registro NO puede decir (y por qué): la contraseña usada, el correo del atacante, la IP y el contenido
+  exportado — no se guardan por minimización. El correo nuevo se obtiene de la cuenta (dato vigente), no del registro.

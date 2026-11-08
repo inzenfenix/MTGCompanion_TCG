@@ -1,0 +1,101 @@
+# Actividad N°7 — 4. Alertas de acceso anómalo propias del sistema
+# Generado por apps/backend/test/evidence/actividad7.mjs — 2026-11-08T02:11:49.151Z
+# Backend compilado (dist/main.js) + PostgreSQL 16 embebido + SMTP local. Tokens truncados; ids y correos reemplazados por etiquetas.
+
+=== 1. bazaar.location.triangulation — búsquedas con distancia desde 5 celdas de ~1 km distintas en 10 min ===
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:curioso>","password":"********","displayName":"Curioso","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:curioso>","password":"********"}
+← 201
+→ GET /cards?q=Carta%20Vale%201794103905275&lat=-33.4&lng=-70.6  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+→ GET /cards?q=Carta%20Vale%201794103905275&lat=-33.5&lng=-70.6  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+→ GET /cards?q=Carta%20Vale%201794103905275&lat=-33.45&lng=-70.7  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+→ GET /cards?q=Carta%20Vale%201794103905275&lat=-33.38&lng=-70.52  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+→ GET /cards?q=Carta%20Vale%201794103905275&lat=-33.47&lng=-70.55  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+SQL> lo que registró cada búsqueda (sin coordenadas)
+  seq  hora          actor                  rol    acción                         afectado               recurso                 motivo                     resultado
+   31  02:11:48.754  u_90f79522…(curioso)   USER   access.location.distance       —                      card-search             sellers=1;new-position     ALLOWED
+   32  02:11:48.758  u_90f79522…(curioso)   USER   access.location.distance       —                      card-search             sellers=1;new-position     ALLOWED
+   33  02:11:48.761  u_90f79522…(curioso)   USER   access.location.distance       —                      card-search             sellers=1;new-position     ALLOWED
+   34  02:11:48.764  u_90f79522…(curioso)   USER   access.location.distance       —                      card-search             sellers=1;new-position     ALLOWED
+   35  02:11:48.767  u_90f79522…(curioso)   USER   access.location.distance       —                      card-search             sellers=1;new-position     ALLOWED
+  alertas de curioso: [["bazaar.location.triangulation","HIGH"]]
+  contención automática: sus sesiones quedaron revocadas →
+→ GET /transactions  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 401 {
+  "message": "Invalid token",
+  "error": "Unauthorized",
+  "statusCode": 401
+}
+
+=== 1b. Control: bruno busca 6 veces desde su casa (misma celda) → sin alerta ===
+→ GET /cards?q=Carta%20Vale%201794103905275&lat=-33.4489&lng=-70.6693  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+→ GET /cards?q=Carta%20Vale%201794103905275&lat=-33.4487&lng=-70.6693  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+→ GET /cards?q=Carta%20Vale%201794103905275&lat=-33.4485&lng=-70.6693  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+→ GET /cards?q=Carta%20Vale%201794103905275&lat=-33.4483&lng=-70.6693  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+→ GET /cards?q=Carta%20Vale%201794103905275&lat=-33.448100000000004&lng=-70.6693  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+→ GET /cards?q=Carta%20Vale%201794103905275&lat=-33.447900000000004&lng=-70.6693  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+  alertas de triangulación para bruno: 0
+
+=== 2. transactions.enumeration — 5 lecturas denegadas de transacciones/comprobantes ajenos o inexistentes en 10 min ===
+→ GET /transactions/17301ac1-f7cb-4e75-9896-697f29921520  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 404
+→ GET /transactions/5e9ef41a-bf7a-48f5-a58c-fb68be34e4f2  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 404
+→ GET /transactions/632ddc70-df09-4fd2-bb89-79fb495b29ed  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 404
+  alertas de intruso: [["transactions.enumeration","MEDIUM",5]]
+
+=== 3. admin.reidentification.burst — un ADMIN re-identifica 5 seudónimos en 1 h ===
+→ POST /admin/pseudonyms/resolve  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"pseudonym":"u_574e51fe39cdcb97","reason":"Revisión general sin caso asociado"}
+← 201
+→ POST /admin/pseudonyms/resolve  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"pseudonym":"u_134ef4853d69067b","reason":"Revisión general sin caso asociado"}
+← 201
+→ POST /admin/pseudonyms/resolve  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"pseudonym":"u_089957cc18e819d0","reason":"Revisión general sin caso asociado"}
+← 201
+→ POST /admin/pseudonyms/resolve  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"pseudonym":"u_90f795224b8c519d","reason":"Revisión general sin caso asociado"}
+← 201
+→ POST /admin/pseudonyms/resolve  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"pseudonym":"u_e928aa867ca10714","reason":"Revisión general sin caso asociado"}
+← 201
+  alertas del admin: [["admin.reidentification.burst","HIGH"]]
+  sin contención automática (es personal): decide otro ADMIN; su sesión sigue activa →
+→ GET /admin/users?limit=1  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+
+=== 4. account.takeover.sequence — se demuestra en la simulación (05) ===
+  Cambio del correo seguido de exportación o supresión en < 1 h. Control: una exportación sin cambio de correo no alerta:
+→ POST /auth/step-up  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"password":"********"}
+← 201 {
+  "stepUpToken": "eyJhbGciOiJIUzI1Ni…",
+  "method": "password",
+  "expiresIn": 300
+}
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"ACCESS","stepUpToken":"eyJhbGciOiJIUzI1Ni…"}
+← 201
+  alertas de toma de cuenta para bruno: 0
+
+=== 5. Todas las alertas levantadas en esta sección ===
+SQL> SELECT rule, severity, status, left("subjectPseudonym", 10) || '…' AS sujeto, details FROM security_alerts ORDER BY "createdAt"
+  {"rule":"bazaar.location.triangulation","severity":"HIGH","status":"OPEN","sujeto":"u_90f79522…","details":{"events":5,"threshold":5,"windowMinutes":10,"automaticContainment":"revoke-sessions"}}
+  {"rule":"transactions.enumeration","severity":"MEDIUM","status":"OPEN","sujeto":"u_089957cc…","details":{"events":5,"threshold":5,"windowMinutes":10,"automaticContainment":"none"}}
+  {"rule":"admin.reidentification.burst","severity":"HIGH","status":"OPEN","sujeto":"u_3909f316…","details":{"events":5,"threshold":5,"windowMinutes":60,"automaticContainment":"none"}}

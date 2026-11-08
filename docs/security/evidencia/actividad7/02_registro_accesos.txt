@@ -1,0 +1,93 @@
+# Actividad N°7 — 2. Registro de accesos y operaciones sobre datos personales
+# Generado por apps/backend/test/evidence/actividad7.mjs — 2026-11-08T02:11:48.389Z
+# Backend compilado (dist/main.js) + PostgreSQL 16 embebido + SMTP local. Tokens truncados; ids y correos reemplazados por etiquetas.
+
+=== 0. Preparación: vale vende una carta a bruno (PAID); ambos se registran ===
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:vale>","password":"********","displayName":"Vale Vendedora","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:vale>","password":"********"}
+← 201
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:bruno>","password":"********","displayName":"Bruno Comprador","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:bruno>","password":"********"}
+← 201
+→ POST /cards  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"title":"Carta Vale 1794103905275","guessedPrice":15}
+← 201
+→ POST /consents/me/LOCATION_DISTANCE  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"version":"1"}
+← 201
+
+=== 1. Operaciones concretas sobre datos personales ===
+→ PATCH /users/me/location  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"lat":-33.4372,"lng":-70.6506}
+← 200
+→ GET /transactions/22d834e6-62f7-45c7-a687-6cef22201ebd  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+→ GET /transactions/22d834e6-62f7-45c7-a687-6cef22201ebd/receipt  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+→ GET /transactions  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+→ GET /users/<id:vale>  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+→ GET /cards?q=Carta%20Vale%201794103905275&lat=-33.45&lng=-70.66  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+→ GET /cards?q=Carta%20Vale%201794103905275&lat=-33.45&lng=-70.66  [sin sesión]
+← 200
+  (la misma búsqueda SIN sesión no calcula distancias ni deja registro: distanceKm = null)
+→ GET /admin/users  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+→ GET /admin/users/<id:vale>/transactions?reason=Reclamo%20de%20pago%20del%20caso%20SOP-12  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+
+=== 2. Intentos sobre datos ajenos: también quedan, como DENIED ===
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:intruso>","password":"********","displayName":"Intruso","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:intruso>","password":"********"}
+← 201
+→ GET /transactions/22d834e6-62f7-45c7-a687-6cef22201ebd  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 403 {
+  "message": "Not a party to this transaction",
+  "error": "Forbidden",
+  "statusCode": 403
+}
+→ GET /transactions/81eaf5a6-2790-487a-bf38-40b8291ba949/receipt  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 404 {
+  "message": "Transaction not found",
+  "error": "Not Found",
+  "statusCode": 404
+}
+
+=== 3. Lo que quedó en el registro (quién, qué recurso, de quién — nunca el dato) ===
+SQL> filas de esta sección
+  seq  hora          actor                  rol    acción                         afectado               recurso                 motivo                     resultado
+    1  02:11:46.722  u_3909f316…(admin)     USER   account.register               —                      user                                               ALLOWED
+    3  02:11:47.087  u_e928aa86…(soporte)   USER   account.register               —                      user                                               ALLOWED
+    5  02:11:47.444  u_574e51fe…(vale)      USER   account.register               —                      user                                               ALLOWED
+    7  02:11:47.795  u_134ef485…(bruno)     USER   account.register               —                      user                                               ALLOWED
+    9  02:11:47.978  u_574e51fe…(vale)      USER   market.card.create             —                      card 961fcdfe-2487                                 ALLOWED
+   11  02:11:47.996  u_574e51fe…(vale)      USER   account.location.update        —                      user                                               ALLOWED
+   12  02:11:48.000  u_134ef485…(bruno)     USER   access.transaction.read        u_574e51fe…(vale)      transaction 22d834e6-62f7                            ALLOWED
+   13  02:11:48.005  u_574e51fe…(vale)      USER   access.receipt.read            u_134ef485…(bruno)     transaction 22d834e6-62f7                            ALLOWED
+   14  02:11:48.008  u_574e51fe…(vale)      USER   access.transaction.list        —                      transaction             n=1                        ALLOWED
+   15  02:11:48.010  u_134ef485…(bruno)     USER   access.profile.read            u_574e51fe…(vale)      user                                               ALLOWED
+   16  02:11:48.016  u_134ef485…(bruno)     USER   access.location.distance       —                      card-search             sellers=1;new-position     ALLOWED
+   17  02:11:48.022  u_3909f316…(admin)     ADMIN  admin.users.list               —                      user                    n=4                        ALLOWED
+   18  02:11:48.025  u_e928aa86…(soporte)   SUPPORT support.transactions.read      u_574e51fe…(vale)                              Reclamo de pago del caso S ALLOWED
+   19  02:11:48.202  u_089957cc…(intruso)   USER   account.register               —                      user                                               ALLOWED
+   21  02:11:48.381  u_089957cc…(intruso)   USER   access.transaction.read        —                      transaction 22d834e6-62f7 forbidden                  DENIED
+   22  02:11:48.385  u_089957cc…(intruso)   USER   access.receipt.read            —                      transaction 81eaf5a6-2790 not-found                  DENIED
+
+=== 4. Comprobación: ningún dato personal en las filas ===
+  ¿aparecen correos? false
+  ¿aparecen ids reales de usuario? false
+  ¿aparecen alias? false
+  ¿aparecen coordenadas? false
+  ¿todas las filas encadenadas (hash)? true
+  ¿todas las acciones registradas están en el catálogo? true (12 acciones distintas)

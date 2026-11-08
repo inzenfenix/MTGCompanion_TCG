@@ -1,0 +1,54 @@
+# Actividad N°7 — Avisos de alerta al buzón de seguridad y al titular
+# Generado por apps/backend/test/evidence/actividad7.mjs — 2026-11-08T02:11:52.944Z
+# Backend compilado (dist/main.js) + PostgreSQL 16 embebido + SMTP local. Tokens truncados; ids y correos reemplazados por etiquetas.
+
+=== Correos de seguridad y avisos recibidos por el SMTP local: 9 (se omiten los de bienvenida) ===
+
+--- Para: seguridad@evidencia.test
+    Asunto: [HIGH] Alerta de seguridad: bazaar.location.triangulation
+    Se generó la alerta ed465b9c-c04e-4e50-bbd6-33d0aa4de692 (regla bazaar..location.triangulation, severidad HIGH).
+    Revísala en GET /admin/security/alerts y sigue el plan de respuesta a incidentes (docs/security/ACTIVIDAD_5.md §4).
+
+--- Para: seguridad@evidencia.test
+    Asunto: [MEDIUM] Alerta de seguridad: transactions.enumeration
+    Se generó la alerta 5c6d6ab6-3419-436f-9598-41ecc889b424 (regla transactions.enumeration, severidad MEDIUM).
+    Revísala en GET /admin/security/alerts y sigue el plan de respuesta a incidentes (docs/security/ACTIVIDAD_5.md §4).
+
+--- Para: seguridad@evidencia.test
+    Asunto: [HIGH] Alerta de seguridad: admin.reidentification.burst
+    Se generó la alerta e4c0e4d0-d73d-4516-97c1-1630abcf71ac (regla admin.reidentification.burst, severidad HIGH).
+    Revísala en GET /admin/security/alerts y sigue el plan de respuesta a incidentes (docs/security/ACTIVIDAD_5.md §4).
+
+--- Para: <correo:bruno>
+    Asunto: Respuesta a tu solicitud de acceso y portabilidad (f6780cf1)
+    Hola Bruno Comprador,
+    Tu solicitud de acceso y portabilidad n.º f6780cf1-2512-41c4-8e55-1af92c78365e fue atendida.
+    La copia de tus datos se descargó en la app en formato JSON. No guardamos una copia de esa exportación.
+
+--- Para: seguridad@evidencia.test
+    Asunto: [MEDIUM] Alerta de seguridad: transactions.enumeration
+    Se generó la alerta 21608edf-137b-49b7-ab91-e9cd9cd94cfe (regla transactions.enumeration, severidad MEDIUM).
+    Revísala en GET /admin/security/alerts y sigue el plan de respuesta a incidentes (docs/security/ACTIVIDAD_5.md §4).
+
+--- Para: <correo:marta>
+    Asunto: El correo de tu cuenta MTG Companion cambió
+    Hola Marta Vendedora,
+    El correo asociado a tu cuenta se cambió por otro y todas las sesiones abiertas se cerraron.
+    Si fuiste tú, no tienes que hacer nada. Si no fuiste tú, responde a este correo de inmediato: tu cuenta podría estar comprometida.
+
+--- Para: <correo:marta>
+    Asunto: Respuesta a tu solicitud de rectificación (021c3546)
+    Hola Marta Vendedora,
+    Tu solicitud de rectificación n.º 021c3546-5c60-4062-bf25-f038033ec088 fue atendida.
+    Los cambios ya están aplicados en tu cuenta.
+
+--- Para: seguridad@evidencia.test
+    Asunto: [HIGH] Alerta de seguridad: account.takeover.sequence
+    Se generó la alerta 9f517036-51f3-4205-8945-6289265ec83f (regla account.takeover.sequence, severidad HIGH).
+    Revísala en GET /admin/security/alerts y sigue el plan de respuesta a incidentes (docs/security/ACTIVIDAD_5.md §4).
+
+--- Para: <correo:correo-del-atacante>
+    Asunto: Respuesta a tu solicitud de acceso y portabilidad (74d5b6d2)
+    Hola Marta Vendedora,
+    Tu solicitud de acceso y portabilidad n.º 74d5b6d2-84d9-4e85-bf79-0d48dd11063f fue atendida.
+    La copia de tus datos se descargó en la app en formato JSON. No guardamos una copia de esa exportación.
