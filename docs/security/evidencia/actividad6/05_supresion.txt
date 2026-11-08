@@ -1,0 +1,162 @@
+# Actividad N°6 — 5. Supresión: qué se elimina, qué se bloquea por obligación legal y cómo se propaga
+# Generado por apps/backend/test/evidence/actividad6.mjs — 2026-11-08T01:15:23.997Z
+# Backend compilado (dist/main.js) + PostgreSQL 16 embebido + SMTP local. Tokens y códigos truncados.
+
+=== 1. Supresión con una compra PENDIENTE → DENEGADA con motivo (art. 7: ejecución de un contrato) ===
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:dani>","password":"********","displayName":"Dani Seis","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:dani>","password":"********"}
+← 201
+→ POST /cards  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"title":"Carta Dani 1794100516517","guessedPrice":5}
+← 201
+→ POST /auth/step-up  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"password":"********"}
+← 201 {
+  "stepUpToken": "eyJhbGciOiJIUzI1Ni…",
+  "method": "password",
+  "expiresIn": 300
+}
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"ERASURE","confirmErasure":true,"stepUpToken":"eyJhbGciOiJIUzI1Ni…"}
+← 201 {
+  "request": {
+    "id": "0dff1876-69eb-4a8c-b6b4-c29d638b10c0",
+    "type": "ERASURE",
+    "status": "CLOSED",
+    "outcome": "DENIED",
+    "message": "Tienes compras o ventas pendientes. Cuando se completen o cancelen podrás pedir la eliminación. Mientras tanto puedes pedir el bloqueo temporal de tus datos como alternativa.",
+    "channel": "APP",
+    "scope": null,
+    "relatedRequestId": null,
+    "verificationMethod": "password",
+    "details": {
+      "reason": "OPEN_TRANSACTIONS"
+    },
+    "receivedAt": "2026-11-08T01:15:21.771Z",
+    "verifiedAt": "2026-11-08T01:15:21.772Z",
+    "evaluatedAt": "2026-11-08T01:15:21.773Z",
+    "executedAt": null,
+    "closedAt": "2026-11-08T01:15:21.776Z",
+    "dueAt": "2026-12-08T01:15:21.771Z",
+    "expiresAt": null
+  }
+}
+
+=== 2. Alternativa del art. 8 ter: mientras tanto, dani pide el BLOQUEO en vez de la supresión ===
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"BLOCKING","blocking":{"basis":"ALTERNATIVE_TO_ERASURE"},"statement":"No puedo borrar la cuenta aún; quiero que dejen de usar mis datos."}
+← 201 {
+  "request": {
+    "id": "e5212249-b4d9-4baf-881c-5b42a200f39d",
+    "type": "BLOCKING",
+    "status": "CLOSED",
+    "outcome": "FULFILLED",
+    "message": null,
+    "channel": "APP",
+    "scope": "ALTERNATIVE_TO_ERASURE",
+    "relatedRequestId": null,
+    "verificationMethod": "session",
+    "details": {
+      "basis": "ALTERNATIVE_TO_ERASURE",
+      "covers": [
+        "Publicación en el Bazar",
+        "Ofertas y compras nuevas sobre tus cartas",
+        "Ubicación",
+        "Correos opcionales",
+        "Estadísticas de ventas"
+      ],
+      "effect": "Mientras dure el bloqueo tus publicaciones no aparecen en el Bazar, no reciben ofertas ni compras nuevas, no guardamos tu ubicación, no te enviamos correos opcionales y tus ventas no entran en las estadísticas. Tus datos se siguen almacenando, sin cambios.",
+      "alreadyActive": false,
+      "relatedRequestId": null
+    },
+    "receivedAt": "2026-11-08T01:15:21.781Z",
+    "verifiedAt": "2026-11-08T01:15:21.782Z",
+    "evaluatedAt": "2026-11-08T01:15:21.783Z",
+    "executedAt": "2026-11-08T01:15:21.784Z",
+    "closedAt": "2026-11-08T01:15:21.784Z",
+    "dueAt": "2026-11-10T01:15:21.781Z",
+    "expiresAt": null
+  }
+}
+→ DELETE /data-rights/controls/blocking  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+  (dani levanta el bloqueo para seguir con el ejemplo)
+
+=== 3. Cerrada la compra, la supresión procede: cuenta con transacciones → "lápida" anónima ===
+→ POST /auth/step-up  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"password":"********"}
+← 201 {
+  "stepUpToken": "eyJhbGciOiJIUzI1Ni…",
+  "method": "password",
+  "expiresIn": 300
+}
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"ERASURE","confirmErasure":true,"stepUpToken":"eyJhbGciOiJIUzI1Ni…","statement":"Ya no uso la aplicación."}
+← 201 {
+  "request": {
+    "id": "9b811466-0274-4339-a624-c0dd6bde4367",
+    "type": "ERASURE",
+    "status": "CLOSED",
+    "outcome": "FULFILLED",
+    "message": null,
+    "channel": "APP",
+    "scope": null,
+    "relatedRequestId": null,
+    "verificationMethod": "password",
+    "details": {
+      "mode": "tombstone",
+      "cardsDeleted": 0,
+      "decksDeleted": 0,
+      "offersDeleted": 0,
+      "photosDeleted": 1,
+      "couponsDeleted": 0,
+      "cardsKeptForTransactions": 1,
+      "storageObjectsPendingDeletion": 1
+    },
+    "receivedAt": "2026-11-08T01:15:21.968Z",
+    "verifiedAt": "2026-11-08T01:15:21.969Z",
+    "evaluatedAt": "2026-11-08T01:15:21.970Z",
+    "executedAt": "2026-11-08T01:15:23.988Z",
+    "closedAt": "2026-11-08T01:15:23.988Z",
+    "dueAt": "2026-12-08T01:15:21.968Z",
+    "expiresAt": null
+  }
+}
+SQL> ciclo de vida registrado de la solicitud
+  {"type":"ERASURE","channel":"APP","status":"CLOSED","outcome":"FULFILLED","scope":null,"verificationMethod":"password","receivedAt":"2026-11-08T01:15:21.968Z","verifiedAt":"2026-11-08T01:15:21.969Z","evaluatedAt":"2026-11-08T01:15:21.970Z","executedAt":"2026-11-08T01:15:23.988Z","closedAt":"2026-11-08T01:15:23.988Z","dueAt":"2026-12-08T01:15:21.968Z","expiresAt":null,"reason":null}
+
+=== 4. QUÉ SE ELIMINA: cuenta, ajustes, sesiones, consentimientos, controles, mazos, ofertas, cartas sin venta, fotos ===
+SQL> la cuenta de dani después de la supresión
+  {"email":"erased-7…(código)@erased.invalid","displayName":"Cuenta eliminada","passwordHash":"!erased","tombstone":true,"ajustes":0,"sesiones":0,"consentimientos":0,"controles":0}
+SQL> cartas que quedan (solo la vendida, sin la descripción libre)
+  {"title":"Carta Dani 1794100516517","description":null,"deckId":null}
+SQL> fotos en la BD (los objetos del bucket se borran tras el commit)
+  {"fotos":0}
+
+=== 5. QUÉ SE BLOQUEA POR OBLIGACIÓN LEGAL: la transacción se conserva 6 años (Código Tributario arts. 17 y 200) ===
+SQL> la transacción, apuntando a la lápida
+  {"status":"PAID","amount":"5.00","vendedor":"Cuenta eliminada"}
+SQL> las solicitudes quedan como prueba de respuesta, sin el texto libre (statement)
+  {"type":"ERASURE","statement":null,"outcome":"DENIED"}
+  {"type":"BLOCKING","statement":null,"outcome":"FULFILLED"}
+  {"type":"ERASURE","statement":null,"outcome":"FULFILLED"}
+
+=== 6. CÓMO SE PROPAGA ===
+  - Misma transacción de BD: cuenta, ajustes, sesiones, consentimientos (+historial), oposiciones/bloqueos, mazos, ofertas, cupones no usados, cartas sin venta.
+  - Sesiones vivas: users.sessionsRevokedAt = now() → todo access token anterior se rechaza:
+→ GET /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 401 {
+  "message": "Invalid token",
+  "error": "Unauthorized",
+  "statusCode": 401
+}
+  - Bucket de fotos (S3/MinIO): se borra después del commit; si falla se cuenta en storageObjectsPendingDeletion:
+      {"mode":"tombstone","cardsDeleted":0,"decksDeleted":0,"offersDeleted":0,"photosDeleted":1,"couponsDeleted":0,"cardsKeptForTransactions":1,"storageObjectsPendingDeletion":1}
+  - Contrapartes: ven "Cuenta eliminada" en la transacción (lectura por relación, sin copias).
+  - Respaldos: no se editan; al restaurar uno se reaplican las supresiones registradas (plan de incidentes, §4.d de la Actividad 5).
+  - Terceros: el único destinatario es el proveedor de correo, que no conserva perfil; no hay a quién comunicar la supresión (art. 11 inciso final).
+SQL> auditoría (seudonimizada) de esa solicitud
+  {"seq":"42","action":"data.erase","actorRole":"USER","actor":"u_a685358a33…","resourceType":"data-rights-request","reason":"tombstone","outcome":"ALLOWED"}

@@ -1,0 +1,140 @@
+# cd apps/mobile && NODE_OPTIONS=--no-experimental-webstorage npx vitest run
+# Resultado por caso: [OK] pasó · [FALLA] falló · [OMITIDA] omitida.  108 pasaron, 1 fallaron, 109 en total; 13/14 suites OK.
+# Fecha: 2026-11-08T01:16:45.769Z
+
+## App.test.tsx  (1/1)
+  [OK]     renders without crashing
+
+## SpinWheelModal.test.tsx  (4/4)
+  [OK]     always lands a forward rotation whose mod-360 puts the wedge center at 0deg
+  [OK]     always spins at least 3 full turns forward, never a near-instant snap
+  [OK]     reveals the won coupon after a successful spin
+  [OK]     shows the cooldown message on a 400 (already spun today)
+
+## Privacy.test.tsx  (9/9)
+  [OK]     shows every purpose with its own text, and its current state
+  [OK]     2FA is managed by its own flow: no toggle here
+  [OK]     turning one purpose on grants only that purpose, for the version displayed
+  [OK]     turning one off revokes it
+  [OK]     lists rights requests with their outcome and the grounded denial reason
+  [OK]     shows one objection card per legitimate-interest processing, with the denial grounds up front
+  [OK]     an active objection can be withdrawn
+  [OK]     shows what blocking stops and what it keeps, and lets the holder lift it
+  [OK]     a public-form request waiting for the step-up offers "Completar"
+
+## RightsPublic.test.tsx  (3/3)
+  [OK]     sends the address and the right, and shows the neutral acknowledgement
+  [OK]     the emailed link prefills the code; a request that needs the password says so
+  [OK]     a bad code is reported without detail
+
+## cardLocalizer.test.ts  (24/24)
+  [OK]     orders 4 arbitrary points as (top-left, top-right, bottom-right, bottom-left)
+  [OK]     reports a perfect rectangle, at ANY rotation, as fully aligned (ratio 1.0)
+  [OK]     flags a horizontal (top/bottom) keystone as misaligned
+  [OK]     flags a vertical (left/right) keystone as misaligned
+  [OK]     does not flag mild keystone within tolerance (generous by design, per user feedback that a tight check is unusable by hand)
+  [OK]     finds a light, low-saturation "card" rect on a saturated background
+  [OK]     returns null on a uniform image (nothing to localize)
+  [OK]     returns null when the candidate rect is too small (below AREA_MINIMA_FRACCION)
+  [OK]     returns null when the candidate rect has the wrong aspect ratio (square, not card-shaped)
+  [OK]     prefers the outer card over an inner card-shaped sub-region (e.g. a text box)
+  [OK]     ignores a large, uniform-color region (e.g. a mousepad) and picks a smaller, textured card-shaped region instead
+  [OK]     returns null when the only candidate is implausibly large (AREA_MAXIMA_FRACCION)
+  [OK]     deprioritizes (but does not hard-reject) a border-touching candidate when a clean alternative exists
+  [OK]     still returns a border-touching candidate when it is the only one available (deprioritized, not rejected)
+  [OK]     finds the real 4 corners of a genuinely perspective-distorted (trapezoid) card, not just its bounding rectangle
+  [OK]     rejects a uniform skin-tone rect (e.g. a face) that would otherwise match a card aspect ratio
+  [OK]     does NOT reject a warm/skin-toned CARD that has real internal structure (regression guard)
+  [OK]     flags a large near-white, low-saturation blob (simulated sleeve glare)
+  [OK]     does not flag a card with no large blown-out region
+  [OK]     flags a near-uniform color blob (simulated opaque sleeve back)
+  [OK]     does not flag a card-like image with real structure (border + inner box + art block)
+  [OK]     flags a perfectly uniform image (zero edges — the "no detail at all" extreme of blur)
+  [OK]     does not flag a high-frequency checkerboard (maximally sharp edges)
+  [OK]     matches the real MTG card ratio (63x88mm), same constant as card_preprocessing.py
+
+## frameGeometry.test.ts  (6/6)
+  [OK]     caps the longer side at maxSide, preserving aspect ratio
+  [OK]     never upscales — leaves a frame already smaller than maxSide untouched
+  [OK]     rescales proportionally between two pixel spaces
+  [OK]     letterboxes top/bottom when the container is wider than the video aspect
+  [OK]     letterboxes left/right when the container is taller/narrower than the video aspect
+  [OK]     composes scale + letterbox offset correctly
+
+## identifyCard.test.ts  (10/10)
+  [OK]     returns no-name when NEITHER OCR read is usable (name too short, rules text too short for search-by-text)
+  [OK]     returns no-candidates when both catalog searches find nothing
+  [OK]     falls back to search-by-text alone when the name is unusable but the rules text is
+  [OK]     merges name-search and text-search candidates, deduping by card id
+  [OK]     ranks candidates by Stage 2 confidence, highest first, regardless of catalog search order
+  [OK]     breaks a Stage 2 confidence TIE using name similarity to the OCR'd title
+  [OK]     does not let name similarity override a clearly BETTER text match (text still weighted higher)
+  [OK]     treats an unavailable/errored Stage 2 model as zero confidence, not a hard failure
+  [OK]     returns an error status if a collaborator throws
+  [OK]     maps the camelCase CatalogEntry onto snake_case ScryfallCardFields 1:1
+
+## qrDecoder.test.ts  (2/2)
+  [OK]     returns null when the canvas has no 2D context
+  [OK]     returns null (not a crash) when the frame contains no decodable QR code
+
+## hashingVectorizer.test.ts  (10/10)
+  [OK]     matches real sklearn output for "a"
+  [OK]     matches real sklearn output for ""
+  [OK]     matches real sklearn output for "Sol  Ring"
+  [OK]     matches real sklearn output for "Fireball!"
+  [OK]     matches real sklearn output for "café münster"
+  [OK]     matches real sklearn output for "Æther Vial"
+  [OK]     empty string produces an all-zero vector (nothing to normalize)
+  [OK]     output is L2-normalized (unit norm) for any non-empty input
+  [OK]     is case-insensitive, matching sklearn's default lowercase=True
+  [OK]     is deterministic across repeated calls (no hidden state)
+
+## ocrExtractor.test.ts  (15/15)
+  [OK]     matches CROP_TEXTO fractions with Python-style truncation (Math.floor, not Math.round)
+  [OK]     stays inside the source image bounds
+  [OK]     accepts a custom box (CROP_NOMBRE, the title bar used for scan-to-identify, ROADMAP.md E3b)
+  [OK]     applies ITU-R BT.601 luma weights (same as cv2.COLOR_BGR2GRAY)
+  [OK]     matches real cv2.threshold(..., THRESH_OTSU) on a bimodal fixture
+  [OK]     is deterministic
+  [OK]     matches real cv2 THRESH_BINARY|THRESH_OTSU output exactly
+  [OK]     composes toGrayscale + otsuThreshold + binarize into a pure RGBA -> binary pipeline
+  [OK]     passes the local self-hosted workerPath/corePath/langPath to createWorker, not tesseract.js CDN defaults
+  [OK]     picks the most letter-dense line out of a real garbage multi-line read (ROADMAP.md I19/I21)
+  [OK]     returns the single line unchanged when there is only one
+  [OK]     returns an empty string for empty/whitespace-only input
+  [OK]     ignores blank lines when choosing the best one
+  [OK]     resizes to the canonical card size, crops+upscales the text box, and returns trimmed OCR text
+  [OK]     crops+upscales CROP_NOMBRE (the title bar), not CROP_TEXTO
+
+## priceFeatures.test.ts  (9/9)
+  [OK]     produces N_TAB_FEATURES (50) dims
+  [OK]     matches Python exactly for a common colorless artifact with a known edhrec_rank
+  [OK]     matches Python exactly for a legendary multicolor card with no edhrec_rank
+  [OK]     matches Python exactly when rarity/set_type/frame/border_color are all unseen ("other" bucket)
+  [OK]     edhrec_rank_conocido/edhrec_rank_log use a 0.0 placeholder + flag, not an imputed mean, when unknown
+  [OK]     missing optional fields default sanely instead of throwing
+  [OK]     matches Python escalar_numericos exactly
+  [OK]     does not mutate the input vector
+  [OK]     handles a zero-std field without producing NaN/Infinity
+
+## stage1Detector.test.ts  (0/1)
+  [FALLA]  buildInputTensor() output shape matches the real shipped graph — no OrtRun() shape error
+
+## stage2TextValidator.test.ts  (7/7)
+  [OK]     returns "unavailable" when the model file HEAD request fails
+  [OK]     returns "unavailable" when fetch itself rejects (e.g. offline)
+  [OK]     applies sigmoid to the raw logit and thresholds at 0.5 for isMatch
+  [OK]     a negative logit (confidence < 0.5) yields isMatch: false
+  [OK]     builds a 2048-dim feature tensor: concat[v_ocr(512), v_ref(512), |diff|(512), product(512)]
+  [OK]     identical ocr/ref text yields an all-zero "diff" quarter of the feature vector
+  [OK]     returns "error" (not a crash) when the ONNX session throws during run()
+
+## stage3PriceEstimator.test.ts  (8/8)
+  [OK]     returns "unavailable" when the embedder model is missing
+  [OK]     returns "unavailable" when the price model is missing
+  [OK]     returns "error" (not "unavailable") when both models exist but the scaler is missing — a real, known gap (see ROADMAP.md E2)
+  [OK]     returns "error" when the scaler fetch throws (offline)
+  [OK]     applies Math.expm1 to the raw price_log1p output to get priceUsd
+  [OK]     feeds the price model a 1330-dim vector: concat[tabular(50), visual(1280)]
+  [OK]     the first 50 dims of the price-model input are the scaled tabular vector, the rest the visual embedding
+  [OK]     rejects an embedder output with the wrong dimensionality instead of silently continuing

@@ -60,6 +60,8 @@ of the audit log's hash chain, so rotating it means verifying the chain with
 the old key first and recording the re-anchor. O15 added no new required
 secret; `SECURITY_ALERT_EMAIL` (alert mailbox) and `AUDIT_RETENTION_DAYS`
 (default 730) are optional backend env vars, not wired into Terraform.
+O16 adds one more optional var, `PUBLIC_APP_URL` (one-click link in the
+public rights form's confirmation email; unset = code only).
 
 Not wired yet (O14 follow-up): the API still connects to Postgres as the
 table owner; `apps/backend/prisma/sql/least-privilege-role.sql` creates the

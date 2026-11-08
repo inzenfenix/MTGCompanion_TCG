@@ -1,0 +1,50 @@
+# Actividad N°6 — 3. Acceso y portabilidad
+# Generado por apps/backend/test/evidence/actividad6.mjs — 2026-11-08T01:15:20.807Z
+# Backend compilado (dist/main.js) + PostgreSQL 16 embebido + SMTP local. Tokens y códigos truncados.
+
+=== 0. Preparación: beto vende una carta a ana (PAID) y ana publica una carta propia ===
+→ POST /cards  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"title":"Carta Beto 1794100516517","guessedPrice":9,"description":"nota privada de beto"}
+← 201
+→ POST /cards  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"title":"Carta Ana 1794100516517","guessedPrice":4}
+← 201
+
+=== 1. ACCESO con step-up: JSON estructurado, se entrega una vez y no se guarda ===
+→ POST /auth/step-up  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"password":"********"}
+← 201 {
+  "stepUpToken": "eyJhbGciOiJIUzI1Ni…",
+  "method": "password",
+  "expiresIn": 300
+}
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"ACCESS","stepUpToken":"eyJhbGciOiJIUzI1Ni…"}
+← 201
+  format=mtg-companion/personal-data-export version=1
+  secciones: format, version, generatedAt, requestId, account, settings, consents, consentHistory, cards, decks, offersMade, transactions, coupons, rightsRequests, processingControls, processing, notIncluded
+  (exportación completa, con ids y correos sustituidos por etiquetas: 03_export_ejemplo.json)
+
+=== 2. Solo datos de ana: ningún id ni correo de beto; de la contraparte, solo su nombre visible ===
+  ¿contiene el id de beto?      false
+  ¿contiene el correo de beto?  false
+  ¿contiene la nota de beto?    false
+  ¿secretos (hash, 2FA, tokens)? false
+  contraparte en la transacción: "Beto Seis"
+
+=== 3. Lo que se excluye a propósito (notIncluded) y la información de tratamiento (processing) ===
+  - Hash de contraseña, secreto 2FA, tokens de sesión: Son credenciales: entregarlas, aunque sea a ti, solo crea una copia más que alguien podría robar. No son datos que puedas llevar a otro servicio.
+  - Datos de otros jugadores (id, correo, ofertas de terceros por tus cartas): Son datos personales de otras personas. De tu contraparte solo aparece el nombre visible que la app ya te muestra.
+  - Registro de auditoría y alertas de seguridad: Están seudonimizados y existen para investigar incidentes; entregarlos revelaría cómo se detectan los abusos. Puedes pedir información específica sobre ellos por escrito.
+  - Referencias internas de pago (paymentRef): Identificadores del proveedor de pagos, no datos tuyos; tu comprobante ya trae monto, medio y estado.
+  · Crear y operar tu cuenta — Contrato (Ley 19.628, art. 13 c)
+  · Colección y mercado — Contrato (Ley 19.628, art. 13 c)
+  · Compra y venta, comprobantes — Contrato y obligación legal tributaria (Ley 19.628, art. 13 b y c)
+  · Distancia a vendedores en el Bazar — Consentimiento (Ley 19.628, arts. 12 y 16 sexies)
+  · Verificación en dos pasos — Consentimiento (Ley 19.628, art. 12)
+  · Informe estadístico mensual de ventas (k = 5) — Interés legítimo (Ley 19.628, art. 13 d) — puedes oponerte (art. 8): POST /data-rights/requests {type: "OBJECTION", purpose: "SALES_STATISTICS"}
+  · Seguridad: detectar accesos no autorizados y fraude — Interés legítimo (Ley 19.628, art. 13 d) — la oposición se deniega por motivos legítimos imperiosos (art. 8 a)
+
+=== 4. La solicitud registra solo los nombres de las secciones, no los datos ===
+SQL> SELECT details FROM data_rights_requests WHERE id = $1
+  {"details":{"sections":["account","settings","consents","consentHistory","cards","decks","offersMade","transactions","coupons","rightsRequests","processingControls"]}}

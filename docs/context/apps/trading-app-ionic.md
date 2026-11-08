@@ -54,6 +54,13 @@ Privacy-related client behavior (ROADMAP.md O14, 23 oct):
 - Auction offers carry `bidderAlias` (per-card pseudonym) and `mine`, never
   `bidderId`; `Buy.tsx`'s "did I win" uses `mine` from the REST re-fetch
   (socket updates don't carry `mine`).
+- **O16 (7 nov):** `Privacy.tsx` adds *Oposición* (cards from
+  `GET /data-rights/controls`, withdraw button), *Bloqueo temporal* (what it
+  stops / doesn't, lift button) and a "Completar" step-up action on requests
+  that came in through the public form. `pages/RightsPublic.tsx` (`/derechos`,
+  routed with and without a session, linked from Onboarding) is that form:
+  email + right + grounds, then the emailed single-use code (`?code=` from
+  the link prefills it).
 - **O15 (23 oct) supersedes the O14 location toggle:** consents live in
   `pages/Privacy.tsx` (route `/privacy`, linked from Tab4 and Security):
   one toggle per purpose from `GET /consents/purposes` (grants send the

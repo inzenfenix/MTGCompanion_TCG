@@ -1,0 +1,188 @@
+# Actividad N°6 — 1. Canal de solicitudes y modelo de datos de seguimiento
+# Generado por apps/backend/test/evidence/actividad6.mjs — 2026-11-08T01:15:19.556Z
+# Backend compilado (dist/main.js) + PostgreSQL 16 embebido + SMTP local. Tokens y códigos truncados.
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:ana>","password":"********","displayName":"Ana Seis","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:ana>","password":"********"}
+← 201
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:beto>","password":"********","displayName":"Beto Seis","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:beto>","password":"********"}
+← 201
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:carla>","password":"********","displayName":"Carla Seis","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:carla>","password":"********"}
+← 201
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:admin>","password":"********","displayName":"Admin Seis","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:admin>","password":"********"}
+← 201
+
+=== 1. Canales: dentro de la app (con sesión) y formulario público (sin sesión, art. 11) ===
+  APP         POST /data-rights/requests               {type, …}  — sesión + step-up según riesgo
+  APP         POST /data-rights/requests/:id/complete  — termina con step-up una solicitud del formulario
+  EMAIL_FORM  POST /data-rights/public-requests        {email, type, purpose?, statement?, requestBlocking?}
+  EMAIL_FORM  POST /data-rights/public-requests/confirm {code}  — código de un solo uso enviado al correo
+  Seguimiento: GET /data-rights/requests (titular) · GET /admin/data-rights/requests (SUPPORT/ADMIN, seudónimos)
+  Controles:   GET /data-rights/controls · DELETE …/objections/:purpose · DELETE …/blocking
+
+=== 2. Modelo de datos: data_rights_requests (columnas nuevas de O16 marcadas) ===
+SQL> columnas de data_rights_requests
+  {"column_name":"id","data_type":"text","is_nullable":"NO"}
+  {"column_name":"userId","data_type":"text","is_nullable":"YES"}
+  {"column_name":"type","data_type":"USER-DEFINED","is_nullable":"NO"}
+  {"column_name":"status","data_type":"USER-DEFINED","is_nullable":"NO"}
+  {"column_name":"outcome","data_type":"USER-DEFINED","is_nullable":"YES"}
+  {"column_name":"verificationMethod","data_type":"text","is_nullable":"YES"}
+  {"column_name":"stepUpJti","data_type":"text","is_nullable":"YES"}
+  {"column_name":"details","data_type":"jsonb","is_nullable":"YES"}
+  {"column_name":"receivedAt","data_type":"timestamp without time zone","is_nullable":"NO"}
+  {"column_name":"verifiedAt","data_type":"timestamp without time zone","is_nullable":"YES"}
+  {"column_name":"evaluatedAt","data_type":"timestamp without time zone","is_nullable":"YES"}
+  {"column_name":"executedAt","data_type":"timestamp without time zone","is_nullable":"YES"}
+  {"column_name":"closedAt","data_type":"timestamp without time zone","is_nullable":"YES"}
+  {"column_name":"dueAt","data_type":"timestamp without time zone","is_nullable":"NO"}
+  {"column_name":"channel","data_type":"USER-DEFINED","is_nullable":"NO"}
+  {"column_name":"scope","data_type":"text","is_nullable":"YES"}
+  {"column_name":"statement","data_type":"character varying","is_nullable":"YES"}
+  {"column_name":"relatedRequestId","data_type":"text","is_nullable":"YES"}
+  {"column_name":"requestBlocking","data_type":"boolean","is_nullable":"NO"}
+  {"column_name":"contactPseudonym","data_type":"text","is_nullable":"YES"}
+  {"column_name":"confirmTokenHash","data_type":"text","is_nullable":"YES"}
+  {"column_name":"expiresAt","data_type":"timestamp without time zone","is_nullable":"YES"}
+SQL> tipos, estados, canales
+  {"enum":"data_rights_channel","valores":"APP, EMAIL_FORM"}
+  {"enum":"data_rights_outcome","valores":"FULFILLED, DENIED"}
+  {"enum":"data_rights_status","valores":"AWAITING_CONFIRMATION, PENDING_STEP_UP, RECEIVED, VERIFIED, IN_EVALUATION, CLOSED"}
+  {"enum":"data_rights_type","valores":"ACCESS, RECTIFICATION, ERASURE, OBJECTION, BLOCKING"}
+  {"enum":"processing_control_kind","valores":"OBJECTION, BLOCKING"}
+  {"enum":"processing_control_status","valores":"ACTIVE, LIFTED"}
+SQL> columnas de processing_controls (oposiciones y bloqueos vigentes y levantados)
+  {"column_name":"id","data_type":"text","is_nullable":"NO"}
+  {"column_name":"userId","data_type":"text","is_nullable":"NO"}
+  {"column_name":"kind","data_type":"USER-DEFINED","is_nullable":"NO"}
+  {"column_name":"scope","data_type":"text","is_nullable":"NO"}
+  {"column_name":"basis","data_type":"text","is_nullable":"YES"}
+  {"column_name":"status","data_type":"USER-DEFINED","is_nullable":"NO"}
+  {"column_name":"requestId","data_type":"text","is_nullable":"NO"}
+  {"column_name":"relatedRequestId","data_type":"text","is_nullable":"YES"}
+  {"column_name":"createdAt","data_type":"timestamp without time zone","is_nullable":"NO"}
+  {"column_name":"liftedAt","data_type":"timestamp without time zone","is_nullable":"YES"}
+  {"column_name":"liftReason","data_type":"text","is_nullable":"YES"}
+SQL> índices (incluye UNIQUE parcial: un control ACTIVO por titular/tipo/alcance)
+  {"indexname":"data_rights_requests_confirmTokenHash_key","indexdef":"CREATE UNIQUE INDEX \"data_rights_requests_confirmTokenHash_key\" ON public.data_rights_requests USING btree (\"confirmTokenHash\")"}
+  {"indexname":"data_rights_requests_contactPseudonym_receivedAt_idx","indexdef":"CREATE INDEX \"data_rights_requests_contactPseudonym_receivedAt_idx\" ON public.data_rights_requests USING btree (\"contactPseudonym\", \"receivedAt\")"}
+  {"indexname":"data_rights_requests_pkey","indexdef":"CREATE UNIQUE INDEX data_rights_requests_pkey ON public.data_rights_requests USING btree (id)"}
+  {"indexname":"data_rights_requests_status_dueAt_idx","indexdef":"CREATE INDEX \"data_rights_requests_status_dueAt_idx\" ON public.data_rights_requests USING btree (status, \"dueAt\")"}
+  {"indexname":"data_rights_requests_stepUpJti_key","indexdef":"CREATE UNIQUE INDEX \"data_rights_requests_stepUpJti_key\" ON public.data_rights_requests USING btree (\"stepUpJti\")"}
+  {"indexname":"data_rights_requests_userId_idx","indexdef":"CREATE INDEX \"data_rights_requests_userId_idx\" ON public.data_rights_requests USING btree (\"userId\")"}
+  {"indexname":"processing_controls_one_active","indexdef":"CREATE UNIQUE INDEX processing_controls_one_active ON public.processing_controls USING btree (\"userId\", kind, scope) WHERE (status = 'ACTIVE'::processing_control_status)"}
+  {"indexname":"processing_controls_pkey","indexdef":"CREATE UNIQUE INDEX processing_controls_pkey ON public.processing_controls USING btree (id)"}
+  {"indexname":"processing_controls_relatedRequestId_idx","indexdef":"CREATE INDEX \"processing_controls_relatedRequestId_idx\" ON public.processing_controls USING btree (\"relatedRequestId\")"}
+  {"indexname":"processing_controls_userId_status_idx","indexdef":"CREATE INDEX \"processing_controls_userId_status_idx\" ON public.processing_controls USING btree (\"userId\", status)"}
+
+=== 3. Una solicitud en la app recorre todas las etapas, cada una con su fecha; plazo legal 30 días ===
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"RECTIFICATION","rectification":{"language":"fr"}}
+← 201 {
+  "request": {
+    "id": "6e1a5509-8a48-412d-b4f0-ee290b12ccc4",
+    "type": "RECTIFICATION",
+    "status": "CLOSED",
+    "outcome": "FULFILLED",
+    "message": null,
+    "channel": "APP",
+    "scope": null,
+    "relatedRequestId": null,
+    "verificationMethod": "session",
+    "details": {
+      "fields": [
+        "language"
+      ]
+    },
+    "receivedAt": "2026-11-08T01:15:19.264Z",
+    "verifiedAt": "2026-11-08T01:15:19.266Z",
+    "evaluatedAt": "2026-11-08T01:15:19.268Z",
+    "executedAt": "2026-11-08T01:15:19.272Z",
+    "closedAt": "2026-11-08T01:15:19.272Z",
+    "dueAt": "2026-12-08T01:15:19.264Z",
+    "expiresAt": null
+  }
+}
+SQL> ciclo de vida registrado de la solicitud
+  {"type":"RECTIFICATION","channel":"APP","status":"CLOSED","outcome":"FULFILLED","scope":null,"verificationMethod":"session","receivedAt":"2026-11-08T01:15:19.264Z","verifiedAt":"2026-11-08T01:15:19.266Z","evaluatedAt":"2026-11-08T01:15:19.268Z","executedAt":"2026-11-08T01:15:19.272Z","closedAt":"2026-11-08T01:15:19.272Z","dueAt":"2026-12-08T01:15:19.264Z","expiresAt":null,"reason":null}
+
+=== 4. Una solicitud del formulario: AWAITING_CONFIRMATION → PENDING_STEP_UP → CLOSED ===
+→ POST /data-rights/public-requests  [sin sesión]
+  body: {"email":"<correo:carla>","type":"ACCESS"}
+← 202 {
+  "received": true,
+  "message": "Recibimos tu solicitud. Si el correo corresponde a una cuenta, te enviamos un código para confirmarla; si no, te escribimos para informarte que no tratamos datos asociados a él. Revisa tu bandeja de entrada."
+}
+SQL> ciclo de vida registrado de la solicitud
+  {"type":"ACCESS","channel":"EMAIL_FORM","status":"AWAITING_CONFIRMATION","outcome":null,"scope":null,"verificationMethod":null,"receivedAt":"2026-11-08T01:15:19.279Z","verifiedAt":null,"evaluatedAt":null,"executedAt":null,"closedAt":null,"dueAt":"2026-12-08T01:15:19.279Z","expiresAt":"2026-11-09T01:15:19.279Z","reason":null}
+→ POST /data-rights/public-requests/confirm  [sin sesión]
+  body: {"code":"6ngXTSDi…(código)"}
+← 200 {
+  "request": {
+    "id": "bf47c47a-21f9-4b26-9e50-c0f882e6f7ba",
+    "type": "ACCESS",
+    "status": "PENDING_STEP_UP",
+    "outcome": null,
+    "message": null,
+    "channel": "EMAIL_FORM",
+    "scope": null,
+    "relatedRequestId": null,
+    "verificationMethod": "email-link",
+    "details": null,
+    "receivedAt": "2026-11-08T01:15:19.279Z",
+    "verifiedAt": "2026-11-08T01:15:19.341Z",
+    "evaluatedAt": null,
+    "executedAt": null,
+    "closedAt": null,
+    "dueAt": "2026-12-08T01:15:19.279Z",
+    "expiresAt": "2026-11-22T01:15:19.341Z"
+  },
+  "next": "COMPLETE_IN_APP"
+}
+SQL> ciclo de vida registrado de la solicitud
+  {"type":"ACCESS","channel":"EMAIL_FORM","status":"PENDING_STEP_UP","outcome":null,"scope":null,"verificationMethod":"email-link","receivedAt":"2026-11-08T01:15:19.279Z","verifiedAt":"2026-11-08T01:15:19.341Z","evaluatedAt":null,"executedAt":null,"closedAt":null,"dueAt":"2026-12-08T01:15:19.279Z","expiresAt":"2026-11-22T01:15:19.341Z","reason":null}
+→ POST /auth/step-up  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"password":"********"}
+← 201 {
+  "stepUpToken": "eyJhbGciOiJIUzI1Ni…",
+  "method": "password",
+  "expiresIn": 300
+}
+→ POST /data-rights/requests/bf47c47a-21f9-4b26-9e50-c0f882e6f7ba/complete  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"stepUpToken":"eyJhbGciOiJIUzI1Ni…"}
+← 200
+  (exportación entregada: 17 secciones — ver 03)
+SQL> ciclo de vida registrado de la solicitud
+  {"type":"ACCESS","channel":"EMAIL_FORM","status":"CLOSED","outcome":"FULFILLED","scope":null,"verificationMethod":"email-link+password","receivedAt":"2026-11-08T01:15:19.279Z","verifiedAt":"2026-11-08T01:15:19.527Z","evaluatedAt":"2026-11-08T01:15:19.528Z","executedAt":"2026-11-08T01:15:19.539Z","closedAt":"2026-11-08T01:15:19.539Z","dueAt":"2026-12-08T01:15:19.279Z","expiresAt":"2026-11-22T01:15:19.341Z","reason":null}
+SQL> auditoría (seudonimizada) de esa solicitud
+  {"seq":"6","action":"data.public-request","actorRole":null,"actor":"anonymous…","resourceType":"data-rights-request","reason":"received:ACCESS","outcome":"ALLOWED"}
+  {"seq":"7","action":"data.public-request.confirm","actorRole":"USER","actor":"u_dc044631df…","resourceType":"data-rights-request","reason":"email-link","outcome":"ALLOWED"}
+  {"seq":"9","action":"data.export","actorRole":"USER","actor":"u_dc044631df…","resourceType":"data-rights-request","reason":null,"outcome":"ALLOWED"}
+
+=== 5. Seguimiento del titular y del personal (SUPPORT/ADMIN ven plazos y canal, no identidades) ===
+→ GET /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+→ GET /admin/data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+  ACCESS        EMAIL_FORM CLOSED          FULFILLED sujeto=u_dc044631df… vence=2026-12-08T01:15:19.279Z atrasada=false
+  RECTIFICATION APP        CLOSED          FULFILLED sujeto=u_b4a6d55479… vence=2026-12-08T01:15:19.264Z atrasada=false
+→ GET /admin/data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 403 {
+  "message": "Insufficient permissions",
+  "error": "Forbidden",
+  "statusCode": 403
+}

@@ -139,3 +139,35 @@ reuse this pattern, not `sklearn.train_test_split` directly on rows.
   access tokens issued before it (compared with `iat` in whole seconds).
 - **No IPs stored** anywhere by design — distributed attacks are only visible
   by volume; rate limiting belongs at the network layer (not built).
+
+## Rights channel, objection, blocking (ROADMAP.md O16, 7 nov) — `docs/security/ACTIVIDAD_6.md`
+
+- **Two channels, one table.** `data_rights_requests.channel` = `APP` |
+  `EMAIL_FORM`. The public form (`POST /data-rights/public-requests`, no
+  session) always answers the same thing; the outcome goes to the mailbox
+  (single-use code, 24 h, only its SHA-256 stored; or a "no data" answer for
+  addresses with no account, kept by HMAC `contactPseudonym` with
+  `userId = null`). Cap: 3 per address per 24 h.
+- **Mailbox proof only executes OBJECTION** (`mailboxProofSuffices`); access,
+  rectification and erasure wait in `PENDING_STEP_UP` for
+  `POST /data-rights/requests/:id/complete` with the normal step-up rules.
+  `DataRightsService.expireStale()` (hourly timer) closes lapsed ones.
+- **Objection decisions live in a catalog** (`objection-purposes.ts`): only
+  legitimate-interest processing is objectable. `SALES_STATISTICS` → upheld;
+  `SECURITY_MONITORING` → denied with written grounds (art. 8 a). Contract-
+  and consent-based processing are not in it (erasure / revocation instead).
+- **`processing_controls` + `ProcessingControlService`** are the gate any
+  process an objection/blocking can stop must ask at run time
+  (`isBlocked`, `hasObjection`) — same idea as `hasConsent`. Query-level
+  filters where possible (`NOT_BLOCKED` in Bazaar search, `NOT EXISTS` in
+  the sales report SQL). Partial unique index = one ACTIVE per
+  (user, kind, scope); trigger forbids touching a LIFTED row.
+- **Blocking stops non-essential processing only** (listing, new
+  offers/sales, storing location, optional emails, statistics); storage,
+  the holder's own access, already-formed contracts and the audit log go
+  on (`blocking-scope.ts`, shown to the user). A `PENDING_REQUEST` blocking
+  is lifted by `finish()` when its related request closes. Due in 2
+  business days (Mon–Fri, no holidays — errs early).
+- **Erasure also deletes controls and nulls `statement`** on the holder's
+  request rows (rows stay as proof of answer).
+

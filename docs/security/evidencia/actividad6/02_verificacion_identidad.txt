@@ -1,0 +1,285 @@
+# Actividad N°6 — 2 y 7. Verificación de identidad y solicitantes no verificados
+# Generado por apps/backend/test/evidence/actividad6.mjs — 2026-11-08T01:15:20.610Z
+# Backend compilado (dist/main.js) + PostgreSQL 16 embebido + SMTP local. Tokens y códigos truncados.
+
+=== 1. Sin sesión, el canal de la app no recibe nada (401) ===
+→ POST /data-rights/requests  [sin sesión]
+  body: {"type":"ACCESS"}
+← 401 {
+  "message": "Unauthorized",
+  "statusCode": 401
+}
+
+=== 2. ACCESO con sesión pero sin step-up: se recibe, se registra y se cierra DENEGADA (no entrega datos) ===
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"ACCESS"}
+← 201 {
+  "request": {
+    "id": "6f29d1de-1ded-4742-a18f-faeeccd9c88e",
+    "type": "ACCESS",
+    "status": "CLOSED",
+    "outcome": "DENIED",
+    "message": "No pudimos verificar tu identidad: vuelve a ingresar tu contraseña (y tu código 2FA si lo tienes activo).",
+    "channel": "APP",
+    "scope": null,
+    "relatedRequestId": null,
+    "verificationMethod": null,
+    "details": {
+      "reason": "IDENTITY_NOT_VERIFIED"
+    },
+    "receivedAt": "2026-11-08T01:15:19.559Z",
+    "verifiedAt": null,
+    "evaluatedAt": null,
+    "executedAt": null,
+    "closedAt": "2026-11-08T01:15:19.560Z",
+    "dueAt": "2026-12-08T01:15:19.559Z",
+    "expiresAt": null
+  }
+}
+SQL> ciclo de vida registrado de la solicitud
+  {"type":"ACCESS","channel":"APP","status":"CLOSED","outcome":"DENIED","scope":null,"verificationMethod":null,"receivedAt":"2026-11-08T01:15:19.559Z","verifiedAt":null,"evaluatedAt":null,"executedAt":null,"closedAt":"2026-11-08T01:15:19.560Z","dueAt":"2026-12-08T01:15:19.559Z","expiresAt":null,"reason":"IDENTITY_NOT_VERIFIED"}
+
+=== 3. Step-up con contraseña incorrecta → 401 ===
+→ POST /auth/step-up  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"password":"********"}
+← 401 {
+  "message": "Re-authentication failed",
+  "error": "Unauthorized",
+  "statusCode": 401
+}
+
+=== 4. El step-up de OTRA cuenta no verifica a beto → DENEGADA ===
+→ POST /auth/step-up  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"password":"********"}
+← 201 {
+  "stepUpToken": "eyJhbGciOiJIUzI1Ni…",
+  "method": "password",
+  "expiresIn": 300
+}
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"ACCESS","stepUpToken":"eyJhbGciOiJIUzI1Ni…"}
+← 201 {
+  "request": {
+    "id": "64bd6b13-9d16-4255-80aa-6b3a7381bc18",
+    "type": "ACCESS",
+    "status": "CLOSED",
+    "outcome": "DENIED",
+    "message": "No pudimos verificar tu identidad: vuelve a ingresar tu contraseña (y tu código 2FA si lo tienes activo).",
+    "channel": "APP",
+    "scope": null,
+    "relatedRequestId": null,
+    "verificationMethod": null,
+    "details": {
+      "reason": "IDENTITY_NOT_VERIFIED"
+    },
+    "receivedAt": "2026-11-08T01:15:19.916Z",
+    "verifiedAt": null,
+    "evaluatedAt": null,
+    "executedAt": null,
+    "closedAt": "2026-11-08T01:15:19.917Z",
+    "dueAt": "2026-12-08T01:15:19.916Z",
+    "expiresAt": null
+  }
+}
+
+=== 5. Reutilizar un step-up ya consumido → DENEGADA (UNIQUE en la BD) ===
+→ POST /auth/step-up  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"password":"********"}
+← 201 {
+  "stepUpToken": "eyJhbGciOiJIUzI1Ni…",
+  "method": "password",
+  "expiresIn": 300
+}
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"ACCESS","stepUpToken":"eyJhbGciOiJIUzI1Ni…"}
+← 201
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"ACCESS","stepUpToken":"eyJhbGciOiJIUzI1Ni…"}
+← 201 {
+  "request": {
+    "id": "db10fe73-d1d6-49dc-a672-16766f26fb75",
+    "type": "ACCESS",
+    "status": "CLOSED",
+    "outcome": "DENIED",
+    "message": "La verificación ya se usó en otra solicitud. Verifica tu identidad de nuevo.",
+    "channel": "APP",
+    "scope": null,
+    "relatedRequestId": null,
+    "verificationMethod": null,
+    "details": {
+      "reason": "STEP_UP_REUSED"
+    },
+    "receivedAt": "2026-11-08T01:15:20.104Z",
+    "verifiedAt": null,
+    "evaluatedAt": null,
+    "executedAt": null,
+    "closedAt": "2026-11-08T01:15:20.107Z",
+    "dueAt": "2026-12-08T01:15:20.104Z",
+    "expiresAt": null
+  }
+}
+
+=== 6. Formulario público: misma respuesta exista o no la cuenta (no permite enumerar correos) ===
+→ POST /data-rights/public-requests  [sin sesión]
+  body: {"email":"<correo:sin-cuenta>","type":"ERASURE"}
+← 202 {
+  "received": true,
+  "message": "Recibimos tu solicitud. Si el correo corresponde a una cuenta, te enviamos un código para confirmarla; si no, te escribimos para informarte que no tratamos datos asociados a él. Revisa tu bandeja de entrada."
+}
+→ POST /data-rights/public-requests  [sin sesión]
+  body: {"email":"<correo:beto>","type":"ERASURE"}
+← 202 {
+  "received": true,
+  "message": "Recibimos tu solicitud. Si el correo corresponde a una cuenta, te enviamos un código para confirmarla; si no, te escribimos para informarte que no tratamos datos asociados a él. Revisa tu bandeja de entrada."
+}
+  ¿respuestas idénticas? true
+  correo a <correo:sin-cuenta>: "Respuesta a tu solicitud de supresión (0c437d1e)" — Motivo: No encontramos una cuenta asociada a este correo, así que no tratamos datos personales vinculados a él.
+SQL> la fila sin cuenta: sin userId y sin el correo, solo un seudónimo HMAC
+  {"userId":null,"channel":"EMAIL_FORM","status":"CLOSED","outcome":"DENIED","reason":"NO_ACCOUNT","contactPseudonym":"u_89a99e5900448a…"}
+
+=== 7. Solicitud del formulario SIN confirmar: no se ejecuta nada; código falso → 400 ===
+SQL> ciclo de vida registrado de la solicitud
+  {"type":"ERASURE","channel":"EMAIL_FORM","status":"AWAITING_CONFIRMATION","outcome":null,"scope":null,"verificationMethod":null,"receivedAt":"2026-11-08T01:15:20.115Z","verifiedAt":null,"evaluatedAt":null,"executedAt":null,"closedAt":null,"dueAt":"2026-12-08T01:15:20.115Z","expiresAt":"2026-11-09T01:15:20.115Z","reason":null}
+→ POST /data-rights/public-requests/confirm  [sin sesión]
+  body: {"code":"xxxxxxxx…(código)"}
+← 400 {
+  "message": "Invalid or already used code",
+  "error": "Bad Request",
+  "statusCode": 400
+}
+SQL> beto sigue existiendo
+  {"cuentas_de_beto":1}
+
+=== 8. Solo el hash del código se guarda; tras confirmarlo, el código ya no sirve (un solo uso) ===
+SQL> SELECT left("confirmTokenHash", 16) || '…' AS sha256 FROM data_rights_requests WHERE id = $1
+  {"sha256":"208dd62c419065a1…"}
+→ POST /data-rights/public-requests/confirm  [sin sesión]
+  body: {"code":"DaYLRPUC…(código)"}
+← 200 {
+  "request": {
+    "id": "59eeb83a-8e09-4f35-b813-9181c296a032",
+    "type": "ERASURE",
+    "status": "PENDING_STEP_UP",
+    "outcome": null,
+    "message": null,
+    "channel": "EMAIL_FORM",
+    "scope": null,
+    "relatedRequestId": null,
+    "verificationMethod": "email-link",
+    "details": null,
+    "receivedAt": "2026-11-08T01:15:20.115Z",
+    "verifiedAt": "2026-11-08T01:15:20.173Z",
+    "evaluatedAt": null,
+    "executedAt": null,
+    "closedAt": null,
+    "dueAt": "2026-12-08T01:15:20.115Z",
+    "expiresAt": "2026-11-22T01:15:20.173Z"
+  },
+  "next": "COMPLETE_IN_APP"
+}
+→ POST /data-rights/public-requests/confirm  [sin sesión]
+  body: {"code":"DaYLRPUC…(código)"}
+← 400 {
+  "message": "Invalid or already used code",
+  "error": "Bad Request",
+  "statusCode": 400
+}
+
+=== 9. Confirmado el correo, la SUPRESIÓN aún exige la contraseña: completar sin step-up → DENEGADA ===
+→ POST /data-rights/requests/59eeb83a-8e09-4f35-b813-9181c296a032/complete  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"confirmErasure":true}
+← 200 {
+  "request": {
+    "id": "59eeb83a-8e09-4f35-b813-9181c296a032",
+    "type": "ERASURE",
+    "status": "CLOSED",
+    "outcome": "DENIED",
+    "message": "No pudimos verificar tu identidad: vuelve a ingresar tu contraseña (y tu código 2FA si lo tienes activo).",
+    "channel": "EMAIL_FORM",
+    "scope": null,
+    "relatedRequestId": null,
+    "verificationMethod": "email-link",
+    "details": {
+      "reason": "IDENTITY_NOT_VERIFIED"
+    },
+    "receivedAt": "2026-11-08T01:15:20.115Z",
+    "verifiedAt": "2026-11-08T01:15:20.173Z",
+    "evaluatedAt": null,
+    "executedAt": null,
+    "closedAt": "2026-11-08T01:15:20.179Z",
+    "dueAt": "2026-12-08T01:15:20.115Z",
+    "expiresAt": "2026-11-22T01:15:20.173Z"
+  }
+}
+SQL> ciclo de vida registrado de la solicitud
+  {"type":"ERASURE","channel":"EMAIL_FORM","status":"CLOSED","outcome":"DENIED","scope":null,"verificationMethod":"email-link","receivedAt":"2026-11-08T01:15:20.115Z","verifiedAt":"2026-11-08T01:15:20.173Z","evaluatedAt":null,"executedAt":null,"closedAt":"2026-11-08T01:15:20.179Z","dueAt":"2026-12-08T01:15:20.115Z","expiresAt":"2026-11-22T01:15:20.173Z","reason":"IDENTITY_NOT_VERIFIED"}
+SQL> beto sigue existiendo
+  {"cuentas_de_beto":1}
+
+=== 10. Otra cuenta no puede completar la solicitud ajena (404, como si no existiera) ===
+→ POST /data-rights/public-requests  [sin sesión]
+  body: {"email":"<correo:ana>","type":"ACCESS"}
+← 202 {
+  "received": true,
+  "message": "Recibimos tu solicitud. Si el correo corresponde a una cuenta, te enviamos un código para confirmarla; si no, te escribimos para informarte que no tratamos datos asociados a él. Revisa tu bandeja de entrada."
+}
+→ POST /data-rights/public-requests/confirm  [sin sesión]
+  body: {"code":"GCLjJAsL…(código)"}
+← 200
+→ POST /data-rights/requests/1869afc0-9001-4dd8-abbd-526ddffe4153/complete  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {}
+← 404 {
+  "message": "Request not found",
+  "error": "Not Found",
+  "statusCode": 404
+}
+
+=== 11. Código vencido (24 h): la solicitud se cierra sin hacer nada ===
+→ POST /data-rights/public-requests  [sin sesión]
+  body: {"email":"<correo:ana>","type":"ERASURE"}
+← 202 {
+  "received": true,
+  "message": "Recibimos tu solicitud. Si el correo corresponde a una cuenta, te enviamos un código para confirmarla; si no, te escribimos para informarte que no tratamos datos asociados a él. Revisa tu bandeja de entrada."
+}
+  (se adelanta "expiresAt" en la BD para simular que pasaron 24 h)
+→ POST /data-rights/public-requests/confirm  [sin sesión]
+  body: {"code":"G7h5MuO-…(código)"}
+← 200 {
+  "request": {
+    "id": "884fdc5d-6fc6-4bcc-8966-441c828674a9",
+    "type": "ERASURE",
+    "status": "CLOSED",
+    "outcome": "DENIED",
+    "message": "La solicitud no se confirmó o no se completó a tiempo, así que no pudimos verificar tu identidad. Puedes enviarla de nuevo.",
+    "channel": "EMAIL_FORM",
+    "scope": null,
+    "relatedRequestId": null,
+    "verificationMethod": "email-link",
+    "details": {
+      "reason": "CONFIRMATION_EXPIRED"
+    },
+    "receivedAt": "2026-11-08T01:15:20.243Z",
+    "verifiedAt": "2026-11-08T01:15:20.298Z",
+    "evaluatedAt": null,
+    "executedAt": null,
+    "closedAt": "2026-11-08T01:15:20.299Z",
+    "dueAt": "2026-12-08T01:15:20.243Z",
+    "expiresAt": "2026-11-07T22:14:20.296Z"
+  },
+  "next": "DONE"
+}
+
+=== 12. Tope por dirección: el 4.º envío en 24 h no crea fila ni envía correo ===
+→ POST /data-rights/public-requests  [sin sesión]
+  body: {"email":"<correo:ana>","type":"ACCESS"}
+← 202
+  (3.er envío de ana en 24 h: aceptado)
+→ POST /data-rights/public-requests  [sin sesión]
+  body: {"email":"<correo:ana>","type":"ACCESS"}
+← 202 {
+  "received": true,
+  "message": "Recibimos tu solicitud. Si el correo corresponde a una cuenta, te enviamos un código para confirmarla; si no, te escribimos para informarte que no tratamos datos asociados a él. Revisa tu bandeja de entrada."
+}
+  filas EMAIL_FORM de ana: antes=3 después=3 · correos nuevos: 2
+SQL> queda auditado (sin el correo)
+  {"action":"data.public-request","reason":"throttled","outcome":"DENIED"}

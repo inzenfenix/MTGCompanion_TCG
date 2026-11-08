@@ -1,0 +1,182 @@
+{
+  "format": "mtg-companion/personal-data-export",
+  "version": 1,
+  "generatedAt": "2026-11-08T01:15:20.806Z",
+  "requestId": "be3ac8c6-9273-4d65-a3e1-b5085a8f1b20",
+  "account": {
+    "id": "<id:ana>",
+    "email": "<correo:ana>",
+    "displayName": "Ana Seis",
+    "emailVerifiedAt": null,
+    "adultDeclarationAt": "2026-11-08T01:15:17.994Z",
+    "role": "USER",
+    "createdAt": "2026-11-08T01:15:18.003Z"
+  },
+  "settings": {
+    "language": "fr",
+    "theme": "dark",
+    "twoFactorEnabled": false,
+    "optionalEmails": false,
+    "location": null
+  },
+  "consents": [],
+  "consentHistory": [],
+  "cards": [
+    {
+      "id": "c49a23fa-68e2-4fbd-a7d5-ea58a97b6165",
+      "title": "Carta Ana 1794100516517",
+      "description": null,
+      "askingPrice": "4",
+      "condition": "NM",
+      "origin": "VAULT",
+      "setName": null,
+      "rarity": null,
+      "scryfallId": null,
+      "deck": null,
+      "photoCount": 0,
+      "createdAt": "2026-11-08T01:15:20.618Z"
+    }
+  ],
+  "decks": [],
+  "offersMade": [],
+  "transactions": [
+    {
+      "id": "55d900f5-4f07-425a-8ede-e4699388d692",
+      "role": "buyer",
+      "cardTitle": "Carta Beto 1794100516517",
+      "amount": "9",
+      "status": "PAID",
+      "paymentMethod": "CASH",
+      "counterparty": "Beto Seis",
+      "createdAt": "2026-11-07T22:15:20.616Z"
+    }
+  ],
+  "coupons": [],
+  "rightsRequests": [
+    {
+      "id": "6e1a5509-8a48-412d-b4f0-ee290b12ccc4",
+      "type": "RECTIFICATION",
+      "channel": "APP",
+      "scope": null,
+      "statement": null,
+      "status": "CLOSED",
+      "outcome": "FULFILLED",
+      "receivedAt": "2026-11-08T01:15:19.264Z",
+      "closedAt": "2026-11-08T01:15:19.272Z"
+    },
+    {
+      "id": "1869afc0-9001-4dd8-abbd-526ddffe4153",
+      "type": "ACCESS",
+      "channel": "EMAIL_FORM",
+      "scope": null,
+      "statement": null,
+      "status": "PENDING_STEP_UP",
+      "outcome": null,
+      "receivedAt": "2026-11-08T01:15:20.182Z",
+      "closedAt": null
+    },
+    {
+      "id": "884fdc5d-6fc6-4bcc-8966-441c828674a9",
+      "type": "ERASURE",
+      "channel": "EMAIL_FORM",
+      "scope": null,
+      "statement": null,
+      "status": "CLOSED",
+      "outcome": "DENIED",
+      "receivedAt": "2026-11-08T01:15:20.243Z",
+      "closedAt": "2026-11-08T01:15:20.299Z"
+    },
+    {
+      "id": "228fed1c-5801-4912-b544-b2a7caa9dcd4",
+      "type": "ACCESS",
+      "channel": "EMAIL_FORM",
+      "scope": null,
+      "statement": null,
+      "status": "AWAITING_CONFIRMATION",
+      "outcome": null,
+      "receivedAt": "2026-11-08T01:15:20.302Z",
+      "closedAt": null
+    },
+    {
+      "id": "be3ac8c6-9273-4d65-a3e1-b5085a8f1b20",
+      "type": "ACCESS",
+      "channel": "APP",
+      "scope": null,
+      "statement": null,
+      "status": "IN_EVALUATION",
+      "outcome": null,
+      "receivedAt": "2026-11-08T01:15:20.796Z",
+      "closedAt": null
+    }
+  ],
+  "processingControls": [],
+  "processing": [
+    {
+      "data": "Correo, nombre visible, contraseña (hash), declaración 18+",
+      "purpose": "Crear y operar tu cuenta",
+      "legalBasis": "Contrato (Ley 19.628, art. 13 c)",
+      "recipients": "Proveedor de correo (Amazon SES) para correos de cuenta",
+      "retention": "Mientras exista la cuenta"
+    },
+    {
+      "data": "Cartas, mazos, ofertas, cupones",
+      "purpose": "Colección y mercado",
+      "legalBasis": "Contrato (Ley 19.628, art. 13 c)",
+      "recipients": "Otros jugadores ven tus publicaciones y tu nombre visible; nunca tu correo",
+      "retention": "Mientras exista la cuenta"
+    },
+    {
+      "data": "Transacciones",
+      "purpose": "Compra y venta, comprobantes",
+      "legalBasis": "Contrato y obligación legal tributaria (Ley 19.628, art. 13 b y c)",
+      "recipients": "La contraparte (nombre visible), MercadoPago si pagas por esa vía",
+      "retention": "6 años (Código Tributario, arts. 17 y 200), incluso tras eliminar la cuenta"
+    },
+    {
+      "data": "Ubicación aproximada",
+      "purpose": "Distancia a vendedores en el Bazar",
+      "legalBasis": "Consentimiento (Ley 19.628, arts. 12 y 16 sexies)",
+      "recipients": "Nadie: solo se usa para calcular una distancia",
+      "retention": "30 días o hasta que revoques"
+    },
+    {
+      "data": "Secreto 2FA",
+      "purpose": "Verificación en dos pasos",
+      "legalBasis": "Consentimiento (Ley 19.628, art. 12)",
+      "recipients": "Nadie",
+      "retention": "Hasta que desactives 2FA"
+    },
+    {
+      "data": "Transacciones pagadas (agregadas, sin id ni nombre)",
+      "purpose": "Informe estadístico mensual de ventas (k = 5)",
+      "legalBasis": "Interés legítimo (Ley 19.628, art. 13 d) — puedes oponerte (art. 8): POST /data-rights/requests {type: \"OBJECTION\", purpose: \"SALES_STATISTICS\"}",
+      "recipients": "Nadie fuera del equipo (ADMIN)",
+      "retention": "No se guarda: se calcula al consultarlo"
+    },
+    {
+      "data": "Registro de auditoría seudonimizado",
+      "purpose": "Seguridad: detectar accesos no autorizados y fraude",
+      "legalBasis": "Interés legítimo (Ley 19.628, art. 13 d) — la oposición se deniega por motivos legítimos imperiosos (art. 8 a)",
+      "recipients": "Nadie fuera del equipo (ADMIN)",
+      "retention": "AUDIT_RETENTION_DAYS (730 días por defecto, mínimo 365)"
+    }
+  ],
+  "notIncluded": [
+    {
+      "what": "Hash de contraseña, secreto 2FA, tokens de sesión",
+      "why": "Son credenciales: entregarlas, aunque sea a ti, solo crea una copia más que alguien podría robar. No son datos que puedas llevar a otro servicio."
+    },
+    {
+      "what": "Datos de otros jugadores (id, correo, ofertas de terceros por tus cartas)",
+      "why": "Son datos personales de otras personas. De tu contraparte solo aparece el nombre visible que la app ya te muestra."
+    },
+    {
+      "what": "Registro de auditoría y alertas de seguridad",
+      "why": "Están seudonimizados y existen para investigar incidentes; entregarlos revelaría cómo se detectan los abusos. Puedes pedir información específica sobre ellos por escrito."
+    },
+    {
+      "what": "Referencias internas de pago (paymentRef)",
+      "why": "Identificadores del proveedor de pagos, no datos tuyos; tu comprobante ya trae monto, medio y estado."
+    }
+  ]
+}

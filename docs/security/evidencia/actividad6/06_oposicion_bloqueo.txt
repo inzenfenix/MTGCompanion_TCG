@@ -1,0 +1,497 @@
+# Actividad N°6 — 6. Oposición y bloqueo
+# Generado por apps/backend/test/evidence/actividad6.mjs — 2026-11-08T01:15:28.396Z
+# Backend compilado (dist/main.js) + PostgreSQL 16 embebido + SMTP local. Tokens y códigos truncados.
+
+=== 0. Preparación: 6 ventas pagadas, 6 vendedores y 6 compradores distintos, mismo mes/condición/medio ===
+  (el informe solo publica una celda con ≥ 5 compradores Y ≥ 5 vendedores distintos — k-anonimato, Actividad 4)
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:vend1>","password":"********","displayName":"Vendedor 1","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:vend1>","password":"********"}
+← 201
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:vend2>","password":"********","displayName":"Vendedor 2","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:vend2>","password":"********"}
+← 201
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:vend3>","password":"********","displayName":"Vendedor 3","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:vend3>","password":"********"}
+← 201
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:vend4>","password":"********","displayName":"Vendedor 4","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:vend4>","password":"********"}
+← 201
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:vend5>","password":"********","displayName":"Vendedor 5","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:vend5>","password":"********"}
+← 201
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:vend6>","password":"********","displayName":"Vendedor 6","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:vend6>","password":"********"}
+← 201
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:comp1>","password":"********","displayName":"Comprador 1","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:comp1>","password":"********"}
+← 201
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:comp2>","password":"********","displayName":"Comprador 2","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:comp2>","password":"********"}
+← 201
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:comp3>","password":"********","displayName":"Comprador 3","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:comp3>","password":"********"}
+← 201
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:comp4>","password":"********","displayName":"Comprador 4","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:comp4>","password":"********"}
+← 201
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:comp5>","password":"********","displayName":"Comprador 5","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:comp5>","password":"********"}
+← 201
+→ POST /users/register  [sin sesión]
+  body: {"email":"<correo:comp6>","password":"********","displayName":"Comprador 6","adultConfirmed":true,"language":"es-LA"}
+← 201
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:comp6>","password":"********"}
+← 201
+→ POST /cards  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"title":"Lote vend1 1794100516517","guessedPrice":10}
+← 201
+→ POST /cards  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"title":"Lote vend2 1794100516517","guessedPrice":10}
+← 201
+→ POST /cards  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"title":"Lote vend3 1794100516517","guessedPrice":10}
+← 201
+→ POST /cards  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"title":"Lote vend4 1794100516517","guessedPrice":10}
+← 201
+→ POST /cards  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"title":"Lote vend5 1794100516517","guessedPrice":10}
+← 201
+→ POST /cards  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"title":"Lote vend6 1794100516517","guessedPrice":10}
+← 201
+→ GET /admin/reports/sales  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+  informe ANTES: celda 2001-01 → ventas=6 total=60 · celdas suprimidas=1
+
+=== 1. OPOSICIÓN a SALES_STATISTICS (interés legítimo, art. 8 a): sin motivo → 400; con motivo → ATENDIDA ===
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"OBJECTION","purpose":"SALES_STATISTICS"}
+← 400 {
+  "message": [
+    "statement must be shorter than or equal to 500 characters",
+    "statement must be longer than or equal to 10 characters",
+    "statement must be a string"
+  ],
+  "error": "Bad Request",
+  "statusCode": 400
+}
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"OBJECTION","purpose":"SALES_STATISTICS","statement":"No quiero que mis ventas se usen en informes."}
+← 201 {
+  "request": {
+    "id": "1e6ba472-a18b-46a5-a8b0-4e394fdfb774",
+    "type": "OBJECTION",
+    "status": "CLOSED",
+    "outcome": "FULFILLED",
+    "message": null,
+    "channel": "APP",
+    "scope": "SALES_STATISTICS",
+    "relatedRequestId": null,
+    "verificationMethod": "session",
+    "details": {
+      "effect": "Tus transacciones dejan de entrar en el cálculo del informe desde la consulta siguiente. El informe no es necesario para darte el servicio, así que no hay motivo que prevalezca.",
+      "purpose": "SALES_STATISTICS",
+      "alreadyActive": false
+    },
+    "receivedAt": "2026-11-08T01:15:28.229Z",
+    "verifiedAt": "2026-11-08T01:15:28.230Z",
+    "evaluatedAt": "2026-11-08T01:15:28.230Z",
+    "executedAt": "2026-11-08T01:15:28.231Z",
+    "closedAt": "2026-11-08T01:15:28.231Z",
+    "dueAt": "2026-12-08T01:15:28.229Z",
+    "expiresAt": null
+  }
+}
+SQL> ciclo de vida registrado de la solicitud
+  {"type":"OBJECTION","channel":"APP","status":"CLOSED","outcome":"FULFILLED","scope":"SALES_STATISTICS","verificationMethod":"session","receivedAt":"2026-11-08T01:15:28.229Z","verifiedAt":"2026-11-08T01:15:28.230Z","evaluatedAt":"2026-11-08T01:15:28.230Z","executedAt":"2026-11-08T01:15:28.231Z","closedAt":"2026-11-08T01:15:28.231Z","dueAt":"2026-12-08T01:15:28.229Z","expiresAt":null,"reason":null}
+→ GET /admin/reports/sales  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+  informe DESPUÉS de la oposición: celda 2001-01 → ventas=5 total=50 · celdas suprimidas=1
+SQL> el control que deja la oposición
+  {"kind":"OBJECTION","scope":"SALES_STATISTICS","status":"ACTIVE","createdAt":"2026-11-08T01:15:28.231Z"}
+
+=== 2. Oposición a un tratamiento que no es de interés legítimo → 400 (el consentimiento se revoca, no se "opone") ===
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"OBJECTION","purpose":"LOCATION_DISTANCE","statement":"No quiero compartir ubicación."}
+← 400 {
+  "message": [
+    "purpose must be one of the following values: SALES_STATISTICS, SECURITY_MONITORING"
+  ],
+  "error": "Bad Request",
+  "statusCode": 400
+}
+
+=== 3. OPOSICIÓN a SECURITY_MONITORING → DENEGADA y fundada (motivos legítimos imperiosos, art. 8 a) ===
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"OBJECTION","purpose":"SECURITY_MONITORING","statement":"No quiero que registren mis inicios de sesión."}
+← 201 {
+  "request": {
+    "id": "4e20e60f-e1b0-4f3d-af28-b8949ca9c6de",
+    "type": "OBJECTION",
+    "status": "CLOSED",
+    "outcome": "DENIED",
+    "message": "No podemos dejar de hacerlo: hay motivos legítimos imperiosos que prevalecen (proteger tu cuenta y la de los demás jugadores frente a accesos no autorizados y fraude) y el registro es la prueba para la defensa ante reclamaciones (Ley 19.628, art. 8 a). Para limitar el impacto, el registro no guarda tu correo, tu IP ni valores de tus datos, solo un seudónimo, y se borra al cumplir su plazo de conservación.",
+    "channel": "APP",
+    "scope": "SECURITY_MONITORING",
+    "relatedRequestId": null,
+    "verificationMethod": "session",
+    "details": {
+      "reason": "COMPELLING_GROUNDS",
+      "grounds": "No podemos dejar de hacerlo: hay motivos legítimos imperiosos que prevalecen (proteger tu cuenta y la de los demás jugadores frente a accesos no autorizados y fraude) y el registro es la prueba para la defensa ante reclamaciones (Ley 19.628, art. 8 a). Para limitar el impacto, el registro no guarda tu correo, tu IP ni valores de tus datos, solo un seudónimo, y se borra al cumplir su plazo de conservación.",
+      "purpose": "SECURITY_MONITORING"
+    },
+    "receivedAt": "2026-11-08T01:15:28.240Z",
+    "verifiedAt": "2026-11-08T01:15:28.241Z",
+    "evaluatedAt": "2026-11-08T01:15:28.241Z",
+    "executedAt": null,
+    "closedAt": "2026-11-08T01:15:28.241Z",
+    "dueAt": "2026-12-08T01:15:28.240Z",
+    "expiresAt": null
+  }
+}
+SQL> ciclo de vida registrado de la solicitud
+  {"type":"OBJECTION","channel":"APP","status":"CLOSED","outcome":"DENIED","scope":"SECURITY_MONITORING","verificationMethod":"session","receivedAt":"2026-11-08T01:15:28.240Z","verifiedAt":"2026-11-08T01:15:28.241Z","evaluatedAt":"2026-11-08T01:15:28.241Z","executedAt":null,"closedAt":"2026-11-08T01:15:28.241Z","dueAt":"2026-12-08T01:15:28.240Z","expiresAt":null,"reason":"COMPELLING_GROUNDS"}
+
+=== 4. Retirar la oposición: la venta vuelve a contar desde el informe siguiente ===
+→ DELETE /data-rights/controls/objections/SALES_STATISTICS  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200 {
+  "kind": "OBJECTION",
+  "scope": "SALES_STATISTICS",
+  "basis": null,
+  "status": "LIFTED",
+  "requestId": "1e6ba472-a18b-46a5-a8b0-4e394fdfb774",
+  "relatedRequestId": null,
+  "since": "2026-11-08T01:15:28.231Z",
+  "liftedAt": "2026-11-08T01:15:28.246Z",
+  "liftReason": "HOLDER_WITHDREW"
+}
+→ GET /admin/reports/sales  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+  informe tras retirar: celda 2001-01 → ventas=6 total=60 · celdas suprimidas=1
+
+=== 5. BLOQUEO como alternativa a la supresión (art. 8 ter): sin motivo → 400; con motivo → ATENDIDO en ≤ 2 días hábiles ===
+→ POST /cards  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"title":"Vitrina 1794100516517","guessedPrice":12}
+← 201
+→ GET /cards?q=Vitrina%201794100516517  [sin sesión]
+← 200
+  antes: la carta aparece en el Bazar (1 resultado)
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"BLOCKING","blocking":{"basis":"ALTERNATIVE_TO_ERASURE"}}
+← 400 {
+  "message": [
+    "statement must be shorter than or equal to 500 characters",
+    "statement must be longer than or equal to 10 characters",
+    "statement must be a string"
+  ],
+  "error": "Bad Request",
+  "statusCode": 400
+}
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"BLOCKING","blocking":{"basis":"ALTERNATIVE_TO_ERASURE"},"statement":"Quiero pausar el uso de mis datos sin borrar la cuenta."}
+← 201 {
+  "request": {
+    "id": "8dcf2e10-7e49-40c9-8932-4047448ccac9",
+    "type": "BLOCKING",
+    "status": "CLOSED",
+    "outcome": "FULFILLED",
+    "message": null,
+    "channel": "APP",
+    "scope": "ALTERNATIVE_TO_ERASURE",
+    "relatedRequestId": null,
+    "verificationMethod": "session",
+    "details": {
+      "basis": "ALTERNATIVE_TO_ERASURE",
+      "covers": [
+        "Publicación en el Bazar",
+        "Ofertas y compras nuevas sobre tus cartas",
+        "Ubicación",
+        "Correos opcionales",
+        "Estadísticas de ventas"
+      ],
+      "effect": "Mientras dure el bloqueo tus publicaciones no aparecen en el Bazar, no reciben ofertas ni compras nuevas, no guardamos tu ubicación, no te enviamos correos opcionales y tus ventas no entran en las estadísticas. Tus datos se siguen almacenando, sin cambios.",
+      "alreadyActive": false,
+      "relatedRequestId": null
+    },
+    "receivedAt": "2026-11-08T01:15:28.262Z",
+    "verifiedAt": "2026-11-08T01:15:28.262Z",
+    "evaluatedAt": "2026-11-08T01:15:28.262Z",
+    "executedAt": "2026-11-08T01:15:28.263Z",
+    "closedAt": "2026-11-08T01:15:28.263Z",
+    "dueAt": "2026-11-10T01:15:28.262Z",
+    "expiresAt": null
+  }
+}
+SQL> ciclo de vida registrado de la solicitud
+  {"type":"BLOCKING","channel":"APP","status":"CLOSED","outcome":"FULFILLED","scope":"ALTERNATIVE_TO_ERASURE","verificationMethod":"session","receivedAt":"2026-11-08T01:15:28.262Z","verifiedAt":"2026-11-08T01:15:28.262Z","evaluatedAt":"2026-11-08T01:15:28.262Z","executedAt":"2026-11-08T01:15:28.263Z","closedAt":"2026-11-08T01:15:28.263Z","dueAt":"2026-11-10T01:15:28.262Z","expiresAt":null,"reason":null}
+
+=== 6. Efecto del bloqueo en cada tratamiento ===
+→ GET /cards?q=Vitrina%201794100516517  [sin sesión]
+← 200 []
+→ POST /cards/ba0e2d46-351f-48e6-b92d-7f6a88c68155/offers  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"amount":15}
+← 409 {
+  "message": "This listing is not available right now",
+  "error": "Conflict",
+  "statusCode": 409
+}
+→ POST /transactions  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"cardId":"ba0e2d46-351f-48e6-b92d-7f6a88c68155","paymentMethod":"CASH"}
+← 409 {
+  "message": "This listing is not available right now",
+  "error": "Conflict",
+  "statusCode": 409
+}
+→ POST /consents/me/LOCATION_DISTANCE  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"version":"1"}
+← 201
+→ PATCH /users/me/location  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"lat":-33.45,"lng":-70.66}
+← 403 {
+  "message": "Processing of your data is blocked (DELETE /data-rights/controls/blocking to lift it)",
+  "error": "Forbidden",
+  "statusCode": 403
+}
+→ GET /admin/reports/sales  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+  informe con el vendedor bloqueado: celda 2001-01 → ventas=5 total=50 · celdas suprimidas=1
+→ GET /cards/ba0e2d46-351f-48e6-b92d-7f6a88c68155  [sin sesión]
+← 200
+  (la carta sigue almacenada y legible por su id: el bloqueo no afecta el almacenamiento)
+→ GET /data-rights/controls  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200
+  lo que cubre / no cubre (mostrado al titular):
+    + Publicación en el Bazar — Tus cartas no aparecen en las búsquedas (filtro en la consulta, PrismaCardRepository.searchListings).
+    + Ofertas y compras nuevas sobre tus cartas — Se rechazan con 409 (OffersService.placeOffer, TransactionsService.create).
+    + Ubicación — No se guarda una nueva aunque tengas el consentimiento vigente (UsersService.updateLocation → 403).
+    + Correos opcionales — No se envía el aviso de nuevas ofertas aunque tengas el consentimiento vigente (PrivacyListeners).
+    + Estadísticas de ventas — Tus transacciones no entran al informe (PrismaAdminRepository.paidSalesAggregates).
+    − Almacenamiento de tus datos — El art. 8 ter dice expresamente que el bloqueo no afecta el almacenamiento.
+    − Tu propio acceso a la app y a tus datos — Lo necesitas para seguir tu solicitud, levantar el bloqueo o ejercer otros derechos.
+    − Compras y ventas ya acordadas (pendientes o subastas ya ganadas) y sus comprobantes — Son contratos ya formados con otra persona y obligaciones tributarias (art. 13 b y c); el bloqueo no puede usarse para incumplirlos.
+    − Registro de auditoría — Es seudonimizado y prueba, entre otras cosas, que tu bloqueo se respetó (art. 8 a, defensa ante reclamaciones).
+
+=== 7. Levantar el bloqueo: todo vuelve a funcionar ===
+→ DELETE /data-rights/controls/blocking  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 200 {
+  "kind": "BLOCKING",
+  "scope": "NON_ESSENTIAL_PROCESSING",
+  "basis": "ALTERNATIVE_TO_ERASURE",
+  "status": "LIFTED",
+  "requestId": "8dcf2e10-7e49-40c9-8932-4047448ccac9",
+  "relatedRequestId": null,
+  "since": "2026-11-08T01:15:28.263Z",
+  "liftedAt": "2026-11-08T01:15:28.292Z",
+  "liftReason": "HOLDER_WITHDREW"
+}
+→ GET /cards?q=Vitrina%201794100516517  [sin sesión]
+← 200
+  la carta vuelve al Bazar: 1 resultado
+→ POST /cards/ba0e2d46-351f-48e6-b92d-7f6a88c68155/offers  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"amount":15}
+← 201
+
+=== 8. BLOQUEO mientras se resuelve una solicitud (art. 11): formulario con requestBlocking → se levanta al cerrarla ===
+→ POST /data-rights/public-requests  [sin sesión]
+  body: {"email":"<correo:vend3>","type":"RECTIFICATION","statement":"Mi nombre visible está mal escrito.","requestBlocking":true}
+← 202 {
+  "received": true,
+  "message": "Recibimos tu solicitud. Si el correo corresponde a una cuenta, te enviamos un código para confirmarla; si no, te escribimos para informarte que no tratamos datos asociados a él. Revisa tu bandeja de entrada."
+}
+→ POST /data-rights/public-requests/confirm  [sin sesión]
+  body: {"code":"bjPe2_3D…(código)"}
+← 200 {
+  "request": {
+    "id": "df1b48ab-c67e-42d7-ab40-06d506cb51b8",
+    "type": "RECTIFICATION",
+    "status": "PENDING_STEP_UP",
+    "outcome": null,
+    "message": null,
+    "channel": "EMAIL_FORM",
+    "scope": null,
+    "relatedRequestId": null,
+    "verificationMethod": "email-link",
+    "details": null,
+    "receivedAt": "2026-11-08T01:15:28.307Z",
+    "verifiedAt": "2026-11-08T01:15:28.364Z",
+    "evaluatedAt": null,
+    "executedAt": null,
+    "closedAt": null,
+    "dueAt": "2026-12-08T01:15:28.307Z",
+    "expiresAt": "2026-11-22T01:15:28.364Z"
+  },
+  "next": "COMPLETE_IN_APP",
+  "blocking": {
+    "id": "436e7df4-79ee-42d6-8be7-5a5626e9aa77",
+    "type": "BLOCKING",
+    "status": "CLOSED",
+    "outcome": "FULFILLED",
+    "message": null,
+    "channel": "EMAIL_FORM",
+    "scope": "PENDING_REQUEST",
+    "relatedRequestId": "df1b48ab-c67e-42d7-ab40-06d506cb51b8",
+    "verificationMethod": "email-link",
+    "details": {
+      "basis": "PENDING_REQUEST",
+      "covers": [
+        "Publicación en el Bazar",
+        "Ofertas y compras nuevas sobre tus cartas",
+        "Ubicación",
+        "Correos opcionales",
+        "Estadísticas de ventas"
+      ],
+      "effect": "Mientras dure el bloqueo tus publicaciones no aparecen en el Bazar, no reciben ofertas ni compras nuevas, no guardamos tu ubicación, no te enviamos correos opcionales y tus ventas no entran en las estadísticas. Tus datos se siguen almacenando, sin cambios.",
+      "alreadyActive": false,
+      "relatedRequestId": "df1b48ab-c67e-42d7-ab40-06d506cb51b8"
+    },
+    "receivedAt": "2026-11-08T01:15:28.366Z",
+    "verifiedAt": "2026-11-08T01:15:28.367Z",
+    "evaluatedAt": "2026-11-08T01:15:28.367Z",
+    "executedAt": "2026-11-08T01:15:28.369Z",
+    "closedAt": "2026-11-08T01:15:28.369Z",
+    "dueAt": "2026-11-10T01:15:28.366Z",
+    "expiresAt": null
+  }
+}
+SQL> SELECT kind, basis, status, "relatedRequestId" = $2 AS "ligado_a_la_solicitud" FROM processing_controls WHERE "userId" = $1
+  {"kind":"BLOCKING","basis":"PENDING_REQUEST","status":"ACTIVE","ligado_a_la_solicitud":true}
+→ POST /data-rights/requests/df1b48ab-c67e-42d7-ab40-06d506cb51b8/complete  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"rectification":{"displayName":"Vendedor Tres"}}
+← 200 {
+  "request": {
+    "id": "df1b48ab-c67e-42d7-ab40-06d506cb51b8",
+    "type": "RECTIFICATION",
+    "status": "CLOSED",
+    "outcome": "FULFILLED",
+    "message": null,
+    "channel": "EMAIL_FORM",
+    "scope": null,
+    "relatedRequestId": null,
+    "verificationMethod": "email-link+session",
+    "details": {
+      "fields": [
+        "displayName"
+      ]
+    },
+    "receivedAt": "2026-11-08T01:15:28.307Z",
+    "verifiedAt": "2026-11-08T01:15:28.374Z",
+    "evaluatedAt": "2026-11-08T01:15:28.374Z",
+    "executedAt": "2026-11-08T01:15:28.375Z",
+    "closedAt": "2026-11-08T01:15:28.375Z",
+    "dueAt": "2026-12-08T01:15:28.307Z",
+    "expiresAt": "2026-11-22T01:15:28.364Z"
+  }
+}
+SQL> resuelta la rectificación, el bloqueo se levantó solo
+  {"kind":"BLOCKING","basis":"PENDING_REQUEST","status":"LIFTED","liftReason":"RELATED_REQUEST_CLOSED"}
+
+=== 9. Bloqueo "mientras se resuelve" con una solicitud ya cerrada o ajena → DENEGADO ===
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"BLOCKING","blocking":{"basis":"PENDING_REQUEST","relatedRequestId":"df1b48ab-c67e-42d7-ab40-06d506cb51b8"},"statement":"Mientras resuelven mi solicitud."}
+← 201 {
+  "request": {
+    "id": "722eeee2-bd93-48a7-a092-f4e34f7a064e",
+    "type": "BLOCKING",
+    "status": "CLOSED",
+    "outcome": "DENIED",
+    "message": "El bloqueo por solicitud pendiente requiere una solicitud tuya de rectificación, supresión u oposición que siga abierta y verificada.",
+    "channel": "APP",
+    "scope": "PENDING_REQUEST",
+    "relatedRequestId": "df1b48ab-c67e-42d7-ab40-06d506cb51b8",
+    "verificationMethod": "session",
+    "details": {
+      "reason": "NO_PENDING_REQUEST"
+    },
+    "receivedAt": "2026-11-08T01:15:28.381Z",
+    "verifiedAt": "2026-11-08T01:15:28.382Z",
+    "evaluatedAt": "2026-11-08T01:15:28.382Z",
+    "executedAt": null,
+    "closedAt": "2026-11-08T01:15:28.382Z",
+    "dueAt": "2026-11-10T01:15:28.381Z",
+    "expiresAt": null
+  }
+}
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"BLOCKING","blocking":{"basis":"PENDING_REQUEST","relatedRequestId":"bf47c47a-21f9-4b26-9e50-c0f882e6f7ba"},"statement":"Mientras resuelven mi solicitud."}
+← 201 {
+  "request": {
+    "id": "2cf9da43-a9fd-4deb-baaf-e84f81dbdbab",
+    "type": "BLOCKING",
+    "status": "CLOSED",
+    "outcome": "DENIED",
+    "message": "El bloqueo por solicitud pendiente requiere una solicitud tuya de rectificación, supresión u oposición que siga abierta y verificada.",
+    "channel": "APP",
+    "scope": "PENDING_REQUEST",
+    "relatedRequestId": "bf47c47a-21f9-4b26-9e50-c0f882e6f7ba",
+    "verificationMethod": "session",
+    "details": {
+      "reason": "NO_PENDING_REQUEST"
+    },
+    "receivedAt": "2026-11-08T01:15:28.386Z",
+    "verifiedAt": "2026-11-08T01:15:28.387Z",
+    "evaluatedAt": "2026-11-08T01:15:28.387Z",
+    "executedAt": null,
+    "closedAt": "2026-11-08T01:15:28.388Z",
+    "dueAt": "2026-11-10T01:15:28.386Z",
+    "expiresAt": null
+  }
+}
+
+=== 10. Integridad en la BD: un control levantado no se reactiva; no puede haber dos activos iguales ===
+SQL> UPDATE de un control LIFTED → ACTIVE
+  ERROR: processing_controls: a lifted control cannot be modified
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"OBJECTION","purpose":"SALES_STATISTICS","statement":"Me opongo a las estadísticas."}
+← 201
+SQL> INSERT de un segundo control ACTIVO igual
+  ERROR: duplicate key value violates unique constraint "processing_controls_one_active"
+
+=== 11. Auditoría de oposición y bloqueo (seudonimizada) ===
+SQL> SELECT seq, action, reason, outcome FROM audit_logs WHERE action IN ('data.object','data.block','data.objection.withdraw','data.blocking.lift') ORDER BY seq
+  {"seq":"39","action":"data.block","reason":"ALTERNATIVE_TO_ERASURE","outcome":"ALLOWED"}
+  {"seq":"40","action":"data.blocking.lift","reason":"BLOCKING:NON_ESSENTIAL_PROCESSING:HOLDER_WITHDREW","outcome":"ALLOWED"}
+  {"seq":"56","action":"data.object","reason":"SALES_STATISTICS","outcome":"ALLOWED"}
+  {"seq":"58","action":"data.object","reason":"COMPELLING_GROUNDS","outcome":"DENIED"}
+  {"seq":"59","action":"data.objection.withdraw","reason":"OBJECTION:SALES_STATISTICS:HOLDER_WITHDREW","outcome":"ALLOWED"}
+  {"seq":"61","action":"data.block","reason":"ALTERNATIVE_TO_ERASURE","outcome":"ALLOWED"}
+  {"seq":"64","action":"data.blocking.lift","reason":"BLOCKING:NON_ESSENTIAL_PROCESSING:HOLDER_WITHDREW","outcome":"ALLOWED"}
+  {"seq":"67","action":"data.block","reason":"PENDING_REQUEST","outcome":"ALLOWED"}
+  {"seq":"69","action":"data.blocking.lift","reason":"BLOCKING:NON_ESSENTIAL_PROCESSING:RELATED_REQUEST_CLOSED","outcome":"ALLOWED"}
+  {"seq":"70","action":"data.block","reason":"NO_PENDING_REQUEST","outcome":"DENIED"}
+  {"seq":"71","action":"data.block","reason":"NO_PENDING_REQUEST","outcome":"DENIED"}
+  {"seq":"72","action":"data.object","reason":"SALES_STATISTICS","outcome":"ALLOWED"}

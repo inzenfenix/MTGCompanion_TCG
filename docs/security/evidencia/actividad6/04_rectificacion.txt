@@ -1,0 +1,128 @@
+# Actividad N°6 — 4. Rectificación con registro del cambio
+# Generado por apps/backend/test/evidence/actividad6.mjs — 2026-11-08T01:15:21.240Z
+# Backend compilado (dist/main.js) + PostgreSQL 16 embebido + SMTP local. Tokens y códigos truncados.
+
+=== 1. Rectificación del nombre visible (basta la sesión): se aplica y queda registrada ===
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"RECTIFICATION","rectification":{"displayName":"Ana Corregida"}}
+← 201 {
+  "request": {
+    "id": "05d60b3b-e2af-44f4-9d27-373493b56843",
+    "type": "RECTIFICATION",
+    "status": "CLOSED",
+    "outcome": "FULFILLED",
+    "message": null,
+    "channel": "APP",
+    "scope": null,
+    "relatedRequestId": null,
+    "verificationMethod": "session",
+    "details": {
+      "fields": [
+        "displayName"
+      ]
+    },
+    "receivedAt": "2026-11-08T01:15:20.809Z",
+    "verifiedAt": "2026-11-08T01:15:20.809Z",
+    "evaluatedAt": "2026-11-08T01:15:20.810Z",
+    "executedAt": "2026-11-08T01:15:20.811Z",
+    "closedAt": "2026-11-08T01:15:20.811Z",
+    "dueAt": "2026-12-08T01:15:20.809Z",
+    "expiresAt": null
+  }
+}
+SQL> ciclo de vida registrado de la solicitud
+  {"type":"RECTIFICATION","channel":"APP","status":"CLOSED","outcome":"FULFILLED","scope":null,"verificationMethod":"session","receivedAt":"2026-11-08T01:15:20.809Z","verifiedAt":"2026-11-08T01:15:20.809Z","evaluatedAt":"2026-11-08T01:15:20.810Z","executedAt":"2026-11-08T01:15:20.811Z","closedAt":"2026-11-08T01:15:20.811Z","dueAt":"2026-12-08T01:15:20.809Z","expiresAt":null,"reason":null}
+
+=== 2. Registro del cambio: la auditoría guarda QUÉ campo cambió, nunca el valor antiguo ni el nuevo ===
+SQL> auditoría (seudonimizada) de esa solicitud
+  {"seq":"31","action":"data.rectify","actorRole":"USER","actor":"u_b4a6d55479…","resourceType":"data-rights-request","reason":"displayName","outcome":"ALLOWED"}
+SQL> ningún valor en el registro
+  {"filas_con_valor":0}
+
+=== 3. Propagación: beto ve el nombre corregido en la transacción compartida ===
+SQL> el alias se lee por relación en cada consulta: no hay copias que actualizar
+  {"status":"PAID","comprador":"Ana Corregida"}
+
+=== 4. Validaciones del registro: un campo no permitido (role) → 400; nada que cambiar → DENEGADA ===
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"RECTIFICATION","rectification":{"role":"ADMIN"}}
+← 400 {
+  "message": [
+    "rectification.property role should not exist"
+  ],
+  "error": "Bad Request",
+  "statusCode": 400
+}
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"RECTIFICATION","rectification":{"displayName":"Ana Corregida"}}
+← 201 {
+  "request": {
+    "id": "8fbb28a1-4af4-4d63-ba75-266c04e80c88",
+    "type": "RECTIFICATION",
+    "status": "CLOSED",
+    "outcome": "DENIED",
+    "message": "Los datos enviados son iguales a los actuales.",
+    "channel": "APP",
+    "scope": null,
+    "relatedRequestId": null,
+    "verificationMethod": "session",
+    "details": {
+      "reason": "NOTHING_TO_RECTIFY"
+    },
+    "receivedAt": "2026-11-08T01:15:20.824Z",
+    "verifiedAt": "2026-11-08T01:15:20.825Z",
+    "evaluatedAt": "2026-11-08T01:15:20.825Z",
+    "executedAt": null,
+    "closedAt": "2026-11-08T01:15:20.826Z",
+    "dueAt": "2026-12-08T01:15:20.824Z",
+    "expiresAt": null
+  }
+}
+
+=== 5. Rectificación del correo: exige step-up; se revocan las sesiones y se avisa a la dirección anterior ===
+→ POST /auth/step-up  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"password":"********"}
+← 201 {
+  "stepUpToken": "eyJhbGciOiJIUzI1Ni…",
+  "method": "password",
+  "expiresIn": 300
+}
+→ POST /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+  body: {"type":"RECTIFICATION","rectification":{"email":"<correo:ana-nuevo>"},"stepUpToken":"eyJhbGciOiJIUzI1Ni…"}
+← 201 {
+  "request": {
+    "id": "6b3c9d77-c0bb-45c7-ba06-459157cc025d",
+    "type": "RECTIFICATION",
+    "status": "CLOSED",
+    "outcome": "FULFILLED",
+    "message": null,
+    "channel": "APP",
+    "scope": null,
+    "relatedRequestId": null,
+    "verificationMethod": "password",
+    "details": {
+      "fields": [
+        "email"
+      ]
+    },
+    "receivedAt": "2026-11-08T01:15:21.005Z",
+    "verifiedAt": "2026-11-08T01:15:21.006Z",
+    "evaluatedAt": "2026-11-08T01:15:21.006Z",
+    "executedAt": "2026-11-08T01:15:21.011Z",
+    "closedAt": "2026-11-08T01:15:21.011Z",
+    "dueAt": "2026-12-08T01:15:21.005Z",
+    "expiresAt": null
+  }
+}
+→ GET /data-rights/requests  [Bearer eyJhbGciOiJIUzI1Ni…]
+← 401 {
+  "message": "Invalid token",
+  "error": "Unauthorized",
+  "statusCode": 401
+}
+  aviso a la dirección anterior: "El correo de tu cuenta MTG Companion cambió"
+SQL> auditoría (seudonimizada) de esa solicitud
+  {"seq":"34","action":"data.rectify","actorRole":"USER","actor":"u_b4a6d55479…","resourceType":"data-rights-request","reason":"email","outcome":"ALLOWED"}
+→ POST /auth/login  [sin sesión]
+  body: {"email":"<correo:ana-nuevo>","password":"********"}
+← 201

@@ -1,0 +1,215 @@
+# Actividad N°6 — Respuestas escritas y códigos de confirmación (art. 11)
+# Generado por apps/backend/test/evidence/actividad6.mjs — 2026-11-08T01:15:28.397Z
+# Backend compilado (dist/main.js) + PostgreSQL 16 embebido + SMTP local. Tokens y códigos truncados.
+
+=== Correos de privacidad recibidos por el SMTP local: 29 (se omiten 17 de bienvenida) ===
+
+--- Para: <correo:ana>
+    Asunto: Respuesta a tu solicitud de rectificación (6e1a5509)
+    Hola Ana Seis,
+    Tu solicitud de rectificación n.º 6e1a5509-8a48-412d-b4f0-ee290b12ccc4 fue atendida.
+    Los cambios ya están aplicados en tu cuenta.
+
+--- Para: <correo:carla>
+    Asunto: Confirma tu solicitud de acceso y portabilidad
+    Hola Carla Seis,
+    Recibimos por el formulario de privacidad una solicitud de acceso y portabilidad (n.º bf47c47a-21f9-4b26-9e50-c0f882e6f7ba) para la cuenta asociada a este correo.
+    Para verificar que la enviaste tú, ingresa este código en la app (Privacidad → "¿No puedes entrar?" → Confirmar):
+    6ngXTSDi…(código)
+    O abre este enlace: http://localhost:5199/derechos/confirmar?code=6ngXTSDi…(código)
+    El código sirve una sola vez y vence el 2026-11-09 01:15 UTC. Hasta que lo confirmes no haremos nada con la solicitud.
+    Si no la enviaste tú, ignora este correo: sin el código la solicitud se cierra sola y tu cuenta no cambia.
+
+--- Para: <correo:carla>
+    Asunto: Completa tu solicitud de acceso y portabilidad (bf47c47a)
+    Hola Carla Seis,
+    Confirmaste la solicitud de acceso y portabilidad n.º bf47c47a-21f9-4b26-9e50-c0f882e6f7ba.
+    Para atenderla necesitamos una verificación más fuerte: inicia sesión en la app, abre Privacidad y mis datos → Mis solicitudes y pulsa "Completar". Te pediremos tu contraseña (y tu código 2FA si lo tienes activo).
+    Si no la completas en 14 días, se cerrará sin cambios y podrás enviarla de nuevo.
+
+--- Para: <correo:carla>
+    Asunto: Respuesta a tu solicitud de acceso y portabilidad (bf47c47a)
+    Hola Carla Seis,
+    Tu solicitud de acceso y portabilidad n.º bf47c47a-21f9-4b26-9e50-c0f882e6f7ba fue atendida.
+    La copia de tus datos se descargó en la app en formato JSON. No guardamos una copia de esa exportación.
+
+--- Para: <correo:beto>
+    Asunto: Respuesta a tu solicitud de acceso y portabilidad (6f29d1de)
+    Hola Beto Seis,
+    No pudimos atender tu solicitud de acceso y portabilidad n..º 6f29d1de-1ded-4742-a18f-faeeccd9c88e.
+    Motivo: No pudimos verificar tu identidad: vuelve a ingresar tu contraseña (y tu código 2FA si lo tienes activo).
+    Si no estás de acuerdo, puedes presentar un reclamo ante la Agencia de Protección de Datos Personales dentro de 30 días hábiles (Ley 19.628, art. 11).
+
+--- Para: <correo:beto>
+    Asunto: Respuesta a tu solicitud de acceso y portabilidad (64bd6b13)
+    Hola Beto Seis,
+    No pudimos atender tu solicitud de acceso y portabilidad n..º 64bd6b13-9d16-4255-80aa-6b3a7381bc18.
+    Motivo: No pudimos verificar tu identidad: vuelve a ingresar tu contraseña (y tu código 2FA si lo tienes activo).
+    Si no estás de acuerdo, puedes presentar un reclamo ante la Agencia de Protección de Datos Personales dentro de 30 días hábiles (Ley 19.628, art. 11).
+
+--- Para: <correo:beto>
+    Asunto: Respuesta a tu solicitud de acceso y portabilidad (2a0c6c55)
+    Hola Beto Seis,
+    Tu solicitud de acceso y portabilidad n.º 2a0c6c55-7726-4c3e-9295-b67bcd26459a fue atendida.
+    La copia de tus datos se descargó en la app en formato JSON. No guardamos una copia de esa exportación.
+
+--- Para: <correo:beto>
+    Asunto: Respuesta a tu solicitud de acceso y portabilidad (db10fe73)
+    Hola Beto Seis,
+    No pudimos atender tu solicitud de acceso y portabilidad n..º db10fe73-d1d6-49dc-a672-16766f26fb75.
+    Motivo: La verificación ya se usó en otra solicitud. Verifica tu identidad de nuevo.
+    Si no estás de acuerdo, puedes presentar un reclamo ante la Agencia de Protección de Datos Personales dentro de 30 días hábiles (Ley 19.628, art. 11).
+
+--- Para: <correo:sin-cuenta>
+    Asunto: Respuesta a tu solicitud de supresión (0c437d1e)
+    Hola,
+    No pudimos atender tu solicitud de supresión n.º 0c437d1e-9ed8-40d1-a75c-9200b48901bc.
+    Motivo: No encontramos una cuenta asociada a este correo, así que no tratamos datos personales vinculados a él.
+    Si no estás de acuerdo, puedes presentar un reclamo ante la Agencia de Protección de Datos Personales dentro de 30 días hábiles (Ley 19.628, art. 11).
+
+--- Para: <correo:beto>
+    Asunto: Confirma tu solicitud de supresión
+    Hola Beto Seis,
+    Recibimos por el formulario de privacidad una solicitud de supresión (n.º 59eeb83a-8e09-4f35-b813-9181c296a032) para la cuenta asociada a este correo.
+    Para verificar que la enviaste tú, ingresa este código en la app (Privacidad → "¿No puedes entrar?" → Confirmar):
+    DaYLRPUC…(código)
+    O abre este enlace: http://localhost:5199/derechos/confirmar?code=DaYLRPUC…(código)
+    El código sirve una sola vez y vence el 2026-11-09 01:15 UTC. Hasta que lo confirmes no haremos nada con la solicitud.
+    Si no la enviaste tú, ignora este correo: sin el código la solicitud se cierra sola y tu cuenta no cambia.
+
+--- Para: <correo:beto>
+    Asunto: Completa tu solicitud de supresión (59eeb83a)
+    Hola Beto Seis,
+    Confirmaste la solicitud de supresión n.º 59eeb83a-8e09-4f35-b813-9181c296a032.
+    Para atenderla necesitamos una verificación más fuerte: inicia sesión en la app, abre Privacidad y mis datos → Mis solicitudes y pulsa "Completar". Te pediremos tu contraseña (y tu código 2FA si lo tienes activo).
+    Si no la completas en 14 días, se cerrará sin cambios y podrás enviarla de nuevo.
+
+--- Para: <correo:beto>
+    Asunto: Respuesta a tu solicitud de supresión (59eeb83a)
+    Hola Beto Seis,
+    No pudimos atender tu solicitud de supresión n.º 59eeb83a-8e09-4f35-b813-9181c296a032.
+    Motivo: No pudimos verificar tu identidad: vuelve a ingresar tu contraseña (y tu código 2FA si lo tienes activo).
+    Si no estás de acuerdo, puedes presentar un reclamo ante la Agencia de Protección de Datos Personales dentro de 30 días hábiles (Ley 19.628, art. 11).
+
+--- Para: <correo:ana>
+    Asunto: Confirma tu solicitud de acceso y portabilidad
+    Hola Ana Seis,
+    Recibimos por el formulario de privacidad una solicitud de acceso y portabilidad (n.º 1869afc0-9001-4dd8-abbd-526ddffe4153) para la cuenta asociada a este correo.
+    Para verificar que la enviaste tú, ingresa este código en la app (Privacidad → "¿No puedes entrar?" → Confirmar):
+    GCLjJAsL…(código)
+    O abre este enlace: http://localhost:5199/derechos/confirmar?code=GCLjJAsL…(código)
+    El código sirve una sola vez y vence el 2026-11-09 01:15 UTC. Hasta que lo confirmes no haremos nada con la solicitud.
+    Si no la enviaste tú, ignora este correo: sin el código la solicitud se cierra sola y tu cuenta no cambia.
+
+--- Para: <correo:ana>
+    Asunto: Completa tu solicitud de acceso y portabilidad (1869afc0)
+    Hola Ana Seis,
+    Confirmaste la solicitud de acceso y portabilidad n.º 1869afc0-9001-4dd8-abbd-526ddffe4153.
+    Para atenderla necesitamos una verificación más fuerte: inicia sesión en la app, abre Privacidad y mis datos → Mis solicitudes y pulsa "Completar". Te pediremos tu contraseña (y tu código 2FA si lo tienes activo).
+    Si no la completas en 14 días, se cerrará sin cambios y podrás enviarla de nuevo.
+
+--- Para: <correo:ana>
+    Asunto: Confirma tu solicitud de supresión
+    Hola Ana Seis,
+    Recibimos por el formulario de privacidad una solicitud de supresión (n.º 884fdc5d-6fc6-4bcc-8966-441c828674a9) para la cuenta asociada a este correo.
+    Para verificar que la enviaste tú, ingresa este código en la app (Privacidad → "¿No puedes entrar?" → Confirmar):
+    G7h5MuO-…(código)
+    O abre este enlace: http://localhost:5199/derechos/confirmar?code=G7h5MuO-…(código)
+    El código sirve una sola vez y vence el 2026-11-09 01:15 UTC. Hasta que lo confirmes no haremos nada con la solicitud.
+    Si no la enviaste tú, ignora este correo: sin el código la solicitud se cierra sola y tu cuenta no cambia.
+
+--- Para: <correo:ana>
+    Asunto: Respuesta a tu solicitud de supresión (884fdc5d)
+    Hola Ana Seis,
+    No pudimos atender tu solicitud de supresión n.º 884fdc5d-6fc6-4bcc-8966-441c828674a9.
+    Motivo: La solicitud no se confirmó o no se completó a tiempo, así que no pudimos verificar tu identidad. Puedes enviarla de nuevo.
+    Si no estás de acuerdo, puedes presentar un reclamo ante la Agencia de Protección de Datos Personales dentro de 30 días hábiles (Ley 19.628, art. 11).
+
+--- Para: <correo:ana>
+    Asunto: Confirma tu solicitud de acceso y portabilidad
+    Hola Ana Seis,
+    Recibimos por el formulario de privacidad una solicitud de acceso y portabilidad (n.º 228fed1c-5801-4912-b544-b2a7caa9dcd4) para la cuenta asociada a este correo.
+    Para verificar que la enviaste tú, ingresa este código en la app (Privacidad → "¿No puedes entrar?" → Confirmar):
+    QiQQ9LId…(código)
+    O abre este enlace: http://localhost:5199/derechos/confirmar?code=QiQQ9LId…(código)
+    El código sirve una sola vez y vence el 2026-11-09 01:15 UTC. Hasta que lo confirmes no haremos nada con la solicitud.
+    Si no la enviaste tú, ignora este correo: sin el código la solicitud se cierra sola y tu cuenta no cambia.
+
+--- Para: <correo:ana>
+    Asunto: Respuesta a tu solicitud de acceso y portabilidad (be3ac8c6)
+    Hola Ana Seis,
+    Tu solicitud de acceso y portabilidad n.º be3ac8c6-9273-4d65-a3e1-b5085a8f1b20 fue atendida.
+    La copia de tus datos se descargó en la app en formato JSON. No guardamos una copia de esa exportación.
+
+--- Para: <correo:ana>
+    Asunto: Respuesta a tu solicitud de rectificación (05d60b3b)
+    Hola Ana Seis,
+    Tu solicitud de rectificación n.º 05d60b3b-e2af-44f4-9d27-373493b56843 fue atendida.
+    Los cambios ya están aplicados en tu cuenta.
+
+--- Para: <correo:ana>
+    Asunto: Respuesta a tu solicitud de rectificación (8fbb28a1)
+    Hola Ana Corregida,
+    No pudimos atender tu solicitud de rectificación n.º 8fbb28a1-4af4-4d63-ba75-266c04e80c88.
+    Motivo: Los datos enviados son iguales a los actuales.
+    Si no estás de acuerdo, puedes presentar un reclamo ante la Agencia de Protección de Datos Personales dentro de 30 días hábiles (Ley 19.628, art. 11).
+
+--- Para: <correo:ana>
+    Asunto: El correo de tu cuenta MTG Companion cambió
+    Hola Ana Corregida,
+    El correo asociado a tu cuenta se cambió por otro y todas las sesiones abiertas se cerraron.
+    Si fuiste tú, no tienes que hacer nada. Si no fuiste tú, responde a este correo de inmediato: tu cuenta podría estar comprometida.
+
+--- Para: <correo:ana>
+    Asunto: Respuesta a tu solicitud de rectificación (6b3c9d77)
+    Hola Ana Corregida,
+    Tu solicitud de rectificación n.º 6b3c9d77-c0bb-45c7-ba06-459157cc025d fue atendida.
+    Los cambios ya están aplicados en tu cuenta.
+
+--- Para: <correo:dani>
+    Asunto: Respuesta a tu solicitud de supresión (0dff1876)
+    Hola Dani Seis,
+    No pudimos atender tu solicitud de supresión n.º 0dff1876-69eb-4a8c-b6b4-c29d638b10c0.
+    Motivo: Tienes compras o ventas pendientes. Cuando se completen o cancelen podrás pedir la eliminación. Mientras tanto puedes pedir el bloqueo temporal de tus datos como alternativa.
+    Si no estás de acuerdo, puedes presentar un reclamo ante la Agencia de Protección de Datos Personales dentro de 30 días hábiles (Ley 19.628, art. 11).
+
+--- Para: <correo:dani>
+    Asunto: Respuesta a tu solicitud de bloqueo temporal (e5212249)
+    Hola Dani Seis,
+    Tu solicitud de bloqueo temporal n.º e5212249-b4d9-4baf-881c-5b42a200f39d fue atendida.
+    Mientras dure el bloqueo tus publicaciones no aparecen en el Bazar, no reciben ofertas ni compras nuevas, no guardamos tu ubicación, no te enviamos correos opcionales y tus ventas no entran en las estadísticas.. Tus datos se siguen almacenando, sin cambios. Puedes retirarla cuando quieras en Privacidad y mis datos.
+
+--- Para: <correo:dani>
+    Asunto: Respuesta a tu solicitud de supresión (9b811466)
+    Hola Dani Seis,
+    Tu solicitud de supresión n.º 9b811466-0274-4339-a624-c0dd6bde4367 fue atendida.
+    Tu cuenta y tus datos fueron eliminados. Si tenías compras o ventas cerradas, esos registros se conservan anonimizados por obligación tributaria (6 años).
+
+--- Para: <correo:vend1>
+    Asunto: Respuesta a tu solicitud de oposición (1e6ba472)
+    Hola Vendedor 1,
+    Tu solicitud de oposición n.º 1e6ba472-a18b-46a5-a8b0-4e394fdfb774 fue atendida.
+    Tus transacciones dejan de entrar en el cálculo del informe desde la consulta siguiente. El informe no es necesario para darte el servicio, así que no hay motivo que prevalezca. Puedes retirarla cuando quieras en Privacidad y mis datos.
+
+--- Para: <correo:vend1>
+    Asunto: Respuesta a tu solicitud de oposición (4e20e60f)
+    Hola Vendedor 1,
+    No pudimos atender tu solicitud de oposición n.º 4e20e60f-e1b0-4f3d-af28-b8949ca9c6de.
+    Motivo: No podemos dejar de hacerlo: hay motivos legítimos imperiosos que prevalecen (proteger tu cuenta y la de los demás jugadores frente a accesos no autorizados y fraude) y el registro es la prueba para la defensa ante reclamaciones (Ley 19.628, art. 8 a). Para limitar el impacto, el registro no guarda tu correo, tu IP ni valores de tus datos, solo un seudónimo, y se borra al cumplir su plazo de conservación.
+    Si no estás de acuerdo, puedes presentar un reclamo ante la Agencia de Protección de Datos Personales dentro de 30 días hábiles (Ley 19.628, art. 11).
+
+--- Para: <correo:vend2>
+    Asunto: Respuesta a tu solicitud de bloqueo temporal (8dcf2e10)
+    Hola Vendedor 2,
+    Tu solicitud de bloqueo temporal n.º 8dcf2e10-7e49-40c9-8932-4047448ccac9 fue atendida.
+    Mientras dure el bloqueo tus publicaciones no aparecen en el Bazar, no reciben ofertas ni compras nuevas, no guardamos tu ubicación, no te enviamos correos opcionales y tus ventas no entran en las estadísticas.. Tus datos se siguen almacenando, sin cambios. Puedes retirarla cuando quieras en Privacidad y mis datos.
+
+--- Para: <correo:vend3>
+    Asunto: Confirma tu solicitud de rectificación
+    Hola Vendedor 3,
+    Recibimos por el formulario de privacidad una solicitud de rectificación (n.º df1b48ab-c67e-42d7-ab40-06d506cb51b8) para la cuenta asociada a este correo.
+    Para verificar que la enviaste tú, ingresa este código en la app (Privacidad → "¿No puedes entrar?" → Confirmar):
+    bjPe2_3D…(código)
+    O abre este enlace: http://localhost:5199/derechos/confirmar?code=bjPe2_3D…(código)
+    El código sirve una sola vez y vence el 2026-11-09 01:15 UTC. Hasta que lo confirmes no haremos nada con la solicitud.
+    Si no la enviaste tú, ignora este correo: sin el código la solicitud se cierra sola y tu cuenta no cambia.
