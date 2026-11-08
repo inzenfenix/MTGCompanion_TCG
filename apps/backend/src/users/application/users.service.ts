@@ -19,6 +19,7 @@ import {
   EmailChangedEvent,
 } from '../../common/events/email-changed.event';
 import { ConsentService } from '../../consent/application/consent.service';
+import { ProcessingControlService } from '../../processing-control/application/processing-control.service';
 import {
   USER_REPOSITORY,
   type ProfileUpdate,
@@ -95,6 +96,7 @@ export class UsersService {
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
     private readonly events: EventEmitter2,
     private readonly consent: ConsentService,
+    private readonly processingControl: ProcessingControlService,
   ) {}
 
   async register(dto: RegisterUserDto): Promise<UserResponseDto> {
@@ -127,6 +129,18 @@ export class UsersService {
   async findById(id: string): Promise<UserResponseDto | null> {
     const user = await this.users.findById(id);
     return user ? this.toResponseDto(user) : null;
+  }
+
+  /**
+   * ROADMAP.md O16 — the public rights form (no session) needs to know
+   * whether an address belongs to an account. Only DataRightsService calls
+   * this, and it never tells the requester the answer (same response either
+   * way); erased tombstones have an unroutable address, so they never match.
+   */
+  async findAccountByEmail(email: string): Promise<UserResponseDto | null> {
+    const user = await this.users.findByEmail(email);
+    if (!user || user.deletedAt) return null;
+    return this.toResponseDto(user);
   }
 
   /**
@@ -373,6 +387,13 @@ export class UsersService {
     if (!(await this.consent.hasConsent(userId, 'LOCATION_DISTANCE'))) {
       throw new ForbiddenException(
         'Location consent required (POST /consents/me/LOCATION_DISTANCE)',
+      );
+    }
+    // O16 (ACTIVIDAD_6.md §6.2): while a blocking is in force, no new
+    // location is stored — consent alone isn't enough.
+    if (await this.processingControl.isBlocked(userId)) {
+      throw new ForbiddenException(
+        'Processing of your data is blocked (DELETE /data-rights/controls/blocking to lift it)',
       );
     }
     // Minimization (O14): coarsened to ~1 km *before* it reaches the

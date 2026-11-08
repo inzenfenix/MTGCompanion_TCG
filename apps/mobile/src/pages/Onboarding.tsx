@@ -15,6 +15,7 @@ import {
 import { personAddOutline, logInOutline } from 'ionicons/icons';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { useHistory } from 'react-router-dom';
 import { useAuth } from '../lib/auth/AuthContext';
 import { ApiError } from '../lib/api';
 
@@ -26,6 +27,7 @@ import { ApiError } from '../lib/api';
 const Onboarding: React.FC = () => {
   const { t } = useTranslation();
   const { register, login } = useAuth();
+  const history = useHistory();
   const [mode, setMode] = useState<'register' | 'login'>('login');
 
   const [displayName, setDisplayName] = useState('');
@@ -166,6 +168,11 @@ const Onboarding: React.FC = () => {
               <p style={{ marginTop: '15px', textAlign: 'center' }}>{error}</p>
             </IonText>
           )}
+
+          {/* O16 (ACTIVIDAD_6.md §1): rights without logging in. */}
+          <IonButton fill="clear" size="small" expand="block" onClick={() => history.push('/derechos')}>
+            {t('rights_public_link')}
+          </IonButton>
         </motion.div>
       </IonContent>
     </IonPage>

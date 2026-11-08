@@ -71,6 +71,7 @@ model User {
   offers        Offer[]
   decks         Deck[]
   coupons       Coupon[]
+  processingControls ProcessingControl[]
 
   @@map("users")
 }
@@ -251,11 +252,21 @@ enum DataRightsType {
   ACCESS
   RECTIFICATION
   ERASURE
+  // ROADMAP.md O16 (ACTIVIDAD_6.md §6): objection (art. 8) to one processing
+  // purpose, and temporary blocking (arts. 8 ter and 11).
+  OBJECTION
+  BLOCKING
 
   @@map("data_rights_type")
 }
 
 enum DataRightsStatus {
+  // O16 public contact form: waiting for the holder to confirm from the
+  // mailbox (single-use code, 24 h). Nothing is processed before that.
+  AWAITING_CONFIRMATION
+  // O16: mailbox confirmed, but the type needs a stronger check (step-up in
+  // the app) before anything is executed — see rights-policy.ts.
+  PENDING_STEP_UP
   RECEIVED
   VERIFIED
   IN_EVALUATION
@@ -271,12 +282,43 @@ enum DataRightsOutcome {
   @@map("data_rights_outcome")
 }
 
+// ROADMAP.md O16 (ACTIVIDAD_6.md §1): where a request came in.
+enum DataRightsChannel {
+  APP        // POST /data-rights/requests, logged in
+  EMAIL_FORM // POST /data-rights/public-requests, no session
+
+  @@map("data_rights_channel")
+}
+
 model DataRightsRequest {
   id     String           @id @default(uuid())
-  userId String
+  // Null only for a public-form request about an address with no account:
+  // the row is kept as proof the "no data" answer was sent (art. 11), keyed
+  // by contactPseudonym instead of the address itself.
+  userId String?
   type   DataRightsType
   status DataRightsStatus @default(RECEIVED)
   outcome DataRightsOutcome?
+  channel DataRightsChannel @default(APP)
+
+  // O16. OBJECTION: the purpose objected to (objection-purposes.ts);
+  // BLOCKING: its basis (PENDING_REQUEST | ALTERNATIVE_TO_ERASURE).
+  scope            String?
+  // The holder's own grounds — art. 11 d asks for them on an objection under
+  // art. 8 a and on a blocking request ("deberá ser fundada"). Free text, so
+  // it is nulled when the account is erased (the row itself survives).
+  statement        String?  @db.VarChar(500)
+  // BLOCKING tied to an open request: lifted when that request closes.
+  relatedRequestId String?
+  // Public form: wants processing blocked while the request is pending.
+  requestBlocking  Boolean  @default(false)
+  // Public form: HMAC pseudonym of the normalized address (rate limit and
+  // proof of answer without storing the address), SHA-256 of the
+  // single-use confirmation code, and the deadline for the holder's next
+  // step (confirm: 24 h; complete in the app: 14 days).
+  contactPseudonym String?
+  confirmTokenHash String?  @unique
+  expiresAt        DateTime?
 
   // "session" | "password" | "password+totp" — how identity was verified.
   verificationMethod String?
@@ -296,7 +338,56 @@ model DataRightsRequest {
 
   @@index([userId])
   @@index([status, dueAt])
+  @@index([contactPseudonym, receivedAt])
   @@map("data_rights_requests")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Processing controls (ROADMAP.md O16, ACTIVIDAD_6.md §6). What an upheld
+// objection or a granted blocking leaves behind, and what the processes it
+// stops ask before running (Bazaar search, offers, location, optional
+// emails, the sales report). One ACTIVE row per (user, kind, scope) —
+// enforced by a partial unique index in the migration. Rows are lifted,
+// never deleted, so the history stays; they go with the account on erasure.
+// ─────────────────────────────────────────────────────────────────────────
+
+enum ProcessingControlKind {
+  OBJECTION
+  BLOCKING
+
+  @@map("processing_control_kind")
+}
+
+enum ProcessingControlStatus {
+  ACTIVE
+  LIFTED
+
+  @@map("processing_control_status")
+}
+
+model ProcessingControl {
+  id     String                  @id @default(uuid())
+  userId String
+  user   User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind   ProcessingControlKind
+  // OBJECTION: purpose code (SALES_STATISTICS); BLOCKING: always
+  // NON_ESSENTIAL_PROCESSING (what it covers is fixed, see ACTIVIDAD_6.md).
+  scope  String
+  // BLOCKING only: PENDING_REQUEST | ALTERNATIVE_TO_ERASURE.
+  basis  String?
+  status ProcessingControlStatus @default(ACTIVE)
+  // The rights request that created it, and (BLOCKING on PENDING_REQUEST)
+  // the request whose closing lifts it.
+  requestId        String
+  relatedRequestId String?
+  createdAt  DateTime  @default(now())
+  liftedAt   DateTime?
+  // HOLDER_WITHDREW | RELATED_REQUEST_CLOSED — a code, never free text.
+  liftReason String?
+
+  @@index([userId, status])
+  @@index([relatedRequestId])
+  @@map("processing_controls")
 }
 
 // ─────────────────────────────────────────────────────────────────────────

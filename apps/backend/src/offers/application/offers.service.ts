@@ -1,7 +1,13 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { CardEntity } from '../../cards/domain/card.entity';
 import { CardsService } from '../../cards/application/cards.service';
+import { ProcessingControlService } from '../../processing-control/application/processing-control.service';
 import {
   bidScope,
   PseudonymService,
@@ -37,6 +43,7 @@ export class OffersService {
     private readonly cards: CardsService,
     private readonly events: EventEmitter2,
     private readonly pseudonyms: PseudonymService,
+    private readonly processingControl: ProcessingControlService,
   ) {}
 
   /** See domain/public-offer.ts — the only shape an offer leaves this service in. */
@@ -72,6 +79,11 @@ export class OffersService {
     const card = await this.cards.findOne(cardId);
     if (card.ownerId === bidderId) {
       throw new BadRequestException('Cannot bid on your own card');
+    }
+    // O16 (ACTIVIDAD_6.md §6.2): the seller asked for their data's processing
+    // to be blocked — the listing is withdrawn, so it takes no new offers.
+    if (await this.processingControl.isBlocked(card.ownerId)) {
+      throw new ConflictException('This listing is not available right now');
     }
 
     const resolvedCard = await this.resolveIfExpired(card);

@@ -28,6 +28,8 @@ const TYPE_LABEL = {
   ACCESS: 'acceso y portabilidad',
   RECTIFICATION: 'rectificación',
   ERASURE: 'supresión',
+  OBJECTION: 'oposición',
+  BLOCKING: 'bloqueo temporal',
 } as const;
 
 export function renderRightsResponseEmail(p: {
@@ -36,22 +38,39 @@ export function renderRightsResponseEmail(p: {
   type: keyof typeof TYPE_LABEL;
   outcome: 'FULFILLED' | 'DENIED';
   message: string | null;
+  effect?: string | null;
+  awaitingStepUp?: boolean;
 }): Rendered {
   const label = TYPE_LABEL[p.type];
+  const hello = p.displayName ? `Hola ${p.displayName},` : 'Hola,';
+  if (p.awaitingStepUp) {
+    // O16: confirmed from the mailbox, but this type needs the password too.
+    const subject = `Completa tu solicitud de ${label} (${p.requestId.slice(0, 8)})`;
+    const lines = [
+      hello,
+      `Confirmaste la solicitud de ${label} n.º ${p.requestId}.`,
+      'Para atenderla necesitamos una verificación más fuerte: inicia sesión en la app, abre Privacidad y mis datos → Mis solicitudes y pulsa "Completar". Te pediremos tu contraseña (y tu código 2FA si lo tienes activo).',
+      'Si no la completas en 14 días, se cerrará sin cambios y podrás enviarla de nuevo.',
+    ];
+    return { subject, html: wrap(subject, lines), text: lines.join('\n\n') };
+  }
   const subject = `Respuesta a tu solicitud de ${label} (${p.requestId.slice(0, 8)})`;
   const lines =
     p.outcome === 'FULFILLED'
       ? [
-          `Hola ${p.displayName},`,
+          hello,
           `Tu solicitud de ${label} n.º ${p.requestId} fue atendida.`,
           p.type === 'ERASURE'
             ? 'Tu cuenta y tus datos fueron eliminados. Si tenías compras o ventas cerradas, esos registros se conservan anonimizados por obligación tributaria (6 años).'
             : p.type === 'ACCESS'
               ? 'La copia de tus datos se descargó en la app en formato JSON. No guardamos una copia de esa exportación.'
-              : 'Los cambios ya están aplicados en tu cuenta.',
+              : p.type === 'OBJECTION' || p.type === 'BLOCKING'
+                ? (p.effect ?? 'La medida ya está en efecto.') +
+                  ' Puedes retirarla cuando quieras en Privacidad y mis datos.'
+                : 'Los cambios ya están aplicados en tu cuenta.',
         ]
       : [
-          `Hola ${p.displayName},`,
+          hello,
           `No pudimos atender tu solicitud de ${label} n.º ${p.requestId}.`,
           `Motivo: ${p.message ?? 'no especificado'}`,
           'Si no estás de acuerdo, puedes presentar un reclamo ante la Agencia de Protección de Datos Personales dentro de 30 días hábiles (Ley 19.628, art. 11).',
@@ -92,6 +111,34 @@ export function renderOfferReceivedEmail(p: {
     `Hola ${p.displayName},`,
     `Alguien ofreció $${p.amount} por tu carta "${p.cardTitle}".`,
     'Recibes este correo porque activaste los correos opcionales. Puedes desactivarlos cuando quieras en Privacidad.',
+  ];
+  return { subject, html: wrap(subject, lines), text: lines.join('\n\n') };
+}
+
+/**
+ * O16 (ACTIVIDAD_6.md §1–2) — confirmation code for a request sent through
+ * the public form. Says what was asked, so the holder recognises it, and
+ * what to do if it wasn't them.
+ */
+export function renderRightsConfirmationEmail(p: {
+  displayName: string;
+  requestId: string;
+  type: string;
+  code: string;
+  expiresAt: Date;
+  confirmUrl?: string;
+}): Rendered {
+  const label =
+    TYPE_LABEL[p.type as keyof typeof TYPE_LABEL] ?? p.type.toLowerCase();
+  const subject = `Confirma tu solicitud de ${label}`;
+  const lines = [
+    `Hola ${p.displayName},`,
+    `Recibimos por el formulario de privacidad una solicitud de ${label} (n.º ${p.requestId}) para la cuenta asociada a este correo.`,
+    'Para verificar que la enviaste tú, ingresa este código en la app (Privacidad → "¿No puedes entrar?" → Confirmar):',
+    p.code,
+    ...(p.confirmUrl ? [`O abre este enlace: ${p.confirmUrl}`] : []),
+    `El código sirve una sola vez y vence el ${p.expiresAt.toISOString().slice(0, 16).replace('T', ' ')} UTC. Hasta que lo confirmes no haremos nada con la solicitud.`,
+    'Si no la enviaste tú, ignora este correo: sin el código la solicitud se cierra sola y tu cuenta no cambia.',
   ];
   return { subject, html: wrap(subject, lines), text: lines.join('\n\n') };
 }

@@ -12,8 +12,13 @@ export class DataRightsClosedEvent {
     public readonly email: string,
     public readonly displayName: string,
     public readonly requestId: string,
-    public readonly type: 'ACCESS' | 'RECTIFICATION' | 'ERASURE',
+    public readonly type:
+      'ACCESS' | 'RECTIFICATION' | 'ERASURE' | 'OBJECTION' | 'BLOCKING',
     public readonly outcome: 'FULFILLED' | 'DENIED',
     public readonly message: string | null,
+    /** O16: what an upheld objection / granted blocking does, in plain words. */
+    public readonly effect: string | null = null,
+    /** O16: the request is waiting for the holder to finish it in the app. */
+    public readonly awaitingStepUp = false,
   ) {}
 }

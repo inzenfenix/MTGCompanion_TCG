@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -12,6 +13,7 @@ import { CardsService } from '../../cards/application/cards.service';
 import { OffersService } from '../../offers/application/offers.service';
 import { UsersService } from '../../users/application/users.service';
 import { CouponsService } from '../../coupons/application/coupons.service';
+import { ProcessingControlService } from '../../processing-control/application/processing-control.service';
 import {
   PAYMENT_PROVIDERS,
   type PaymentProvider,
@@ -43,6 +45,7 @@ export class TransactionsService {
     private readonly users: UsersService,
     private readonly coupons: CouponsService,
     private readonly events: EventEmitter2,
+    private readonly processingControl: ProcessingControlService,
   ) {}
 
   async create(buyerId: string, dto: CreateTransactionDto) {
@@ -52,6 +55,17 @@ export class TransactionsService {
 
     if (card.ownerId === buyerId) {
       throw new BadRequestException('Cannot buy your own card');
+    }
+
+    // O16 (ACTIVIDAD_6.md §6.2): a blocked seller's listing is withdrawn, so
+    // no new sale starts. An auction the buyer already won before the
+    // blocking is a contract already formed with a third party, so it can
+    // still be completed (the blocking can't be used to break it).
+    if (
+      !card.wonOfferId &&
+      (await this.processingControl.isBlocked(card.ownerId))
+    ) {
+      throw new ConflictException('This listing is not available right now');
     }
 
     // ROADMAP.md J9 — a card with a resolved auction (wonOfferId set, see

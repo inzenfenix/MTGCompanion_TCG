@@ -59,6 +59,16 @@ export class PrismaAdminRepository implements AdminRepository {
         FROM "transactions" t
         JOIN "cards" c ON c."id" = t."cardId"
        WHERE t."status" = 'PAID'
+         -- O16 (ACTIVIDAD_6.md §6.1): leave out every sale where either
+         -- party objected to SALES_STATISTICS (art. 8 a) or has an active
+         -- blocking (art. 8 ter). Checked in the query, at read time, so an
+         -- objection applies from the very next report.
+         AND NOT EXISTS (
+               SELECT 1 FROM "processing_controls" pc
+                WHERE pc."userId" IN (t."buyerId", t."sellerId")
+                  AND pc."status" = 'ACTIVE'
+                  AND (pc."kind" = 'BLOCKING'
+                       OR (pc."kind" = 'OBJECTION' AND pc."scope" = 'SALES_STATISTICS')))
        GROUP BY 1, 2, 3
        ORDER BY 1, 2, 3`;
   }

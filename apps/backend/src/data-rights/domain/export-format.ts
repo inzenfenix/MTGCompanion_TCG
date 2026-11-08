@@ -53,6 +53,23 @@ export const PROCESSING_INFO = [
     recipients: 'Nadie',
     retention: 'Hasta que desactives 2FA',
   },
+  // O16: the two legitimate-interest processes, and how to object to them.
+  {
+    data: 'Transacciones pagadas (agregadas, sin id ni nombre)',
+    purpose: 'Informe estadístico mensual de ventas (k = 5)',
+    legalBasis:
+      'Interés legítimo (Ley 19.628, art. 13 d) — puedes oponerte (art. 8): POST /data-rights/requests {type: "OBJECTION", purpose: "SALES_STATISTICS"}',
+    recipients: 'Nadie fuera del equipo (ADMIN)',
+    retention: 'No se guarda: se calcula al consultarlo',
+  },
+  {
+    data: 'Registro de auditoría seudonimizado',
+    purpose: 'Seguridad: detectar accesos no autorizados y fraude',
+    legalBasis:
+      'Interés legítimo (Ley 19.628, art. 13 d) — la oposición se deniega por motivos legítimos imperiosos (art. 8 a)',
+    recipients: 'Nadie fuera del equipo (ADMIN)',
+    retention: 'AUDIT_RETENTION_DAYS (730 días por defecto, mínimo 365)',
+  },
 ];
 
 export const NOT_INCLUDED = [

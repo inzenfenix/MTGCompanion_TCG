@@ -1,15 +1,28 @@
-import type { ErasureFacts, RightsType } from './rights-policy';
+import type { ErasureFacts, RightsChannel, RightsType } from './rights-policy';
 
 export type RequestStatus =
-  'RECEIVED' | 'VERIFIED' | 'IN_EVALUATION' | 'CLOSED';
+  | 'AWAITING_CONFIRMATION'
+  | 'PENDING_STEP_UP'
+  | 'RECEIVED'
+  | 'VERIFIED'
+  | 'IN_EVALUATION'
+  | 'CLOSED';
 export type RequestOutcome = 'FULFILLED' | 'DENIED';
 
 export interface RightsRequestEntity {
   id: string;
-  userId: string;
+  /** Null only for a public-form request about an address with no account. */
+  userId: string | null;
   type: RightsType;
   status: RequestStatus;
   outcome: RequestOutcome | null;
+  channel: RightsChannel;
+  scope: string | null;
+  statement: string | null;
+  relatedRequestId: string | null;
+  requestBlocking: boolean;
+  contactPseudonym: string | null;
+  expiresAt: Date | null;
   verificationMethod: string | null;
   details: Record<string, unknown> | null;
   receivedAt: Date;
@@ -32,13 +45,35 @@ export interface ErasureResult {
   storageKeys: string[];
 }
 
+export interface NewRightsRequest {
+  userId: string | null;
+  type: RightsType;
+  receivedAt: Date;
+  dueAt: Date;
+  channel?: RightsChannel;
+  status?: RequestStatus;
+  scope?: string | null;
+  statement?: string | null;
+  relatedRequestId?: string | null;
+  requestBlocking?: boolean;
+  contactPseudonym?: string | null;
+  confirmTokenHash?: string | null;
+  expiresAt?: Date | null;
+}
+
 export interface DataRightsRepository {
-  create(
-    userId: string,
-    type: RightsType,
-    receivedAt: Date,
-    dueAt: Date,
-  ): Promise<RightsRequestEntity>;
+  create(input: NewRightsRequest): Promise<RightsRequestEntity>;
+  /** O16 — the AWAITING_CONFIRMATION request behind a confirmation code hash. */
+  findByConfirmHash(hash: string): Promise<RightsRequestEntity | null>;
+  /**
+   * O16 — burns the code and records the mailbox proof, atomically: only
+   * one caller can win (false = already consumed by someone else).
+   */
+  consumeConfirmation(id: string, hash: string): Promise<boolean>;
+  setPendingStepUp(id: string, expiresAt: Date): Promise<RightsRequestEntity>;
+  countPublicSince(contactPseudonym: string, since: Date): Promise<number>;
+  /** Open public-form requests whose holder step is past `expiresAt`. */
+  findExpiredOpen(now: Date): Promise<RightsRequestEntity[]>;
   /** Throws a unique-constraint error if `stepUpJti` was already consumed. */
   markVerified(
     id: string,

@@ -438,14 +438,19 @@ export function stepUp(password: string, code?: string): Promise<{ stepUpToken: 
   });
 }
 
-export type RightsType = 'ACCESS' | 'RECTIFICATION' | 'ERASURE';
+export type RightsType = 'ACCESS' | 'RECTIFICATION' | 'ERASURE' | 'OBJECTION' | 'BLOCKING';
 
 export type RightsRequest = {
   id: string;
   type: RightsType;
-  status: 'RECEIVED' | 'VERIFIED' | 'IN_EVALUATION' | 'CLOSED';
+  status: 'AWAITING_CONFIRMATION' | 'PENDING_STEP_UP' | 'RECEIVED' | 'VERIFIED' | 'IN_EVALUATION' | 'CLOSED';
   outcome: 'FULFILLED' | 'DENIED' | null;
   message: string | null;
+  // O16 (docs/security/ACTIVIDAD_6.md)
+  channel: 'APP' | 'EMAIL_FORM';
+  scope: string | null;
+  relatedRequestId: string | null;
+  expiresAt: string | null;
   verificationMethod: string | null;
   details: Record<string, unknown> | null;
   receivedAt: string;
@@ -456,11 +461,20 @@ export type RightsRequest = {
   dueAt: string;
 };
 
+export type ObjectionPurposeCode = 'SALES_STATISTICS' | 'SECURITY_MONITORING';
+export type BlockingBasis = 'PENDING_REQUEST' | 'ALTERNATIVE_TO_ERASURE';
+
 export type RightsRequestInput = {
   type: RightsType;
   stepUpToken?: string;
   rectification?: { displayName?: string; email?: string; language?: string };
   confirmErasure?: boolean;
+  /** OBJECTION */
+  purpose?: ObjectionPurposeCode;
+  /** BLOCKING */
+  blocking?: { basis: BlockingBasis; relatedRequestId?: string };
+  /** Grounds — required for OBJECTION and BLOCKING (Ley 19.628, art. 11). */
+  statement?: string;
 };
 
 export function submitRightsRequest(
@@ -471,6 +485,83 @@ export function submitRightsRequest(
 
 export function listMyRightsRequests(): Promise<RightsRequest[]> {
   return request<RightsRequest[]>('/data-rights/requests');
+}
+
+// ── Objection, blocking, public channel (ROADMAP.md O16, ACTIVIDAD_6.md) ──
+
+export type ObjectionPurpose = {
+  code: ObjectionPurposeCode;
+  title: string;
+  description: string;
+  legalBasis: string;
+  decision: 'UPHOLD' | 'DENY';
+  effect: string;
+  active?: boolean;
+  since?: string | null;
+};
+
+export type ProcessingControls = {
+  objections: (ObjectionPurpose & { active: boolean; since: string | null })[];
+  blocking: {
+    active: boolean;
+    basis: BlockingBasis | null;
+    relatedRequestId: string | null;
+    since: string | null;
+    covers: { what: string; how: string }[];
+    notCovered: { what: string; why: string }[];
+  };
+  history: {
+    kind: 'OBJECTION' | 'BLOCKING';
+    scope: string;
+    basis: string | null;
+    status: 'ACTIVE' | 'LIFTED';
+    since: string;
+    liftedAt: string | null;
+    liftReason: string | null;
+  }[];
+};
+
+export function getProcessingControls(): Promise<ProcessingControls> {
+  return request<ProcessingControls>('/data-rights/controls');
+}
+
+export function withdrawObjection(purpose: ObjectionPurposeCode): Promise<unknown> {
+  return request(`/data-rights/controls/objections/${purpose}`, { method: 'DELETE' });
+}
+
+export function liftBlocking(): Promise<unknown> {
+  return request('/data-rights/controls/blocking', { method: 'DELETE' });
+}
+
+/** Finish, with a step-up, a request that came in through the public form. */
+export function completeRightsRequest(
+  id: string,
+  input: Pick<RightsRequestInput, 'stepUpToken' | 'rectification' | 'confirmErasure'>,
+): Promise<{ request: RightsRequest; export?: Record<string, unknown> }> {
+  return request(`/data-rights/requests/${id}/complete`, { method: 'POST', body: JSON.stringify(input) });
+}
+
+export type PublicRightsInput = {
+  email: string;
+  type: 'ACCESS' | 'RECTIFICATION' | 'ERASURE' | 'OBJECTION';
+  purpose?: ObjectionPurposeCode;
+  statement?: string;
+  requestBlocking?: boolean;
+};
+
+/** No session — the identity check is the code emailed to the address. */
+export function submitPublicRightsRequest(input: PublicRightsInput): Promise<{ received: true; message: string }> {
+  return request('/data-rights/public-requests', { method: 'POST', body: JSON.stringify(input) });
+}
+
+export function confirmPublicRightsRequest(
+  code: string,
+): Promise<{ request: RightsRequest; next: 'DONE' | 'COMPLETE_IN_APP'; blocking?: RightsRequest }> {
+  return request('/data-rights/public-requests/confirm', { method: 'POST', body: JSON.stringify({ code }) });
+}
+
+export function getObjectionPurposes(): Promise<ObjectionPurpose[]> {
+  return request<ObjectionPurpose[]>('/data-rights/public-requests/objection-purposes');
 }
 
 export function getCard(id: string): Promise<Card> {

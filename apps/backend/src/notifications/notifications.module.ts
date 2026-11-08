@@ -10,10 +10,12 @@ import { TransactionPaidListener } from './listeners/transaction-paid.listener';
 import { PrivacyListeners } from './listeners/privacy.listeners';
 import { ConsentModule } from '../consent/consent.module';
 import { UsersModule } from '../users/users.module';
+import { ProcessingControlModule } from '../processing-control/processing-control.module';
 
 @Module({
-  // O15: the optional offer email checks consent and looks up the seller.
-  imports: [ConsentModule, UsersModule],
+  // O15: the optional offer email checks consent and looks up the seller;
+  // O16: and that the seller hasn't blocked the processing of their data.
+  imports: [ConsentModule, UsersModule, ProcessingControlModule],
   providers: [
     SmtpEmailProvider,
     SesEmailProvider,

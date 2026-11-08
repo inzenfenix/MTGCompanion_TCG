@@ -4,6 +4,7 @@ import { PaymentsModule } from '../payments/payments.module';
 import { OffersModule } from '../offers/offers.module';
 import { UsersModule } from '../users/users.module';
 import { CouponsModule } from '../coupons/coupons.module';
+import { ProcessingControlModule } from '../processing-control/processing-control.module';
 import { TRANSACTION_REPOSITORY } from './domain/transaction.repository';
 import { PrismaTransactionRepository } from './infrastructure/prisma-transaction.repository';
 import { TransactionsService } from './application/transactions.service';
@@ -19,6 +20,7 @@ import {
     OffersModule,
     UsersModule,
     CouponsModule,
+    ProcessingControlModule,
   ],
   controllers: [TransactionsController, PaymentsWebhookController],
   providers: [

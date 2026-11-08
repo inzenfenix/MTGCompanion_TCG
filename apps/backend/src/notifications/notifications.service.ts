@@ -5,6 +5,7 @@ import { renderPaymentReceiptEmail } from './templates/payment-receipt';
 import {
   renderEmailChangedEmail,
   renderOfferReceivedEmail,
+  renderRightsConfirmationEmail,
   renderRightsResponseEmail,
   renderSecurityAlertEmail,
 } from './templates/privacy-emails';
@@ -43,6 +44,17 @@ export class NotificationsService {
     params: Parameters<typeof renderRightsResponseEmail>[0],
   ): Promise<void> {
     await this.emailProvider.send({ to, ...renderRightsResponseEmail(params) });
+  }
+
+  /** O16: single-use confirmation code for a public-form rights request. */
+  async sendRightsConfirmationEmail(
+    to: string,
+    params: Parameters<typeof renderRightsConfirmationEmail>[0],
+  ): Promise<void> {
+    await this.emailProvider.send({
+      to,
+      ...renderRightsConfirmationEmail(params),
+    });
   }
 
   /** Sent to the *previous* address after a rectification changed it. */

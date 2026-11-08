@@ -28,6 +28,7 @@ const AccountSettings = lazy(() => import('./pages/AccountSettings'));
 const PaymentSettings = lazy(() => import('./pages/PaymentSettings'));
 const SecuritySettings = lazy(() => import('./pages/SecuritySettings'));
 const Privacy = lazy(() => import('./pages/Privacy'));
+const RightsPublic = lazy(() => import('./pages/RightsPublic'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
 const ListCard = lazy(() => import('./pages/ListCard'));
 const EditCard = lazy(() => import('./pages/EditCard'));
@@ -97,6 +98,10 @@ const App: React.FC = () => {
             <Route exact path="/onboarding">
               <Suspense fallback={null}><Onboarding /></Suspense>
             </Route>
+            {/* O16: the rights form works without a session (art. 11). */}
+            <Route path="/derechos">
+              <Suspense fallback={null}><RightsPublic /></Suspense>
+            </Route>
             <Route>
               <Redirect to="/onboarding" />
             </Route>
@@ -162,6 +167,9 @@ const App: React.FC = () => {
           </Route>
           <Route path="/security">
             <Suspense fallback={null}><SecuritySettings /></Suspense>
+          </Route>
+          <Route path="/derechos">
+            <Suspense fallback={null}><RightsPublic /></Suspense>
           </Route>
           <Route path="/privacy">
             <Suspense fallback={null}><Privacy /></Suspense>

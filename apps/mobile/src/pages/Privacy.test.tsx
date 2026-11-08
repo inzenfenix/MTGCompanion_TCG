@@ -3,6 +3,7 @@
  * purpose's own text and state, toggling one purpose grants exactly that
  * purpose (with the version of the text it displayed), flow-managed purposes
  * (2FA) get no toggle, and rights requests show their outcome and deadline.
+ * O16 — objection / blocking cards, and "Completar" on a public-form request.
  */
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -52,6 +53,30 @@ const state = (code: api.ConsentPurposeCode, effective: boolean): api.ConsentSta
   selfService: code !== 'TWO_FACTOR',
 });
 
+const objection = (code: api.ObjectionPurposeCode, active: boolean) => ({
+  code,
+  title: `obj-${code}`,
+  description: `desc-${code}`,
+  legalBasis: 'Interés legítimo',
+  decision: (code === 'SALES_STATISTICS' ? 'UPHOLD' : 'DENY') as 'UPHOLD' | 'DENY',
+  effect: `effect-${code}`,
+  active,
+  since: active ? '2026-11-07T00:00:00Z' : null,
+});
+
+const controls = (salesObjected = false, blocked = false): api.ProcessingControls => ({
+  objections: [objection('SALES_STATISTICS', salesObjected), objection('SECURITY_MONITORING', false)],
+  blocking: {
+    active: blocked,
+    basis: blocked ? 'ALTERNATIVE_TO_ERASURE' : null,
+    relatedRequestId: null,
+    since: blocked ? '2026-11-07T00:00:00Z' : null,
+    covers: [{ what: 'Publicación en el Bazar', how: 'x' }],
+    notCovered: [{ what: 'Almacenamiento', why: 'art. 8 ter' }],
+  },
+  history: [],
+});
+
 function renderPage() {
   return render(
     <MemoryRouter>
@@ -89,8 +114,13 @@ describe('Privacy screen', () => {
         executedAt: null,
         closedAt: '2026-10-22T10:00:01Z',
         dueAt: '2026-11-21T10:00:00Z',
+        channel: 'APP',
+        scope: null,
+        relatedRequestId: null,
+        expiresAt: null,
       },
     ]);
+    vi.spyOn(api, 'getProcessingControls').mockResolvedValue(controls());
   });
 
   it('shows every purpose with its own text, and its current state', async () => {
@@ -132,5 +162,62 @@ describe('Privacy screen', () => {
     renderPage();
     await waitFor(() => expect(screen.getByTestId('rights-request')).toBeInTheDocument());
     expect(screen.getByText('Tienes compras o ventas pendientes.')).toBeInTheDocument();
+  });
+
+  // ── O16 ────────────────────────────────────────────────────────────────
+
+  it('shows one objection card per legitimate-interest processing, with the denial grounds up front', async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByTestId('objection-SALES_STATISTICS')).toBeInTheDocument());
+    expect(screen.getByText('desc-SALES_STATISTICS')).toBeInTheDocument();
+    // Denied purposes say why before the player asks.
+    expect(screen.getByText('effect-SECURITY_MONITORING')).toBeInTheDocument();
+  });
+
+  it('an active objection can be withdrawn', async () => {
+    vi.spyOn(api, 'getProcessingControls').mockResolvedValue(controls(true));
+    const withdraw = vi.spyOn(api, 'withdrawObjection').mockResolvedValue({});
+    renderPage();
+    await waitFor(() => expect(screen.getByText('privacy_object_withdraw')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('privacy_object_withdraw'));
+    await waitFor(() => expect(withdraw).toHaveBeenCalledWith('SALES_STATISTICS'));
+  });
+
+  it('shows what blocking stops and what it keeps, and lets the holder lift it', async () => {
+    vi.spyOn(api, 'getProcessingControls').mockResolvedValue(controls(false, true));
+    const lift = vi.spyOn(api, 'liftBlocking').mockResolvedValue({});
+    renderPage();
+    await waitFor(() => expect(screen.getByTestId('blocking')).toBeInTheDocument());
+    expect(screen.getByText('• Publicación en el Bazar')).toBeInTheDocument();
+    expect(screen.getByText('• Almacenamiento: art. 8 ter')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('privacy_block_lift'));
+    await waitFor(() => expect(lift).toHaveBeenCalled());
+  });
+
+  it('a public-form request waiting for the step-up offers "Completar"', async () => {
+    vi.spyOn(api, 'listMyRightsRequests').mockResolvedValue([
+      {
+        id: 'r2',
+        type: 'ACCESS',
+        status: 'PENDING_STEP_UP',
+        outcome: null,
+        message: null,
+        verificationMethod: 'email-link',
+        details: null,
+        receivedAt: '2026-11-07T10:00:00Z',
+        verifiedAt: '2026-11-07T10:05:00Z',
+        evaluatedAt: null,
+        executedAt: null,
+        closedAt: null,
+        dueAt: '2026-12-07T10:00:00Z',
+        channel: 'EMAIL_FORM',
+        scope: null,
+        relatedRequestId: null,
+        expiresAt: '2026-11-21T10:05:00Z',
+      },
+    ]);
+    renderPage();
+    await waitFor(() => expect(screen.getByText('privacy_complete_button')).toBeInTheDocument());
+    expect(screen.getByText('privacy_channel_form')).toBeInTheDocument();
   });
 });

@@ -48,6 +48,9 @@ export interface AppConfig {
   privacy: {
     pseudonymKey: string;
     locationTtlDays: number;
+    // O16: where the app is served, to put a one-click link in the public
+    // rights form's confirmation email. Unset = the email carries the code only.
+    publicAppUrl?: string;
   };
   // ROADMAP.md O15 (ACTIVIDAD_5.md §3–4). alertEmail: where SecurityService
   // sends a heads-up for every new alert (the security on-call mailbox);
@@ -150,6 +153,7 @@ const buildConfig = (): AppConfig => ({
   privacy: {
     pseudonymKey: process.env.PSEUDONYM_KEY ?? '',
     locationTtlDays: parseInt(process.env.LOCATION_TTL_DAYS ?? '30', 10),
+    publicAppUrl: process.env.PUBLIC_APP_URL || undefined,
   },
   security: {
     alertEmail: process.env.SECURITY_ALERT_EMAIL || undefined,

@@ -6,11 +6,12 @@ import { PrismaService } from '../../prisma/prisma.service';
 import type {
   DataRightsRepository,
   ErasureResult,
+  NewRightsRequest,
   RequestOutcome,
   RequestStatus,
   RightsRequestEntity,
 } from '../domain/data-rights.repository';
-import type { ErasureFacts, RightsType } from '../domain/rights-policy';
+import type { ErasureFacts } from '../domain/rights-policy';
 
 type Row = Prisma.DataRightsRequestGetPayload<object>;
 
@@ -31,23 +32,72 @@ export class PrismaDataRightsRepository implements DataRightsRepository {
   ) {}
 
   private toEntity(row: Row): RightsRequestEntity {
+    // The confirmation-code hash never leaves the repository.
+    const { confirmTokenHash: _hash, ...rest } = row;
+    void _hash;
     return {
-      ...row,
+      ...rest,
       details: (row.details as Record<string, unknown> | null) ?? null,
     };
   }
 
-  async create(
-    userId: string,
-    type: RightsType,
-    receivedAt: Date,
-    dueAt: Date,
-  ): Promise<RightsRequestEntity> {
+  async create(input: NewRightsRequest): Promise<RightsRequestEntity> {
     return this.toEntity(
-      await this.prisma.dataRightsRequest.create({
-        data: { userId, type, receivedAt, dueAt },
+      await this.prisma.dataRightsRequest.create({ data: { ...input } }),
+    );
+  }
+
+  async findByConfirmHash(hash: string) {
+    const row = await this.prisma.dataRightsRequest.findUnique({
+      where: { confirmTokenHash: hash },
+    });
+    return row ? this.toEntity(row) : null;
+  }
+
+  async consumeConfirmation(id: string, hash: string): Promise<boolean> {
+    const r = await this.prisma.dataRightsRequest.updateMany({
+      where: {
+        id,
+        confirmTokenHash: hash,
+        status: 'AWAITING_CONFIRMATION',
+      },
+      data: {
+        confirmTokenHash: null,
+        verificationMethod: 'email-link',
+        verifiedAt: new Date(),
+      },
+    });
+    return r.count === 1;
+  }
+
+  async setPendingStepUp(id: string, expiresAt: Date) {
+    return this.toEntity(
+      await this.prisma.dataRightsRequest.update({
+        where: { id },
+        data: { status: 'PENDING_STEP_UP', expiresAt },
       }),
     );
+  }
+
+  countPublicSince(contactPseudonym: string, since: Date) {
+    return this.prisma.dataRightsRequest.count({
+      where: {
+        contactPseudonym,
+        channel: 'EMAIL_FORM',
+        receivedAt: { gte: since },
+      },
+    });
+  }
+
+  async findExpiredOpen(now: Date) {
+    const rows = await this.prisma.dataRightsRequest.findMany({
+      where: {
+        status: { in: ['AWAITING_CONFIRMATION', 'PENDING_STEP_UP'] },
+        expiresAt: { lt: now },
+      },
+      take: 500,
+    });
+    return rows.map((r) => this.toEntity(r));
   }
 
   async markVerified(id: string, method: string, stepUpJti: string | null) {
@@ -128,6 +178,7 @@ export class PrismaDataRightsRepository implements DataRightsRepository {
       consents,
       events,
       requests,
+      controls,
     ] = await Promise.all([
       this.prisma.card.findMany({
         where: { ownerId: userId },
@@ -168,6 +219,10 @@ export class PrismaDataRightsRepository implements DataRightsRepository {
       this.prisma.dataRightsRequest.findMany({
         where: { userId },
         orderBy: { receivedAt: 'asc' },
+      }),
+      this.prisma.processingControl.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'asc' },
       }),
     ]);
 
@@ -262,10 +317,23 @@ export class PrismaDataRightsRepository implements DataRightsRepository {
       rightsRequests: requests.map((r) => ({
         id: r.id,
         type: r.type,
+        channel: r.channel,
+        scope: r.scope,
+        statement: r.statement,
         status: r.status,
         outcome: r.outcome,
         receivedAt: r.receivedAt,
         closedAt: r.closedAt,
+      })),
+      // O16: objections and blockings, active and lifted.
+      processingControls: controls.map((c) => ({
+        kind: c.kind,
+        scope: c.scope,
+        basis: c.basis,
+        status: c.status,
+        since: c.createdAt,
+        liftedAt: c.liftedAt,
+        liftReason: c.liftReason,
       })),
     };
   }
@@ -355,6 +423,14 @@ export class PrismaDataRightsRepository implements DataRightsRepository {
       });
       await tx.consent.deleteMany({ where: { userId } }); // + consent_events (cascade)
       await tx.refreshToken.deleteMany({ where: { userId } });
+      // O16: objections/blockings go with the account (nothing left to
+      // restrict), and the free-text grounds on the holder's own requests
+      // are wiped — the request rows themselves stay as proof of answer.
+      await tx.processingControl.deleteMany({ where: { userId } });
+      await tx.dataRightsRequest.updateMany({
+        where: { userId },
+        data: { statement: null },
+      });
 
       if (mode === 'delete') {
         await tx.user.delete({ where: { id: userId } }); // settings cascade

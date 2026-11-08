@@ -18,6 +18,7 @@ import type {
   CardPhotoEntity,
 } from '../domain/card.entity';
 import type { Card, CardOrigin, CardPhoto } from '../../../generated/prisma';
+import { NOT_BLOCKED } from '../../processing-control/infrastructure/prisma-processing-control.repository';
 
 type CardWithPhotos = Card & { photos: CardPhoto[] };
 
@@ -108,6 +109,9 @@ export class PrismaCardRepository implements CardRepository {
         ...(scryfallId ? { scryfallId } : {}),
         ...(q ? { title: { contains: q, mode: 'insensitive' } } : {}),
         ...(excludeOwnerId ? { ownerId: { not: excludeOwnerId } } : {}),
+        // O16 (ACTIVIDAD_6.md §6.2): a seller under an active blocking is
+        // not published — excluded by the query itself.
+        owner: NOT_BLOCKED,
       },
       include: {
         owner: {
