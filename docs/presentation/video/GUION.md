@@ -56,17 +56,19 @@ tres bloques y el nombre de quien presenta cada uno.
 
 ### Escena 2 — El caso (0:45–1:45)
 
-**En pantalla:** grabación de la app: escanear una carta → resultado (carta, condición, precio) →
-publicarla → Bazar con distancia en km → detalle → compra (selector MercadoPago / efectivo) → QR de
-entrega. Al final, un diagrama simple: teléfono (IA local) ⇄ backend NestJS + PostgreSQL en AWS.
+**En pantalla:** animación del escáner (cámara → reconocer la carta → leer su texto → estimar la condición,
+todo dentro del teléfono). Luego las tomas reales `s02a_bazar_compra` (Bazar con km → detalle con foto real →
+oferta → "¡Ganaste la subasta!" → MercadoPago / Efectivo → venta completa) y `s02b_qr_vendedor` (el vendedor
+elige la carta, fija el precio y genera el QR firmado). Al final, el mapa del sistema: teléfono (IA local) ⇄
+backend NestJS + PostgreSQL en AWS.
 
 > MTG Companion es una app para comprar, vender e intercambiar cartas de Magic. Lo que la diferencia es
-> el escáner: apuntas la cámara a una carta y cuatro modelos de inteligencia artificial, que corren en el
-> propio teléfono, reconocen la carta, leen su texto para identificarla, estiman su condición y sugieren
-> un precio. Las imágenes de la cámara nunca llegan a nuestro servidor. Desde ahí el jugador publica la
-> carta en el Bazar, donde otros la encuentran, ven a cuántos kilómetros está el vendedor, pujan en una
-> subasta o la compran, pagando con MercadoPago o en efectivo. La entrega se confirma escaneando un
-> código QR firmado. Detrás hay un backend en NestJS con PostgreSQL, desplegado en AWS. Es decir:
+> el escáner: apuntas la cámara a una carta y modelos de inteligencia artificial que corren en el propio
+> teléfono reconocen que es una carta, leen su texto para identificarla y estiman su condición. Las
+> imágenes de la cámara nunca llegan a nuestro servidor. Desde ahí el jugador publica la carta en el
+> Bazar, donde otros la encuentran, ven a cuántos kilómetros está el vendedor, ofertan y la compran,
+> pagando con MercadoPago o en efectivo. Y en una venta en persona, el vendedor genera un código QR
+> firmado que el comprador escanea. Detrás hay un backend en NestJS con PostgreSQL, desplegado en AWS. Es decir:
 > tratamos cuentas, contraseñas, ubicación, pagos e historial de compras de personas reales. Por eso la
 > protección de datos no era opcional.
 
@@ -300,7 +302,7 @@ WAV o M4A, cualquiera sirve. El montaje ajusta la duración de cada escena al la
 
 | Archivo | Escena | Qué mostrar |
 |---|---|---|
-| `assets/clips/s02_app_flujo.mp4` | 2 | escanear → publicar → Bazar con km → comprar → QR |
+| `assets/clips/s02a_bazar_compra.mp4`, `s02b_qr_vendedor.mp4` | 2 | Bazar con km → comprar (oferta, medio de pago); el vendedor genera el QR |
 | `assets/clips/s04_bd_cifrado.mp4` | 4 | hash bcrypt, ubicación `v1:…`, alteración rechazada |
 | `assets/clips/s04_llaves.mp4` | 4 | gitleaks limpio, backend sin llave no arranca |
 | `assets/clips/s05_minimizacion.mp4` | 5 | registro con campo extra → 400; interruptor de ubicación |

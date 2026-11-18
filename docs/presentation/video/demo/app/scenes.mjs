@@ -7,7 +7,7 @@
 import { mkdirSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { openApp, pause, PASS } from './recorder.mjs';
+import { openApp, pause, PASS, APP_URL } from './recorder.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CLIPS = resolve(HERE, '../../assets/clips');
@@ -76,6 +76,69 @@ try {
     await pause(900);
     { const h = await app.locate({ text: 'Historial de consentimientos', sel: 'ion-button' }); await app.scroll(h.top - 110); }
     await pause(3500); await snap('historial');
+    await done();
+  } else if (scene === 's02a') {
+    // El caso: Bazar con distancia → detalle con foto real → oferta → gana → elige medio de pago → paga.
+    const user = who ?? 'bruno';
+    await app.cdp('Browser.grantPermissions', { origin: APP_URL, permissions: ['geolocation'] });
+    await app.cdp('Emulation.setGeolocationOverride', { latitude: -33.4489, longitude: -70.6693, accuracy: 30 });
+    await app.goto('/onboarding');
+    await app.login(email(user));
+    await app.goto('/search');
+    await app.waitText('Bazar');
+    await pause(1200);
+    await rec('s02a_bazar_compra');
+    await pause(1000);
+    await app.tap({ css: 'ion-searchbar input' });
+    await app.type('Saw in', 90);
+    await pause(2800); await snap('bazar_km');
+    await app.tap({ text: 'Saw in Half', sel: 'ion-item' });
+    await app.waitText('Inspección');
+    await pause(3200); await snap('detalle_foto');
+    await app.tap({ text: 'Comprar', sel: 'ion-button' });
+    await app.waitText('Completar compra');
+    await pause(1200);
+    await app.tap({ css: 'ion-input input' });
+    await app.type('1.20', 120);
+    await pause(500);
+    await app.tap({ text: 'Ofertar', sel: 'ion-button' });
+    await pause(2500); await snap('cuenta_regresiva');
+    await app.waitFor(`[...document.querySelectorAll('ion-segment-button')].some(e => e.getBoundingClientRect().height > 0)`, 30000);
+    await pause(2000); await snap('ganaste');
+    await app.tap({ css: 'ion-segment-button[value="CASH"]' });
+    await pause(1500);
+    await app.tap({ css: 'ion-segment-button[value="MERCADOPAGO"]' });
+    await pause(1500);
+    await app.tap({ css: 'ion-segment-button[value="CASH"]' });
+    await pause(1200); await snap('medio_pago');
+    await app.tap({ text: 'Pagar con Efectivo', sel: 'ion-button' });
+    await pause(3500); await snap('venta_completa');
+    await done();
+  } else if (scene === 's02b') {
+    // El caso: venta en persona — el vendedor elige la carta, fija el precio y genera el QR firmado (3 min).
+    await app.goto('/onboarding');
+    await app.login(email(who ?? 'valentina'));
+    await app.goto('/tab2');
+    await app.waitText('Elegir manualmente');
+    await app.tap({ text: 'Elegir manualmente de mi inventario', sel: 'ion-button' });
+    await app.waitFor(`!!document.querySelector('.ion-page:not(.ion-page-hidden) ion-select')`);
+    await pause(1000);
+    await rec('s02b_qr_vendedor');
+    await pause(1200);
+    await app.tap({ css: '.ion-page:not(.ion-page-hidden) ion-select' });
+    await pause(1200); await snap('opciones');
+    await app.tap({ text: 'Second Harvest', sel: 'ion-alert button, ion-popover ion-item, ion-action-sheet button, ion-select-popover ion-item, ion-radio, .alert-radio-label' }, { scroll: false });
+    await pause(600);
+    const ok = await app.locate({ text: 'OK', sel: 'ion-alert button' });
+    if (ok) await app.tap({ text: 'OK', sel: 'ion-alert button' }, { scroll: false });
+    await pause(1200); await snap('carta_elegida');
+    await app.tap({ css: '.ion-page:not(.ion-page-hidden) ion-input input' });
+    await clearField();
+    await app.type('3.50', 120);
+    await pause(600);
+    await app.tap({ text: 'Generar QR de Comercio', sel: 'ion-button' });
+    await app.waitFor(`!!document.querySelector('.ion-page:not(.ion-page-hidden) canvas, .ion-page:not(.ion-page-hidden) img[src^="data:image"], .ion-page:not(.ion-page-hidden) svg')`, 20000);
+    await pause(4500); await snap('qr');
     await done();
   } else if (scene === 's09') {
     // Derechos: acceso (descarga), supresión denegada con motivo, rectificación del correo.
