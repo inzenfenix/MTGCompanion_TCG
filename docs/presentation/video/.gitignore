@@ -5,3 +5,8 @@ assets/clips/*.mp4
 assets/clips/*.webm
 assets/audio/
 node_modules/
+
+# Film project: copied media stays out of git
+film/assets/media/*.mp4
+film/renders/
+film/.hyperframes/

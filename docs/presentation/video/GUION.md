@@ -119,8 +119,8 @@ Luego demo (terminal o Prisma Studio, letra grande):
 **En pantalla:** rótulo con el nombre "Vicente Fuentes". Tarjeta "Actividad 4 · Proporcionalidad ·
 art. 3". Esquema antes/después (ER) con los cambios resaltados: `adultConfirmedAt`, ubicación
 "~1 km · 30 días", `description` máx. 500. Demo:
-1. registro con un campo extra (`phone`) → **400**;
-2. app → Seguridad → interruptor "Compartir ubicación" → se borra.
+1. registro con un campo extra (`phone`) → **400**; alias con un correo → **400**; sin declaración 18+ → **400**.
+(La ubicación que se borra se muestra en la escena 8, en Privacidad: la pantalla Seguridad aún está a medio traducir.)
 
 > Hola, soy **Vicente Fuentes**, y me toca la Actividad 4: el rediseño de la base de datos y el control
 > de acceso. El principio central es la proporcionalidad del artículo 3: tratar solo los datos
@@ -129,7 +129,7 @@ art. 3". Esquema antes/después (ER) con los cambios resaltados: `adultConfirmed
 > teléfono, RUT ni dirección, y el registro rechaza cualquier campo extra. La ubicación se redondea a un
 > kilómetro antes de cifrarla, porque para mostrar una distancia no hace falta la posición exacta de la
 > casa de alguien, y vence a los treinta días. Miren: si intento registrarme enviando un teléfono, la
-> API responde 400. Y desde Seguridad, el usuario borra su ubicación con un interruptor.
+> API responde 400, y lo mismo si pongo un correo en el alias.
 
 ### Escena 6 — Actividad 4: seudonimización y anonimización (5:20–6:25)
 

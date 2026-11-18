@@ -1,0 +1,214 @@
+<template>
+  <style>
+    @font-face { font-family: 'Cinzel'; src: url('assets/fonts/cinzel-latin.woff2') format('woff2'); font-weight: 400 900; }
+    #root { position: absolute; inset: 0; overflow: hidden; font-family: 'Inter', sans-serif; color: #f2e3cd; }
+    #s04-pano { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; }
+
+    /* ── la carta jugada ─────────────────────────────────────────── */
+    #s04-stage { position: absolute; inset: 0; perspective: 1600px; }
+    #s04-card { position: absolute; left: 680px; top: 148px; width: 560px; height: 784px; transform-style: preserve-3d; }
+    .s04-face { position: absolute; inset: 0; border-radius: 26px; backface-visibility: hidden;
+      box-shadow: 0 24px 48px rgba(0,0,0,.55); }
+    .s04-front { background: #1f1512; border: 6px solid #d4af37; padding: 26px 28px; display: flex; flex-direction: column; gap: 16px; }
+    .s04-back { background: #5a0d12; border: 6px solid #d4af37; transform: rotateY(180deg);
+      display: flex; align-items: center; justify-content: center; }
+    .s04-back span { font-family: 'Cinzel'; font-weight: 700; font-size: 44px; letter-spacing: .06em; color: #d4af37;
+      border: 2px solid #d4af37; border-radius: 18px; padding: 40px 30px; text-align: center; line-height: 1.25; }
+    .s04-title { font-family: 'Cinzel'; font-weight: 700; font-size: 40px; letter-spacing: .02em; color: #f2e3cd;
+      border-bottom: 2px solid rgba(212,175,55,.6); padding-bottom: 12px; }
+    .s04-cost { align-self: flex-start; font-family: 'Cinzel'; font-weight: 700; font-size: 24px; color: #1f1512;
+      background: #d4af37; border-radius: 8px; padding: 6px 14px; }
+    .s04-art { flex: 1; border: 2px solid rgba(212,175,55,.45); border-radius: 14px; background: #2a1b16;
+      display: flex; align-items: center; justify-content: center; }
+    .s04-type { font-family: 'Cinzel'; font-size: 22px; color: #d4af37; letter-spacing: .04em; }
+    .s04-text { font-size: 25px; line-height: 1.35; color: #f2e3cd; }
+
+    /* ── textos grandes ──────────────────────────────────────────── */
+    #s04-q { position: absolute; left: 760px; top: 360px; width: 1080px; font-family: 'Cinzel'; font-weight: 700;
+      font-size: 72px; line-height: 1.18; color: #f2e3cd; }
+    #s04-q .w { display: inline-block; margin-right: 18px; }
+    #s04-q .hl { color: #d4af37; }
+
+    /* ── papeletas y valores ─────────────────────────────────────── */
+    .s04-slip { position: absolute; background: #f2e3cd; color: #2a2018; border-radius: 10px; padding: 18px 26px;
+      box-shadow: 0 10px 24px rgba(0,0,0,.45); }
+    .s04-slip small { display: block; font-family: 'Cinzel'; font-weight: 700; font-size: 22px; letter-spacing: .08em; color: #8b0000; }
+    .s04-slip b { font-family: 'JetBrains Mono', monospace; font-size: 44px; font-weight: 700; }
+    .s04-val { position: absolute; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 40px;
+      color: #f2e3cd; white-space: nowrap; }
+    .s04-part { display: inline-block; }
+    .s04-lab { position: absolute; font-size: 28px; color: #d4af37; white-space: nowrap; }
+    .s04-tech { position: absolute; left: 760px; font-family: 'Cinzel'; font-weight: 700; font-size: 58px; color: #d4af37; }
+    .s04-sub { position: absolute; left: 760px; font-size: 34px; color: #f2e3cd; }
+    .s04-arrow { position: absolute; width: 6px; background: #d4af37; border-radius: 3px; transform-origin: center top; }
+
+    /* ── servidor y prueba real ──────────────────────────────────── */
+    #s04-srv { position: absolute; left: 1290px; top: 620px; width: 520px; height: 170px; background: #241815;
+      border: 3px solid #6b5a3a; border-radius: 16px; box-shadow: 0 14px 30px rgba(0,0,0,.5); }
+    #s04-srv .name { position: absolute; left: 30px; top: 26px; font-family: 'Cinzel'; font-weight: 700; font-size: 30px; }
+    #s04-srv .led { position: absolute; right: 34px; top: 30px; width: 30px; height: 30px; border-radius: 50%; background: #3fbf6a; }
+    #s04-srv .req { position: absolute; left: 30px; top: 86px; font-family: 'JetBrains Mono', monospace; font-size: 28px; color: #c9b9a0; }
+    #s04-stamp { position: absolute; left: 1250px; top: 820px; font-family: 'Cinzel'; font-weight: 900; font-size: 46px;
+      color: #ff5a4f; border: 5px solid #ff5a4f; border-radius: 12px; padding: 6px 22px; }
+    #s04-mon { position: absolute; left: 600px; top: 120px; width: 1240px; height: 760px; background: #120e0a;
+      border: 6px solid #d4af37; border-radius: 22px; box-shadow: 0 30px 60px rgba(0,0,0,.6); overflow: hidden; }
+    #s04-mon video { position: absolute; left: 0; top: 0; width: 1228px; height: 691px; object-fit: cover; }
+    #s04-mon .cap { position: absolute; left: 0; right: 0; bottom: 0; height: 57px; background: #1f1512;
+      font-family: 'Cinzel'; font-weight: 700; font-size: 26px; color: #d4af37; padding: 12px 28px; }
+  </style>
+
+  <div id="root" data-composition-id="s04" data-width="1920" data-height="1080">
+    <img id="s04-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="40" data-track-index="0" alt="" />
+
+    <!-- La carta -->
+    <div id="s04-card-clip" class="clip" data-start="0" data-duration="40" data-track-index="1">
+      <div id="s04-stage">
+        <div id="s04-card">
+          <div class="s04-face s04-front">
+            <div class="s04-title">Deber de seguridad</div>
+            <div class="s04-cost">Ley 19.628 · art. 14 quinquies</div>
+            <div class="s04-art">
+              <svg width="230" height="270" viewBox="0 0 230 270" aria-hidden="true">
+                <path d="M115 12 L210 50 V130 C210 195 168 238 115 258 C62 238 20 195 20 130 V50 Z" fill="#3a1414" stroke="#d4af37" stroke-width="6"/>
+                <circle cx="115" cy="118" r="30" fill="none" stroke="#d4af37" stroke-width="7"/>
+                <rect x="104" y="140" width="22" height="58" rx="6" fill="#d4af37"/>
+              </svg>
+            </div>
+            <div class="s04-type">Control · Actividad 2</div>
+            <div class="s04-text">Medidas técnicas apropiadas al riesgo: <b>hash</b>, <b>cifrado</b>, <b>tokenización</b> y <b>firma</b>, según lo que el sistema necesita de cada dato.</div>
+          </div>
+          <div class="s04-face s04-back"><span>MTG<br />Companion</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- La pregunta guía -->
+    <div id="s04-q" class="clip" data-start="5.6" data-duration="5.4" data-track-index="2">
+      <span class="w">¿El</span><span class="w">sistema</span><span class="w">necesita</span><span class="w hl">recuperar</span><span class="w">el</span><span class="w">dato</span><span class="w">original?</span>
+    </div>
+
+    <!-- Contraseña → hash -->
+    <div id="s04-pw" class="clip" data-start="11" data-duration="9" data-track-index="2">
+      <div id="s04-pw-slip" class="s04-slip" style="left:760px; top:150px"><small>Contraseña de Marta</small><b>••••••••••••</b></div>
+      <div id="s04-pw-arrow" class="s04-arrow" style="left:800px; top:262px; height:70px"></div>
+      <div id="s04-pw-v1" class="s04-val" style="left:760px; top:400px; font-size:46px"><span class="s04-part" id="s04-pw-alg">$2b$12$</span><span class="s04-part" id="s04-pw-salt">qJtU1JRNBAzSymBZk42Eiu</span></div>
+      <div id="s04-pw-v2" class="s04-val" style="left:760px; top:472px; font-size:46px">M9QaoR9UVooQ95EZBEcFtKNkoc/eslC</div>
+      <div id="s04-pw-l1" class="s04-lab" style="left:760px; top:352px">algoritmo y costo</div>
+      <div id="s04-pw-l2" class="s04-lab" style="left:1010px; top:352px">sal aleatoria de cada usuario</div>
+      <div id="s04-pw-l3" class="s04-lab" style="left:760px; top:538px">hash: no se puede revertir</div>
+      <div id="s04-pw-tech" class="s04-tech" style="top:650px">Hash · bcrypt</div>
+      <div id="s04-pw-sub" class="s04-sub" style="top:735px">Solo se compara al iniciar sesión — nunca se recupera</div>
+    </div>
+
+    <!-- Ubicación → redondeo → cifrado -->
+    <div id="s04-loc" class="clip" data-start="20" data-duration="10.2" data-track-index="2">
+      <div id="s04-loc-slip" class="s04-slip" style="left:760px; top:150px"><small>Ubicación de Marta · latitud</small><b>-33.44<span id="s04-loc-cut">72</span></b></div>
+      <div id="s04-loc-km" class="s04-lab" style="left:760px; top:282px; font-size:30px">~1 km de precisión basta para la distancia</div>
+      <div id="s04-loc-v" class="s04-val" style="left:760px; top:420px; font-size:34px"><span class="s04-part" id="s04-c1">v1</span>:<span class="s04-part" id="s04-c2">3VaBvDUP/FZSNOw2</span>:<span class="s04-part" id="s04-c3">Wmfr4/S4/iidbHAWyJlKaA==</span>:<span class="s04-part" id="s04-c4">2YFni2AP</span></div>
+      <div id="s04-loc-l1" class="s04-lab" style="left:760px; top:372px">versión de llave</div>
+      <div id="s04-loc-l2" class="s04-lab" style="left:821px; top:476px">IV aleatorio</div>
+      <div id="s04-loc-l3" class="s04-lab" style="left:1168px; top:372px">tag: detecta alteraciones</div>
+      <div id="s04-loc-l4" class="s04-lab" style="left:1678px; top:476px">dato cifrado</div>
+      <div id="s04-loc-tech" class="s04-tech" style="top:650px">Cifrado · AES-256-GCM</div>
+      <div id="s04-loc-sub" class="s04-sub" style="top:735px">Se descifra solo en el servidor, para calcular los km</div>
+    </div>
+
+    <!-- Alteración → falla cerrado -->
+    <div id="s04-tam" class="clip" data-start="30.2" data-duration="5.4" data-track-index="2">
+      <div id="s04-tam-slip" class="s04-slip" style="left:760px; top:150px"><small>Secreto 2FA de Eva · cifrado en la base</small><b>alguien lo edita a mano</b></div>
+      <div id="s04-tam-v" class="s04-val" style="left:760px; top:400px">v1:YsjrdKUiJ<span id="s04-tam-ch" style="display:inline-block; position:relative"><span id="s04-tam-old">R</span><span id="s04-tam-new" style="position:absolute; left:0; top:0; color:#ff5a4f">A</span></span>xnQnbu:+4mcA0OUdpNbBG2sDyUqNw==:…</div>
+      <div id="s04-tam-lab" class="s04-lab" style="left:760px; top:470px; color:#ff5a4f">un solo carácter distinto</div>
+      <div id="s04-srv"><div class="name">API · NestJS</div><div class="led" id="s04-led"></div><div class="req">POST /auth/login → descifrar</div></div>
+      <div id="s04-stamp">500 · falla cerrado</div>
+    </div>
+
+    <!-- Prueba: la toma real -->
+    <div id="s04-mon">
+      <video id="s04-real" class="clip" src="assets/media/s04_cifrado.mp4" data-start="35.6" data-duration="4.4" data-media-start="24.6" data-track-index="3" muted playsinline></video>
+      <div class="cap">Grabación real · backend local, datos de prueba</div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      // Parte un valor en caracteres (para escribirlo de a uno). Determinista, antes de registrar el timeline.
+      function chars(sel) {
+        const out = [];
+        document.querySelectorAll(sel).forEach((el) => {
+          const walk = (node) => {
+            [...node.childNodes].forEach((n) => {
+              if (n.nodeType === 3) {
+                const frag = document.createDocumentFragment();
+                for (const c of n.textContent) { const s = document.createElement('span'); s.textContent = c; s.className = 'ch'; frag.appendChild(s); out.push(s); }
+                n.replaceWith(frag);
+              } else if (n.nodeType === 1 && !n.id.startsWith('s04-tam-')) walk(n);
+            });
+          };
+          walk(el);
+        });
+        return out;
+      }
+      const pwChars = chars('#s04-pw-v1, #s04-pw-v2');
+      const locChars = chars('#s04-loc-v');
+
+      const tl = gsap.timeline({ paused: true });
+      const E_IN = 'expo.out', E_MOVE = 'power2.inOut', E_OUT = 'power3.in';
+      const wordsIn = (sel, at) => tl.fromTo(sel, { opacity: 0, filter: 'blur(6px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.13, stagger: 0.08, ease: 'none' }, at);
+      const out = (sel, at) => tl.to(sel, { opacity: 0, filter: 'blur(8px)', duration: 0.3, ease: E_OUT }, at);
+
+      // 0–5,5 s · la carta cae de canto y se da vuelta
+      tl.fromTo('#s04-card', { x: 140, y: -1000, rotationZ: -14, rotationY: 180, scale: 1.05 },
+        { x: 0, y: 0, rotationZ: -3, scale: 1, duration: 1.3, ease: E_IN }, 0.1);
+      tl.fromTo('#s04-card', { rotationY: 180 }, { rotationY: 0, duration: 1.1, ease: E_MOVE, immediateRender: false }, 1.2);
+      // 5,5 s · se retira al costado: queda "jugada" junto a lo que explica
+      tl.to('#s04-card', { x: -560, y: 40, scale: 0.62, rotationZ: -6, duration: 0.8, ease: E_MOVE }, 5.4);
+
+      // 5,6–11 s · la pregunta
+      wordsIn('#s04-q .w', 6.1);
+      out('#s04-q', 10.6);
+
+      // 11–20 s · contraseña → hash bcrypt
+      tl.fromTo('#s04-pw-slip', { opacity: 0, x: -60 }, { opacity: 1, x: 0, duration: 0.7, ease: E_IN }, 11.1);
+      tl.fromTo('#s04-pw-arrow', { scaleY: 0 }, { scaleY: 1, duration: 0.45, ease: E_IN }, 12.1);
+      tl.fromTo(pwChars, { opacity: 0 }, { opacity: 1, duration: 0.01, stagger: 0.022, ease: 'none' }, 12.5);
+      tl.fromTo('#s04-pw-l1', { opacity: 0 }, { opacity: 1, duration: 0.25 }, 14.4);
+      tl.fromTo('#s04-pw-alg', { color: '#f2e3cd' }, { color: '#d4af37', duration: 0.25 }, 14.4);
+      tl.fromTo('#s04-pw-l2', { opacity: 0 }, { opacity: 1, duration: 0.25 }, 15.0);
+      tl.fromTo('#s04-pw-salt', { color: '#f2e3cd' }, { color: '#e9c98a', duration: 0.25 }, 15.0);
+      tl.fromTo('#s04-pw-l3', { opacity: 0 }, { opacity: 1, duration: 0.25 }, 15.6);
+      tl.fromTo('#s04-pw-tech', { opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.18, ease: 'none' }, 16.4);
+      tl.fromTo('#s04-pw-sub', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 16.8);
+      out('#s04-pw > *', 19.55);
+
+      // 20–30 s · ubicación → redondeo → AES-256-GCM
+      tl.fromTo('#s04-loc-slip', { opacity: 0, x: -60 }, { opacity: 1, x: 0, duration: 0.7, ease: E_IN }, 20.1);
+      tl.fromTo('#s04-loc-cut', { color: '#2a2018' }, { color: '#ff5a4f', duration: 0.2 }, 21.4);
+      tl.to('#s04-loc-cut', { opacity: 0, duration: 0.35, ease: E_OUT }, 22.0);
+      tl.fromTo('#s04-loc-km', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 22.3);
+      tl.fromTo(locChars, { opacity: 0 }, { opacity: 1, duration: 0.01, stagger: 0.022, ease: 'none' }, 23.3);
+      ['#s04-loc-l1', '#s04-loc-l2', '#s04-loc-l3', '#s04-loc-l4'].forEach((s, i) => tl.fromTo(s, { opacity: 0 }, { opacity: 1, duration: 0.25 }, 24.8 + i * 0.55));
+      tl.fromTo('#s04-c1', { color: '#f2e3cd' }, { color: '#d4af37', duration: 0.25 }, 24.8);
+      tl.fromTo('#s04-c3', { color: '#f2e3cd' }, { color: '#e9c98a', duration: 0.25 }, 25.9);
+      tl.fromTo('#s04-loc-tech', { opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.18, ease: 'none' }, 27.0);
+      tl.fromTo('#s04-loc-sub', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 27.4);
+      out('#s04-loc > *', 29.8);
+
+      // 30–35,6 s · se altera un carácter → el servidor falla cerrado
+      tl.fromTo('#s04-tam-slip', { opacity: 0, x: -60 }, { opacity: 1, x: 0, duration: 0.7, ease: E_IN }, 30.3);
+      tl.fromTo('#s04-tam-v', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 30.7);
+      tl.fromTo('#s04-tam-new', { opacity: 0, y: -30 }, { opacity: 1, y: 0, duration: 0.35, ease: E_IN }, 31.6);
+      tl.fromTo('#s04-tam-old', { opacity: 1 }, { opacity: 0, duration: 0.2 }, 31.6);
+      tl.fromTo('#s04-tam-lab', { opacity: 0 }, { opacity: 1, duration: 0.25 }, 31.9);
+      tl.fromTo('#s04-srv', { opacity: 0, x: 80 }, { opacity: 1, x: 0, duration: 0.7, ease: E_IN }, 32.2);
+      tl.fromTo('#s04-led', { backgroundColor: '#3fbf6a' }, { backgroundColor: '#ff5a4f', duration: 0.15 }, 33.4);
+      tl.fromTo('#s04-stamp', { opacity: 0, scale: 1.6, rotation: -10 }, { opacity: 1, scale: 1, rotation: -4, duration: 0.35, ease: 'back.out(1.3)' }, 33.6);
+      out('#s04-tam > *', 35.25);
+
+      // 35,6–40 s · la prueba real en un monitor con el borde de la app
+      tl.fromTo('#s04-mon', { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.5, ease: E_IN }, 35.5);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines['s04'] = tl;
+    })();
+  </script>
+</template>
