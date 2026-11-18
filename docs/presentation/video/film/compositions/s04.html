@@ -4,64 +4,58 @@
     #root { position: absolute; inset: 0; overflow: hidden; font-family: 'Inter', sans-serif; color: #f2e3cd; }
     #s04-pano { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; }
 
-    /* ── la carta jugada ─────────────────────────────────────────── */
+    /* la carta jugada */
     #s04-stage { position: absolute; inset: 0; perspective: 1600px; }
     #s04-card { position: absolute; left: 680px; top: 148px; width: 560px; height: 784px; transform-style: preserve-3d; }
-    .s04-face { position: absolute; inset: 0; border-radius: 26px; backface-visibility: hidden;
-      box-shadow: 0 24px 48px rgba(0,0,0,.55); }
+    .s04-face { position: absolute; inset: 0; border-radius: 26px; backface-visibility: hidden; box-shadow: 0 24px 48px rgba(0,0,0,.55); }
     .s04-front { background: #1f1512; border: 6px solid #d4af37; padding: 26px 28px; display: flex; flex-direction: column; gap: 16px; }
-    .s04-back { background: #5a0d12; border: 6px solid #d4af37; transform: rotateY(180deg);
-      display: flex; align-items: center; justify-content: center; }
+    .s04-back { background: #5a0d12; border: 6px solid #d4af37; transform: rotateY(180deg); display: flex; align-items: center; justify-content: center; }
     .s04-back span { font-family: 'Cinzel'; font-weight: 700; font-size: 44px; letter-spacing: .06em; color: #d4af37;
       border: 2px solid #d4af37; border-radius: 18px; padding: 40px 30px; text-align: center; line-height: 1.25; }
-    .s04-title { font-family: 'Cinzel'; font-weight: 700; font-size: 40px; letter-spacing: .02em; color: #f2e3cd;
-      border-bottom: 2px solid rgba(212,175,55,.6); padding-bottom: 12px; }
-    .s04-cost { align-self: flex-start; font-family: 'Cinzel'; font-weight: 700; font-size: 24px; color: #1f1512;
-      background: #d4af37; border-radius: 8px; padding: 6px 14px; }
-    .s04-art { flex: 1; border: 2px solid rgba(212,175,55,.45); border-radius: 14px; background: #2a1b16;
-      display: flex; align-items: center; justify-content: center; }
+    .s04-title { font-family: 'Cinzel'; font-weight: 700; font-size: 40px; letter-spacing: .02em; border-bottom: 2px solid rgba(212,175,55,.6); padding-bottom: 12px; }
+    .s04-cost { align-self: flex-start; font-family: 'Cinzel'; font-weight: 700; font-size: 24px; color: #1f1512; background: #d4af37; border-radius: 8px; padding: 6px 14px; }
+    .s04-art { flex: 1; border: 2px solid rgba(212,175,55,.45); border-radius: 14px; background: #2a1b16; display: flex; align-items: center; justify-content: center; }
     .s04-type { font-family: 'Cinzel'; font-size: 22px; color: #d4af37; letter-spacing: .04em; }
-    .s04-text { font-size: 25px; line-height: 1.35; color: #f2e3cd; }
+    .s04-text { font-size: 25px; line-height: 1.35; }
 
-    /* ── textos grandes ──────────────────────────────────────────── */
-    #s04-q { position: absolute; left: 760px; top: 360px; width: 1080px; font-family: 'Cinzel'; font-weight: 700;
-      font-size: 72px; line-height: 1.18; color: #f2e3cd; }
+    /* piezas comunes */
+    #s04-q { position: absolute; left: 760px; top: 360px; width: 1080px; font-family: 'Cinzel'; font-weight: 700; font-size: 72px; line-height: 1.18; }
     #s04-q .w { display: inline-block; margin-right: 18px; }
-    #s04-q .hl { color: #d4af37; }
-
-    /* ── papeletas y valores ─────────────────────────────────────── */
-    .s04-slip { position: absolute; background: #f2e3cd; color: #2a2018; border-radius: 10px; padding: 18px 26px;
-      box-shadow: 0 10px 24px rgba(0,0,0,.45); }
+    .hl { color: #d4af37; }
+    .s04-slip { position: absolute; background: #f2e3cd; color: #2a2018; border-radius: 10px; padding: 18px 26px; box-shadow: 0 10px 24px rgba(0,0,0,.45); white-space: nowrap; }
     .s04-slip small { display: block; font-family: 'Cinzel'; font-weight: 700; font-size: 22px; letter-spacing: .08em; color: #8b0000; }
     .s04-slip b { font-family: 'JetBrains Mono', monospace; font-size: 44px; font-weight: 700; }
-    .s04-val { position: absolute; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 40px;
-      color: #f2e3cd; white-space: nowrap; }
+    .s04-val { position: absolute; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 40px; white-space: nowrap; }
     .s04-part { display: inline-block; }
     .s04-lab { position: absolute; font-size: 28px; color: #d4af37; white-space: nowrap; }
-    .s04-tech { position: absolute; left: 760px; font-family: 'Cinzel'; font-weight: 700; font-size: 58px; color: #d4af37; }
-    .s04-sub { position: absolute; left: 760px; font-size: 34px; color: #f2e3cd; }
+    .s04-tech { position: absolute; left: 760px; font-family: 'Cinzel'; font-weight: 700; font-size: 58px; color: #d4af37; white-space: nowrap; }
+    .s04-sub { position: absolute; left: 760px; font-size: 34px; white-space: nowrap; }
     .s04-arrow { position: absolute; width: 6px; background: #d4af37; border-radius: 3px; transform-origin: center top; }
+    .s04-chip { position: absolute; background: #2a1b16; border: 3px solid #d4af37; border-radius: 14px; padding: 16px 26px;
+      font-family: 'Cinzel'; font-weight: 700; font-size: 34px; box-shadow: 0 12px 26px rgba(0,0,0,.45); white-space: nowrap; }
+    .s04-obj-lab { position: absolute; font-family: 'Cinzel'; font-weight: 700; font-size: 28px; text-align: center; white-space: nowrap; }
 
-    /* ── servidor y prueba real ──────────────────────────────────── */
-    #s04-srv { position: absolute; left: 1290px; top: 620px; width: 520px; height: 170px; background: #241815;
-      border: 3px solid #6b5a3a; border-radius: 16px; box-shadow: 0 14px 30px rgba(0,0,0,.5); }
+    #s04-srv { position: absolute; left: 1290px; top: 620px; width: 520px; height: 170px; background: #241815; border: 3px solid #6b5a3a; border-radius: 16px; box-shadow: 0 14px 30px rgba(0,0,0,.5); }
     #s04-srv .name { position: absolute; left: 30px; top: 26px; font-family: 'Cinzel'; font-weight: 700; font-size: 30px; }
     #s04-srv .led { position: absolute; right: 34px; top: 30px; width: 30px; height: 30px; border-radius: 50%; background: #3fbf6a; }
     #s04-srv .req { position: absolute; left: 30px; top: 86px; font-family: 'JetBrains Mono', monospace; font-size: 28px; color: #c9b9a0; }
-    #s04-stamp { position: absolute; left: 1250px; top: 820px; font-family: 'Cinzel'; font-weight: 900; font-size: 46px;
-      color: #ff5a4f; border: 5px solid #ff5a4f; border-radius: 12px; padding: 6px 22px; }
-    #s04-mon { position: absolute; left: 600px; top: 120px; width: 1240px; height: 760px; background: #120e0a;
-      border: 6px solid #d4af37; border-radius: 22px; box-shadow: 0 30px 60px rgba(0,0,0,.6); overflow: hidden; }
+    #s04-stamp { position: absolute; left: 1250px; top: 820px; font-family: 'Cinzel'; font-weight: 900; font-size: 46px; color: #ff5a4f; border: 5px solid #ff5a4f; border-radius: 12px; padding: 6px 22px; }
+    #s04-count { position: absolute; left: 760px; top: 800px; font-family: 'Cinzel'; font-weight: 700; font-size: 44px; white-space: nowrap; }
+    #s04-count b { color: #d4af37; font-family: 'JetBrains Mono', monospace; }
+
+    /* monitor de la prueba real */
+    #s04-mon { position: absolute; left: 600px; top: 120px; width: 1240px; height: 760px; background: #120e0a; border: 6px solid #d4af37;
+      border-radius: 22px; box-shadow: 0 30px 60px rgba(0,0,0,.6); overflow: hidden; opacity: 0; }
     #s04-mon video { position: absolute; left: 0; top: 0; width: 1228px; height: 691px; object-fit: cover; }
-    #s04-mon .cap { position: absolute; left: 0; right: 0; bottom: 0; height: 57px; background: #1f1512;
-      font-family: 'Cinzel'; font-weight: 700; font-size: 26px; color: #d4af37; padding: 12px 28px; }
+    #s04-mon .cap { position: absolute; left: 0; right: 0; bottom: 0; height: 57px; background: #1f1512; font-family: 'Cinzel'; font-weight: 700; font-size: 26px; color: #d4af37; padding: 12px 28px; }
+
+    #s04-next { position: absolute; left: 760px; top: 430px; font-family: 'Cinzel'; font-weight: 700; font-size: 64px; white-space: nowrap; }
   </style>
 
   <div id="root" data-composition-id="s04" data-width="1920" data-height="1080">
-    <img id="s04-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="40" data-track-index="0" alt="" />
+    <img id="s04-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="80" data-track-index="0" alt="" />
 
-    <!-- La carta -->
-    <div id="s04-card-clip" class="clip" data-start="0" data-duration="40" data-track-index="1">
+    <div id="s04-card-clip" class="clip" data-start="0" data-duration="80" data-track-index="1">
       <div id="s04-stage">
         <div id="s04-card">
           <div class="s04-face s04-front">
@@ -82,26 +76,25 @@
       </div>
     </div>
 
-    <!-- La pregunta guía -->
-    <div id="s04-q" class="clip" data-start="5.6" data-duration="5.4" data-track-index="2">
+    <!-- 1 · la pregunta guía -->
+    <div id="s04-q" class="clip" data-start="6.6" data-duration="5" data-track-index="2">
       <span class="w">¿El</span><span class="w">sistema</span><span class="w">necesita</span><span class="w hl">recuperar</span><span class="w">el</span><span class="w">dato</span><span class="w">original?</span>
     </div>
 
-    <!-- Contraseña → hash -->
-    <div id="s04-pw" class="clip" data-start="11" data-duration="9" data-track-index="2">
+    <!-- 2 · hash -->
+    <div id="s04-pw" class="clip" data-start="11.6" data-duration="7.6" data-track-index="2">
       <div id="s04-pw-slip" class="s04-slip" style="left:760px; top:150px"><small>Contraseña de Marta</small><b>••••••••••••</b></div>
       <div id="s04-pw-arrow" class="s04-arrow" style="left:800px; top:262px; height:70px"></div>
       <div id="s04-pw-v1" class="s04-val" style="left:760px; top:400px; font-size:46px"><span class="s04-part" id="s04-pw-alg">$2b$12$</span><span class="s04-part" id="s04-pw-salt">qJtU1JRNBAzSymBZk42Eiu</span></div>
       <div id="s04-pw-v2" class="s04-val" style="left:760px; top:472px; font-size:46px">M9QaoR9UVooQ95EZBEcFtKNkoc/eslC</div>
       <div id="s04-pw-l1" class="s04-lab" style="left:760px; top:352px">algoritmo y costo</div>
       <div id="s04-pw-l2" class="s04-lab" style="left:1010px; top:352px">sal aleatoria de cada usuario</div>
-      <div id="s04-pw-l3" class="s04-lab" style="left:760px; top:538px">hash: no se puede revertir</div>
-      <div id="s04-pw-tech" class="s04-tech" style="top:650px">Hash · bcrypt</div>
-      <div id="s04-pw-sub" class="s04-sub" style="top:735px">Solo se compara al iniciar sesión — nunca se recupera</div>
+      <div id="s04-pw-tech" class="s04-tech" style="top:640px">Hash · bcrypt</div>
+      <div id="s04-pw-sub" class="s04-sub" style="top:725px">Solo se compara — y los tokens de sesión, con SHA-256</div>
     </div>
 
-    <!-- Ubicación → redondeo → cifrado -->
-    <div id="s04-loc" class="clip" data-start="20" data-duration="10.2" data-track-index="2">
+    <!-- 3 · cifrado -->
+    <div id="s04-loc" class="clip" data-start="19.2" data-duration="9" data-track-index="2">
       <div id="s04-loc-slip" class="s04-slip" style="left:760px; top:150px"><small>Ubicación de Marta · latitud</small><b>-33.44<span id="s04-loc-cut">72</span></b></div>
       <div id="s04-loc-km" class="s04-lab" style="left:760px; top:282px; font-size:30px">~1 km de precisión basta para la distancia</div>
       <div id="s04-loc-v" class="s04-val" style="left:760px; top:420px; font-size:34px"><span class="s04-part" id="s04-c1">v1</span>:<span class="s04-part" id="s04-c2">3VaBvDUP/FZSNOw2</span>:<span class="s04-part" id="s04-c3">Wmfr4/S4/iidbHAWyJlKaA==</span>:<span class="s04-part" id="s04-c4">2YFni2AP</span></div>
@@ -109,41 +102,94 @@
       <div id="s04-loc-l2" class="s04-lab" style="left:821px; top:476px">IV aleatorio</div>
       <div id="s04-loc-l3" class="s04-lab" style="left:1168px; top:372px">tag: detecta alteraciones</div>
       <div id="s04-loc-l4" class="s04-lab" style="left:1678px; top:476px">dato cifrado</div>
-      <div id="s04-loc-tech" class="s04-tech" style="top:650px">Cifrado · AES-256-GCM</div>
-      <div id="s04-loc-sub" class="s04-sub" style="top:735px">Se descifra solo en el servidor, para calcular los km</div>
+      <div id="s04-loc-tech" class="s04-tech" style="top:640px">Cifrado · AES-256-GCM</div>
+      <div id="s04-loc-sub" class="s04-sub" style="top:725px">También el secreto del segundo factor (2FA)</div>
     </div>
 
-    <!-- Alteración → falla cerrado -->
-    <div id="s04-tam" class="clip" data-start="30.2" data-duration="5.4" data-track-index="2">
+    <!-- 4 · tokenización -->
+    <div id="s04-tok" class="clip" data-start="28.2" data-duration="6" data-track-index="2">
+      <div id="s04-tok-slip" class="s04-slip" style="left:760px; top:300px"><small>Tarjeta de pago</small><b>•••• •••• •••• ••••</b></div>
+      <svg id="s04-vault" width="300" height="300" viewBox="0 0 300 300" style="position:absolute; left:1460px; top:200px" aria-hidden="true">
+        <rect x="10" y="10" width="280" height="280" rx="26" fill="#2a1b16" stroke="#d4af37" stroke-width="8"/>
+        <circle cx="150" cy="150" r="78" fill="none" stroke="#d4af37" stroke-width="8"/>
+        <g id="s04-dial"><line x1="150" y1="150" x2="150" y2="86" stroke="#d4af37" stroke-width="10" stroke-linecap="round"/></g>
+        <circle cx="150" cy="150" r="14" fill="#d4af37"/>
+      </svg>
+      <div class="s04-obj-lab" style="left:1460px; top:515px; width:300px">MercadoPago</div>
+      <div id="s04-tok-ref" class="s04-chip" style="left:760px; top:470px">paymentRef<span style="font-family:'Inter'; font-weight:400; font-size:26px"> · solo la referencia</span></div>
+      <div id="s04-tok-tech" class="s04-tech" style="top:640px">Tokenización</div>
+      <div id="s04-tok-sub" class="s04-sub" style="top:725px">La tarjeta nunca entra a nuestro sistema</div>
+    </div>
+
+    <!-- 5 · firma -->
+    <div id="s04-sig" class="clip" data-start="34.2" data-duration="6" data-track-index="2">
+      <div id="s04-sig-a" class="s04-chip" style="left:760px; top:300px; padding-right:110px">Sesión (JWT)</div>
+      <div id="s04-sig-b" class="s04-chip" style="left:1230px; top:300px; padding-right:110px">QR de venta</div>
+      <svg id="s04-seal-a" width="130" height="130" viewBox="0 0 130 130" style="position:absolute; left:1040px; top:262px" aria-hidden="true">
+        <circle cx="65" cy="65" r="58" fill="#8b0000" stroke="#5a0d12" stroke-width="6"/><text x="65" y="76" text-anchor="middle" font-family="Cinzel" font-weight="700" font-size="28" fill="#f2e3cd">HMAC</text></svg>
+      <svg id="s04-seal-b" width="130" height="130" viewBox="0 0 130 130" style="position:absolute; left:1535px; top:262px" aria-hidden="true">
+        <circle cx="65" cy="65" r="58" fill="#8b0000" stroke="#5a0d12" stroke-width="6"/><text x="65" y="76" text-anchor="middle" font-family="Cinzel" font-weight="700" font-size="28" fill="#f2e3cd">HMAC</text></svg>
+      <div id="s04-sig-tech" class="s04-tech" style="top:640px">Firma · HMAC-SHA256</div>
+      <div id="s04-sig-sub" class="s04-sub" style="top:725px">Nadie puede fabricar una sesión o un QR válido</div>
+    </div>
+
+    <!-- 6 · alteración → falla cerrado -->
+    <div id="s04-tam" class="clip" data-start="48.2" data-duration="4.4" data-track-index="2">
       <div id="s04-tam-slip" class="s04-slip" style="left:760px; top:150px"><small>Secreto 2FA de Eva · cifrado en la base</small><b>alguien lo edita a mano</b></div>
-      <div id="s04-tam-v" class="s04-val" style="left:760px; top:400px">v1:YsjrdKUiJ<span id="s04-tam-ch" style="display:inline-block; position:relative"><span id="s04-tam-old">R</span><span id="s04-tam-new" style="position:absolute; left:0; top:0; color:#ff5a4f">A</span></span>xnQnbu:+4mcA0OUdpNbBG2sDyUqNw==:…</div>
+      <div id="s04-tam-v" class="s04-val" style="left:760px; top:400px">v1:YsjrdKUiJ<span style="display:inline-block; position:relative"><span id="s04-tam-old">R</span><span id="s04-tam-new" style="position:absolute; left:0; top:0; color:#ff5a4f">A</span></span>xnQnbu:+4mcA0OUdpNbBG2sDyUqNw==:…</div>
       <div id="s04-tam-lab" class="s04-lab" style="left:760px; top:470px; color:#ff5a4f">un solo carácter distinto</div>
       <div id="s04-srv"><div class="name">API · NestJS</div><div class="led" id="s04-led"></div><div class="req">POST /auth/login → descifrar</div></div>
       <div id="s04-stamp">500 · falla cerrado</div>
     </div>
 
-    <!-- Prueba: la toma real -->
+    <!-- 7 · llaves -->
+    <div id="s04-key" class="clip" data-start="58.4" data-duration="8.6" data-track-index="2">
+      <svg id="s04-db" width="240" height="280" viewBox="0 0 240 280" style="position:absolute; left:780px; top:200px" aria-hidden="true">
+        <path d="M20 40 V240 C20 266 220 266 220 240 V40" fill="#2a1b16" stroke="#d4af37" stroke-width="7"/>
+        <ellipse cx="120" cy="40" rx="100" ry="28" fill="#3a2620" stroke="#d4af37" stroke-width="7"/>
+        <path d="M20 110 C20 136 220 136 220 110 M20 175 C20 201 220 201 220 175" fill="none" stroke="#d4af37" stroke-width="5" opacity=".7"/>
+      </svg>
+      <div class="s04-obj-lab" style="left:740px; top:495px; width:320px">PostgreSQL<br /><span style="font-family:'Inter'; font-weight:400; font-size:24px">solo texto cifrado</span></div>
+      <svg id="s04-sm" width="300" height="300" viewBox="0 0 300 300" style="position:absolute; left:1460px; top:190px" aria-hidden="true">
+        <rect x="10" y="10" width="280" height="280" rx="26" fill="#2a1b16" stroke="#d4af37" stroke-width="8"/>
+        <g id="s04-keyicon"><circle cx="110" cy="150" r="42" fill="none" stroke="#d4af37" stroke-width="12"/><path d="M150 150 H240 M210 150 V185 M235 150 V175" stroke="#d4af37" stroke-width="12" stroke-linecap="round" fill="none"/></g>
+      </svg>
+      <div class="s04-obj-lab" style="left:1420px; top:505px; width:380px">AWS Secrets Manager</div>
+      <svg id="s04-gap" width="380" height="40" viewBox="0 0 380 40" style="position:absolute; left:1060px; top:320px" aria-hidden="true">
+        <line x1="10" y1="20" x2="370" y2="20" stroke="#f2e3cd" stroke-width="5" stroke-dasharray="14 12"/>
+      </svg>
+      <div id="s04-gap-lab" class="s04-lab" style="left:1135px; top:270px">nunca juntos</div>
+      <div class="s04-lab" id="s04-count-lab" style="left:760px; top:745px">Historial del repositorio (gitleaks)</div>
+      <div id="s04-count"><b id="s04-count-n">0</b> commits revisados · <b>0</b> secretos</div>
+    </div>
+
+    <!-- 8 · relevo -->
+    <div id="s04-next" class="clip" data-start="77" data-duration="3" data-track-index="2">Le paso la palabra a <span class="hl">Vicente</span></div>
+
+    <!-- prueba real: un monitor, tres tramos de la misma grabación -->
     <div id="s04-mon">
-      <video id="s04-real" class="clip" src="assets/media/s04_cifrado.mp4" data-start="35.6" data-duration="4.4" data-media-start="24.6" data-track-index="3" muted playsinline></video>
+      <video id="s04-real-a" class="clip" src="assets/media/s04_cifrado.mp4" data-start="40.2" data-duration="8" data-media-start="5" data-track-index="3" muted playsinline></video>
+      <video id="s04-real-b" class="clip" src="assets/media/s04_cifrado.mp4" data-start="52.6" data-duration="5.8" data-media-start="24.0" data-track-index="3" muted playsinline></video>
+      <video id="s04-real-c" class="clip" src="assets/media/s04_cifrado.mp4" data-start="67" data-duration="10" data-media-start="40" data-track-index="3" muted playsinline></video>
       <div class="cap">Grabación real · backend local, datos de prueba</div>
     </div>
   </div>
 
   <script>
     (function () {
-      // Parte un valor en caracteres (para escribirlo de a uno). Determinista, antes de registrar el timeline.
+      // Inicio de cada tramo, en segundos (ajustar aquí cuando estén las voces; los data-start de arriba son los mismos).
+      const T = { card: 0.1, q: 6.6, pw: 11.6, loc: 19.2, tok: 28.2, sig: 34.2, monA: 40.2, tam: 48.2, monB: 52.6, key: 58.4, monC: 67, next: 77 };
+
       function chars(sel) {
         const out = [];
         document.querySelectorAll(sel).forEach((el) => {
-          const walk = (node) => {
-            [...node.childNodes].forEach((n) => {
-              if (n.nodeType === 3) {
-                const frag = document.createDocumentFragment();
-                for (const c of n.textContent) { const s = document.createElement('span'); s.textContent = c; s.className = 'ch'; frag.appendChild(s); out.push(s); }
-                n.replaceWith(frag);
-              } else if (n.nodeType === 1 && !n.id.startsWith('s04-tam-')) walk(n);
-            });
-          };
+          const walk = (node) => [...node.childNodes].forEach((n) => {
+            if (n.nodeType === 3) {
+              const frag = document.createDocumentFragment();
+              for (const c of n.textContent) { const s = document.createElement('span'); s.textContent = c; frag.appendChild(s); out.push(s); }
+              n.replaceWith(frag);
+            } else if (n.nodeType === 1) walk(n);
+          });
           walk(el);
         });
         return out;
@@ -152,60 +198,95 @@
       const locChars = chars('#s04-loc-v');
 
       const tl = gsap.timeline({ paused: true });
-      const E_IN = 'expo.out', E_MOVE = 'power2.inOut', E_OUT = 'power3.in';
-      const wordsIn = (sel, at) => tl.fromTo(sel, { opacity: 0, filter: 'blur(6px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.13, stagger: 0.08, ease: 'none' }, at);
-      const out = (sel, at) => tl.to(sel, { opacity: 0, filter: 'blur(8px)', duration: 0.3, ease: E_OUT }, at);
+      const IN = 'expo.out', MOVE = 'power2.inOut', OUT = 'power3.in';
+      const show = (sel, at, d = 0.25) => tl.fromTo(sel, { opacity: 0 }, { opacity: 1, duration: d }, at);
+      const slideIn = (sel, at) => tl.fromTo(sel, { opacity: 0, x: -60 }, { opacity: 1, x: 0, duration: 0.7, ease: IN }, at);
+      const blurIn = (sel, at) => tl.fromTo(sel, { opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.18, ease: 'none' }, at);
+      const out = (sel, at) => tl.to(sel, { opacity: 0, filter: 'blur(8px)', duration: 0.3, ease: OUT }, at);
+      const mon = (at, until) => {
+        tl.fromTo('#s04-mon', { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.5, ease: IN, immediateRender: false }, at - 0.1);
+        tl.to('#s04-mon', { opacity: 0, scale: 0.97, duration: 0.3, ease: OUT }, until - 0.35);
+      };
 
-      // 0–5,5 s · la carta cae de canto y se da vuelta
-      tl.fromTo('#s04-card', { x: 140, y: -1000, rotationZ: -14, rotationY: 180, scale: 1.05 },
-        { x: 0, y: 0, rotationZ: -3, scale: 1, duration: 1.3, ease: E_IN }, 0.1);
-      tl.fromTo('#s04-card', { rotationY: 180 }, { rotationY: 0, duration: 1.1, ease: E_MOVE, immediateRender: false }, 1.2);
-      // 5,5 s · se retira al costado: queda "jugada" junto a lo que explica
-      tl.to('#s04-card', { x: -560, y: 40, scale: 0.62, rotationZ: -6, duration: 0.8, ease: E_MOVE }, 5.4);
+      // la carta
+      tl.fromTo('#s04-card', { x: 140, y: -1000, rotationZ: -14, rotationY: 180, scale: 1.05 }, { x: 0, y: 0, rotationZ: -3, scale: 1, duration: 1.3, ease: IN }, T.card);
+      tl.fromTo('#s04-card', { rotationY: 180 }, { rotationY: 0, duration: 1.1, ease: MOVE, immediateRender: false }, T.card + 1.1);
+      tl.to('#s04-card', { x: -560, y: 40, scale: 0.62, rotationZ: -6, duration: 0.8, ease: MOVE }, T.q - 0.3);
 
-      // 5,6–11 s · la pregunta
-      wordsIn('#s04-q .w', 6.1);
-      out('#s04-q', 10.6);
+      // la pregunta
+      tl.fromTo('#s04-q .w', { opacity: 0, filter: 'blur(6px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.13, stagger: 0.08, ease: 'none' }, T.q + 0.3);
+      out('#s04-q', T.pw - 0.4);
 
-      // 11–20 s · contraseña → hash bcrypt
-      tl.fromTo('#s04-pw-slip', { opacity: 0, x: -60 }, { opacity: 1, x: 0, duration: 0.7, ease: E_IN }, 11.1);
-      tl.fromTo('#s04-pw-arrow', { scaleY: 0 }, { scaleY: 1, duration: 0.45, ease: E_IN }, 12.1);
-      tl.fromTo(pwChars, { opacity: 0 }, { opacity: 1, duration: 0.01, stagger: 0.022, ease: 'none' }, 12.5);
-      tl.fromTo('#s04-pw-l1', { opacity: 0 }, { opacity: 1, duration: 0.25 }, 14.4);
-      tl.fromTo('#s04-pw-alg', { color: '#f2e3cd' }, { color: '#d4af37', duration: 0.25 }, 14.4);
-      tl.fromTo('#s04-pw-l2', { opacity: 0 }, { opacity: 1, duration: 0.25 }, 15.0);
-      tl.fromTo('#s04-pw-salt', { color: '#f2e3cd' }, { color: '#e9c98a', duration: 0.25 }, 15.0);
-      tl.fromTo('#s04-pw-l3', { opacity: 0 }, { opacity: 1, duration: 0.25 }, 15.6);
-      tl.fromTo('#s04-pw-tech', { opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.18, ease: 'none' }, 16.4);
-      tl.fromTo('#s04-pw-sub', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 16.8);
-      out('#s04-pw > *', 19.55);
+      // hash
+      slideIn('#s04-pw-slip', T.pw);
+      tl.fromTo('#s04-pw-arrow', { scaleY: 0 }, { scaleY: 1, duration: 0.45, ease: IN }, T.pw + 0.8);
+      tl.fromTo(pwChars, { opacity: 0 }, { opacity: 1, duration: 0.01, stagger: 0.022, ease: 'none' }, T.pw + 1.1);
+      show('#s04-pw-l1', T.pw + 2.9); tl.fromTo('#s04-pw-alg', { color: '#f2e3cd' }, { color: '#d4af37', duration: 0.25 }, T.pw + 2.9);
+      show('#s04-pw-l2', T.pw + 3.4); tl.fromTo('#s04-pw-salt', { color: '#f2e3cd' }, { color: '#e9c98a', duration: 0.25 }, T.pw + 3.4);
+      blurIn('#s04-pw-tech', T.pw + 4.0); show('#s04-pw-sub', T.pw + 4.5, 0.3);
+      out('#s04-pw > *', T.loc - 0.4);
 
-      // 20–30 s · ubicación → redondeo → AES-256-GCM
-      tl.fromTo('#s04-loc-slip', { opacity: 0, x: -60 }, { opacity: 1, x: 0, duration: 0.7, ease: E_IN }, 20.1);
-      tl.fromTo('#s04-loc-cut', { color: '#2a2018' }, { color: '#ff5a4f', duration: 0.2 }, 21.4);
-      tl.to('#s04-loc-cut', { opacity: 0, duration: 0.35, ease: E_OUT }, 22.0);
-      tl.fromTo('#s04-loc-km', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 22.3);
-      tl.fromTo(locChars, { opacity: 0 }, { opacity: 1, duration: 0.01, stagger: 0.022, ease: 'none' }, 23.3);
-      ['#s04-loc-l1', '#s04-loc-l2', '#s04-loc-l3', '#s04-loc-l4'].forEach((s, i) => tl.fromTo(s, { opacity: 0 }, { opacity: 1, duration: 0.25 }, 24.8 + i * 0.55));
-      tl.fromTo('#s04-c1', { color: '#f2e3cd' }, { color: '#d4af37', duration: 0.25 }, 24.8);
-      tl.fromTo('#s04-c3', { color: '#f2e3cd' }, { color: '#e9c98a', duration: 0.25 }, 25.9);
-      tl.fromTo('#s04-loc-tech', { opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.18, ease: 'none' }, 27.0);
-      tl.fromTo('#s04-loc-sub', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 27.4);
-      out('#s04-loc > *', 29.8);
+      // cifrado
+      slideIn('#s04-loc-slip', T.loc);
+      tl.fromTo('#s04-loc-cut', { color: '#2a2018' }, { color: '#b3261e', duration: 0.2 }, T.loc + 1.1);
+      tl.to('#s04-loc-cut', { opacity: 0, duration: 0.35, ease: OUT }, T.loc + 1.6);
+      show('#s04-loc-km', T.loc + 1.9, 0.3);
+      tl.fromTo(locChars, { opacity: 0 }, { opacity: 1, duration: 0.01, stagger: 0.022, ease: 'none' }, T.loc + 2.7);
+      ['#s04-loc-l1', '#s04-loc-l2', '#s04-loc-l3', '#s04-loc-l4'].forEach((s, i) => show(s, T.loc + 4.0 + i * 0.5));
+      tl.fromTo('#s04-c1', { color: '#f2e3cd' }, { color: '#d4af37', duration: 0.25 }, T.loc + 4.0);
+      tl.fromTo('#s04-c3', { color: '#f2e3cd' }, { color: '#e9c98a', duration: 0.25 }, T.loc + 5.0);
+      blurIn('#s04-loc-tech', T.loc + 5.8); show('#s04-loc-sub', T.loc + 6.2, 0.3);
+      out('#s04-loc > *', T.tok - 0.4);
 
-      // 30–35,6 s · se altera un carácter → el servidor falla cerrado
-      tl.fromTo('#s04-tam-slip', { opacity: 0, x: -60 }, { opacity: 1, x: 0, duration: 0.7, ease: E_IN }, 30.3);
-      tl.fromTo('#s04-tam-v', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 30.7);
-      tl.fromTo('#s04-tam-new', { opacity: 0, y: -30 }, { opacity: 1, y: 0, duration: 0.35, ease: E_IN }, 31.6);
-      tl.fromTo('#s04-tam-old', { opacity: 1 }, { opacity: 0, duration: 0.2 }, 31.6);
-      tl.fromTo('#s04-tam-lab', { opacity: 0 }, { opacity: 1, duration: 0.25 }, 31.9);
-      tl.fromTo('#s04-srv', { opacity: 0, x: 80 }, { opacity: 1, x: 0, duration: 0.7, ease: E_IN }, 32.2);
-      tl.fromTo('#s04-led', { backgroundColor: '#3fbf6a' }, { backgroundColor: '#ff5a4f', duration: 0.15 }, 33.4);
-      tl.fromTo('#s04-stamp', { opacity: 0, scale: 1.6, rotation: -10 }, { opacity: 1, scale: 1, rotation: -4, duration: 0.35, ease: 'back.out(1.3)' }, 33.6);
-      out('#s04-tam > *', 35.25);
+      // tokenización: la tarjeta entra a la bóveda y sale solo la referencia
+      slideIn('#s04-tok-slip', T.tok);
+      tl.fromTo('#s04-vault', { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.6, ease: IN }, T.tok + 0.3);
+      tl.to('#s04-tok-slip', { x: 760, scale: 0.4, opacity: 0, duration: 0.9, ease: 'power3.in' }, T.tok + 1.3);
+      tl.fromTo('#s04-dial', { rotation: 0, transformOrigin: '150px 150px' }, { rotation: 300, duration: 0.9, ease: MOVE }, T.tok + 2.1);
+      tl.fromTo('#s04-tok-ref', { opacity: 0, x: 500, scale: 0.6 }, { opacity: 1, x: 0, scale: 1, duration: 0.8, ease: IN }, T.tok + 2.9);
+      blurIn('#s04-tok-tech', T.tok + 3.4); show('#s04-tok-sub', T.tok + 3.8, 0.3);
+      out('#s04-tok > *', T.sig - 0.4);
 
-      // 35,6–40 s · la prueba real en un monitor con el borde de la app
-      tl.fromTo('#s04-mon', { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.5, ease: E_IN }, 35.5);
+      // firma: el sello cae sobre cada pieza
+      tl.fromTo(['#s04-sig-a', '#s04-sig-b'], { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: IN, stagger: 0.15 }, T.sig);
+      tl.fromTo('#s04-seal-a', { opacity: 0, scale: 1.8, rotation: -25 }, { opacity: 1, scale: 1, rotation: -8, duration: 0.4, ease: 'back.out(1.3)' }, T.sig + 1.0);
+      tl.fromTo('#s04-seal-b', { opacity: 0, scale: 1.8, rotation: 25 }, { opacity: 1, scale: 1, rotation: 8, duration: 0.4, ease: 'back.out(1.3)' }, T.sig + 1.5);
+      blurIn('#s04-sig-tech', T.sig + 2.2); show('#s04-sig-sub', T.sig + 2.6, 0.3);
+      out('#s04-sig > *', T.monA - 0.5);
+
+      // prueba A: hash y v1 en la base real
+      mon(T.monA, T.tam);
+
+      // alteración
+      slideIn('#s04-tam-slip', T.tam);
+      show('#s04-tam-v', T.tam + 0.3, 0.3);
+      tl.fromTo('#s04-tam-new', { opacity: 0, y: -30 }, { opacity: 1, y: 0, duration: 0.35, ease: IN }, T.tam + 1.0);
+      tl.fromTo('#s04-tam-old', { opacity: 1 }, { opacity: 0, duration: 0.2 }, T.tam + 1.0);
+      show('#s04-tam-lab', T.tam + 1.3);
+      tl.fromTo('#s04-srv', { opacity: 0, x: 80 }, { opacity: 1, x: 0, duration: 0.6, ease: IN }, T.tam + 1.5);
+      tl.fromTo('#s04-led', { backgroundColor: '#3fbf6a' }, { backgroundColor: '#ff5a4f', duration: 0.15 }, T.tam + 2.4);
+      tl.fromTo('#s04-stamp', { opacity: 0, scale: 1.6, rotation: -10 }, { opacity: 1, scale: 1, rotation: -4, duration: 0.35, ease: 'back.out(1.3)' }, T.tam + 2.6);
+      out('#s04-tam > *', T.monB - 0.45);
+
+      // prueba B: la alteración real y el 500
+      mon(T.monB, T.key);
+
+      // llaves: base y bóveda separadas, conteo del historial
+      tl.fromTo('#s04-db', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.7, ease: IN }, T.key);
+      tl.fromTo('#s04-sm', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.7, ease: IN }, T.key + 0.3);
+      tl.fromTo('#s04-keyicon', { rotation: -40, transformOrigin: '150px 150px' }, { rotation: 0, duration: 0.8, ease: IN }, T.key + 0.6);
+      tl.fromTo('#s04-gap', { opacity: 0, scaleX: 0, transformOrigin: 'left center' }, { opacity: 1, scaleX: 1, duration: 0.6, ease: IN }, T.key + 1.4);
+      show('#s04-gap-lab', T.key + 1.9);
+      show(['#s04-count-lab', '#s04-count'], T.key + 3.6, 0.3);
+      const counter = { n: 0 };
+      tl.fromTo(counter, { n: 0 }, { n: 205, duration: 1.6, ease: 'power2.out', onUpdate: () => { document.getElementById('s04-count-n').textContent = Math.round(counter.n); } }, T.key + 3.8);
+      out('#s04-key > *', T.monC - 0.45);
+
+      // prueba C: gitleaks limpio y el backend que no arranca sin llave
+      mon(T.monC, T.next);
+
+      // relevo
+      tl.fromTo('#s04-next', { opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.2, ease: 'none' }, T.next + 0.1);
 
       window.__timelines = window.__timelines || {};
       window.__timelines['s04'] = tl;
