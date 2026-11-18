@@ -1,0 +1,7 @@
+# Rendered output and recorded media stay out of git:
+# MP4s are large, and the voice recordings are the team's personal data.
+renders/
+assets/clips/*.mp4
+assets/clips/*.webm
+assets/audio/
+node_modules/
