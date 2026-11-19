@@ -11,8 +11,8 @@ speakers); this file is the working state for whoever continues the build.
 | Script + recording list | `docs/presentation/video/GUION.md` | done; scene 2 and 5 adjusted to what was recorded |
 | Storylines | `docs/presentation/video/STORYLINES.md` | user picked a **mix**: A (Marta's data is the thread) + B (each control is "played" as an original card) + C (system map as home stage) |
 | Film spec | `docs/presentation/video/film/SPEC.md` | look, motion, banned list |
-| HyperFrames project | `docs/presentation/video/film/` | `index.html` mounts `compositions/s04.html` (0–80 s) and `s05.html` (80–133 s) |
-| Draft render | `film/renders/borrador_s04_s05.mp4` (gitignored) | scenes 4+5, 133 s, checked frame by frame |
+| HyperFrames project | `docs/presentation/video/film/` | `index.html` mounts `compositions/s04.html` (0–80 s), `s05.html` (80–133 s), `s06.html` (133–202 s) |
+| Draft render | `film/renders/borrador_s04_s06.mp4` (gitignored) | scenes 4–6, 202 s, checked frame by frame |
 | Real clips | `docs/presentation/video/assets/clips/*.mp4` (gitignored, ~40 MB) | all recorded — list below |
 | Demo tooling | `docs/presentation/video/demo/` | committed; reproduces every clip |
 
@@ -27,7 +27,7 @@ only inside the **evidence monitor** (user's call: "keep the monitor"); the expl
 1. Scenes **0–3** (intro, opening with the three names, the case — animated 4-step scanner + `s02a`/`s02b` + system
    map, Hito 1 flows map). Scene 0–1 must show each member's name; **every member identifies themself at the start
    of their block** (pauta).
-2. Scenes **6–12**: 6 pseudonymization/anonymization, 7 RBAC, 8 consent, 9 rights, 10 public channel + objection +
+2. Scenes **7–12** (6 done 18 nov): 7 RBAC, 8 consent, 9 rights, 10 public channel + objection +
    blocking, 11 traceability + incident, 12 closing (each member names one pending item).
 3. Audio: the team records one file per scene (`GUION.md` → "Voces"), then retime each scene from its `T` table and
    add a quiet free music bed + small SFX (`hyperframes` skill → `references/sound.md`).
@@ -86,7 +86,8 @@ only inside the **evidence monitor** (user's call: "keep the monitor"); the expl
 > `docs/presentation/video/GUION.md` and `docs/presentation/video/film/SPEC.md`, and the HyperFrames skill at
 > `~/.claude/plugins/marketplaces/hyperframes/skills/hyperframes/SKILL.md` (+ `references/format.md`,
 > `references/motion.md`). Look at `film/compositions/s04.html` and `s05.html` as the pattern. Build the next
-> scene (scene 6 — Actividad 4 pseudonymization/anonymization, Vicente) as `compositions/s06.html` following the
-> conventions in the README (card, `T` table, evidence monitor with `assets/clips/s06_seudonimos.mp4`, real values
-> only), mount it after s05 in `index.html`, run `hf check --json`, snapshot, render a draft, commit and push. Keep
-> going scene by scene (7, 8, 9, 10, 11, 12, then 0–3) and update this README's "Still to build" as you go.
+> scene (scene 7 — Actividad 4 RBAC, Vicente) as `compositions/s07.html` following the conventions in the README
+> (card, `T` table, evidence monitor with `assets/clips/s07_rbac.mp4`, real values only — 403 on someone else's
+> purchase, support needs a reason and is audited, masked emails, admin can't change own role), mount it after s06
+> (start 202) in `index.html`, run `hf check --json`, snapshot, render a draft, commit and push. Keep
+> going scene by scene (8, 9, 10, 11, 12, then 0–3) and update this README's "Still to build" as you go.

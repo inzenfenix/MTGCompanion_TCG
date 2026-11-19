@@ -1,0 +1,230 @@
+<template>
+  <style>
+    @font-face { font-family: 'Cinzel'; src: url('assets/fonts/cinzel-latin.woff2') format('woff2'); font-weight: 400 900; }
+    #root { position: absolute; inset: 0; overflow: hidden; font-family: 'Inter', sans-serif; color: #f2e3cd; }
+    #s06-pano { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; }
+    .hl { color: #d4af37; }
+    .mono { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+
+    #s06-stage { position: absolute; inset: 0; perspective: 1600px; }
+    #s06-card { position: absolute; left: 680px; top: 148px; width: 560px; height: 784px; transform-style: preserve-3d; }
+    .s06-face { position: absolute; inset: 0; border-radius: 26px; backface-visibility: hidden; box-shadow: 0 24px 48px rgba(0,0,0,.55); }
+    .s06-front { background: #1f1512; border: 6px solid #d4af37; padding: 26px 28px; display: flex; flex-direction: column; gap: 16px; }
+    .s06-back { background: #5a0d12; border: 6px solid #d4af37; transform: rotateY(180deg); display: flex; align-items: center; justify-content: center; }
+    .s06-back span { font-family: 'Cinzel'; font-weight: 700; font-size: 44px; color: #d4af37; border: 2px solid #d4af37; border-radius: 18px; padding: 40px 30px; text-align: center; line-height: 1.25; }
+    .s06-title { font-family: 'Cinzel'; font-weight: 700; font-size: 38px; border-bottom: 2px solid rgba(212,175,55,.6); padding-bottom: 12px; }
+    .s06-cost { align-self: flex-start; font-family: 'Cinzel'; font-weight: 700; font-size: 22px; color: #1f1512; background: #d4af37; border-radius: 8px; padding: 6px 14px; }
+    .s06-art { flex: 1; border: 2px solid rgba(212,175,55,.45); border-radius: 14px; background: #2a1b16; display: flex; align-items: center; justify-content: center; }
+    .s06-type { font-family: 'Cinzel'; font-size: 22px; color: #d4af37; }
+    .s06-text { font-size: 25px; line-height: 1.35; }
+
+    .s06-line { position: absolute; left: 760px; font-family: 'Cinzel'; font-weight: 700; font-size: 58px; white-space: nowrap; }
+    .s06-line small { display: block; font-family: 'Inter'; font-weight: 400; font-size: 34px; margin-top: 8px; }
+    .s06-slip { position: absolute; background: #f2e3cd; color: #2a2018; border-radius: 10px; padding: 16px 24px; box-shadow: 0 10px 24px rgba(0,0,0,.45); white-space: nowrap; }
+    .s06-slip small { display: block; font-family: 'Cinzel'; font-weight: 700; font-size: 22px; letter-spacing: .08em; color: #8b0000; }
+    .s06-slip b { font-family: 'JetBrains Mono', monospace; font-size: 38px; }
+    .s06-box { position: absolute; background: #2a1b16; border: 4px solid #d4af37; border-radius: 18px; box-shadow: 0 14px 30px rgba(0,0,0,.5); }
+    .s06-lab { position: absolute; font-size: 28px; color: #d4af37; white-space: nowrap; }
+    .s06-tech { position: absolute; left: 760px; font-family: 'Cinzel'; font-weight: 700; font-size: 54px; color: #d4af37; white-space: nowrap; }
+    .s06-sub { position: absolute; left: 760px; font-size: 32px; white-space: nowrap; }
+
+    /* registro de auditoría */
+    #s06-ledger { position: absolute; left: 760px; top: 470px; width: 1080px; background: #f2e3cd; color: #2a2018; border-radius: 12px; padding: 18px 24px; box-shadow: 0 14px 30px rgba(0,0,0,.5); }
+    .s06-row { display: grid; grid-template-columns: 60px 340px 140px 330px 150px; font-size: 25px; padding: 10px 0; border-bottom: 2px solid rgba(42,32,24,.15); white-space: nowrap; }
+    .s06-row.h { font-family: 'Cinzel'; font-weight: 700; font-size: 22px; color: #8b0000; }
+    .s06-row .mono { font-size: 24px; }
+
+    /* subastas */
+    .s06-auc { position: absolute; top: 160px; width: 500px; height: 420px; background: #1f1512; border: 4px solid #d4af37; border-radius: 20px; padding: 24px 28px; box-shadow: 0 16px 32px rgba(0,0,0,.5); }
+    .s06-auc h4 { font-family: 'Cinzel'; font-weight: 700; font-size: 32px; margin-bottom: 18px; white-space: nowrap; }
+    .s06-bid { display: flex; justify-content: space-between; font-size: 28px; padding: 12px 14px; border-radius: 10px; margin-bottom: 8px; background: #2a1b16; }
+    .s06-bid.p { outline: 3px solid #d4af37; }
+
+    /* k-anonimato */
+    #s06-cell { position: absolute; left: 760px; top: 150px; width: 1080px; height: 470px; }
+    .s06-dot { position: absolute; width: 54px; height: 54px; border-radius: 50%; }
+    .s06-dot.s { background: #d4af37; }
+    .s06-dot.b { background: #f2e3cd; }
+    #s06-kline { position: absolute; left: 0; width: 6px; height: 260px; background: #ff5a4f; }
+
+    #s06-mon { position: absolute; left: 600px; top: 120px; width: 1240px; height: 760px; background: #120e0a; border: 6px solid #d4af37; border-radius: 22px; box-shadow: 0 30px 60px rgba(0,0,0,.6); overflow: hidden; opacity: 0; }
+    #s06-mon video { position: absolute; left: 0; top: 0; width: 1228px; height: 691px; object-fit: cover; }
+    #s06-mon .cap { position: absolute; left: 0; right: 0; bottom: 0; height: 57px; background: #1f1512; font-family: 'Cinzel'; font-weight: 700; font-size: 26px; color: #d4af37; padding: 12px 28px; }
+  </style>
+
+  <div id="root" data-composition-id="s06" data-width="1920" data-height="1080">
+    <img id="s06-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="69" data-track-index="0" alt="" />
+
+    <div id="s06-card-clip" class="clip" data-start="0" data-duration="69" data-track-index="1">
+      <div id="s06-stage"><div id="s06-card">
+        <div class="s06-face s06-front">
+          <div class="s06-title">Seudonimizar o anonimizar</div>
+          <div class="s06-cost">Ley 19.628 · art. 14 quáter · desde el diseño</div>
+          <div class="s06-art">
+            <svg width="260" height="200" viewBox="0 0 260 200" aria-hidden="true">
+              <path d="M20 60 C60 30 200 30 240 60 C240 130 190 170 130 170 C70 170 20 130 20 60 Z" fill="#3a1414" stroke="#d4af37" stroke-width="7"/>
+              <ellipse cx="88" cy="92" rx="26" ry="16" fill="#1f1512" stroke="#d4af37" stroke-width="5"/>
+              <ellipse cx="172" cy="92" rx="26" ry="16" fill="#1f1512" stroke="#d4af37" stroke-width="5"/>
+            </svg>
+          </div>
+          <div class="s06-type">Control · Actividad 4</div>
+          <div class="s06-text">Seudónimo donde hay que poder investigar; anónimo donde no hace falta saber quién es.</div>
+        </div>
+        <div class="s06-face s06-back"><span>MTG<br />Companion</span></div>
+      </div></div>
+    </div>
+
+    <!-- 1 · la diferencia -->
+    <div id="s06-diff" class="clip" data-start="6.6" data-duration="6.6" data-track-index="2">
+      <div class="s06-line" id="s06-d1" style="top:280px"><span class="hl">Seudónimo</span><small>Se puede revertir, pero solo con una llave secreta</small></div>
+      <div class="s06-line" id="s06-d2" style="top:500px">Anónimo<small>No existe forma razonable de volver a la persona</small></div>
+    </div>
+
+    <!-- 2 · auditoría seudonimizada -->
+    <div id="s06-aud" class="clip" data-start="13.2" data-duration="12" data-track-index="2">
+      <div class="s06-slip" id="s06-a-in" style="left:760px; top:160px"><small>Quién actuó</small><b>id real · correo</b></div>
+      <div class="s06-box" id="s06-a-mac" style="left:1180px; top:150px; width:300px; height:130px"></div>
+      <div id="s06-a-mac-t" style="position:absolute; left:1180px; top:180px; width:300px; text-align:center; font-family:'Cinzel'; font-weight:700; font-size:34px">HMAC-SHA256</div>
+      <div id="s06-a-mac-k" class="s06-lab" style="left:1250px; top:232px; font-size:24px">+ llave secreta</div>
+      <div class="s06-slip" id="s06-a-out" style="left:1530px; top:160px"><small>En el registro</small><b>u_227c3325…</b></div>
+      <div id="s06-ledger">
+        <div class="s06-row h"><span>seq</span><span>actor</span><span>rol</span><span>acción</span><span>resultado</span></div>
+        <div class="s06-row" id="s06-r1"><span>67</span><span class="mono">u_227c332503186612</span><span>USER</span><span>access.transaction.read</span><span style="color:#b3261e; font-weight:700">DENIED</span></div>
+        <div class="s06-row" id="s06-r2" style="border-bottom:none"><span>68</span><span class="mono">u_1425a3d517a3bc24</span><span>SUPPORT</span><span>support.transactions.read</span><span style="color:#2f7a43; font-weight:700">ALLOWED</span></div>
+      </div>
+      <div class="s06-lab" id="s06-a-note" style="left:760px; top:740px; font-size:32px">Nunca el id real ni el correo: solo el seudónimo</div>
+    </div>
+
+    <!-- 3 · subastas: un alias por carta -->
+    <div id="s06-bid" class="clip" data-start="25.2" data-duration="7" data-track-index="2">
+      <div class="s06-auc" id="s06-auc1" style="left:760px">
+        <h4>Ragavan, Nimble Pilferer</h4>
+        <div class="s06-bid p"><span class="mono">u_d679b08e…</span><span>$25</span></div>
+        <div class="s06-bid"><span class="mono">u_5fe54224…</span><span>$23</span></div>
+        <div class="s06-bid p"><span class="mono">u_d679b08e…</span><span>$21</span></div>
+      </div>
+      <div class="s06-auc" id="s06-auc2" style="left:1340px">
+        <h4>Thoughtseize</h4>
+        <div class="s06-bid p"><span class="mono">u_fda6e69f…</span><span>$25</span></div>
+        <div class="s06-bid"><span class="mono">u_706354b4…</span><span>$23</span></div>
+        <div class="s06-bid p"><span class="mono">u_fda6e69f…</span><span>$21</span></div>
+      </div>
+      <div class="s06-tech" id="s06-b-t" style="top:640px">Pedro, con otro alias en cada subasta</div>
+      <div class="s06-sub" id="s06-b-s" style="top:720px">Dentro de una subasta se le reconoce; entre subastas, nadie lo sigue</div>
+    </div>
+
+    <!-- 4 · k-anonimato -->
+    <div id="s06-k" class="clip" data-start="38.2" data-duration="11.6" data-track-index="2">
+      <div class="s06-slip" id="s06-k-cell" style="left:760px; top:150px"><small>Reporte de ventas · una celda</small><b>2026-11 · NM · efectivo</b></div>
+      <div class="s06-lab" style="left:760px; top:300px">vendedores distintos</div>
+      <div class="s06-lab" style="left:760px; top:420px">compradores distintos</div>
+      <div id="s06-dots"></div>
+      <div id="s06-kline" style="left:1428px; top:270px"></div>
+      <div class="s06-lab" id="s06-k-lab" style="left:1396px; top:540px; color:#ff5a4f">k = 5</div>
+      <div class="s06-tech" id="s06-k-t" style="top:640px">6 ventas · $39 — se publica</div>
+      <div class="s06-sub" id="s06-k-s" style="top:720px">Una celda con menos de 5 compradores o 5 vendedores se suprime</div>
+    </div>
+
+    <!-- 5 · copias para desarrollo -->
+    <div id="s06-copy" class="clip" data-start="49.8" data-duration="7" data-track-index="2">
+      <div class="s06-slip" id="s06-c-a" style="left:760px; top:200px"><small>Base real</small><b>marta@example.com · Marta</b></div>
+      <div class="s06-slip" id="s06-c-b" style="left:760px; top:380px"><small>Copia para desarrollo</small><b>user-N@example.invalid · Jugador N</b></div>
+      <div class="s06-lab" id="s06-c-l" style="left:760px; top:530px; font-size:32px">Se borran: ubicación · 2FA · sesiones · fotos · referencias de pago · auditoría</div>
+      <div class="s06-tech" id="s06-c-t" style="top:640px">Anonimizar la copia, nunca la original</div>
+    </div>
+
+    <!-- 6 · revertir un seudónimo -->
+    <div id="s06-res" class="clip" data-start="63.2" data-duration="5.8" data-track-index="2">
+      <div class="s06-line" id="s06-res-t" style="top:300px">Revertir un seudónimo</div>
+      <div class="s06-sub" id="s06-res-1" style="top:420px; font-size:40px">solo un <span class="hl">ADMIN</span> · con un <span class="hl">motivo</span> · y queda en el registro</div>
+      <div class="s06-slip" id="s06-res-2" style="left:760px; top:520px"><small>Evento auditado</small><b>admin.pseudonym.resolve</b></div>
+    </div>
+
+    <!-- prueba real -->
+    <div id="s06-mon">
+      <video id="s06-real-a" class="clip" src="assets/media/s06_seudonimos.mp4" data-start="32.2" data-duration="6" data-media-start="15.6" data-track-index="3" muted playsinline></video>
+      <video id="s06-real-b" class="clip" src="assets/media/s06_seudonimos.mp4" data-start="56.8" data-duration="6.4" data-media-start="50.4" data-track-index="3" muted playsinline></video>
+      <div class="cap">Grabación real · backend local, datos de prueba</div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      // Inicio de cada tramo (s). Ajustar con la voz de Vicente; los data-start de arriba coinciden.
+      const T = { card: 0.1, diff: 6.6, aud: 13.2, bid: 25.2, monA: 32.2, k: 38.2, copy: 49.8, monB: 56.8, res: 63.2 };
+
+      // puntos del k-anonimato: 6 vendedores (oro) y 6 compradores (pergamino), escritos antes de registrar el timeline
+      const dots = document.getElementById('s06-dots');
+      const dotEls = [];
+      for (let row = 0; row < 2; row++) for (let i = 0; i < 6; i++) {
+        const d = document.createElement('div');
+        d.className = 's06-dot ' + (row === 0 ? 's' : 'b');
+        d.style.left = (1080 + i * 72) + 'px';
+        d.style.top = (row === 0 ? 290 : 410) + 'px';
+        dots.appendChild(d); dotEls.push(d);
+      }
+
+      const tl = gsap.timeline({ paused: true });
+      const IN = 'expo.out', MOVE = 'power2.inOut', OUT = 'power3.in';
+      const show = (sel, at, d = 0.25) => tl.fromTo(sel, { opacity: 0 }, { opacity: 1, duration: d }, at);
+      const out = (sel, at) => tl.to(sel, { opacity: 0, filter: 'blur(8px)', duration: 0.3, ease: OUT }, at);
+      const blurIn = (sel, at) => tl.fromTo(sel, { opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.18, ease: 'none' }, at);
+      const slideIn = (sel, at) => tl.fromTo(sel, { opacity: 0, x: -60 }, { opacity: 1, x: 0, duration: 0.7, ease: IN }, at);
+      const mon = (at, until) => {
+        tl.fromTo('#s06-mon', { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.5, ease: IN, immediateRender: false }, at - 0.1);
+        tl.to('#s06-mon', { opacity: 0, scale: 0.97, duration: 0.3, ease: OUT }, until - 0.35);
+      };
+
+      // carta
+      tl.fromTo('#s06-card', { x: 140, y: -1000, rotationZ: -14, rotationY: 180 }, { x: 0, y: 0, rotationZ: -3, duration: 1.3, ease: IN }, T.card);
+      tl.fromTo('#s06-card', { rotationY: 180 }, { rotationY: 0, duration: 1.1, ease: MOVE, immediateRender: false }, T.card + 1.0);
+      tl.to('#s06-card', { x: -560, y: 40, scale: 0.62, rotationZ: -6, duration: 0.8, ease: MOVE }, T.diff - 0.3);
+
+      // diferencia
+      blurIn('#s06-d1', T.diff + 0.3); blurIn('#s06-d2', T.diff + 2.6);
+      out('#s06-diff > *', T.aud - 0.4);
+
+      // auditoría: el id pasa por el HMAC y sale el seudónimo
+      slideIn('#s06-a-in', T.aud);
+      tl.fromTo(['#s06-a-mac', '#s06-a-mac-t', '#s06-a-mac-k'], { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.6, ease: IN }, T.aud + 0.6);
+      tl.to('#s06-a-in', { x: 420, opacity: 0, scale: 0.6, duration: 0.8, ease: 'power3.in' }, T.aud + 1.6);
+      tl.fromTo('#s06-a-out', { opacity: 0, x: -200, scale: 0.7 }, { opacity: 1, x: 0, scale: 1, duration: 0.7, ease: IN }, T.aud + 2.4);
+      tl.fromTo('#s06-ledger', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.7, ease: IN }, T.aud + 3.8);
+      show('#s06-r1', T.aud + 4.6); show('#s06-r2', T.aud + 5.1);
+      tl.fromTo('#s06-r1 .mono', { color: '#2a2018' }, { color: '#8b0000', duration: 0.3 }, T.aud + 6.0);
+      blurIn('#s06-a-note', T.aud + 6.8);
+      out('#s06-aud > *', T.bid - 0.4);
+
+      // subastas
+      tl.fromTo('#s06-auc1', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.7, ease: IN }, T.bid);
+      tl.fromTo('#s06-auc2', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.7, ease: IN }, T.bid + 0.3);
+      blurIn('#s06-b-t', T.bid + 1.8); show('#s06-b-s', T.bid + 2.3, 0.3);
+      out('#s06-bid > *', T.monA - 0.45);
+      mon(T.monA, T.k);
+
+      // k-anonimato: aparecen los puntos y la línea de k
+      slideIn('#s06-k-cell', T.k);
+      show('#s06-k .s06-lab:not(#s06-k-lab)', T.k + 0.6);
+      tl.fromTo(dotEls, { opacity: 0, scale: 0.4 }, { opacity: 1, scale: 1, duration: 0.25, ease: 'back.out(1.3)', stagger: 0.12 }, T.k + 1.0);
+      tl.fromTo('#s06-kline', { scaleY: 0, transformOrigin: 'center top' }, { scaleY: 1, duration: 0.5, ease: IN }, T.k + 3.0);
+      show('#s06-k-lab', T.k + 3.3);
+      blurIn('#s06-k-t', T.k + 4.4); show('#s06-k-s', T.k + 5.0, 0.3);
+      out('#s06-k > *', T.copy - 0.4);
+
+      // copia anonimizada
+      slideIn('#s06-c-a', T.copy);
+      tl.fromTo('#s06-c-b', { opacity: 0, y: -60 }, { opacity: 1, y: 0, duration: 0.7, ease: IN }, T.copy + 1.2);
+      show('#s06-c-l', T.copy + 2.2, 0.3);
+      blurIn('#s06-c-t', T.copy + 3.2);
+      out('#s06-copy > *', T.monB - 0.45);
+      mon(T.monB, T.res);
+
+      // revertir
+      blurIn('#s06-res-t', T.res + 0.1); show('#s06-res-1', T.res + 0.8, 0.3);
+      tl.fromTo('#s06-res-2', { opacity: 0, x: -60 }, { opacity: 1, x: 0, duration: 0.7, ease: IN }, T.res + 1.6);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines['s06'] = tl;
+    })();
+  </script>
+</template>
