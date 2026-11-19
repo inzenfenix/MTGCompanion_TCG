@@ -1,0 +1,205 @@
+<template>
+  <style>
+    @font-face { font-family: 'Cinzel'; src: url('assets/fonts/cinzel-latin.woff2') format('woff2'); font-weight: 400 900; }
+    #root { position: absolute; inset: 0; overflow: hidden; font-family: 'Inter', sans-serif; color: #f2e3cd; }
+    #s05-pano { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; }
+    .hl { color: #d4af37; }
+    .red { color: #ff5a4f; }
+
+    /* rótulo del integrante */
+    #s05-name { position: absolute; left: 140px; top: 760px; }
+    #s05-name .bar { position: absolute; left: 0; top: 0; width: 10px; height: 170px; background: #d4af37; border-radius: 5px; transform-origin: center top; }
+    #s05-name .n { position: absolute; left: 40px; top: 4px; font-family: 'Cinzel'; font-weight: 700; font-size: 84px; white-space: nowrap; }
+    #s05-name .r { position: absolute; left: 44px; top: 112px; font-size: 36px; white-space: nowrap; }
+
+    /* la carta jugada */
+    #s05-stage { position: absolute; inset: 0; perspective: 1600px; }
+    #s05-card { position: absolute; left: 680px; top: 148px; width: 560px; height: 784px; transform-style: preserve-3d; }
+    .s05-face { position: absolute; inset: 0; border-radius: 26px; backface-visibility: hidden; box-shadow: 0 24px 48px rgba(0,0,0,.55); }
+    .s05-front { background: #1f1512; border: 6px solid #d4af37; padding: 26px 28px; display: flex; flex-direction: column; gap: 16px; }
+    .s05-back { background: #5a0d12; border: 6px solid #d4af37; transform: rotateY(180deg); display: flex; align-items: center; justify-content: center; }
+    .s05-back span { font-family: 'Cinzel'; font-weight: 700; font-size: 44px; letter-spacing: .06em; color: #d4af37; border: 2px solid #d4af37; border-radius: 18px; padding: 40px 30px; text-align: center; line-height: 1.25; }
+    .s05-title { font-family: 'Cinzel'; font-weight: 700; font-size: 40px; border-bottom: 2px solid rgba(212,175,55,.6); padding-bottom: 12px; }
+    .s05-cost { align-self: flex-start; font-family: 'Cinzel'; font-weight: 700; font-size: 24px; color: #1f1512; background: #d4af37; border-radius: 8px; padding: 6px 14px; }
+    .s05-art { flex: 1; border: 2px solid rgba(212,175,55,.45); border-radius: 14px; background: #2a1b16; display: flex; align-items: center; justify-content: center; }
+    .s05-type { font-family: 'Cinzel'; font-size: 22px; color: #d4af37; }
+    .s05-text { font-size: 25px; line-height: 1.35; }
+
+    /* las tres medidas */
+    .s05-rule { position: absolute; left: 760px; font-family: 'Cinzel'; font-weight: 700; font-size: 60px; white-space: nowrap; }
+
+    /* ficha de registro */
+    #s05-form { position: absolute; left: 760px; top: 130px; width: 620px; background: #f2e3cd; color: #2a2018; border-radius: 14px; padding: 30px 36px; box-shadow: 0 16px 36px rgba(0,0,0,.5); }
+    #s05-form h3 { font-family: 'Cinzel'; font-weight: 700; font-size: 34px; color: #8b0000; margin-bottom: 14px; }
+    .s05-f { font-size: 32px; padding: 12px 0; border-bottom: 2px solid rgba(42,32,24,.18); white-space: nowrap; }
+    .s05-f b { color: #2f7a43; margin-right: 12px; }
+    .s05-no { position: absolute; left: 1470px; font-size: 38px; font-weight: 700; white-space: nowrap; }
+    .s05-no .t { position: relative; display: inline-block; }
+    .s05-no .strike { position: absolute; left: -6px; right: -6px; top: 52%; height: 5px; background: #ff5a4f; border-radius: 3px; transform-origin: left center; }
+    #s05-form-lab { position: absolute; left: 760px; top: 840px; font-family: 'Cinzel'; font-weight: 700; font-size: 52px; color: #d4af37; white-space: nowrap; }
+
+    /* mapa de la ubicación */
+    #s05-map { position: absolute; left: 760px; top: 140px; }
+    #s05-loc-lab { position: absolute; left: 1420px; top: 220px; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 44px; white-space: nowrap; }
+    #s05-loc-sub { position: absolute; left: 1420px; top: 300px; font-size: 32px; width: 440px; line-height: 1.3; }
+    #s05-ttl { position: absolute; left: 1420px; top: 500px; width: 440px; font-family: 'Cinzel'; font-weight: 700; font-size: 54px; line-height: 1.1; color: #d4af37; }
+    #s05-ttl-sub { position: absolute; left: 1420px; top: 640px; font-size: 32px; width: 440px; line-height: 1.3; }
+
+    /* monitor */
+    #s05-mon { position: absolute; left: 600px; top: 120px; width: 1240px; height: 760px; background: #120e0a; border: 6px solid #d4af37; border-radius: 22px; box-shadow: 0 30px 60px rgba(0,0,0,.6); overflow: hidden; opacity: 0; }
+    #s05-mon video { position: absolute; left: 0; top: 0; width: 1228px; height: 691px; object-fit: cover; }
+    #s05-mon .cap { position: absolute; left: 0; right: 0; bottom: 0; height: 57px; background: #1f1512; font-family: 'Cinzel'; font-weight: 700; font-size: 26px; color: #d4af37; padding: 12px 28px; }
+
+    #s05-end { position: absolute; left: 760px; top: 420px; width: 1100px; font-family: 'Cinzel'; font-weight: 700; font-size: 72px; line-height: 1.2; }
+    #s05-end .w { display: inline-block; margin-right: 18px; }
+  </style>
+
+  <div id="root" data-composition-id="s05" data-width="1920" data-height="1080">
+    <img id="s05-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="53" data-track-index="0" alt="" />
+
+    <!-- 0 · Vicente se identifica -->
+    <div id="s05-name" class="clip" data-start="0" data-duration="5.2" data-track-index="2">
+      <div class="bar"></div>
+      <div class="n">Vicente Fuentes</div>
+      <div class="r">Actividad 4 · base de datos y control de acceso</div>
+    </div>
+
+    <!-- la carta: proporcionalidad -->
+    <div id="s05-card-clip" class="clip" data-start="5" data-duration="48" data-track-index="1">
+      <div id="s05-stage">
+        <div id="s05-card">
+          <div class="s05-face s05-front">
+            <div class="s05-title">Proporcionalidad</div>
+            <div class="s05-cost">Ley 19.628 · art. 3</div>
+            <div class="s05-art">
+              <svg width="260" height="260" viewBox="0 0 260 260" aria-hidden="true">
+                <line x1="130" y1="40" x2="130" y2="220" stroke="#d4af37" stroke-width="8"/>
+                <line x1="40" y1="80" x2="220" y2="80" stroke="#d4af37" stroke-width="8"/>
+                <path d="M40 80 L10 150 H70 Z M220 80 L190 150 H250 Z" fill="#3a1414" stroke="#d4af37" stroke-width="6"/>
+                <rect x="85" y="215" width="90" height="16" rx="6" fill="#d4af37"/>
+              </svg>
+            </div>
+            <div class="s05-type">Control · Actividad 4</div>
+            <div class="s05-text">Solo los datos necesarios, con la precisión necesaria y por el tiempo necesario.</div>
+          </div>
+          <div class="s05-face s05-back"><span>MTG<br />Companion</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1 · las tres medidas -->
+    <div id="s05-rules" class="clip" data-start="9.6" data-duration="6.8" data-track-index="2">
+      <div class="s05-rule" id="s05-r1" style="top:290px">Solo los <span class="hl">datos</span> necesarios</div>
+      <div class="s05-rule" id="s05-r2" style="top:420px">con la <span class="hl">precisión</span> necesaria</div>
+      <div class="s05-rule" id="s05-r3" style="top:550px">por el <span class="hl">tiempo</span> necesario</div>
+    </div>
+
+    <!-- 2 · el registro: 4 campos y nada más -->
+    <div id="s05-reg" class="clip" data-start="16.4" data-duration="10.6" data-track-index="2">
+      <div id="s05-form">
+        <h3>Crear cuenta</h3>
+        <div class="s05-f" id="s05-f1"><b>✓</b>Correo</div>
+        <div class="s05-f" id="s05-f2"><b>✓</b>Contraseña</div>
+        <div class="s05-f" id="s05-f3"><b>✓</b>Alias público (máx. 40)</div>
+        <div class="s05-f" id="s05-f4" style="border-bottom:none"><b>✓</b>Confirmo que soy mayor de 18</div>
+      </div>
+      <div class="s05-no" id="s05-n1" style="top:170px"><span class="t">Fecha de nacimiento<span class="strike"></span></span></div>
+      <div class="s05-no" id="s05-n2" style="top:270px"><span class="t">Teléfono<span class="strike"></span></span></div>
+      <div class="s05-no" id="s05-n3" style="top:370px"><span class="t">RUT<span class="strike"></span></span></div>
+      <div class="s05-no" id="s05-n4" style="top:470px"><span class="t">Dirección<span class="strike"></span></span></div>
+      <div id="s05-form-lab">4 campos · cualquier otro → 400</div>
+    </div>
+
+    <!-- 3 · la ubicación: ~1 km y 30 días -->
+    <div id="s05-loc" class="clip" data-start="27" data-duration="10.2" data-track-index="2">
+      <svg id="s05-map" width="600" height="600" viewBox="0 0 600 600" aria-hidden="true">
+        <rect x="0" y="0" width="600" height="600" rx="24" fill="#2a1b16" stroke="#d4af37" stroke-width="5"/>
+        <g stroke="#6b5a3a" stroke-width="3">
+          <line x1="150" y1="0" x2="150" y2="600"/><line x1="300" y1="0" x2="300" y2="600"/><line x1="450" y1="0" x2="450" y2="600"/>
+          <line x1="0" y1="150" x2="600" y2="150"/><line x1="0" y1="300" x2="600" y2="300"/><line x1="0" y1="450" x2="600" y2="450"/>
+        </g>
+        <path d="M40 520 C140 420 200 470 300 360 S470 230 560 90" fill="none" stroke="#4a3a2a" stroke-width="16" stroke-linecap="round"/>
+        <rect id="s05-cell" x="300" y="150" width="150" height="150" fill="#d4af37" fill-opacity=".28" stroke="#d4af37" stroke-width="6"/>
+        <g id="s05-pin"><path d="M0 0 C-26 -30 -30 -48 -30 -62 A30 30 0 1 1 30 -62 C30 -48 26 -30 0 0 Z" fill="#ff5a4f" stroke="#5a0d12" stroke-width="4"/><circle cx="0" cy="-62" r="11" fill="#5a0d12"/></g>
+        <text x="375" y="335" text-anchor="middle" font-family="Inter" font-size="26" fill="#d4af37" id="s05-km">~1 km</text>
+      </svg>
+      <div id="s05-loc-lab">-33.4372 <span class="hl">→ -33.44</span></div>
+      <div id="s05-loc-sub">Se redondea antes de cifrarla: basta para mostrar una distancia, no para ubicar una casa.</div>
+      <div id="s05-ttl">Vence a los<br />30 días</div>
+      <div id="s05-ttl-sub">Una tarea de retención borra lo que pasa del plazo.</div>
+    </div>
+
+    <!-- 4 · prueba real -->
+    <div id="s05-mon">
+      <video id="s05-real" class="clip" src="assets/media/s05_minimizacion.mp4" data-start="37.4" data-duration="11.6" data-media-start="9.4" data-track-index="3" muted playsinline></video>
+      <div class="cap">Grabación real · backend local, datos de prueba</div>
+    </div>
+
+    <!-- 5 · la idea -->
+    <div id="s05-end" class="clip" data-start="49" data-duration="4" data-track-index="2">
+      <span class="w">Lo</span><span class="w">que</span><span class="w">no</span><span class="w">se</span><span class="w">pide,</span><span class="w">no</span><span class="w">se</span><span class="w">puede</span><span class="w hl">filtrar</span>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      // Inicio de cada tramo (s). Ajustar aquí con la voz de Vicente; los data-start de arriba coinciden.
+      const T = { name: 0.2, card: 5.0, rules: 9.6, reg: 16.4, loc: 27, mon: 37.4, end: 49 };
+      const tl = gsap.timeline({ paused: true });
+      const IN = 'expo.out', MOVE = 'power2.inOut', OUT = 'power3.in';
+      const show = (sel, at, d = 0.25) => tl.fromTo(sel, { opacity: 0 }, { opacity: 1, duration: d }, at);
+      const out = (sel, at) => tl.to(sel, { opacity: 0, filter: 'blur(8px)', duration: 0.3, ease: OUT }, at);
+      const blurIn = (sel, at) => tl.fromTo(sel, { opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.18, ease: 'none' }, at);
+
+      // rótulo
+      tl.fromTo('#s05-name .bar', { scaleY: 0 }, { scaleY: 1, duration: 0.5, ease: IN }, T.name);
+      tl.fromTo('#s05-name .n', { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.7, ease: IN }, T.name + 0.2);
+      show('#s05-name .r', T.name + 0.6, 0.3);
+      out('#s05-name > *', T.card - 0.2);
+
+      // carta
+      tl.fromTo('#s05-card', { x: 140, y: -1000, rotationZ: -14, rotationY: 180 }, { x: 0, y: 0, rotationZ: -3, duration: 1.3, ease: IN }, T.card);
+      tl.fromTo('#s05-card', { rotationY: 180 }, { rotationY: 0, duration: 1.1, ease: MOVE, immediateRender: false }, T.card + 1.0);
+      tl.to('#s05-card', { x: -560, y: 40, scale: 0.62, rotationZ: -6, duration: 0.8, ease: MOVE }, T.rules - 0.3);
+
+      // tres medidas
+      ['#s05-r1', '#s05-r2', '#s05-r3'].forEach((s, i) => tl.fromTo(s, { opacity: 0, filter: 'blur(6px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.18, ease: 'none' }, T.rules + 0.3 + i * 1.6));
+      out('#s05-rules > *', T.reg - 0.4);
+
+      // registro
+      tl.fromTo('#s05-form', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.7, ease: IN }, T.reg);
+      ['#s05-f1', '#s05-f2', '#s05-f3', '#s05-f4'].forEach((s, i) => show(s, T.reg + 0.6 + i * 0.35));
+      ['#s05-n1', '#s05-n2', '#s05-n3', '#s05-n4'].forEach((s, i) => {
+        tl.fromTo(s, { opacity: 0, x: 60 }, { opacity: 1, x: 0, duration: 0.5, ease: IN }, T.reg + 2.6 + i * 0.6);
+        tl.fromTo(`${s} .strike`, { scaleX: 0 }, { scaleX: 1, duration: 0.3, ease: 'power2.out' }, T.reg + 3.1 + i * 0.6);
+        tl.to(`${s} .t`, { color: '#c9b9a0', duration: 0.3 }, T.reg + 3.2 + i * 0.6);
+      });
+      blurIn('#s05-form-lab', T.reg + 6.2);
+      out('#s05-reg > *', T.loc - 0.4);
+
+      // ubicación
+      tl.fromTo('#s05-map', { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.7, ease: IN }, T.loc);
+      tl.fromTo('#s05-cell', { opacity: 0 }, { opacity: 0, duration: 0.01 }, T.loc);
+      tl.fromTo('#s05-km', { opacity: 0 }, { opacity: 0, duration: 0.01 }, T.loc);
+      tl.fromTo('#s05-pin', { x: 342, y: 198, scale: 0.9, transformOrigin: '0px 0px' }, { x: 342, y: 198, scale: 1, duration: 0.5, ease: IN }, T.loc + 0.5);
+      show('#s05-loc-lab', T.loc + 1.4, 0.3);
+      tl.to('#s05-pin', { x: 375, y: 225, duration: 0.7, ease: MOVE }, T.loc + 2.4);
+      tl.to('#s05-cell', { opacity: 1, duration: 0.4 }, T.loc + 2.6);
+      tl.to('#s05-km', { opacity: 1, duration: 0.3 }, T.loc + 2.9);
+      show('#s05-loc-sub', T.loc + 3.4, 0.3);
+      blurIn('#s05-ttl', T.loc + 5.6);
+      show('#s05-ttl-sub', T.loc + 6.1, 0.3);
+      out('#s05-loc > *', T.mon - 0.4);
+
+      // prueba
+      tl.fromTo('#s05-mon', { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.5, ease: IN, immediateRender: false }, T.mon - 0.1);
+      tl.to('#s05-mon', { opacity: 0, scale: 0.97, duration: 0.3, ease: OUT }, T.end - 0.35);
+
+      // idea final
+      tl.fromTo('#s05-end .w', { opacity: 0, filter: 'blur(6px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.13, stagger: 0.08, ease: 'none' }, T.end + 0.1);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines['s05'] = tl;
+    })();
+  </script>
+</template>
