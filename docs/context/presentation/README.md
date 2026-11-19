@@ -86,10 +86,18 @@ only inside the **evidence monitor** (user's call: "keep the monitor"); the expl
 
 ## Prompt for the next session
 
-> Continue ROADMAP O18 (presentation video). All 13 visual scenes (`s00`–`s12`, 841 s) are built, checked and
-> draft-rendered in `docs/presentation/video/film/`. Read `docs/context/presentation/README.md`, `GUION.md`, and
-> `~/.claude/plugins/marketplaces/hyperframes/skills/hyperframes/references/sound.md`. Once the team's voice
-> recordings are placed in `docs/presentation/video/assets/audio/`, copy them to `film/assets/audio/`, mount `<audio>`
-> clips in `index.html`, retime each scene via its `T` table + `data-start`s to match the real narration, add a subtle
-> free music bed + subtle SFX, run `hf check --json` + visual review, render `--quality delivery`, verify 10–15 min and
-> balanced speaker time, and mark ROADMAP O18 ✅.
+> Continue ROADMAP O18 (presentation video) — **audio integration, retiming, and final delivery render**.
+>
+> First read `docs/context/presentation/README.md`, `docs/presentation/video/GUION.md`, `docs/presentation/video/film/SPEC.md`, and the HyperFrames skill at `~/.claude/plugins/marketplaces/hyperframes/skills/hyperframes/SKILL.md` (+ `references/format.md`, `references/sound.md`, `references/review.md`). Use `/mnt/SSDGames/mtg-video/tools/hf` for HyperFrames CLI commands and `/mnt/SSDGames/mtg-video/work/chk.sh sNN` to check individual scenes.
+>
+> All 13 visual scenes (`compositions/s00.html` through `s12.html`, currently 841 s = 14:01) are built and mounted in order in `docs/presentation/video/film/index.html`. The team's voice recordings are now ready in `docs/presentation/video/assets/audio/` (`s01_solano`–`s04_solano`, `s05_fuentes`–`s08_fuentes`, `s09_rodriguez`–`s11_rodriguez`, and `s12_fuentes`/`s12_solano`/`s12_rodriguez`, WAV or M4A).
+>
+> Do the following step by step:
+> 1. **Inspect and normalize voices**: probe each voice file's duration with `ffprobe`, trim leading/trailing dead air and normalize loudness (e.g., EBU R128 `-16 LUFS`, gentle high-pass/denoise if needed) into `docs/presentation/video/film/assets/audio/` (gitignored). Report per-speaker speaking time (Tomás Solano, Vicente Fuentes, Tomás Rodríguez) and total duration to confirm it stays inside the 10–15 min rubric and stays balanced across the three speakers.
+> 2. **Retime scenes to the real narration**: for each scene `s01`–`s12`, listen/inspect speech timestamps (e.g., via silence/transcript alignment) and adjust that scene's `T` table + matching `data-start`/`data-duration` attributes (including `#sNN-pano` and `#sNN-card-clip` full durations) so every visual beat and evidence monitor lands right on the spoken cue. Keep `s00` (8 s, music only) at the start, then update every scene's `data-start`/`data-duration` and the root `data-duration` in `film/index.html`.
+> 3. **Mount audio, music bed, and SFX** (per `references/sound.md` and `references/format.md`):
+>    - Give every `<audio>` clip a stable `id`, `class="clip"`, `data-start`, `data-duration`, and dedicated lanes (`data-track-index` — one lane for voice, one for music bed, one for subtle SFX).
+>    - Add a quiet, copyright-free ambient music bed (no rigid beat, per `SPEC.md`), ducked gently under speech with `data-fade-in`/`data-fade-out` and `data-automation` volume envelopes, louder only on `s00` intro and `s12` closing card.
+>    - Add subtle, restrained SFX on key card flips/landings and error stamps (never distracting from narration).
+> 4. **Verify and review**: run `hf check --json` (fix all errors and check `line_unread`/audio warnings), run `hf snapshot --review` (or key-frame snapshots around retimed seams), and render a draft check first if needed.
+> 5. **Final delivery render**: run `/mnt/SSDGames/mtg-video/tools/hf render docs/presentation/video/film --quality delivery -o /mnt/SSDGames/mtg-video/renders/mtg_companion_examen_parte1.mp4` (keep large output on `/mnt/SSDGames/mtg-video/` since the main drive has limited free space), verify audio/video sync, length (10–15 min), and loudness, update `docs/context/presentation/README.md`, mark ROADMAP **O18** ✅, commit, and push.
