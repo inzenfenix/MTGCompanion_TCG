@@ -1,0 +1,267 @@
+<template>
+  <style>
+    @font-face { font-family: 'Cinzel'; src: url('assets/fonts/cinzel-latin.woff2') format('woff2'); font-weight: 400 900; }
+    #root { position: absolute; inset: 0; overflow: hidden; font-family: 'Inter', sans-serif; color: #f2e3cd; }
+    #s11-pano { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; }
+    .hl { color: #d4af37; }
+    .no { color: #ff5a4f; }
+    .ok { color: #5cd685; }
+    .mono { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+
+    #s11-stage { position: absolute; inset: 0; perspective: 1600px; }
+    #s11-card { position: absolute; left: 680px; top: 148px; width: 560px; height: 784px; transform-style: preserve-3d; }
+    .s11-face { position: absolute; inset: 0; border-radius: 26px; backface-visibility: hidden; box-shadow: 0 24px 48px rgba(0,0,0,.55); }
+    .s11-front { background: #1f1512; border: 6px solid #d4af37; padding: 26px 28px; display: flex; flex-direction: column; gap: 16px; }
+    .s11-back { background: #5a0d12; border: 6px solid #d4af37; transform: rotateY(180deg); display: flex; align-items: center; justify-content: center; }
+    .s11-back span { font-family: 'Cinzel'; font-weight: 700; font-size: 44px; color: #d4af37; border: 2px solid #d4af37; border-radius: 18px; padding: 40px 30px; text-align: center; line-height: 1.25; }
+    .s11-title { font-family: 'Cinzel'; font-weight: 700; font-size: 36px; border-bottom: 2px solid rgba(212,175,55,.6); padding-bottom: 12px; }
+    .s11-cost { align-self: flex-start; font-family: 'Cinzel'; font-weight: 700; font-size: 20px; color: #1f1512; background: #d4af37; border-radius: 8px; padding: 6px 14px; }
+    .s11-art { flex: 1; border: 2px solid rgba(212,175,55,.45); border-radius: 14px; background: #2a1b16; display: flex; align-items: center; justify-content: center; }
+    .s11-type { font-family: 'Cinzel'; font-size: 22px; color: #d4af37; }
+    .s11-text { font-size: 25px; line-height: 1.35; }
+
+    .s11-line { position: absolute; left: 760px; font-family: 'Cinzel'; font-weight: 700; font-size: 50px; white-space: nowrap; }
+    .s11-line small { display: block; font-family: 'Inter'; font-weight: 400; font-size: 29px; margin-top: 6px; color: #d8c8b0; }
+    .s11-slip { position: absolute; background: #f2e3cd; color: #2a2018; border-radius: 10px; padding: 14px 22px; box-shadow: 0 10px 24px rgba(0,0,0,.45); white-space: nowrap; }
+    .s11-slip small { display: block; font-family: 'Cinzel'; font-weight: 700; font-size: 20px; letter-spacing: .08em; color: #8b0000; }
+    .s11-slip b { font-family: 'JetBrains Mono', monospace; font-size: 30px; }
+    .s11-lab { position: absolute; font-size: 29px; white-space: nowrap; }
+    .s11-tech { position: absolute; left: 760px; font-family: 'Cinzel'; font-weight: 700; font-size: 44px; color: #d4af37; white-space: nowrap; }
+    .s11-sub { position: absolute; left: 760px; font-size: 29px; white-space: nowrap; }
+
+    /* cadena HMAC */
+    .s11-blk { position: absolute; top: 320px; width: 230px; height: 150px; background: #1f1512; border: 4px solid #d4af37; border-radius: 14px; padding: 14px 18px; box-shadow: 0 12px 26px rgba(0,0,0,.45); }
+    .s11-blk .sq { font-family: 'Cinzel'; font-weight: 700; font-size: 22px; color: #d4af37; }
+    .s11-blk .ac { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 21px; margin-top: 8px; }
+    .s11-blk .ou { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 22px; margin-top: 10px; color: #5cd685; }
+    .s11-lnk { position: absolute; top: 392px; width: 52px; height: 6px; background: #d4af37; }
+
+    /* reglas de detección */
+    .s11-rule { position: absolute; left: 760px; width: 1080px; height: 118px; background: #1f1512; border: 3px solid rgba(212,175,55,.65); border-radius: 14px; padding: 14px 24px; box-shadow: 0 12px 24px rgba(0,0,0,.45); }
+    .s11-rule .rn { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 27px; color: #d4af37; }
+    .s11-rule .rd { font-size: 26px; margin-top: 10px; color: #f2e3cd; }
+    .s11-rule .rb { position: absolute; right: 24px; top: 18px; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 22px; padding: 4px 12px; border-radius: 8px; background: #3a1414; border: 2px solid #d4af37; }
+
+    /* ataque simulado */
+    .s11-step { position: absolute; left: 760px; width: 1080px; height: 74px; background: #1f1512; border: 3px solid #6b5a3a; border-radius: 12px; display: flex; align-items: center; padding: 0 24px; gap: 18px; font-size: 26px; white-space: nowrap; }
+    .s11-step .idx { font-family: 'Cinzel'; font-weight: 700; font-size: 23px; color: #d4af37; width: 215px; flex-shrink: 0; }
+    .s11-step .st { margin-left: auto; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 28px; }
+
+    /* reconstrucción */
+    #s11-rec-box { position: absolute; left: 760px; top: 230px; width: 1080px; background: #f2e3cd; color: #2a2018; border-radius: 12px; padding: 18px 26px; box-shadow: 0 14px 30px rgba(0,0,0,.5); }
+    .s11-rline { display: flex; justify-content: space-between; font-size: 27px; padding: 9px 0; border-bottom: 2px solid rgba(42,32,24,.15); white-space: nowrap; }
+    .s11-rline:last-child { border-bottom: none; }
+    .s11-rline .k { font-family: 'Cinzel'; font-weight: 700; font-size: 22px; color: #8b0000; }
+    .s11-rline .v { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 25px; }
+
+    /* plan de respuesta */
+    .s11-phase { position: absolute; top: 205px; width: 168px; height: 78px; background: #1f1512; border: 3px solid #d4af37; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-family: 'Cinzel'; font-weight: 700; font-size: 18px; text-align: center; }
+    #s11-raci { position: absolute; left: 760px; top: 325px; width: 1080px; background: #f2e3cd; color: #2a2018; border-radius: 12px; padding: 12px 24px; box-shadow: 0 14px 30px rgba(0,0,0,.5); }
+    .s11-rc { display: grid; grid-template-columns: 360px 230px 220px 220px; font-size: 24px; padding: 10px 0; border-bottom: 2px solid rgba(42,32,24,.15); white-space: nowrap; }
+    .s11-rc:last-child { border-bottom: none; }
+    .s11-rc.h { font-family: 'Cinzel'; font-weight: 700; font-size: 21px; color: #8b0000; }
+
+    #s11-mon { position: absolute; left: 600px; top: 120px; width: 1240px; height: 760px; background: #120e0a; border: 6px solid #d4af37; border-radius: 22px; box-shadow: 0 30px 60px rgba(0,0,0,.6); overflow: hidden; opacity: 0; }
+    #s11-mon video { position: absolute; left: 0; top: 0; width: 1228px; height: 691px; object-fit: cover; }
+    .s11-cap { position: absolute; left: 0; right: 0; bottom: 0; height: 57px; background: #1f1512; font-family: 'Cinzel'; font-weight: 700; font-size: 26px; color: #d4af37; padding: 12px 28px; white-space: nowrap; }
+  </style>
+
+  <div id="root" data-composition-id="s11" data-width="1920" data-height="1080">
+    <img id="s11-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="96" data-track-index="0" alt="" />
+
+    <div id="s11-card-clip" class="clip" data-start="0" data-duration="96" data-track-index="1">
+      <div id="s11-stage"><div id="s11-card">
+        <div class="s11-face s11-front">
+          <div class="s11-title">Trazabilidad e incidentes</div>
+          <div class="s11-cost">Ley 19.628 · arts. 14 quinquies y sexies</div>
+          <div class="s11-art">
+            <svg width="260" height="200" viewBox="0 0 260 200" aria-hidden="true">
+              <rect x="26" y="72" width="60" height="56" rx="12" fill="#3a1414" stroke="#d4af37" stroke-width="6"/>
+              <rect x="100" y="72" width="60" height="56" rx="12" fill="#3a1414" stroke="#d4af37" stroke-width="6"/>
+              <rect x="174" y="72" width="60" height="56" rx="12" fill="#3a1414" stroke="#ff5a4f" stroke-width="6"/>
+              <line x1="86" y1="100" x2="100" y2="100" stroke="#d4af37" stroke-width="6"/>
+              <line x1="160" y1="100" x2="174" y2="100" stroke="#ff5a4f" stroke-width="6" stroke-dasharray="5 4"/>
+            </svg>
+          </div>
+          <div class="s11-type">Control · Actividad 7</div>
+          <div class="s11-text">48 eventos encadenados con HMAC, alertas propias, contención y plan de respuesta.</div>
+        </div>
+        <div class="s11-face s11-back"><span>MTG<br />Companion</span></div>
+      </div></div>
+    </div>
+
+    <!-- 1 · auditoría de solo agregar + cadena HMAC que se rompe en seq 238 -->
+    <div id="s11-chain" class="clip" data-start="5" data-duration="13" data-track-index="2">
+      <div class="s11-line" id="s11-c-t" style="top:104px">Registro de auditoría · <span class="hl">48 eventos</span><small>solo agregar · lecturas incluidas · seudónimos, sin contenidos</small></div>
+      <div class="s11-blk" id="s11-b1" style="left:760px"><div class="sq">SEQ 236</div><div class="ac">auth.login</div><div class="ou">ALLOWED</div></div>
+      <div class="s11-lnk" id="s11-l1" style="left:990px"></div>
+      <div class="s11-blk" id="s11-b2" style="left:1042px"><div class="sq">SEQ 237</div><div class="ac">auth.step-up</div><div class="ou">ALLOWED</div></div>
+      <div class="s11-lnk" id="s11-l2" style="left:1272px"></div>
+      <div class="s11-blk" id="s11-b3" style="left:1324px"><div class="sq">SEQ 238</div><div class="ac">data.export</div><div class="ou" id="s11-b3-o">ALLOWED</div></div>
+      <div class="s11-lnk" id="s11-l3" style="left:1554px"></div>
+      <div class="s11-blk" id="s11-b4" style="left:1606px"><div class="sq">SEQ 239</div><div class="ac">alert.raised</div><div class="ou">ALLOWED</div></div>
+      <div class="s11-lab mono ok" id="s11-c-ok" style="left:760px; top:520px; font-size:31px">GET /admin/security/audit/verify → ok: true (249 filas)</div>
+      <div class="s11-lab mono no" id="s11-c-br" style="left:760px; top:590px; font-size:31px">editar seq 238 → ok: false · brokenAt: 238 (hash-mismatch)</div>
+      <div class="s11-tech" id="s11-c-k" style="top:690px">Marca exactamente dónde se rompió</div>
+    </div>
+
+    <!-- 2 · alertas pensadas para MTG Companion -->
+    <div id="s11-rules" class="clip" data-start="24" data-duration="10" data-track-index="2">
+      <div class="s11-line" id="s11-r-t" style="top:100px">Alertas propias del sistema<small>11 reglas automáticas sobre el registro de auditoría</small></div>
+      <div class="s11-rule" id="s11-r1" style="top:250px">
+        <div class="rn">bazaar.location.triangulation</div>
+        <div class="rd">≥ 5 búsquedas desde celdas distintas en 10 min</div>
+        <div class="rb no">ALTA · revoca sesiones</div>
+      </div>
+      <div class="s11-rule" id="s11-r2" style="top:390px">
+        <div class="rn">account.takeover.sequence</div>
+        <div class="rd">Cambio de correo + exportación o borrado en &lt; 1 h</div>
+        <div class="rb no">ALTA · revoca sesiones</div>
+      </div>
+      <div class="s11-rule" id="s11-r3" style="top:530px">
+        <div class="rn">transactions.enumeration</div>
+        <div class="rd">≥ 5 lecturas denegadas de compras ajenas en 10 min</div>
+        <div class="rb hl">MEDIA</div>
+      </div>
+      <div class="s11-rule" id="s11-r4" style="top:670px">
+        <div class="rn">admin.reidentification.burst</div>
+        <div class="rd">≥ 5 re-identificaciones de seudónimos por un ADMIN en 1 h</div>
+        <div class="rb hl">ALTA · revisión humana</div>
+      </div>
+    </div>
+
+    <!-- 3 · incidente simulado: cuenta de Marta -->
+    <div id="s11-atk" class="clip" data-start="34" data-duration="12" data-track-index="2">
+      <div class="s11-line" id="s11-a-t" style="top:96px">Incidente simulado · <span class="hl">cuenta de Marta</span><small>contraseña filtrada en otro sitio → detección y contención automática</small></div>
+      <div class="s11-step" id="s11-st1" style="top:240px"><span class="idx">[1] Entrar</span><span>dos claves malas, luego la filtrada</span><span class="st">401 · 201</span></div>
+      <div class="s11-step" id="s11-st2" style="top:330px"><span class="idx">[2] Mirar</span><span>lee sus ventas y la venta a Pedro</span><span class="st">200</span></div>
+      <div class="s11-step" id="s11-st3" style="top:420px"><span class="idx">[3] Sondear</span><span>compra ajena y 3 ids inventados → alerta MEDIA</span><span class="st hl">403 · 404</span></div>
+      <div class="s11-step" id="s11-st4" style="top:510px"><span class="idx">[4] Quedarse</span><span>cambia el correo al suyo</span><span class="st">201</span></div>
+      <div class="s11-step" id="s11-st5" style="top:600px; border-color:#d4af37"><span class="idx">[5] Llevarse</span><span>exporta todos los datos → alerta ALTA + revoke-sessions</span><span class="st hl">201</span></div>
+      <div class="s11-step" id="s11-st6" style="top:690px; border-color:#ff5a4f"><span class="idx">[6] Reintentar</span><span class="no" style="font-weight:700">sesión revocada automáticamente</span><span class="st no">401</span></div>
+    </div>
+
+    <!-- 4 · reconstrucción desde el registro, sin la API -->
+    <div id="s11-rec" class="clip" data-start="59" data-duration="10" data-track-index="2">
+      <div class="s11-line" id="s11-rc-t" style="top:98px">Reconstrucción · <span class="hl">sin la API</span><small>npm run incident:timeline -- --alert 0c7ae2f9…</small></div>
+      <div id="s11-rec-box">
+        <div class="s11-rline" id="s11-rl1"><span class="k">Cadena de integridad</span><span class="v" style="color:#2f7a43">OK (245 filas, seq 1–245)</span></div>
+        <div class="s11-rline" id="s11-rl2"><span class="k">Sujeto (Marta)</span><span class="v">u_227c332503186612 · 19 eventos</span></div>
+        <div class="s11-rline" id="s11-rl3"><span class="k">Datos tocados</span><span class="v">transacciones, ubicación, credenciales</span></div>
+        <div class="s11-rline" id="s11-rl4"><span class="k">Otra cuenta afectada (Pedro)</span><span class="v" style="color:#8b0000">u_8dd5105cebb1 · profile + transaction</span></div>
+        <div class="s11-rline" id="s11-rl5"><span class="k">Evidencia preservada</span><span class="v">manifest sha256: 8a27efe2cc8a…</span></div>
+      </div>
+      <div class="s11-tech" id="s11-rc-k" style="top:635px">Sabemos a quién más notificar</div>
+      <div class="s11-sub" id="s11-rc-s" style="top:715px">Art. 14 sexies: incluye transacciones → aviso obligatorio a Marta y Pedro</div>
+    </div>
+
+    <!-- 5 · plan de respuesta a incidentes -->
+    <div id="s11-plan" class="clip" data-start="75.5" data-duration="15.5" data-track-index="2">
+      <div class="s11-line" id="s11-pl-t" style="top:94px">Plan de respuesta a incidentes<small>PLAN_RESPUESTA_INCIDENTES.md · v2.0</small></div>
+      <div class="s11-phase" id="s11-ph1" style="left:760px">1 · Preparación</div>
+      <div class="s11-phase" id="s11-ph2" style="left:942px">2 · Detección</div>
+      <div class="s11-phase" id="s11-ph3" style="left:1124px">3 · Contención</div>
+      <div class="s11-phase" id="s11-ph4" style="left:1306px">4 · Erradicar</div>
+      <div class="s11-phase" id="s11-ph5" style="left:1488px">5 · Notificar</div>
+      <div class="s11-phase" id="s11-ph6" style="left:1670px">6 · Cierre</div>
+      <div id="s11-raci">
+        <div class="s11-rc h"><span>Actividad (RACI)</span><span>Líder · Vicente</span><span>Dev · Tomás R.</span><span>Admin · Tomás S.</span></div>
+        <div class="s11-rc" id="s11-ra1"><span>Preservar evidencia (snapshot)</span><span>A</span><span>I</span><span style="font-weight:700">R</span></div>
+        <div class="s11-rc" id="s11-ra2"><span>Reconstrucción (timeline)</span><span>A</span><span style="font-weight:700">R</span><span>C</span></div>
+        <div class="s11-rc" id="s11-ra3"><span>Contención y rotación</span><span>A</span><span>C</span><span style="font-weight:700">R</span></div>
+        <div class="s11-rc" id="s11-ra4"><span>Notificar (Agencia + titulares)</span><span style="font-weight:700">R / A</span><span>I</span><span>I</span></div>
+      </div>
+      <div class="s11-slip" id="s11-pl-a" style="left:760px; top:660px"><small>Plantilla A · art. 14 sexies</small><b>Agencia (≤ 72 h) · 2 firmas</b></div>
+      <div class="s11-slip" id="s11-pl-b" style="left:1395px; top:660px"><small>Plantilla B · lenguaje claro</small><b>Titulares afectados</b></div>
+    </div>
+
+    <!-- 6 · idea final -->
+    <div id="s11-end" class="clip" data-start="91" data-duration="5" data-track-index="2">
+      <div class="s11-line" id="s11-end-t" style="top:360px"><span class="w">Detectar,</span> <span class="w">contener,</span> <span class="w hl">reconstruir</span><small><span class="w">Cada</span> <span class="w">paso</span> <span class="w">del</span> <span class="w">ataque,</span> <span class="w">solo</span> <span class="w">desde</span> <span class="w">el</span> <span class="w">registro</span></small></div>
+    </div>
+
+    <!-- prueba real: terminal -->
+    <div id="s11-mon">
+      <video id="s11-real-a" class="clip" src="assets/media/s11c_cadena.mp4" data-start="18" data-duration="6" data-media-start="21.5" data-track-index="3" muted playsinline></video>
+      <video id="s11-real-b" class="clip" src="assets/media/s11a_incidente.mp4" data-start="46" data-duration="6.5" data-media-start="18.0" data-track-index="3" muted playsinline></video>
+      <video id="s11-real-c" class="clip" src="assets/media/s11a_incidente.mp4" data-start="52.5" data-duration="6.5" data-media-start="44.5" data-track-index="3" muted playsinline></video>
+      <video id="s11-real-d" class="clip" src="assets/media/s11b_reconstruccion.mp4" data-start="69" data-duration="6.5" data-media-start="10.0" data-track-index="3" muted playsinline></video>
+      <div class="s11-cap">Grabación real · backend local, datos de prueba</div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      // Inicio de cada tramo (s). Ajustar con la voz de Tomás Rodríguez; los data-start de arriba coinciden.
+      const T = { card: 0.1, chain: 5, monA: 18, rules: 24, atk: 34, monB: 46, monC: 52.5, rec: 59, monD: 69, plan: 75.5, end: 91 };
+
+      const tl = gsap.timeline({ paused: true });
+      const IN = 'expo.out', MOVE = 'power2.inOut', OUT = 'power3.in';
+      const show = (sel, at, d = 0.25) => tl.fromTo(sel, { opacity: 0 }, { opacity: 1, duration: d }, at);
+      const out = (sel, at) => tl.to(sel, { opacity: 0, filter: 'blur(8px)', duration: 0.3, ease: OUT }, at);
+      const blurIn = (sel, at) => tl.fromTo(sel, { opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.18, ease: 'none' }, at);
+      const slideIn = (sel, at) => tl.fromTo(sel, { opacity: 0, x: -60 }, { opacity: 1, x: 0, duration: 0.7, ease: IN }, at);
+      const mon = (at, until) => {
+        tl.fromTo('#s11-mon', { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.5, ease: IN, immediateRender: false }, at - 0.1);
+        tl.to('#s11-mon', { opacity: 0, scale: 0.97, duration: 0.3, ease: OUT }, until - 0.35);
+      };
+
+      // carta
+      tl.fromTo('#s11-card', { x: 140, y: -1000, rotationZ: -14, rotationY: 180 }, { x: 0, y: 0, rotationZ: -3, duration: 1.3, ease: IN }, T.card);
+      tl.fromTo('#s11-card', { rotationY: 180 }, { rotationY: 0, duration: 1.1, ease: MOVE, immediateRender: false }, T.card + 1.0);
+      tl.to('#s11-card', { x: -560, y: 40, scale: 0.62, rotationZ: -6, duration: 0.8, ease: MOVE }, T.chain - 0.3);
+
+      // 1 · cadena HMAC: llega íntegra, se edita seq 238, se rompe en ese eslabón
+      blurIn('#s11-c-t', T.chain + 0.1);
+      ['#s11-b1', '#s11-b2', '#s11-b3', '#s11-b4'].forEach((s, i) => tl.fromTo(s, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5, ease: IN }, T.chain + 0.8 + i * 0.35));
+      ['#s11-l1', '#s11-l2', '#s11-l3'].forEach((s, i) => tl.fromTo(s, { scaleX: 0 }, { scaleX: 1, duration: 0.25, ease: 'power2.out' }, T.chain + 1.1 + i * 0.35));
+      show('#s11-c-ok', T.chain + 2.8, 0.3);
+      // se edita seq 238 -> rojo + temblor + se rompe enlace hacia 239
+      tl.to(['#s11-b3', '#s11-b4'], { borderColor: '#ff5a4f', duration: 0.25 }, T.chain + 5.6);
+      tl.to('#s11-l3', { backgroundColor: '#ff5a4f', scaleX: 0.35, duration: 0.3 }, T.chain + 5.6);
+      tl.to('#s11-b3-o', { color: '#ff5a4f', duration: 0.2 }, T.chain + 5.6);
+      tl.fromTo('#s11-b3', { x: 0 }, { keyframes: { x: [0, -10, 9, -6, 4, 0] }, duration: 0.4, ease: 'none', immediateRender: false }, T.chain + 5.6);
+      show('#s11-c-br', T.chain + 6.1, 0.25);
+      blurIn('#s11-c-k', T.chain + 7.4);
+      out('#s11-chain > *', T.monA - 0.45);
+      mon(T.monA, T.rules);
+
+      // 2 · alertas propias
+      blurIn('#s11-r-t', T.rules + 0.1);
+      ['#s11-r1', '#s11-r2', '#s11-r3', '#s11-r4'].forEach((s, i) => slideIn(s, T.rules + 0.8 + i * 0.9));
+      out('#s11-rules > *', T.atk - 0.45);
+
+      // 3 · ataque simulado en 6 pasos
+      blurIn('#s11-a-t', T.atk + 0.1);
+      ['#s11-st1', '#s11-st2', '#s11-st3', '#s11-st4', '#s11-st5', '#s11-st6'].forEach((s, i) => slideIn(s, T.atk + 0.8 + i * 1.1));
+      tl.fromTo('#s11-st6', { x: 0 }, { keyframes: { x: [0, -10, 9, -6, 4, 0] }, duration: 0.4, ease: 'none', immediateRender: false }, T.atk + 7.1);
+      out('#s11-atk > *', T.monB - 0.45);
+      mon(T.monB, T.monC);
+      mon(T.monC, T.rec);
+
+      // 4 · reconstrucción
+      blurIn('#s11-rc-t', T.rec + 0.1);
+      tl.fromTo('#s11-rec-box', { opacity: 0, y: 36 }, { opacity: 1, y: 0, duration: 0.65, ease: IN }, T.rec + 0.6);
+      ['#s11-rl1', '#s11-rl2', '#s11-rl3', '#s11-rl4', '#s11-rl5'].forEach((s, i) => show(s, T.rec + 1.1 + i * 0.55, 0.25));
+      blurIn('#s11-rc-k', T.rec + 4.4);
+      show('#s11-rc-s', T.rec + 5.2, 0.3);
+      out('#s11-rec > *', T.monD - 0.45);
+      mon(T.monD, T.plan);
+
+      // 5 · plan de respuesta (fases, RACI, plantillas)
+      blurIn('#s11-pl-t', T.plan + 0.1);
+      ['#s11-ph1', '#s11-ph2', '#s11-ph3', '#s11-ph4', '#s11-ph5', '#s11-ph6'].forEach((s, i) => tl.fromTo(s, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, ease: IN }, T.plan + 0.7 + i * 0.25));
+      tl.fromTo('#s11-raci', { opacity: 0, y: 36 }, { opacity: 1, y: 0, duration: 0.65, ease: IN }, T.plan + 2.8);
+      ['#s11-ra1', '#s11-ra2', '#s11-ra3', '#s11-ra4'].forEach((s, i) => show(s, T.plan + 3.4 + i * 0.45, 0.25));
+      slideIn('#s11-pl-a', T.plan + 6.2);
+      tl.fromTo('#s11-pl-b', { opacity: 0, x: 60 }, { opacity: 1, x: 0, duration: 0.65, ease: IN }, T.plan + 7.0);
+      out('#s11-plan > *', T.end - 0.45);
+
+      // 6 · idea final
+      tl.fromTo('#s11-end .w', { opacity: 0, filter: 'blur(6px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.13, stagger: 0.08, ease: 'none' }, T.end + 0.1);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines['s11'] = tl;
+    })();
+  </script>
+</template>
