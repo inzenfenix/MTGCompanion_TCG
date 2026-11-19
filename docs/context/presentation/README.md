@@ -11,7 +11,7 @@ speakers); this file is the working state for whoever continues the build.
 | Script + recording list | `docs/presentation/video/GUION.md` | done; scene 2 and 5 adjusted to what was recorded |
 | Storylines | `docs/presentation/video/STORYLINES.md` | user picked a **mix**: A (Marta's data is the thread) + B (each control is "played" as an original card) + C (system map as home stage) |
 | Film spec | `docs/presentation/video/film/SPEC.md` | look, motion, banned list |
-| HyperFrames project | `docs/presentation/video/film/` | `index.html` mounts `compositions/s04.html` (0–80 s), `s05.html` (80–133 s), `s06.html` (133–202 s), `s07.html` (202–273 s), `s08.html` (273–341 s) |
+| HyperFrames project | `docs/presentation/video/film/` | `index.html` mounts `compositions/s04.html` (0–80 s), `s05.html` (80–133 s), `s06.html` (133–202 s), `s07.html` (202–273 s), `s08.html` (273–341 s), `s09.html` (341–439 s, **built, passes check, not yet snapshotted/rendered**) |
 | Draft render | `film/renders/borrador_s04_s06.mp4`, `borrador_s07.mp4`, `borrador_s08.mp4` (gitignored) | scenes 4–6 (202 s), 7 (71 s) and 8 (68 s), each checked frame by frame |
 | Real clips | `docs/presentation/video/assets/clips/*.mp4` (gitignored, ~40 MB) | all recorded — list below |
 | Demo tooling | `docs/presentation/video/demo/` | committed; reproduces every clip |
@@ -27,7 +27,7 @@ only inside the **evidence monitor** (user's call: "keep the monitor"); the expl
 1. Scenes **0–3** (intro, opening with the three names, the case — animated 4-step scanner + `s02a`/`s02b` + system
    map, Hito 1 flows map). Scene 0–1 must show each member's name; **every member identifies themself at the start
    of their block** (pauta).
-2. Scenes **9–12** (7 RBAC and 8 consent done 18 nov): 9 rights, 10 public channel + objection +
+2. Scenes **9–12** (7 and 8 done 18 nov; 9 written but needs snapshot review + draft render): 9 rights, 10 public channel + objection +
    blocking, 11 traceability + incident, 12 closing (each member names one pending item).
 3. Audio: the team records one file per scene (`GUION.md` → "Voces"), then retime each scene from its `T` table and
    add a quiet free music bed + small SFX (`hyperframes` skill → `references/sound.md`).

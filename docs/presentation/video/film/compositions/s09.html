@@ -1,0 +1,315 @@
+<template>
+  <style>
+    @font-face { font-family: 'Cinzel'; src: url('assets/fonts/cinzel-latin.woff2') format('woff2'); font-weight: 400 900; }
+    #root { position: absolute; inset: 0; overflow: hidden; font-family: 'Inter', sans-serif; color: #f2e3cd; }
+    #s09-pano { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; }
+    .hl { color: #d4af37; }
+    .no { color: #ff5a4f; }
+    .mono { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+
+    #s09-name { position: absolute; left: 140px; top: 760px; }
+    #s09-name .bar { position: absolute; left: 0; top: 0; width: 10px; height: 170px; background: #d4af37; border-radius: 5px; transform-origin: center top; }
+    #s09-name .n { position: absolute; left: 40px; top: 4px; font-family: 'Cinzel'; font-weight: 700; font-size: 84px; white-space: nowrap; }
+    #s09-name .r { position: absolute; left: 44px; top: 112px; font-size: 36px; white-space: nowrap; }
+
+    #s09-stage { position: absolute; inset: 0; perspective: 1600px; }
+    #s09-card { position: absolute; left: 680px; top: 148px; width: 560px; height: 784px; transform-style: preserve-3d; }
+    .s09-face { position: absolute; inset: 0; border-radius: 26px; backface-visibility: hidden; box-shadow: 0 24px 48px rgba(0,0,0,.55); }
+    .s09-front { background: #1f1512; border: 6px solid #d4af37; padding: 26px 28px; display: flex; flex-direction: column; gap: 16px; }
+    .s09-back { background: #5a0d12; border: 6px solid #d4af37; transform: rotateY(180deg); display: flex; align-items: center; justify-content: center; }
+    .s09-back span { font-family: 'Cinzel'; font-weight: 700; font-size: 44px; color: #d4af37; border: 2px solid #d4af37; border-radius: 18px; padding: 40px 30px; text-align: center; line-height: 1.25; }
+    .s09-title { font-family: 'Cinzel'; font-weight: 700; font-size: 38px; border-bottom: 2px solid rgba(212,175,55,.6); padding-bottom: 12px; }
+    .s09-cost { align-self: flex-start; font-family: 'Cinzel'; font-weight: 700; font-size: 22px; color: #1f1512; background: #d4af37; border-radius: 8px; padding: 6px 14px; }
+    .s09-art { flex: 1; border: 2px solid rgba(212,175,55,.45); border-radius: 14px; background: #2a1b16; display: flex; align-items: center; justify-content: center; }
+    .s09-type { font-family: 'Cinzel'; font-size: 22px; color: #d4af37; }
+    .s09-text { font-size: 25px; line-height: 1.35; }
+
+    .s09-line { position: absolute; left: 760px; font-family: 'Cinzel'; font-weight: 700; font-size: 58px; white-space: nowrap; }
+    .s09-line small { display: block; font-family: 'Inter'; font-weight: 400; font-size: 34px; margin-top: 8px; }
+    .s09-slip { position: absolute; background: #f2e3cd; color: #2a2018; border-radius: 10px; padding: 16px 24px; box-shadow: 0 10px 24px rgba(0,0,0,.45); white-space: nowrap; }
+    .s09-slip small { display: block; font-family: 'Cinzel'; font-weight: 700; font-size: 22px; letter-spacing: .08em; color: #8b0000; }
+    .s09-slip b { font-family: 'JetBrains Mono', monospace; font-size: 34px; }
+    .s09-lab { position: absolute; font-size: 30px; white-space: nowrap; }
+    .s09-tech { position: absolute; left: 760px; font-family: 'Cinzel'; font-weight: 700; font-size: 54px; color: #d4af37; white-space: nowrap; }
+    .s09-sub { position: absolute; left: 760px; font-size: 32px; white-space: nowrap; }
+    .s09-box { position: absolute; background: #2a1b16; border: 4px solid #d4af37; border-radius: 18px; box-shadow: 0 14px 30px rgba(0,0,0,.5); }
+
+    /* derechos */
+    .s09-rw { position: absolute; left: 760px; font-family: 'Cinzel'; font-weight: 700; font-size: 48px; white-space: nowrap; }
+    .s09-a11 { position: absolute; left: 760px; font-size: 34px; white-space: nowrap; }
+    .s09-a11 b { display: inline-block; width: 52px; font-family: 'Cinzel'; color: #d4af37; }
+
+    /* ciclo de vida */
+    .s09-node { position: absolute; top: 250px; width: 200px; height: 96px; background: #1f1512; border: 3px solid #6b5a3a; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-family: 'Cinzel'; font-weight: 700; font-size: 23px; }
+    #s09-rail { position: absolute; left: 860px; top: 296px; width: 880px; height: 4px; background: #6b5a3a; transform-origin: left center; }
+
+    /* step-up */
+    .s09-act { position: absolute; left: 760px; width: 470px; height: 76px; background: #1f1512; border: 3px solid rgba(212,175,55,.6); border-radius: 14px; font-size: 30px; font-weight: 700; padding: 18px 26px; white-space: nowrap; }
+    #s09-lock { position: absolute; left: 1330px; top: 330px; width: 510px; height: 250px; }
+
+    /* exportación */
+    #s09-keys { position: absolute; left: 760px; top: 250px; width: 1080px; display: flex; flex-wrap: wrap; gap: 10px; }
+    .s09-key { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 26px; background: #1f1512; border: 2px solid rgba(212,175,55,.5); border-radius: 8px; padding: 6px 12px; }
+    .s09-ni { position: absolute; left: 760px; font-size: 30px; white-space: nowrap; color: #c9b9a0; }
+    .s09-ni b { color: #ff5a4f; margin-right: 14px; }
+
+    /* correo */
+    #s09-mail { position: absolute; left: 760px; top: 470px; width: 1080px; background: #f2e3cd; color: #2a2018; border-radius: 12px; padding: 20px 28px; box-shadow: 0 14px 30px rgba(0,0,0,.5); }
+    #s09-mail .h { font-size: 24px; color: #6b5a3a; }
+    #s09-mail .s { font-size: 32px; font-weight: 700; margin: 6px 0 12px; }
+    #s09-mail .b { font-size: 26px; line-height: 1.4; }
+
+    /* servidor */
+    .s09-srv { position: absolute; left: 760px; width: 1080px; height: 150px; background: #241815; border: 3px solid #6b5a3a; border-radius: 16px; box-shadow: 0 14px 30px rgba(0,0,0,.5); }
+    .s09-srv .name { position: absolute; left: 30px; top: 22px; font-family: 'Cinzel'; font-weight: 700; font-size: 30px; }
+    .s09-srv .led { position: absolute; right: 34px; top: 26px; width: 30px; height: 30px; border-radius: 50%; background: #3fbf6a; }
+    .s09-srv .req { position: absolute; left: 30px; top: 80px; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 32px; color: #ff5a4f; }
+
+    /* qué se conserva */
+    .s09-gone { position: absolute; left: 760px; font-size: 32px; white-space: nowrap; }
+    .s09-gone .strike { position: absolute; left: -6px; top: 20px; height: 4px; background: #c9b9a0; transform-origin: left center; }
+
+    #s09-mon { position: absolute; left: 600px; top: 120px; width: 1240px; height: 760px; background: #120e0a; border: 6px solid #d4af37; border-radius: 22px; box-shadow: 0 30px 60px rgba(0,0,0,.6); overflow: hidden; opacity: 0; }
+    #s09-mon video { position: absolute; left: 0; top: 0; width: 1228px; height: 691px; object-fit: cover; }
+    #s09-pmon { position: absolute; left: 990px; top: 60px; width: 640px; height: 960px; background: #120e0a; border: 6px solid #d4af37; border-radius: 22px; box-shadow: 0 30px 60px rgba(0,0,0,.6); overflow: hidden; opacity: 0; }
+    #s09-pmon .crop { position: absolute; left: 0; top: 0; width: 628px; height: 891px; overflow: hidden; }
+    #s09-pmon video { position: absolute; left: 0; top: 0; width: 628px; height: 1395px; }
+    .s09-cap { position: absolute; left: 0; right: 0; bottom: 0; height: 57px; background: #1f1512; font-family: 'Cinzel'; font-weight: 700; font-size: 26px; color: #d4af37; padding: 12px 28px; white-space: nowrap; }
+    #s09-pmon .s09-cap { font-size: 21px; padding: 15px 22px; }
+  </style>
+
+  <div id="root" data-composition-id="s09" data-width="1920" data-height="1080">
+    <img id="s09-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="98" data-track-index="0" alt="" />
+
+    <div id="s09-name" class="clip" data-start="0" data-duration="5.2" data-track-index="2">
+      <div class="bar"></div>
+      <div class="n">Tomás Rodríguez</div>
+      <div class="r">Actividades 5 y 6 · derechos de los titulares</div>
+    </div>
+
+    <div id="s09-card-clip" class="clip" data-start="0" data-duration="98" data-track-index="1">
+      <div id="s09-stage"><div id="s09-card">
+        <div class="s09-face s09-front">
+          <div class="s09-title">Derechos del titular</div>
+          <div class="s09-cost">Ley 19.628 · arts. 5 a 9 y 11</div>
+          <div class="s09-art">
+            <svg width="260" height="200" viewBox="0 0 260 200" aria-hidden="true">
+              <rect x="60" y="20" width="140" height="170" rx="12" fill="#3a1414" stroke="#d4af37" stroke-width="7"/>
+              <rect x="84" y="56" width="92" height="12" rx="6" fill="#f2e3cd"/>
+              <rect x="84" y="86" width="92" height="12" rx="6" fill="#f2e3cd"/>
+              <rect x="84" y="116" width="60" height="12" rx="6" fill="#f2e3cd"/>
+              <path d="M150 150 L166 166 L196 132" fill="none" stroke="#d4af37" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="s09-type">Control · Actividades 5 y 6</div>
+          <div class="s09-text">Se pide desde la app, se verifica según el riesgo y se responde por escrito, en plazo.</div>
+        </div>
+        <div class="s09-face s09-back"><span>MTG<br />Companion</span></div>
+      </div></div>
+    </div>
+
+    <!-- 1 · seis derechos y lo que exige el art. 11 -->
+    <div id="s09-rig" class="clip" data-start="9.6" data-duration="11.4" data-track-index="2">
+      <div class="s09-rw" id="s09-rw1" style="top:140px">Acceso · Rectificación · Supresión</div>
+      <div class="s09-rw" id="s09-rw2" style="top:220px">Oposición · Portabilidad · <span class="hl">Bloqueo</span></div>
+      <div class="s09-lab hl" id="s09-a-h" style="left:760px; top:390px; font-family:'Cinzel'; font-weight:700; font-size:34px">Art. 11 exige</div>
+      <div class="s09-a11" id="s09-a1" style="top:460px"><b>1</b>un canal para pedirlos</div>
+      <div class="s09-a11" id="s09-a2" style="top:530px"><b>2</b>verificar la identidad</div>
+      <div class="s09-a11" id="s09-a3" style="top:600px"><b>3</b>responder por escrito, dentro de plazo</div>
+    </div>
+
+    <!-- 2 · ciclo de vida de una solicitud -->
+    <div id="s09-life" class="clip" data-start="21" data-duration="8" data-track-index="2">
+      <div class="s09-line" id="s09-l-t" style="top:120px; font-size:46px">Cada solicitud, un ciclo registrado</div>
+      <div id="s09-rail"></div>
+      <div class="s09-node" id="s09-n1" style="left:760px">Recepción</div>
+      <div class="s09-node" id="s09-n2" style="left:980px">Verificación</div>
+      <div class="s09-node" id="s09-n3" style="left:1200px">Evaluación</div>
+      <div class="s09-node" id="s09-n4" style="left:1420px">Ejecución</div>
+      <div class="s09-node" id="s09-n5" style="left:1640px">Cierre</div>
+      <div class="s09-lab" id="s09-l-due" style="left:760px; top:370px; font-size:28px"><span class="mono" style="font-size:26px">dueAt</span> = recepción + 30 días</div>
+      <div class="s09-lab" id="s09-l-out" style="left:1500px; top:370px; font-size:28px">FULFILLED o DENIED</div>
+      <div class="s09-slip" id="s09-l-real" style="left:760px; top:500px"><small>Mis solicitudes · dani</small><b>Supresión — Rechazada</b></div>
+      <div class="s09-lab" id="s09-l-real2" style="left:760px; top:640px">Recibida 18-11-2026 20:09 · <span class="hl">Plazo 18-12-2026</span></div>
+    </div>
+
+    <!-- 3 · verificación proporcional al riesgo -->
+    <div id="s09-step" class="clip" data-start="29" data-duration="17" data-track-index="2">
+      <div class="s09-line" id="s09-s-t" style="top:110px; font-size:46px">Verificar según el riesgo</div>
+      <div class="s09-act" id="s09-s-a" style="top:200px">Cambiar el alias</div>
+      <div class="s09-lab" id="s09-s-a2" style="left:1290px; top:218px">→ basta la sesión</div>
+      <div class="s09-act" id="s09-s-b1" style="top:330px">Descargar mis datos</div>
+      <div class="s09-act" id="s09-s-b2" style="top:420px">Cambiar el correo</div>
+      <div class="s09-act" id="s09-s-b3" style="top:510px">Eliminar mi cuenta</div>
+      <div id="s09-lock">
+        <div class="s09-box" style="left:0; top:0; width:510px; height:250px"></div>
+        <div style="position:absolute; left:0; top:34px; width:510px; text-align:center; font-family:'Cinzel'; font-weight:700; font-size:34px">Contraseña otra vez</div>
+        <div class="mono" style="position:absolute; left:0; top:104px; width:510px; text-align:center; font-size:30px; color:#d4af37">stepUpToken</div>
+        <div style="position:absolute; left:0; top:158px; width:510px; text-align:center; font-size:30px">300 s · un solo uso</div>
+      </div>
+      <div class="s09-sub" id="s09-s-j" style="top:660px">Su <span class="mono">jti</span> queda con <span class="mono">UNIQUE</span> en la BD: reusarlo falla</div>
+      <div class="s09-tech" id="s09-s-k" style="top:740px; font-size:44px">Un token robado no basta para exportar ni borrar</div>
+    </div>
+
+    <!-- 4 · la copia: JSON estructurado, sin credenciales ni datos de otros -->
+    <div id="s09-json" class="clip" data-start="52.5" data-duration="7" data-track-index="2">
+      <div class="s09-slip" id="s09-j-f" style="left:760px; top:120px"><small>Acceso y portabilidad · art. 9</small><b>mtg-companion/personal-data-export</b></div>
+      <div id="s09-keys">
+        <span class="s09-key">account</span><span class="s09-key">cards</span><span class="s09-key">consentHistory</span><span class="s09-key">consents</span><span class="s09-key">coupons</span><span class="s09-key">decks</span><span class="s09-key">offersMade</span><span class="s09-key">processing</span><span class="s09-key">processingControls</span><span class="s09-key">rightsRequests</span><span class="s09-key">settings</span><span class="s09-key">transactions</span><span class="s09-key">notIncluded</span>
+      </div>
+      <div class="s09-lab hl" id="s09-j-nh" style="left:760px; top:440px; font-family:'Cinzel'; font-weight:700">notIncluded</div>
+      <div class="s09-ni" id="s09-j-n1" style="top:500px"><b>✕</b>Hash de contraseña, secreto 2FA, tokens de sesión</div>
+      <div class="s09-ni" id="s09-j-n2" style="top:552px"><b>✕</b>Datos de otros jugadores (id, correo, ofertas de terceros)</div>
+      <div class="s09-ni" id="s09-j-n3" style="top:604px"><b>✕</b>Registro de auditoría y alertas de seguridad</div>
+      <div class="s09-ni" id="s09-j-n4" style="top:656px"><b>✕</b>Referencias internas de pago (paymentRef)</div>
+    </div>
+
+    <!-- 5 · cambiar el correo -->
+    <div id="s09-mailc" class="clip" data-start="65" data-duration="6.5" data-track-index="2">
+      <div class="s09-slip" id="s09-m-old" style="left:760px; top:130px"><small>Correo</small><b>dani@example.com</b></div>
+      <div class="s09-slip" id="s09-m-new" style="left:1290px; top:130px"><small>Corrección</small><b>dani.nuevo@example.com</b></div>
+      <div class="s09-lab" id="s09-m-arr" style="left:1210px; top:170px; font-size:44px; color:#d4af37">→</div>
+      <div class="s09-tech" id="s09-m-ses" style="top:300px; font-size:46px">Todas las sesiones, cerradas</div>
+      <div id="s09-mail">
+        <div class="h">Para: dani@example.com · la dirección anterior</div>
+        <div class="s">El correo de tu cuenta MTG Companion cambió</div>
+        <div class="b">El correo asociado a tu cuenta se cambió por otro y todas las sesiones abiertas se cerraron. Si no fuiste tú, responde a este correo de inmediato.</div>
+      </div>
+    </div>
+
+    <!-- 6 · supresión con una venta pendiente -->
+    <div id="s09-del" class="clip" data-start="76.5" data-duration="6.5" data-track-index="2">
+      <div class="s09-slip" id="s09-d-req" style="left:760px; top:150px"><small>dani · supresión</small><b>Eliminar mi cuenta</b></div>
+      <div class="s09-srv" id="s09-d-srv" style="top:330px"><div class="name">Evaluación</div><div class="led" id="s09-d-led"></div><div class="req">DENIED · OPEN_TRANSACTIONS</div></div>
+      <div class="s09-sub" id="s09-d-why" style="top:540px; font-size:30px; line-height:1.4">“Tienes compras o ventas pendientes. Cuando se completen o cancelen<br />podrás pedir la eliminación. Mientras tanto puedes pedir el bloqueo”</div>
+      <div class="s09-tech" id="s09-d-t" style="top:700px; font-size:46px">Denegada, con su motivo</div>
+    </div>
+
+    <!-- 7 · lo que se conserva -->
+    <div id="s09-keep" class="clip" data-start="88.5" data-duration="9.5" data-track-index="2">
+      <div class="s09-line" id="s09-k-t" style="top:110px; font-size:46px">Cuando procede, se borra todo</div>
+      <div class="s09-gone" id="s09-k-g1" style="top:220px">correo<span class="strike" style="width:110px"></span></div>
+      <div class="s09-gone" id="s09-k-g2" style="top:280px">nombre<span class="strike" style="width:120px"></span></div>
+      <div class="s09-gone" id="s09-k-g3" style="top:340px">contraseña<span class="strike" style="width:170px"></span></div>
+      <div class="s09-slip" id="s09-k-tx" style="left:1240px; top:220px"><small>Transacción cerrada</small><b>→ “Cuenta eliminada”</b></div>
+      <div class="s09-lab" id="s09-k-yrs" style="left:1240px; top:360px"><span class="hl" style="font-weight:700">6 años</span> · Código Tributario, arts. 17 y 200</div>
+      <div class="s09-tech" id="s09-k-s" style="top:520px; font-size:46px">salvo lo que la ley obliga a guardar</div>
+      <div class="s09-sub" id="s09-k-s2" style="top:600px">y eso queda apuntando a una cuenta anónima</div>
+    </div>
+
+    <!-- prueba real: la app -->
+    <div id="s09-pmon">
+      <div class="crop" data-layout-allow-overflow>
+        <video id="s09-real-a" class="clip" src="assets/media/s09_derechos.mp4" data-start="46" data-duration="6.5" data-media-start="1.8" data-track-index="3" muted playsinline></video>
+        <video id="s09-real-d" class="clip" src="assets/media/s09_derechos.mp4" data-start="83" data-duration="5.5" data-media-start="27.2" data-track-index="3" muted playsinline style="top:-300px"></video>
+      </div>
+      <div class="s09-cap">Grabación real · app local, datos de prueba</div>
+    </div>
+    <!-- prueba real: la copia descargada y los correos -->
+    <div id="s09-mon">
+      <video id="s09-real-b" class="clip" src="assets/media/s09b_exportacion_correos.mp4" data-start="59.5" data-duration="5.5" data-media-start="6" data-track-index="3" muted playsinline></video>
+      <video id="s09-real-c" class="clip" src="assets/media/s09b_exportacion_correos.mp4" data-start="71.5" data-duration="5" data-media-start="16.6" data-track-index="3" muted playsinline></video>
+      <div class="s09-cap">Grabación real · backend local, datos de prueba</div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      // Inicio de cada tramo (s). Ajustar con la voz de Tomás Rodríguez; los data-start de arriba coinciden.
+      const T = { name: 0.2, card: 5.0, rig: 9.6, life: 21, step: 29, monA: 46, json: 52.5, monB: 59.5, mail: 65, monC: 71.5, del: 76.5, monD: 83, keep: 88.5 };
+
+      const tl = gsap.timeline({ paused: true });
+      const IN = 'expo.out', MOVE = 'power2.inOut', OUT = 'power3.in';
+      const show = (sel, at, d = 0.25) => tl.fromTo(sel, { opacity: 0 }, { opacity: 1, duration: d }, at);
+      const out = (sel, at) => tl.to(sel, { opacity: 0, filter: 'blur(8px)', duration: 0.3, ease: OUT }, at);
+      const blurIn = (sel, at) => tl.fromTo(sel, { opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.18, ease: 'none' }, at);
+      const slideIn = (sel, at) => tl.fromTo(sel, { opacity: 0, x: -60 }, { opacity: 1, x: 0, duration: 0.7, ease: IN }, at);
+      const mon = (sel, at, until) => {
+        tl.fromTo(sel, { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.5, ease: IN, immediateRender: false }, at - 0.1);
+        tl.to(sel, { opacity: 0, scale: 0.97, duration: 0.3, ease: OUT }, until - 0.35);
+      };
+
+      // rótulo
+      tl.fromTo('#s09-name .bar', { scaleY: 0 }, { scaleY: 1, duration: 0.5, ease: IN }, T.name);
+      tl.fromTo('#s09-name .n', { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.7, ease: IN }, T.name + 0.2);
+      show('#s09-name .r', T.name + 0.6, 0.3);
+      out('#s09-name > *', T.card - 0.2);
+
+      // carta
+      tl.fromTo('#s09-card', { x: 140, y: -1000, rotationZ: -14, rotationY: 180 }, { x: 0, y: 0, rotationZ: -3, duration: 1.3, ease: IN }, T.card);
+      tl.fromTo('#s09-card', { rotationY: 180 }, { rotationY: 0, duration: 1.1, ease: MOVE, immediateRender: false }, T.card + 1.0);
+      tl.to('#s09-card', { x: -560, y: 40, scale: 0.62, rotationZ: -6, duration: 0.8, ease: MOVE }, T.rig - 0.3);
+
+      // derechos
+      blurIn('#s09-rw1', T.rig + 0.3); blurIn('#s09-rw2', T.rig + 2.2);
+      show('#s09-a-h', T.rig + 4.6, 0.3);
+      ['#s09-a1', '#s09-a2', '#s09-a3'].forEach((s, i) => tl.fromTo(s, { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.6, ease: IN }, T.rig + 5.4 + i * 1.3));
+      out('#s09-rig > *', T.life - 0.4);
+
+      // ciclo de vida: el riel avanza y cada etapa se enciende
+      blurIn('#s09-l-t', T.life + 0.1);
+      tl.fromTo('#s09-rail', { scaleX: 0 }, { scaleX: 1, duration: 2.4, ease: MOVE }, T.life + 0.6);
+      ['#s09-n1', '#s09-n2', '#s09-n3', '#s09-n4', '#s09-n5'].forEach((s, i) => {
+        tl.fromTo(s, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: IN }, T.life + 0.5 + i * 0.5);
+        tl.fromTo(s, { borderColor: '#6b5a3a' }, { borderColor: '#d4af37', duration: 0.25, immediateRender: false }, T.life + 0.9 + i * 0.5);
+      });
+      show('#s09-l-due', T.life + 1.4, 0.3);
+      show('#s09-l-out', T.life + 3.2, 0.3);
+      slideIn('#s09-l-real', T.life + 4.2);
+      show('#s09-l-real2', T.life + 4.8, 0.3);
+      out('#s09-life > *', T.step - 0.4);
+
+      // step-up: lo de bajo riesgo pasa; lo de alto riesgo choca con la contraseña
+      blurIn('#s09-s-t', T.step + 0.1);
+      slideIn('#s09-s-a', T.step + 0.8); show('#s09-s-a2', T.step + 1.6, 0.3);
+      ['#s09-s-b1', '#s09-s-b2', '#s09-s-b3'].forEach((s, i) => slideIn(s, T.step + 3.4 + i * 0.4));
+      tl.fromTo('#s09-lock', { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.6, ease: IN }, T.step + 6.6);
+      blurIn('#s09-s-j', T.step + 10.6);
+      blurIn('#s09-s-k', T.step + 12.6);
+      out('#s09-step > *', T.monA - 0.45);
+      mon('#s09-pmon', T.monA, T.json);
+
+      // exportación
+      slideIn('#s09-j-f', T.json);
+      tl.fromTo('#s09-keys .s09-key', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.3, ease: IN, stagger: 0.06 }, T.json + 0.8);
+      show('#s09-j-nh', T.json + 2.4, 0.25);
+      ['#s09-j-n1', '#s09-j-n2', '#s09-j-n3', '#s09-j-n4'].forEach((s, i) => show(s, T.json + 2.8 + i * 0.35, 0.25));
+      out('#s09-json > *', T.monB - 0.45);
+      mon('#s09-mon', T.monB, T.mail);
+
+      // correo
+      slideIn('#s09-m-old', T.mail);
+      show('#s09-m-arr', T.mail + 0.6, 0.2);
+      tl.fromTo('#s09-m-new', { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.6, ease: IN }, T.mail + 0.7);
+      blurIn('#s09-m-ses', T.mail + 1.6);
+      tl.fromTo('#s09-mail', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.7, ease: IN }, T.mail + 2.6);
+      out('#s09-mailc > *', T.monC - 0.45);
+      mon('#s09-mon', T.monC, T.del);
+
+      // supresión denegada
+      slideIn('#s09-d-req', T.del);
+      tl.fromTo('#s09-d-srv', { opacity: 0, x: 80 }, { opacity: 1, x: 0, duration: 0.6, ease: IN }, T.del + 0.4);
+      tl.fromTo('#s09-d-led', { backgroundColor: '#3fbf6a' }, { backgroundColor: '#ff5a4f', duration: 0.2 }, T.del + 1.3);
+      show('#s09-d-srv .req', T.del + 1.4, 0.2);
+      show('#s09-d-why', T.del + 2.2, 0.3);
+      blurIn('#s09-d-t', T.del + 3.6);
+      out('#s09-del > *', T.monD - 0.45);
+      mon('#s09-pmon', T.monD, T.keep);
+
+      // qué se borra y qué se conserva
+      blurIn('#s09-k-t', T.keep + 0.1);
+      ['#s09-k-g1', '#s09-k-g2', '#s09-k-g3'].forEach((s, i) => {
+        show(s, T.keep + 0.6 + i * 0.2, 0.25);
+        tl.fromTo(`${s} .strike`, { scaleX: 0 }, { scaleX: 1, duration: 0.3, ease: 'power2.out' }, T.keep + 1.6 + i * 0.2);
+        tl.to(s, { color: '#8a7a66', duration: 0.3 }, T.keep + 1.7 + i * 0.2);
+      });
+      tl.fromTo('#s09-k-tx', { opacity: 0, y: -40 }, { opacity: 1, y: 0, duration: 0.7, ease: IN }, T.keep + 2.8);
+      show('#s09-k-yrs', T.keep + 3.6, 0.3);
+      blurIn('#s09-k-s', T.keep + 4.8);
+      show('#s09-k-s2', T.keep + 5.6, 0.3);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines['s09'] = tl;
+    })();
+  </script>
+</template>
