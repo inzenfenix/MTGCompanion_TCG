@@ -11,8 +11,8 @@ speakers); this file is the working state for whoever continues the build.
 | Script + recording list | `docs/presentation/video/GUION.md` | done; scene 2 and 5 adjusted to what was recorded |
 | Storylines | `docs/presentation/video/STORYLINES.md` | user picked a **mix**: A (Marta's data is the thread) + B (each control is "played" as an original card) + C (system map as home stage) |
 | Film spec | `docs/presentation/video/film/SPEC.md` | look, motion, banned list |
-| HyperFrames project | `docs/presentation/video/film/` | `index.html` mounts `compositions/s04.html` (0–80 s), `s05.html` (80–133 s), `s06.html` (133–202 s), `s07.html` (202–273 s), `s08.html` (273–341 s), `s09.html` (341–439 s) |
-| Draft render | `film/renders/borrador_s04_s06.mp4`, `borrador_s07.mp4`, `borrador_s08.mp4`, `borrador_s09.mp4` (gitignored) | scenes 4–6 (202 s), 7 (71 s), 8 (68 s) and 9 (98 s), each checked frame by frame |
+| HyperFrames project | `docs/presentation/video/film/` | `index.html` mounts `compositions/s04.html` (0–80 s), `s05.html` (80–133 s), `s06.html` (133–202 s), `s07.html` (202–273 s), `s08.html` (273–341 s), `s09.html` (341–439 s), `s10.html` (439–522 s) |
+| Draft render | `film/renders/borrador_s04_s06.mp4`, `borrador_s07.mp4`, `borrador_s08.mp4`, `borrador_s09.mp4`, `borrador_s10.mp4` (gitignored) | scenes 4–6 (202 s), 7 (71 s), 8 (68 s), 9 (98 s) and 10 (83 s), each checked frame by frame |
 | Real clips | `docs/presentation/video/assets/clips/*.mp4` (gitignored, ~40 MB) | all recorded — list below |
 | Demo tooling | `docs/presentation/video/demo/` | committed; reproduces every clip |
 
@@ -27,7 +27,7 @@ only inside the **evidence monitor** (user's call: "keep the monitor"); the expl
 1. Scenes **0–3** (intro, opening with the three names, the case — animated 4-step scanner + `s02a`/`s02b` + system
    map, Hito 1 flows map). Scene 0–1 must show each member's name; **every member identifies themself at the start
    of their block** (pauta).
-2. Scenes **10–12** (7–9 done 18 nov): 10 public channel + objection + blocking, 11 traceability + incident, 12 closing (each member names one pending item).
+2. Scenes **11–12** (7–10 done 18 nov): 11 traceability + incident, 12 closing (each member names one pending item).
 3. Audio: the team records one file per scene (`GUION.md` → "Voces"), then retime each scene from its `T` table and
    add a quiet free music bed + small SFX (`hyperframes` skill → `references/sound.md`).
 4. Final render (`hf render --quality delivery`), check length 10–15 min and per-speaker balance, then mark O18 ✅.

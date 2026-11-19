@@ -1,0 +1,253 @@
+<template>
+  <style>
+    @font-face { font-family: 'Cinzel'; src: url('assets/fonts/cinzel-latin.woff2') format('woff2'); font-weight: 400 900; }
+    #root { position: absolute; inset: 0; overflow: hidden; font-family: 'Inter', sans-serif; color: #f2e3cd; }
+    #s10-pano { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; }
+    .hl { color: #d4af37; }
+    .no { color: #ff5a4f; }
+    .ok { color: #5cd685; }
+    .mono { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+
+    #s10-stage { position: absolute; inset: 0; perspective: 1600px; }
+    #s10-card { position: absolute; left: 680px; top: 148px; width: 560px; height: 784px; transform-style: preserve-3d; }
+    .s10-face { position: absolute; inset: 0; border-radius: 26px; backface-visibility: hidden; box-shadow: 0 24px 48px rgba(0,0,0,.55); }
+    .s10-front { background: #1f1512; border: 6px solid #d4af37; padding: 26px 28px; display: flex; flex-direction: column; gap: 16px; }
+    .s10-back { background: #5a0d12; border: 6px solid #d4af37; transform: rotateY(180deg); display: flex; align-items: center; justify-content: center; }
+    .s10-back span { font-family: 'Cinzel'; font-weight: 700; font-size: 44px; color: #d4af37; border: 2px solid #d4af37; border-radius: 18px; padding: 40px 30px; text-align: center; line-height: 1.25; }
+    .s10-title { font-family: 'Cinzel'; font-weight: 700; font-size: 38px; border-bottom: 2px solid rgba(212,175,55,.6); padding-bottom: 12px; }
+    .s10-cost { align-self: flex-start; font-family: 'Cinzel'; font-weight: 700; font-size: 22px; color: #1f1512; background: #d4af37; border-radius: 8px; padding: 6px 14px; }
+    .s10-art { flex: 1; border: 2px solid rgba(212,175,55,.45); border-radius: 14px; background: #2a1b16; display: flex; align-items: center; justify-content: center; }
+    .s10-type { font-family: 'Cinzel'; font-size: 22px; color: #d4af37; }
+    .s10-text { font-size: 25px; line-height: 1.35; }
+
+    .s10-line { position: absolute; left: 760px; font-family: 'Cinzel'; font-weight: 700; font-size: 52px; white-space: nowrap; }
+    .s10-line small { display: block; font-family: 'Inter'; font-weight: 400; font-size: 30px; margin-top: 6px; color: #d8c8b0; }
+    .s10-slip { position: absolute; background: #f2e3cd; color: #2a2018; border-radius: 10px; padding: 14px 22px; box-shadow: 0 10px 24px rgba(0,0,0,.45); white-space: nowrap; }
+    .s10-slip small { display: block; font-family: 'Cinzel'; font-weight: 700; font-size: 20px; letter-spacing: .08em; color: #8b0000; }
+    .s10-slip b { font-family: 'JetBrains Mono', monospace; font-size: 32px; }
+    .s10-lab { position: absolute; font-size: 30px; white-space: nowrap; }
+    .s10-tech { position: absolute; left: 760px; font-family: 'Cinzel'; font-weight: 700; font-size: 46px; color: #d4af37; white-space: nowrap; }
+    .s10-sub { position: absolute; left: 760px; font-size: 30px; white-space: nowrap; }
+
+    /* respuesta pública */
+    #s10-p-msg { position: absolute; left: 760px; top: 430px; width: 1080px; background: #f2e3cd; color: #2a2018; border-radius: 12px; padding: 20px 28px; box-shadow: 0 14px 30px rgba(0,0,0,.5); }
+    #s10-p-msg .h { font-family: 'Cinzel'; font-weight: 700; font-size: 24px; color: #8b0000; margin-bottom: 8px; }
+    #s10-p-msg .b { font-size: 29px; line-height: 1.38; font-weight: 600; }
+
+    /* tabla reporte ventas 6 -> 5 */
+    #s10-rep { position: absolute; left: 760px; top: 430px; width: 1080px; background: #f2e3cd; color: #2a2018; border-radius: 12px; padding: 16px 26px; box-shadow: 0 14px 30px rgba(0,0,0,.5); }
+    .s10-rrow { display: grid; grid-template-columns: 360px 260px 400px; align-items: center; font-size: 30px; padding: 12px 0; white-space: nowrap; }
+    .s10-rrow.h { font-family: 'Cinzel'; font-weight: 700; font-size: 22px; color: #8b0000; border-bottom: 2px solid rgba(42,32,24,.15); }
+    .s10-num { position: relative; display: inline-block; width: 120px; height: 48px; }
+    .s10-num .old { position: absolute; left: 0; top: 0; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 42px; color: #2a2018; }
+    .s10-num .nu { position: absolute; left: 0; top: 0; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 42px; color: #8b0000; }
+
+    /* servidor */
+    .s10-srv { position: absolute; left: 760px; width: 1080px; height: 150px; background: #241815; border: 3px solid #6b5a3a; border-radius: 16px; box-shadow: 0 14px 30px rgba(0,0,0,.5); }
+    .s10-srv .name { position: absolute; left: 30px; top: 22px; font-family: 'Cinzel'; font-weight: 700; font-size: 30px; }
+    .s10-srv .led { position: absolute; right: 34px; top: 26px; width: 30px; height: 30px; border-radius: 50%; background: #3fbf6a; }
+    .s10-srv .req { position: absolute; left: 30px; top: 80px; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 30px; color: #ff5a4f; }
+
+    /* bloqueo filas */
+    .s10-bcard { position: absolute; left: 760px; width: 1080px; height: 96px; background: #1f1512; border: 3px solid rgba(212,175,55,.55); border-radius: 14px; box-shadow: 0 12px 26px rgba(0,0,0,.45); }
+    .s10-bcard .ep { position: absolute; left: 26px; top: 14px; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 26px; color: #d4af37; }
+    .s10-bcard .st { position: absolute; left: 26px; top: 52px; font-size: 28px; font-weight: 700; }
+    .s10-bcard .code { position: absolute; right: 28px; top: 24px; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 38px; }
+
+    #s10-mon { position: absolute; left: 600px; top: 120px; width: 1240px; height: 760px; background: #120e0a; border: 6px solid #d4af37; border-radius: 22px; box-shadow: 0 30px 60px rgba(0,0,0,.6); overflow: hidden; opacity: 0; }
+    #s10-mon video { position: absolute; left: 0; top: 0; width: 1228px; height: 691px; object-fit: cover; }
+    #s10-pmon { position: absolute; left: 990px; top: 60px; width: 640px; height: 960px; background: #120e0a; border: 6px solid #d4af37; border-radius: 22px; box-shadow: 0 30px 60px rgba(0,0,0,.6); overflow: hidden; opacity: 0; }
+    #s10-pmon .crop { position: absolute; left: 0; top: 0; width: 628px; height: 891px; overflow: hidden; }
+    #s10-pmon video { position: absolute; left: 0; top: 0; width: 628px; height: 1395px; }
+    .s10-cap { position: absolute; left: 0; right: 0; bottom: 0; height: 57px; background: #1f1512; font-family: 'Cinzel'; font-weight: 700; font-size: 26px; color: #d4af37; padding: 12px 28px; white-space: nowrap; }
+    #s10-pmon .s10-cap { font-size: 21px; padding: 15px 22px; }
+  </style>
+
+  <div id="root" data-composition-id="s10" data-width="1920" data-height="1080">
+    <img id="s10-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="83" data-track-index="0" alt="" />
+
+    <div id="s10-card-clip" class="clip" data-start="0" data-duration="83" data-track-index="1">
+      <div id="s10-stage"><div id="s10-card">
+        <div class="s10-face s10-front">
+          <div class="s10-title">Oposición y bloqueo</div>
+          <div class="s10-cost">Ley 19.628 · arts. 8, 8 ter y 11</div>
+          <div class="s10-art">
+            <svg width="260" height="200" viewBox="0 0 260 200" aria-hidden="true">
+              <circle cx="130" cy="100" r="76" fill="#3a1414" stroke="#d4af37" stroke-width="7"/>
+              <rect x="96" y="64" width="24" height="72" rx="6" fill="#f2e3cd"/>
+              <rect x="140" y="64" width="24" height="72" rx="6" fill="#d4af37"/>
+            </svg>
+          </div>
+          <div class="s10-type">Control · Actividad 6</div>
+          <div class="s10-text">Canal público sin sesión, oposición fundada y bloqueo que suspende sin borrar.</div>
+        </div>
+        <div class="s10-face s10-back"><span>MTG<br />Companion</span></div>
+      </div></div>
+    </div>
+
+    <!-- 1 · canal público: misma respuesta exista o no la cuenta -->
+    <div id="s10-pub" class="clip" data-start="5" data-duration="11" data-track-index="2">
+      <div class="s10-line" id="s10-p-t" style="top:110px">Canal público · <span class="hl">/derechos</span></div>
+      <div class="s10-slip" id="s10-p-a" style="left:760px; top:215px"><small>Cuenta registrada</small><b>pedro@example.com</b></div>
+      <div class="s10-slip" id="s10-p-b" style="left:1310px; top:215px"><small>Cuenta inexistente</small><b>no-existe@example.com</b></div>
+      <div class="s10-lab hl mono" id="s10-p-c1" style="left:960px; top:345px; font-size:32px">↓ 202</div>
+      <div class="s10-lab hl mono" id="s10-p-c2" style="left:1510px; top:345px; font-size:32px">↓ 202</div>
+      <div id="s10-p-msg">
+        <div class="h">POST /data-rights/public-requests · Misma respuesta</div>
+        <div class="b">«Recibimos tu solicitud. Si hay cuenta, enviamos un código; si no, avisamos.»</div>
+      </div>
+      <div class="s10-tech" id="s10-p-k" style="top:640px">No revela quién está registrado</div>
+      <div class="s10-sub" id="s10-p-s" style="top:720px">Se confirma con un código enviado al correo · un uso · 24 h</div>
+    </div>
+
+    <!-- 2 · oposición a estadísticas de ventas: acogida, celda 6 -> 5 -->
+    <div id="s10-opp1" class="clip" data-start="22" data-duration="11" data-track-index="2">
+      <div class="s10-line" id="s10-o1-t" style="top:110px">Oposición · <span class="hl">art. 8</span><small>tratamientos basados en interés legítimo</small></div>
+      <div class="s10-slip" id="s10-o1-req" style="left:760px; top:260px"><small>valentina · OBJECTION</small><b>SALES_STATISTICS</b></div>
+      <div class="s10-lab hl mono" id="s10-o1-ok" style="left:1270px; top:286px; font-size:36px">→ FULFILLED</div>
+      <div id="s10-rep">
+        <div class="s10-rrow h"><span>GET /admin/reports/sales</span><span>mes</span><span>sales (k ≥ 5)</span></div>
+        <div class="s10-rrow">
+          <span class="mono" style="font-size:26px">reporte mensual</span>
+          <span class="mono" style="font-size:30px">2026-11</span>
+          <span class="s10-num"><span class="old" id="s10-n6">6</span><span class="nu" id="s10-n5">5</span></span>
+        </div>
+      </div>
+      <div class="s10-tech" id="s10-o1-k" style="top:650px">Celda del reporte: 6 → 5</div>
+      <div class="s10-sub" id="s10-o1-s" style="top:730px">Sus transacciones dejan de entrar en las estadísticas desde ahora</div>
+    </div>
+
+    <!-- 3 · oposición a monitoreo de seguridad: denegada con fundamento -->
+    <div id="s10-opp2" class="clip" data-start="38.5" data-duration="10.5" data-track-index="2">
+      <div class="s10-slip" id="s10-o2-req" style="left:760px; top:140px"><small>valentina · OBJECTION</small><b>SECURITY_MONITORING</b></div>
+      <div class="s10-srv" id="s10-o2-srv" style="top:310px"><div class="name">Evaluación · art. 8 letra a</div><div class="led" id="s10-o2-led"></div><div class="req">DENIED · motivos legítimos imperiosos</div></div>
+      <div class="s10-sub" id="s10-o2-why" style="top:520px; line-height:1.4">“Proteger tu cuenta y a los demás jugadores frente a fraude,<br />y conservar prueba para defensa ante reclamaciones.”</div>
+      <div class="s10-tech" id="s10-o2-k" style="top:675px">Denegada, con fundamento escrito</div>
+      <div class="s10-sub" id="s10-o2-s" style="top:755px; color:#d8c8b0">Mitigación: auditoría seudonimizada, sin correo ni IP</div>
+    </div>
+
+    <!-- 4 · bloqueo temporal: 409 mientras está activo, 201 al levantarlo -->
+    <div id="s10-blk" class="clip" data-start="54.5" data-duration="13.5" data-track-index="2">
+      <div class="s10-line" id="s10-b-t" style="top:96px">Bloqueo temporal · <span class="hl">art. 8 ter</span><small>suspende el tratamiento sin borrar nada</small></div>
+      <div class="s10-slip" id="s10-b-req" style="left:760px; top:236px"><small>mateo · ALTERNATIVE_TO_ERASURE</small><b>BLOCKING · FULFILLED</b></div>
+      <div class="s10-bcard" id="s10-b-1" style="top:370px">
+        <div class="ep">GET /cards?q=Birds</div>
+        <div class="st">La carta de Mateo desaparece del Bazar</div>
+        <div class="code hl">oculta</div>
+      </div>
+      <div class="s10-bcard" id="s10-b-2" style="top:490px; border-color:#ff5a4f">
+        <div class="ep">POST /cards/c8a024d5…/offers</div>
+        <div class="st no">This listing is not available right now</div>
+        <div class="code no">409</div>
+      </div>
+      <div class="s10-bcard" id="s10-b-3" style="top:630px">
+        <div class="ep">DELETE /data-rights/controls/blocking</div>
+        <div class="st">Bloqueo levantado · <span class="mono" style="font-size:24px">LIFTED / HOLDER_WITHDREW</span></div>
+        <div class="code hl">200</div>
+      </div>
+      <div class="s10-bcard" id="s10-b-4" style="top:750px; border-color:#5cd685">
+        <div class="ep">POST /cards/c8a024d5…/offers</div>
+        <div class="st ok">La carta vuelve al Bazar y acepta ofertas</div>
+        <div class="code ok">201</div>
+      </div>
+    </div>
+
+    <!-- 5 · idea final -->
+    <div id="s10-end" class="clip" data-start="79" data-duration="4" data-track-index="2">
+      <div class="s10-line" id="s10-end-t" style="top:360px"><span class="w">Control</span> <span class="w">sin</span> <span class="w hl">borrar</span><small><span class="w">Canal</span> <span class="w">público,</span> <span class="w">oposición</span> <span class="w">fundada</span> <span class="w">y</span> <span class="w">bloqueo</span> <span class="w">real</span></small></div>
+    </div>
+
+    <!-- prueba real: app (retrato) -->
+    <div id="s10-pmon">
+      <div class="crop" data-layout-allow-overflow>
+        <video id="s10-real-a" class="clip" src="assets/media/s10a_formulario_publico.mp4" data-start="16" data-duration="6" data-media-start="5.5" data-track-index="3" muted playsinline></video>
+        <video id="s10-real-e" class="clip" src="assets/media/s10b_oposicion_bloqueo.mp4" data-start="73.5" data-duration="5.5" data-media-start="31.5" data-track-index="3" muted playsinline style="top:-360px"></video>
+      </div>
+      <div class="s10-cap">Grabación real · app local, datos de prueba</div>
+    </div>
+
+    <!-- prueba real: terminal -->
+    <div id="s10-mon">
+      <video id="s10-real-b" class="clip" src="assets/media/s10_oposicion_bloqueo.mp4" data-start="33" data-duration="5.5" data-media-start="31.5" data-track-index="3" muted playsinline></video>
+      <video id="s10-real-c" class="clip" src="assets/media/s10_oposicion_bloqueo.mp4" data-start="49" data-duration="5.5" data-media-start="46.5" data-track-index="3" muted playsinline></video>
+      <video id="s10-real-d" class="clip" src="assets/media/s10_oposicion_bloqueo.mp4" data-start="68" data-duration="5.5" data-media-start="67.5" data-track-index="3" muted playsinline></video>
+      <div class="s10-cap">Grabación real · backend local, datos de prueba</div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      // Inicio de cada tramo (s). Ajustar con la voz de Tomás Rodríguez; los data-start de arriba coinciden.
+      const T = { card: 0.1, pub: 5, monA: 16, opp1: 22, monB: 33, opp2: 38.5, monC: 49, blk: 54.5, monD: 68, monE: 73.5, end: 79 };
+
+      const tl = gsap.timeline({ paused: true });
+      const IN = 'expo.out', MOVE = 'power2.inOut', OUT = 'power3.in';
+      const show = (sel, at, d = 0.25) => tl.fromTo(sel, { opacity: 0 }, { opacity: 1, duration: d }, at);
+      const out = (sel, at) => tl.to(sel, { opacity: 0, filter: 'blur(8px)', duration: 0.3, ease: OUT }, at);
+      const blurIn = (sel, at) => tl.fromTo(sel, { opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.18, ease: 'none' }, at);
+      const slideIn = (sel, at) => tl.fromTo(sel, { opacity: 0, x: -60 }, { opacity: 1, x: 0, duration: 0.7, ease: IN }, at);
+      const mon = (sel, at, until) => {
+        tl.fromTo(sel, { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.5, ease: IN, immediateRender: false }, at - 0.1);
+        tl.to(sel, { opacity: 0, scale: 0.97, duration: 0.3, ease: OUT }, until - 0.35);
+      };
+
+      // carta
+      tl.fromTo('#s10-card', { x: 140, y: -1000, rotationZ: -14, rotationY: 180 }, { x: 0, y: 0, rotationZ: -3, duration: 1.3, ease: IN }, T.card);
+      tl.fromTo('#s10-card', { rotationY: 180 }, { rotationY: 0, duration: 1.1, ease: MOVE, immediateRender: false }, T.card + 1.0);
+      tl.to('#s10-card', { x: -560, y: 40, scale: 0.62, rotationZ: -6, duration: 0.8, ease: MOVE }, T.pub - 0.3);
+
+      // 1 · canal público
+      blurIn('#s10-p-t', T.pub + 0.1);
+      slideIn('#s10-p-a', T.pub + 0.7);
+      tl.fromTo('#s10-p-b', { opacity: 0, x: 60 }, { opacity: 1, x: 0, duration: 0.7, ease: IN }, T.pub + 1.2);
+      show('#s10-p-c1', T.pub + 2.1, 0.25);
+      show('#s10-p-c2', T.pub + 2.3, 0.25);
+      tl.fromTo('#s10-p-msg', { opacity: 0, y: 36 }, { opacity: 1, y: 0, duration: 0.65, ease: IN }, T.pub + 2.7);
+      blurIn('#s10-p-k', T.pub + 4.4);
+      show('#s10-p-s', T.pub + 5.4, 0.3);
+      out('#s10-pub > *', T.monA - 0.45);
+      mon('#s10-pmon', T.monA, T.opp1);
+
+      // 2 · oposición SALES_STATISTICS: 6 -> 5
+      blurIn('#s10-o1-t', T.opp1 + 0.1);
+      slideIn('#s10-o1-req', T.opp1 + 0.9);
+      blurIn('#s10-o1-ok', T.opp1 + 2.1);
+      tl.fromTo('#s10-rep', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.7, ease: IN }, T.opp1 + 2.7);
+      tl.fromTo('#s10-n6', { opacity: 1, y: 0 }, { opacity: 0, y: 20, duration: 0.3, ease: OUT }, T.opp1 + 4.6);
+      tl.fromTo('#s10-n5', { opacity: 0, y: -22 }, { opacity: 1, y: 0, duration: 0.45, ease: 'back.out(1.4)' }, T.opp1 + 4.75);
+      blurIn('#s10-o1-k', T.opp1 + 5.6);
+      show('#s10-o1-s', T.opp1 + 6.4, 0.3);
+      out('#s10-opp1 > *', T.monB - 0.45);
+      mon('#s10-mon', T.monB, T.opp2);
+
+      // 3 · oposición SECURITY_MONITORING: denegada
+      slideIn('#s10-o2-req', T.opp2);
+      tl.fromTo('#s10-o2-srv', { opacity: 0, x: 80 }, { opacity: 1, x: 0, duration: 0.6, ease: IN }, T.opp2 + 0.5);
+      tl.fromTo('#s10-o2-led', { backgroundColor: '#3fbf6a' }, { backgroundColor: '#ff5a4f', duration: 0.2 }, T.opp2 + 1.5);
+      show('#s10-o2-srv .req', T.opp2 + 1.6, 0.25);
+      show('#s10-o2-why', T.opp2 + 2.3, 0.3);
+      blurIn('#s10-o2-k', T.opp2 + 4.4);
+      show('#s10-o2-s', T.opp2 + 5.4, 0.3);
+      out('#s10-opp2 > *', T.monC - 0.45);
+      mon('#s10-mon', T.monC, T.blk);
+
+      // 4 · bloqueo: 409 -> levantar -> 201
+      blurIn('#s10-b-t', T.blk + 0.1);
+      slideIn('#s10-b-req', T.blk + 0.8);
+      slideIn('#s10-b-1', T.blk + 2.1);
+      slideIn('#s10-b-2', T.blk + 3.4);
+      tl.fromTo('#s10-b-2', { x: 0 }, { keyframes: { x: [0, -10, 9, -6, 4, 0] }, duration: 0.4, ease: 'none', immediateRender: false }, T.blk + 4.1);
+      slideIn('#s10-b-3', T.blk + 6.8);
+      slideIn('#s10-b-4', T.blk + 8.3);
+      out('#s10-blk > *', T.monD - 0.45);
+      mon('#s10-mon', T.monD, T.monE);
+      mon('#s10-pmon', T.monE, T.end);
+
+      // 5 · idea final
+      tl.fromTo('#s10-end .w', { opacity: 0, filter: 'blur(6px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.13, stagger: 0.08, ease: 'none' }, T.end + 0.1);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines['s10'] = tl;
+    })();
+  </script>
+</template>
