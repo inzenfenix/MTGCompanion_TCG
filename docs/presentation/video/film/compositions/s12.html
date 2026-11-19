@@ -1,0 +1,170 @@
+<template>
+  <style>
+    @font-face { font-family: 'Cinzel'; src: url('assets/fonts/cinzel-latin.woff2') format('woff2'); font-weight: 400 900; }
+    #root { position: absolute; inset: 0; overflow: hidden; font-family: 'Inter', sans-serif; color: #f2e3cd; }
+    #s12-pano { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; }
+    .hl { color: #d4af37; }
+    .no { color: #ff5a4f; }
+    .mono { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+
+    #s12-hdr { position: absolute; left: 140px; top: 84px; }
+    #s12-hdr .t { font-family: 'Cinzel'; font-weight: 700; font-size: 62px; white-space: nowrap; }
+    #s12-hdr .s { font-size: 30px; color: #d4af37; margin-top: 8px; white-space: nowrap; }
+
+    /* hablante activo */
+    .s12-spk { position: absolute; left: 140px; top: 260px; width: 420px; }
+    .s12-spk .bar { position: absolute; left: 0; top: 0; width: 10px; height: 120px; background: #d4af37; border-radius: 5px; transform-origin: center top; }
+    .s12-spk .n { position: absolute; left: 32px; top: 4px; font-family: 'Cinzel'; font-weight: 700; font-size: 44px; line-height: 1.15; }
+    .s12-spk .r { position: absolute; left: 34px; top: 106px; font-size: 26px; color: #d8c8b0; white-space: nowrap; }
+
+    /* tarjetas de pendientes */
+    .s12-item { position: absolute; left: 620px; width: 1160px; background: #1f1512; border: 3px solid rgba(212,175,55,.65); border-radius: 16px; padding: 22px 30px; box-shadow: 0 16px 34px rgba(0,0,0,.5); }
+    .s12-item.urg { border-color: #ff5a4f; }
+    .s12-item .it { font-family: 'Cinzel'; font-weight: 700; font-size: 36px; display: flex; align-items: center; gap: 18px; }
+    .s12-item .tag { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 22px; padding: 4px 12px; border-radius: 8px; background: #3a1414; border: 2px solid #ff5a4f; color: #ff5a4f; }
+    .s12-item .id { font-size: 28px; margin-top: 10px; color: #e8dac4; line-height: 1.35; }
+
+    /* tesis final */
+    #s12-thesis { position: absolute; left: 620px; top: 530px; width: 1160px; background: #f2e3cd; color: #2a2018; border-radius: 16px; padding: 28px 34px; box-shadow: 0 18px 38px rgba(0,0,0,.55); }
+    #s12-thesis .k { font-family: 'Cinzel'; font-weight: 700; font-size: 40px; color: #8b0000; }
+    #s12-thesis .v { font-size: 30px; margin-top: 10px; font-weight: 600; }
+
+    /* cierre: tres nombres + Gracias */
+    #s12-fin-box { position: absolute; left: 260px; top: 210px; width: 1400px; height: 640px; background: #1f1512; border: 6px solid #d4af37; border-radius: 28px; box-shadow: 0 30px 64px rgba(0,0,0,.6); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; padding: 40px; text-align: center; }
+    #s12-fin-brand { font-family: 'Cinzel'; font-weight: 700; font-size: 76px; color: #d4af37; letter-spacing: .04em; }
+    #s12-fin-sub { font-size: 32px; color: #d8c8b0; }
+    #s12-fin-rule { width: 420px; height: 3px; background: #d4af37; transform-origin: center center; }
+    #s12-fin-names { font-family: 'Cinzel'; font-weight: 700; font-size: 36px; letter-spacing: .02em; }
+    #s12-fin-thx { font-family: 'Cinzel'; font-weight: 700; font-size: 86px; color: #f2e3cd; margin-top: 8px; }
+  </style>
+
+  <div id="root" data-composition-id="s12" data-width="1920" data-height="1080">
+    <img id="s12-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="50" data-track-index="0" alt="" />
+
+    <!-- título persistente mientras hablan los tres -->
+    <div id="s12-hdr" class="clip" data-start="0.2" data-duration="41.6" data-track-index="1">
+      <div class="t">¿Qué nos queda por <span class="hl">mejorar</span>?</div>
+      <div class="s">Pendientes identificados antes de pasar a producción</div>
+    </div>
+
+    <!-- 1 · Vicente Fuentes -->
+    <div id="s12-vic" class="clip" data-start="2.4" data-duration="15.1" data-track-index="2">
+      <div class="s12-spk" id="s12-v-spk">
+        <div class="bar"></div>
+        <div class="n">Vicente<br />Fuentes</div>
+        <div class="r">Infraestructura y BD</div>
+      </div>
+      <div class="s12-item urg" id="s12-v1" style="top:260px">
+        <div class="it">TLS / HTTPS en AWS <span class="tag">MAYOR RIESGO</span></div>
+        <div class="id">Hoy el tráfico hacia el servidor no va cifrado en tránsito</div>
+      </div>
+      <div class="s12-item" id="s12-v2" style="top:460px">
+        <div class="it">Rol de base de datos con mínimo privilegio</div>
+        <div class="id">Conectar en producción el rol restringido (sin permisos de dueño)</div>
+      </div>
+    </div>
+
+    <!-- 2 · Tomás Solano -->
+    <div id="s12-sol" class="clip" data-start="17.5" data-duration="12.5" data-track-index="2">
+      <div class="s12-spk" id="s12-s-spk">
+        <div class="bar"></div>
+        <div class="n">Tomás<br />Solano</div>
+        <div class="r">Red, correo y datos</div>
+      </div>
+      <div class="s12-item" id="s12-s1" style="top:260px">
+        <div class="it">Límite de peticiones en la red</div>
+        <div class="id">Rate limiting perimetral frente a fuerza bruta y raspado</div>
+      </div>
+      <div class="s12-item" id="s12-s2" style="top:440px">
+        <div class="it">Envío real de correos</div>
+        <div class="id">Validar el proveedor SMTP en producción (hoy probado en MailHog)</div>
+      </div>
+      <div class="s12-item" id="s12-s3" style="top:620px">
+        <div class="it">Ubicación solo de quienes venden</div>
+        <div class="id">Minimización adicional: no guardarla para quien solo compra</div>
+      </div>
+    </div>
+
+    <!-- 3 · Tomás Rodríguez -->
+    <div id="s12-rod" class="clip" data-start="30" data-duration="12" data-track-index="2">
+      <div class="s12-spk" id="s12-r-spk">
+        <div class="bar"></div>
+        <div class="n">Tomás<br />Rodríguez</div>
+        <div class="r">Menores y cierre</div>
+      </div>
+      <div class="s12-item" id="s12-r1" style="top:260px">
+        <div class="it">Flujo con representantes para menores</div>
+        <div class="id">Si en el futuro se aceptan menores de edad, exigir autorización legal</div>
+      </div>
+      <div id="s12-thesis">
+        <div class="k">La privacidad se implementa en el código</div>
+        <div class="v">Cada artículo citado en este video tiene una prueba que lo verifica.</div>
+      </div>
+    </div>
+
+    <!-- 4 · placa final -->
+    <div id="s12-fin" class="clip" data-start="42" data-duration="8" data-track-index="2">
+      <div id="s12-fin-box">
+        <div id="s12-fin-brand">MTG Companion</div>
+        <div id="s12-fin-sub">Protección de datos personales · Ley 19.628 (texto Ley 21.719)</div>
+        <div id="s12-fin-rule"></div>
+        <div id="s12-fin-names">Tomás Solano <span class="hl">·</span> Vicente Fuentes <span class="hl">·</span> Tomás Rodríguez</div>
+        <div id="s12-fin-thx">Gracias</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      // Inicio de cada tramo (s). Ajustar con las voces de los tres integrantes; los data-start de arriba coinciden.
+      const T = { hdr: 0.2, vic: 2.4, sol: 17.5, rod: 30, fin: 42 };
+
+      const tl = gsap.timeline({ paused: true });
+      const IN = 'expo.out', OUT = 'power3.in';
+      const show = (sel, at, d = 0.3) => tl.fromTo(sel, { opacity: 0 }, { opacity: 1, duration: d }, at);
+      const out = (sel, at) => tl.to(sel, { opacity: 0, filter: 'blur(8px)', duration: 0.3, ease: OUT }, at);
+      const blurIn = (sel, at) => tl.fromTo(sel, { opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.2, ease: 'none' }, at);
+      const slideIn = (sel, at) => tl.fromTo(sel, { opacity: 0, x: -50 }, { opacity: 1, x: 0, duration: 0.65, ease: IN }, at);
+      const spkIn = (id, at) => {
+        tl.fromTo(`${id} .bar`, { scaleY: 0 }, { scaleY: 1, duration: 0.45, ease: IN }, at);
+        tl.fromTo(`${id} .n`, { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.6, ease: IN }, at + 0.15);
+        show(`${id} .r`, at + 0.45, 0.3);
+      };
+
+      // cabecera
+      blurIn('#s12-hdr .t', T.hdr);
+      show('#s12-hdr .s', T.hdr + 0.45, 0.3);
+      out('#s12-hdr > *', T.fin - 0.55);
+
+      // 1 · Vicente
+      spkIn('#s12-v-spk', T.vic);
+      slideIn('#s12-v1', T.vic + 1.0);
+      slideIn('#s12-v2', T.vic + 6.8);
+      out('#s12-vic > *', T.sol - 0.45);
+
+      // 2 · Tomás Solano
+      spkIn('#s12-s-spk', T.sol);
+      slideIn('#s12-s1', T.sol + 0.8);
+      slideIn('#s12-s2', T.sol + 3.4);
+      slideIn('#s12-s3', T.sol + 6.0);
+      out('#s12-sol > *', T.rod - 0.45);
+
+      // 3 · Tomás Rodríguez
+      spkIn('#s12-r-spk', T.rod);
+      slideIn('#s12-r1', T.rod + 0.8);
+      tl.fromTo('#s12-thesis', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.7, ease: IN }, T.rod + 4.4);
+      out('#s12-rod > *', T.fin - 0.45);
+
+      // 4 · cierre final
+      tl.fromTo('#s12-fin-box', { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.7, ease: IN }, T.fin);
+      blurIn('#s12-fin-brand', T.fin + 0.3);
+      show('#s12-fin-sub', T.fin + 0.7, 0.3);
+      tl.fromTo('#s12-fin-rule', { scaleX: 0 }, { scaleX: 1, duration: 0.5, ease: 'power2.out' }, T.fin + 1.0);
+      blurIn('#s12-fin-names', T.fin + 1.3);
+      tl.fromTo('#s12-fin-thx', { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.6, ease: IN }, T.fin + 2.1);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines['s12'] = tl;
+    })();
+  </script>
+</template>
