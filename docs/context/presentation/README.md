@@ -11,8 +11,8 @@ speakers); this file is the working state for whoever continues the build.
 | Script + recording list | `docs/presentation/video/GUION.md` | done; scene 2 and 5 adjusted to what was recorded |
 | Storylines | `docs/presentation/video/STORYLINES.md` | user picked a **mix**: A (Marta's data is the thread) + B (each control is "played" as an original card) + C (system map as home stage) |
 | Film spec | `docs/presentation/video/film/SPEC.md` | look, motion, banned list |
-| HyperFrames project | `docs/presentation/video/film/` | `index.html` mounts `compositions/s04.html` (0–80 s), `s05.html` (80–133 s), `s06.html` (133–202 s) |
-| Draft render | `film/renders/borrador_s04_s06.mp4` (gitignored) | scenes 4–6, 202 s, checked frame by frame |
+| HyperFrames project | `docs/presentation/video/film/` | `index.html` mounts `compositions/s04.html` (0–80 s), `s05.html` (80–133 s), `s06.html` (133–202 s), `s07.html` (202–273 s) |
+| Draft render | `film/renders/borrador_s04_s06.mp4`, `borrador_s07.mp4` (gitignored) | scenes 4–6 (202 s) and 7 (71 s, `--start 202 --end 273`), checked frame by frame |
 | Real clips | `docs/presentation/video/assets/clips/*.mp4` (gitignored, ~40 MB) | all recorded — list below |
 | Demo tooling | `docs/presentation/video/demo/` | committed; reproduces every clip |
 
@@ -27,7 +27,7 @@ only inside the **evidence monitor** (user's call: "keep the monitor"); the expl
 1. Scenes **0–3** (intro, opening with the three names, the case — animated 4-step scanner + `s02a`/`s02b` + system
    map, Hito 1 flows map). Scene 0–1 must show each member's name; **every member identifies themself at the start
    of their block** (pauta).
-2. Scenes **7–12** (6 done 18 nov): 7 RBAC, 8 consent, 9 rights, 10 public channel + objection +
+2. Scenes **8–12** (7 RBAC done 18 nov): 8 consent, 9 rights, 10 public channel + objection +
    blocking, 11 traceability + incident, 12 closing (each member names one pending item).
 3. Audio: the team records one file per scene (`GUION.md` → "Voces"), then retime each scene from its `T` table and
    add a quiet free music bed + small SFX (`hyperframes` skill → `references/sound.md`).
@@ -47,7 +47,9 @@ only inside the **evidence monitor** (user's call: "keep the monitor"); the expl
 - Values on screen are the **real ones** from the recordings (hashes, `v1:…`, `u_…`, status codes). Never show a
   password, key or full token.
 - Copy each clip a scene uses into `film/assets/media/` (gitignored `*.mp4`).
-- After any edit: `hf check --json` (fix every error), `hf snapshot --at …` and look, then render.
+- After any edit: `hf check --json` (fix every error), `hf snapshot --at …` and look, then render. `check --json`
+  prints progress before the JSON; read the saved report at `film/.hyperframes/artifacts/checks/<newest>.json`.
+  Render one scene with `hf render --quality draft --start <a> --end <b> -o renders/borrador_sNN.mp4`.
 
 ## Environment (this machine)
 
@@ -85,9 +87,9 @@ only inside the **evidence monitor** (user's call: "keep the monitor"); the expl
 > Continue ROADMAP O18 (presentation video). Read `docs/context/presentation/README.md` first, then
 > `docs/presentation/video/GUION.md` and `docs/presentation/video/film/SPEC.md`, and the HyperFrames skill at
 > `~/.claude/plugins/marketplaces/hyperframes/skills/hyperframes/SKILL.md` (+ `references/format.md`,
-> `references/motion.md`). Look at `film/compositions/s04.html` and `s05.html` as the pattern. Build the next
-> scene (scene 7 — Actividad 4 RBAC, Vicente) as `compositions/s07.html` following the conventions in the README
-> (card, `T` table, evidence monitor with `assets/clips/s07_rbac.mp4`, real values only — 403 on someone else's
-> purchase, support needs a reason and is audited, masked emails, admin can't change own role), mount it after s06
-> (start 202) in `index.html`, run `hf check --json`, snapshot, render a draft, commit and push. Keep
-> going scene by scene (8, 9, 10, 11, 12, then 0–3) and update this README's "Still to build" as you go.
+> `references/motion.md`). Look at `film/compositions/s06.html` and `s07.html` as the pattern. Build the next
+> scene (scene 8 — Actividad 5 consentimiento, Vicente) as `compositions/s08.html` following the conventions in the
+> README (card, `T` table, evidence monitor with `assets/clips/s08_consentimiento.mp4` + `s08b_bd.mp4`, real values
+> only — three purposes with text and version, revoke location, history, `lastLat`/`lastLng` → NULL, 403 on resend),
+> mount it after s07 (start 273) in `index.html`, run `hf check --json`, snapshot, render a draft (`--start 273`),
+> commit and push. Keep going scene by scene (9, 10, 11, 12, then 0–3) and update this README's "Still to build".

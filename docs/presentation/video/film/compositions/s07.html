@@ -1,0 +1,243 @@
+<template>
+  <style>
+    @font-face { font-family: 'Cinzel'; src: url('assets/fonts/cinzel-latin.woff2') format('woff2'); font-weight: 400 900; }
+    #root { position: absolute; inset: 0; overflow: hidden; font-family: 'Inter', sans-serif; color: #f2e3cd; }
+    #s07-pano { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; }
+    .hl { color: #d4af37; }
+    .no { color: #ff5a4f; }
+    .mono { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+
+    #s07-stage { position: absolute; inset: 0; perspective: 1600px; }
+    #s07-card { position: absolute; left: 680px; top: 148px; width: 560px; height: 784px; transform-style: preserve-3d; }
+    .s07-face { position: absolute; inset: 0; border-radius: 26px; backface-visibility: hidden; box-shadow: 0 24px 48px rgba(0,0,0,.55); }
+    .s07-front { background: #1f1512; border: 6px solid #d4af37; padding: 26px 28px; display: flex; flex-direction: column; gap: 16px; }
+    .s07-back { background: #5a0d12; border: 6px solid #d4af37; transform: rotateY(180deg); display: flex; align-items: center; justify-content: center; }
+    .s07-back span { font-family: 'Cinzel'; font-weight: 700; font-size: 44px; color: #d4af37; border: 2px solid #d4af37; border-radius: 18px; padding: 40px 30px; text-align: center; line-height: 1.25; }
+    .s07-title { font-family: 'Cinzel'; font-weight: 700; font-size: 38px; border-bottom: 2px solid rgba(212,175,55,.6); padding-bottom: 12px; }
+    .s07-cost { align-self: flex-start; font-family: 'Cinzel'; font-weight: 700; font-size: 22px; color: #1f1512; background: #d4af37; border-radius: 8px; padding: 6px 14px; }
+    .s07-art { flex: 1; border: 2px solid rgba(212,175,55,.45); border-radius: 14px; background: #2a1b16; display: flex; align-items: center; justify-content: center; }
+    .s07-type { font-family: 'Cinzel'; font-size: 22px; color: #d4af37; }
+    .s07-text { font-size: 25px; line-height: 1.35; }
+
+    .s07-line { position: absolute; left: 760px; font-family: 'Cinzel'; font-weight: 700; font-size: 58px; white-space: nowrap; }
+    .s07-line small { display: block; font-family: 'Inter'; font-weight: 400; font-size: 34px; margin-top: 8px; }
+    .s07-slip { position: absolute; background: #f2e3cd; color: #2a2018; border-radius: 10px; padding: 16px 24px; box-shadow: 0 10px 24px rgba(0,0,0,.45); white-space: nowrap; }
+    .s07-slip small { display: block; font-family: 'Cinzel'; font-weight: 700; font-size: 22px; letter-spacing: .08em; color: #8b0000; }
+    .s07-slip b { font-family: 'JetBrains Mono', monospace; font-size: 36px; }
+    .s07-lab { position: absolute; font-size: 30px; white-space: nowrap; }
+    .s07-tech { position: absolute; left: 760px; font-family: 'Cinzel'; font-weight: 700; font-size: 54px; color: #d4af37; white-space: nowrap; }
+    .s07-sub { position: absolute; left: 760px; font-size: 32px; white-space: nowrap; }
+
+    /* matriz de permisos */
+    #s07-mx { position: absolute; left: 760px; top: 140px; width: 1080px; background: #f2e3cd; color: #2a2018; border-radius: 12px; padding: 14px 24px; box-shadow: 0 14px 30px rgba(0,0,0,.5); }
+    .s07-mr { display: grid; grid-template-columns: 360px 224px 224px 224px; align-items: center; font-size: 25px; padding: 13px 0; border-bottom: 2px solid rgba(42,32,24,.15); white-space: nowrap; }
+    .s07-mr:last-child { border-bottom: none; }
+    .s07-mr.h { font-family: 'Cinzel'; font-weight: 700; font-size: 26px; color: #8b0000; }
+    .s07-mr .d { color: #9a8a74; }
+    .s07-mr .y { font-weight: 700; color: #2a2018; }
+    .s07-mr .r { font-weight: 700; color: #b3261e; }
+    #s07-spec { left: 760px; top: 630px; }
+
+    /* hallazgo: rutas sin sesión */
+    .s07-route { position: absolute; left: 760px; width: 1080px; height: 76px; }
+    .s07-route .p { position: absolute; left: 0; top: 14px; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 36px; }
+    .s07-route .was { position: absolute; left: 720px; top: 16px; font-size: 32px; font-weight: 700; color: #ff5a4f; }
+    .s07-route .strike { position: absolute; left: 714px; top: 38px; width: 256px; height: 4px; background: #ff5a4f; transform-origin: left center; }
+    .s07-route .now { position: absolute; left: 1000px; top: 16px; font-size: 32px; font-weight: 700; color: #d4af37; }
+
+    /* plato del servidor */
+    .s07-srv { position: absolute; left: 760px; width: 1080px; height: 150px; background: #241815; border: 3px solid #6b5a3a; border-radius: 16px; box-shadow: 0 14px 30px rgba(0,0,0,.5); }
+    .s07-srv .name { position: absolute; left: 30px; top: 22px; font-family: 'Cinzel'; font-weight: 700; font-size: 30px; }
+    .s07-srv .led { position: absolute; right: 34px; top: 26px; width: 30px; height: 30px; border-radius: 50%; background: #3fbf6a; }
+    .s07-srv .req { position: absolute; left: 30px; top: 80px; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 32px; color: #ff5a4f; }
+
+    /* fila de auditoría */
+    #s07-ledger { position: absolute; left: 760px; top: 560px; width: 1080px; background: #f2e3cd; color: #2a2018; border-radius: 12px; padding: 14px 24px; box-shadow: 0 14px 30px rgba(0,0,0,.5); }
+    .s07-row { display: grid; grid-template-columns: 62px 128px 354px 360px 124px; font-size: 24px; padding: 9px 0; white-space: nowrap; }
+    .s07-row.h { font-family: 'Cinzel'; font-weight: 700; font-size: 21px; color: #8b0000; border-bottom: 2px solid rgba(42,32,24,.15); }
+
+    #s07-mon { position: absolute; left: 600px; top: 120px; width: 1240px; height: 760px; background: #120e0a; border: 6px solid #d4af37; border-radius: 22px; box-shadow: 0 30px 60px rgba(0,0,0,.6); overflow: hidden; opacity: 0; }
+    #s07-mon video { position: absolute; left: 0; top: 0; width: 1228px; height: 691px; object-fit: cover; }
+    #s07-mon .cap { position: absolute; left: 0; right: 0; bottom: 0; height: 57px; background: #1f1512; font-family: 'Cinzel'; font-weight: 700; font-size: 26px; color: #d4af37; padding: 12px 28px; }
+  </style>
+
+  <div id="root" data-composition-id="s07" data-width="1920" data-height="1080">
+    <img id="s07-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="71" data-track-index="0" alt="" />
+
+    <div id="s07-card-clip" class="clip" data-start="0" data-duration="71" data-track-index="1">
+      <div id="s07-stage"><div id="s07-card">
+        <div class="s07-face s07-front">
+          <div class="s07-title">Control de acceso por roles</div>
+          <div class="s07-cost">Ley 19.628 · art. 14 quinquies · seguridad</div>
+          <div class="s07-art">
+            <svg width="260" height="220" viewBox="0 0 260 220" aria-hidden="true">
+              <path d="M130 14 L228 50 C228 130 190 182 130 206 C70 182 32 130 32 50 Z" fill="#3a1414" stroke="#d4af37" stroke-width="7"/>
+              <rect x="80" y="72" width="44" height="14" rx="7" fill="#f2e3cd"/>
+              <rect x="80" y="104" width="76" height="14" rx="7" fill="#f2e3cd"/>
+              <rect x="80" y="136" width="104" height="14" rx="7" fill="#d4af37"/>
+            </svg>
+          </div>
+          <div class="s07-type">Control · Actividad 4</div>
+          <div class="s07-text">Cada rol, solo lo que su tarea necesita. Lo demás se deniega y queda registrado.</div>
+        </div>
+        <div class="s07-face s07-back"><span>MTG<br />Companion</span></div>
+      </div></div>
+    </div>
+
+    <!-- 1 · matriz de permisos (ACTIVIDAD_4.md §3.2) -->
+    <div id="s07-mat" class="clip" data-start="4.6" data-duration="12.8" data-track-index="2">
+      <div id="s07-mx">
+        <div class="s07-mr h"><span>Acción</span><span>USER</span><span>SUPPORT</span><span>ADMIN</span></div>
+        <div class="s07-mr" id="s07-m1"><span>Leer una compra ajena</span><span class="r">403</span><span class="y">con motivo</span><span class="y">con motivo</span></div>
+        <div class="s07-mr" id="s07-m2"><span>Listar cuentas</span><span class="d">denegado</span><span class="y">correo ***</span><span class="y">correo ***</span></div>
+        <div class="s07-mr" id="s07-m3"><span>Cambiar roles</span><span class="d">denegado</span><span class="d">denegado</span><span class="y">salvo el propio</span></div>
+        <div class="s07-mr" id="s07-m4"><span>Leer la auditoría</span><span class="d">denegado</span><span class="d">denegado</span><span class="y">seudonimizada</span></div>
+        <div class="s07-mr" id="s07-m5"><span>Ubicación o 2FA de otro</span><span class="d">denegado</span><span class="d">denegado</span><span class="d">denegado</span></div>
+      </div>
+      <div class="s07-slip" id="s07-spec"><small>La matriz es una prueba automática</small><b>permissions.spec.ts</b></div>
+      <div class="s07-lab" id="s07-spec-l" style="left:1340px; top:662px">ampliar un rol sin la matriz → <span class="no">falla</span></div>
+    </div>
+
+    <!-- 2 · hallazgo: tres rutas sin sesión -->
+    <div id="s07-gap" class="clip" data-start="17.4" data-duration="11.6" data-track-index="2">
+      <div class="s07-line" id="s07-g-t" style="top:140px">Hallazgo en el código</div>
+      <div class="s07-route" id="s07-g1" style="top:290px"><span class="p">GET /transactions</span><span class="was">sin sesión · 200</span><span class="strike"></span><span class="now">401</span></div>
+      <div class="s07-route" id="s07-g2" style="top:376px"><span class="p">GET /transactions/:id</span><span class="was">sin sesión · 200</span><span class="strike"></span><span class="now">401</span></div>
+      <div class="s07-route" id="s07-g3" style="top:462px"><span class="p">GET …/:id/receipt</span><span class="was">sin sesión · 200</span><span class="strike"></span><span class="now">401</span></div>
+      <div class="s07-sub" id="s07-g-s" style="top:600px">Cualquiera con un id veía quién compró qué, y por cuánto</div>
+      <div class="s07-tech" id="s07-g-fix" style="top:680px">Corregido</div>
+    </div>
+
+    <!-- 3 · un usuario pide una compra ajena -->
+    <div id="s07-deny" class="clip" data-start="29" data-duration="4.4" data-track-index="2">
+      <div class="s07-slip" id="s07-d-req" style="left:760px; top:180px"><small>USER · marta · compra de otros dos</small><b>GET /transactions/4562241b…</b></div>
+      <div class="s07-srv" id="s07-d-srv" style="top:400px"><div class="name">API · NestJS</div><div class="led" id="s07-d-led"></div><div class="req">403 · Not a party to this transaction</div></div>
+      <div class="s07-tech" id="s07-d-t" style="top:640px">Solo comprador y vendedor</div>
+    </div>
+
+    <!-- 4 · soporte: motivo obligatorio y auditado -->
+    <div id="s07-sup" class="clip" data-start="39" data-duration="9.4" data-track-index="2">
+      <div class="s07-slip" id="s07-s-a" style="left:760px; top:130px"><small>SUPPORT · sin motivo</small><b>GET /admin/users/5d791f51…/transactions</b></div>
+      <div class="s07-lab no" id="s07-s-a-r" style="left:760px; top:250px; font-weight:700">400 · reason must be longer than or equal to 10 characters</div>
+      <div class="s07-slip" id="s07-s-b" style="left:760px; top:320px"><small>SUPPORT · con motivo</small><b id="s07-s-why">?reason=Disputa 412: carta no recibida</b></div>
+      <div class="s07-lab hl" id="s07-s-b-r" style="left:760px; top:440px; font-weight:700">200 · amount 7 · PAID · CASH</div>
+      <div id="s07-ledger">
+        <div class="s07-row h"><span>seq</span><span>rol</span><span>acción</span><span>motivo</span><span>resultado</span></div>
+        <div class="s07-row" id="s07-s-row"><span>68</span><span>SUPPORT</span><span class="mono" style="font-size:21px">support.transactions.read</span><span>Disputa 412: carta no recibida</span><span style="color:#2f7a43; font-weight:700">ALLOWED</span></div>
+      </div>
+      <div class="s07-sub" id="s07-s-note" style="top:740px">La consulta queda en la auditoría, con su motivo</div>
+    </div>
+
+    <!-- 5 · administrador: correos enmascarados, no cambia su propio rol -->
+    <div id="s07-adm" class="clip" data-start="54.4" data-duration="7" data-track-index="2">
+      <div class="s07-slip" id="s07-e1" style="left:760px; top:130px"><small>Eva · USER</small><b>e***@e***.com</b></div>
+      <div class="s07-slip" id="s07-e2" style="left:760px; top:250px"><small>Sofía · USER</small><b>s***@e***.com</b></div>
+      <div class="s07-slip" id="s07-e3" style="left:760px; top:370px"><small>Bruno · USER</small><b>b***@e***.com</b></div>
+      <div class="s07-slip" id="s07-e4" style="left:760px; top:490px"><small>Dani · USER</small><b>d***@e***.com</b></div>
+      <div class="s07-slip" id="s07-p-req" style="left:1240px; top:130px"><small>ADMIN · su propio rol</small><b>PATCH …/8a41495e…/role</b></div>
+      <div class="s07-lab" id="s07-p-body" style="left:1264px; top:250px; font-family:'JetBrains Mono', monospace; font-weight:700">{"role":"USER"}</div>
+      <div class="s07-lab no" id="s07-p-res" style="left:1240px; top:330px; font-weight:700">400 · You cannot change your own role</div>
+      <div class="s07-lab" id="s07-p-sub" style="left:1240px; top:384px; font-size:28px">hace falta un segundo administrador</div>
+      <div class="s07-sub" id="s07-a-note" style="top:660px">Al listar cuentas, el correo nunca sale completo</div>
+    </div>
+
+    <!-- 6 · idea final -->
+    <div id="s07-end" class="clip" data-start="67.4" data-duration="3.6" data-track-index="2">
+      <div class="s07-line" id="s07-end-t" style="top:360px"><span class="w">Mínimo</span> <span class="w hl">privilegio</span><small><span class="w">Lo</span> <span class="w">demás</span> <span class="w">se</span> <span class="w">deniega</span> <span class="w">y</span> <span class="w">queda</span> <span class="w">registrado</span></small></div>
+    </div>
+
+    <!-- prueba real -->
+    <div id="s07-mon">
+      <video id="s07-real-a" class="clip" src="assets/media/s07_rbac.mp4" data-start="33.4" data-duration="5.6" data-media-start="2.6" data-track-index="3" muted playsinline></video>
+      <video id="s07-real-b" class="clip" src="assets/media/s07_rbac.mp4" data-start="48.4" data-duration="6" data-media-start="19.6" data-track-index="3" muted playsinline></video>
+      <video id="s07-real-c" class="clip" src="assets/media/s07_rbac.mp4" data-start="61.4" data-duration="6" data-media-start="32.6" data-track-index="3" muted playsinline></video>
+      <div class="cap">Grabación real · backend local, datos de prueba</div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      // Inicio de cada tramo (s). Ajustar con la voz de Vicente; los data-start de arriba coinciden.
+      const T = { card: 0.1, mat: 4.6, gap: 17.4, deny: 29, monA: 33.4, sup: 39, monB: 48.4, adm: 54.4, monC: 61.4, end: 67.4 };
+
+      // caracteres del motivo, uno por span, antes de registrar el timeline
+      const why = [];
+      const el = document.getElementById('s07-s-why');
+      const txt = el.textContent; el.textContent = '';
+      for (const c of txt) { const s = document.createElement('span'); s.textContent = c; el.appendChild(s); why.push(s); }
+      const whyChars = why.slice(8); // "?reason=" queda fijo; se escribe el motivo
+
+      const tl = gsap.timeline({ paused: true });
+      const IN = 'expo.out', MOVE = 'power2.inOut', OUT = 'power3.in';
+      const show = (sel, at, d = 0.25) => tl.fromTo(sel, { opacity: 0 }, { opacity: 1, duration: d }, at);
+      const out = (sel, at) => tl.to(sel, { opacity: 0, filter: 'blur(8px)', duration: 0.3, ease: OUT }, at);
+      const blurIn = (sel, at) => tl.fromTo(sel, { opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.18, ease: 'none' }, at);
+      const slideIn = (sel, at) => tl.fromTo(sel, { opacity: 0, x: -60 }, { opacity: 1, x: 0, duration: 0.7, ease: IN }, at);
+      const mon = (at, until) => {
+        tl.fromTo('#s07-mon', { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.5, ease: IN, immediateRender: false }, at - 0.1);
+        tl.to('#s07-mon', { opacity: 0, scale: 0.97, duration: 0.3, ease: OUT }, until - 0.35);
+      };
+
+      // carta
+      tl.fromTo('#s07-card', { x: 140, y: -1000, rotationZ: -14, rotationY: 180 }, { x: 0, y: 0, rotationZ: -3, duration: 1.3, ease: IN }, T.card);
+      tl.fromTo('#s07-card', { rotationY: 180 }, { rotationY: 0, duration: 1.1, ease: MOVE, immediateRender: false }, T.card + 1.0);
+      tl.to('#s07-card', { x: -560, y: 40, scale: 0.62, rotationZ: -6, duration: 0.8, ease: MOVE }, T.mat - 0.3);
+
+      // matriz: la hoja llega, las filas se escriben, la prueba la sella
+      tl.fromTo('#s07-mx', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.7, ease: IN }, T.mat + 0.3);
+      ['#s07-m1', '#s07-m2', '#s07-m3', '#s07-m4', '#s07-m5'].forEach((s, i) => show(s, T.mat + 1.4 + i * 0.9, 0.3));
+      tl.fromTo('#s07-spec', { opacity: 0, y: -50, scale: 1.08 }, { opacity: 1, y: 0, scale: 1, duration: 0.6, ease: 'back.out(1.3)' }, T.mat + 7.0);
+      blurIn('#s07-spec-l', T.mat + 8.4);
+      out('#s07-mat > *', T.gap - 0.4);
+
+      // hallazgo: 200 sin sesión → tachado → 401
+      blurIn('#s07-g-t', T.gap + 0.1);
+      ['#s07-g1', '#s07-g2', '#s07-g3'].forEach((s, i) => {
+        slideIn(s, T.gap + 1.0 + i * 0.25);
+        tl.fromTo(`${s} .strike`, { scaleX: 0 }, { scaleX: 1, duration: 0.3, ease: 'power2.out' }, T.gap + 7.2 + i * 0.2);
+        tl.to(`${s} .was`, { color: '#8a6a5a', duration: 0.3 }, T.gap + 7.3 + i * 0.2);
+        tl.fromTo(`${s} .now`, { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.5, ease: IN }, T.gap + 7.5 + i * 0.2);
+      });
+      show('#s07-g-s', T.gap + 3.4, 0.3);
+      blurIn('#s07-g-fix', T.gap + 8.6);
+      out('#s07-gap > *', T.deny - 0.4);
+
+      // compra ajena: la petición choca con el servidor y la luz se pone roja
+      slideIn('#s07-d-req', T.deny);
+      tl.fromTo('#s07-d-srv', { opacity: 0, x: 80 }, { opacity: 1, x: 0, duration: 0.6, ease: IN }, T.deny + 0.4);
+      tl.fromTo('#s07-d-led', { backgroundColor: '#3fbf6a' }, { backgroundColor: '#ff5a4f', duration: 0.2 }, T.deny + 1.3);
+      show('#s07-d-srv .req', T.deny + 1.4, 0.2);
+      blurIn('#s07-d-t', T.deny + 2.2);
+      out('#s07-deny > *', T.monA - 0.45);
+      mon(T.monA, T.sup);
+
+      // soporte: sin motivo → 400; con motivo → 200 y fila en la auditoría
+      slideIn('#s07-s-a', T.sup);
+      show('#s07-s-a-r', T.sup + 1.0, 0.2);
+      tl.fromTo('#s07-s-b', { opacity: 0, x: -60 }, { opacity: 1, x: 0, duration: 0.7, ease: IN }, T.sup + 2.4);
+      tl.fromTo(whyChars, { opacity: 0 }, { opacity: 1, duration: 0.01, stagger: 0.022, ease: 'none' }, T.sup + 2.9);
+      show('#s07-s-b-r', T.sup + 4.0, 0.2);
+      tl.fromTo('#s07-ledger', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.7, ease: IN }, T.sup + 5.0);
+      show('#s07-s-row', T.sup + 5.7, 0.3);
+      blurIn('#s07-s-note', T.sup + 6.6);
+      out('#s07-sup > *', T.monB - 0.45);
+      mon(T.monB, T.adm);
+
+      // administrador
+      ['#s07-e1', '#s07-e2', '#s07-e3', '#s07-e4'].forEach((s, i) => slideIn(s, T.adm + i * 0.08));
+      tl.fromTo('#s07-p-req', { opacity: 0, x: 60 }, { opacity: 1, x: 0, duration: 0.7, ease: IN }, T.adm + 2.2);
+      show('#s07-p-body', T.adm + 2.6, 0.2);
+      show('#s07-p-res', T.adm + 3.4, 0.2);
+      show('#s07-p-sub', T.adm + 3.9, 0.3);
+      blurIn('#s07-a-note', T.adm + 4.0);
+      out('#s07-adm > *', T.monC - 0.45);
+      mon(T.monC, T.end);
+
+      // idea final
+      tl.fromTo('#s07-end .w', { opacity: 0, filter: 'blur(6px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.13, stagger: 0.08, ease: 'none' }, T.end + 0.1);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines['s07'] = tl;
+    })();
+  </script>
+</template>
