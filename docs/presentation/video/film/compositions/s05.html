@@ -55,17 +55,20 @@
   </style>
 
   <div id="root" data-composition-id="s05" data-width="1920" data-height="1080">
-    <img id="s05-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="53" data-track-index="0" alt="" />
+    <!-- voz (retime.py) -->
+    <audio id="s05-voz-1" class="clip" src="assets/audio/s05_fuentes.wav" data-start="0.45" data-duration="39.50" data-media-start="0.00" data-track-index="6" data-volume="0.75"></audio>
+    <audio id="s05-voz-2" class="clip" src="assets/audio/s05_fuentes.wav" data-start="40.34" data-duration="9.90" data-media-start="39.50" data-track-index="6" data-volume="0.75"></audio>
+    <img id="s05-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="55.64" data-track-index="0" alt="" />
 
     <!-- 0 · Vicente se identifica -->
-    <div id="s05-name" class="clip" data-start="0" data-duration="5.2" data-track-index="2">
+    <div id="s05-name" class="clip" data-start="0" data-duration="4" data-track-index="2">
       <div class="bar"></div>
       <div class="n">Vicente Fuentes</div>
       <div class="r">Actividad 4 · base de datos y control de acceso</div>
     </div>
 
     <!-- la carta: proporcionalidad -->
-    <div id="s05-card-clip" class="clip" data-start="5" data-duration="48" data-track-index="1">
+    <div id="s05-card-clip" class="clip" data-start="3.8" data-duration="51.84" data-track-index="1">
       <div id="s05-stage">
         <div id="s05-card">
           <div class="s05-face s05-front">
@@ -88,14 +91,14 @@
     </div>
 
     <!-- 1 · las tres medidas -->
-    <div id="s05-rules" class="clip" data-start="9.6" data-duration="6.8" data-track-index="2">
+    <div id="s05-rules" class="clip" data-start="7.27" data-duration="9.34" data-track-index="2">
       <div class="s05-rule" id="s05-r1" style="top:290px">Solo los <span class="hl">datos</span> necesarios</div>
       <div class="s05-rule" id="s05-r2" style="top:420px">con la <span class="hl">precisión</span> necesaria</div>
       <div class="s05-rule" id="s05-r3" style="top:550px">por el <span class="hl">tiempo</span> necesario</div>
     </div>
 
     <!-- 2 · el registro: 4 campos y nada más -->
-    <div id="s05-reg" class="clip" data-start="16.4" data-duration="10.6" data-track-index="2">
+    <div id="s05-reg" class="clip" data-start="16.61" data-duration="13.38" data-track-index="2">
       <div id="s05-form">
         <h3>Crear cuenta</h3>
         <div class="s05-f" id="s05-f1"><b>✓</b>Correo</div>
@@ -111,7 +114,7 @@
     </div>
 
     <!-- 3 · la ubicación: ~1 km y 30 días -->
-    <div id="s05-loc" class="clip" data-start="27" data-duration="10.2" data-track-index="2">
+    <div id="s05-loc" class="clip" data-start="29.99" data-duration="10.2" data-track-index="2">
       <svg id="s05-map" width="600" height="600" viewBox="0 0 600 600" aria-hidden="true">
         <rect x="0" y="0" width="600" height="600" rx="24" fill="#2a1b16" stroke="#d4af37" stroke-width="5"/>
         <g stroke="#6b5a3a" stroke-width="3">
@@ -131,12 +134,12 @@
 
     <!-- 4 · prueba real -->
     <div id="s05-mon">
-      <video id="s05-real" class="clip" src="assets/media/s05_minimizacion.mp4" data-start="37.4" data-duration="11.6" data-media-start="9.4" data-track-index="3" muted playsinline></video>
+      <video id="s05-real" class="clip" src="assets/media/s05_minimizacion.mp4" data-start="40.04" data-duration="11.6" data-media-start="9.4" data-track-index="3" muted playsinline></video>
       <div class="cap">Grabación real · backend local, datos de prueba</div>
     </div>
 
     <!-- 5 · la idea -->
-    <div id="s05-end" class="clip" data-start="49" data-duration="4" data-track-index="2">
+    <div id="s05-end" class="clip" data-start="51.64" data-duration="4" data-track-index="2">
       <span class="w">Lo</span><span class="w">que</span><span class="w">no</span><span class="w">se</span><span class="w">pide,</span><span class="w">no</span><span class="w">se</span><span class="w">puede</span><span class="w hl">filtrar</span>
     </div>
   </div>
@@ -144,7 +147,7 @@
   <script>
     (function () {
       // Inicio de cada tramo (s). Ajustar aquí con la voz de Vicente; los data-start de arriba coinciden.
-      const T = { name: 0.2, card: 5.0, rules: 9.6, reg: 16.4, loc: 27, mon: 37.4, end: 49 };
+      const T = { name: 0.2, card: 3.8, rules: 7.27, reg: 16.61, loc: 29.99, mon: 40.04, end: 51.64 };
       const tl = gsap.timeline({ paused: true });
       const IN = 'expo.out', MOVE = 'power2.inOut', OUT = 'power3.in';
       const show = (sel, at, d = 0.25) => tl.fromTo(sel, { opacity: 0 }, { opacity: 1, duration: d }, at);

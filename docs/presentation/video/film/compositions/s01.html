@@ -32,10 +32,12 @@
   </style>
 
   <div id="root" data-composition-id="s01" data-width="1920" data-height="1080">
-    <img id="s01-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="37" data-track-index="0" alt="" />
+    <!-- voz (retime.py) -->
+    <audio id="s01-voz-1" class="clip" src="assets/audio/s01_solano.wav" data-start="0.47" data-duration="34.00" data-media-start="0.00" data-track-index="6" data-volume="0.75"></audio>
+    <img id="s01-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="35.67" data-track-index="0" alt="" />
 
     <!-- 1 · presentación del grupo y los tres nombres -->
-    <div id="s01-team" class="clip" data-start="0.2" data-duration="11.3" data-track-index="1">
+    <div id="s01-team" class="clip" data-start="0.2" data-duration="11.7" data-track-index="1">
       <div id="s01-head">
         <div class="bar"></div>
         <div class="t">Grupo <span class="hl">MTG Companion</span></div>
@@ -56,7 +58,7 @@
     </div>
 
     <!-- 2 · estructura de cada actividad -->
-    <div id="s01-method" class="clip" data-start="11.5" data-duration="11.5" data-track-index="1">
+    <div id="s01-method" class="clip" data-start="11.9" data-duration="9.7" data-track-index="1">
       <div class="s01-t2" id="s01-mt">En cada actividad mostramos <span class="hl">tres cosas</span></div>
       <div class="s01-step" id="s01-st1" style="top:250px">
         <div class="num">1</div>
@@ -73,7 +75,7 @@
     </div>
 
     <!-- 3 · índice por integrante -->
-    <div id="s01-plan" class="clip" data-start="23" data-duration="14" data-track-index="1">
+    <div id="s01-plan" class="clip" data-start="21.6" data-duration="14.07" data-track-index="1">
       <div class="s01-t2" id="s01-pt">Recorrido del video</div>
       <div class="s01-blk" id="s01-b1" style="top:240px">
         <div class="who">1 · Tomás Solano</div>
@@ -101,7 +103,7 @@
   <script>
     (function () {
       // Inicio de cada tramo (s). Ajustar con la voz de Tomás Solano; los data-start de arriba coinciden.
-      const T = { team: 0.2, method: 11.5, plan: 23 };
+      const T = { team: 0.2, method: 11.9, plan: 21.6 };
 
       const tl = gsap.timeline({ paused: true });
       const IN = 'expo.out', OUT = 'power3.in';

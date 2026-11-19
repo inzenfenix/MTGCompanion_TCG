@@ -67,9 +67,13 @@
   </style>
 
   <div id="root" data-composition-id="s11" data-width="1920" data-height="1080">
-    <img id="s11-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="96" data-track-index="0" alt="" />
+    <!-- voz (retime.py) -->
+    <audio id="s11-voz-1" class="clip" src="assets/audio/s11_rodriguez.wav" data-start="0.44" data-duration="30.14" data-media-start="0.00" data-track-index="6" data-volume="0.75"></audio>
+    <audio id="s11-voz-2" class="clip" src="assets/audio/s11_rodriguez.wav" data-start="35.46" data-duration="24.28" data-media-start="30.14" data-track-index="6" data-volume="0.75"></audio>
+    <audio id="s11-voz-3" class="clip" src="assets/audio/s11_rodriguez.wav" data-start="70.28" data-duration="10.13" data-media-start="54.42" data-track-index="6" data-volume="0.75"></audio>
+    <img id="s11-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="101.36" data-track-index="0" alt="" />
 
-    <div id="s11-card-clip" class="clip" data-start="0" data-duration="96" data-track-index="1">
+    <div id="s11-card-clip" class="clip" data-start="0" data-duration="101.36" data-track-index="1">
       <div id="s11-stage"><div id="s11-card">
         <div class="s11-face s11-front">
           <div class="s11-title">Trazabilidad e incidentes</div>
@@ -91,7 +95,7 @@
     </div>
 
     <!-- 1 · auditoría de solo agregar + cadena HMAC que se rompe en seq 238 -->
-    <div id="s11-chain" class="clip" data-start="5" data-duration="13" data-track-index="2">
+    <div id="s11-chain" class="clip" data-start="13.3" data-duration="17.11" data-track-index="2">
       <div class="s11-line" id="s11-c-t" style="top:104px">Registro de auditoría · <span class="hl">48 eventos</span><small>solo agregar · lecturas incluidas · seudónimos, sin contenidos</small></div>
       <div class="s11-blk" id="s11-b1" style="left:760px"><div class="sq">SEQ 236</div><div class="ac">auth.login</div><div class="ou">ALLOWED</div></div>
       <div class="s11-lnk" id="s11-l1" style="left:990px"></div>
@@ -106,7 +110,7 @@
     </div>
 
     <!-- 2 · alertas pensadas para MTG Companion -->
-    <div id="s11-rules" class="clip" data-start="24" data-duration="10" data-track-index="2">
+    <div id="s11-rules" class="clip" data-start="35.21" data-duration="10.77" data-track-index="2">
       <div class="s11-line" id="s11-r-t" style="top:100px">Alertas propias del sistema<small>11 reglas automáticas sobre el registro de auditoría</small></div>
       <div class="s11-rule" id="s11-r1" style="top:250px">
         <div class="rn">bazaar.location.triangulation</div>
@@ -131,7 +135,7 @@
     </div>
 
     <!-- 3 · incidente simulado: cuenta de Marta -->
-    <div id="s11-atk" class="clip" data-start="34" data-duration="12" data-track-index="2">
+    <div id="s11-atk" class="clip" data-start="45.983" data-duration="13.65" data-track-index="2">
       <div class="s11-line" id="s11-a-t" style="top:96px">Incidente simulado · <span class="hl">cuenta de Marta</span><small>contraseña filtrada en otro sitio → detección y contención automática</small></div>
       <div class="s11-step" id="s11-st1" style="top:240px"><span class="idx">[1] Entrar</span><span>dos claves malas, luego la filtrada</span><span class="st">401 · 201</span></div>
       <div class="s11-step" id="s11-st2" style="top:330px"><span class="idx">[2] Mirar</span><span>lee sus ventas y la venta a Pedro</span><span class="st">200</span></div>
@@ -142,7 +146,7 @@
     </div>
 
     <!-- 4 · reconstrucción desde el registro, sin la API -->
-    <div id="s11-rec" class="clip" data-start="59" data-duration="10" data-track-index="2">
+    <div id="s11-rec" class="clip" data-start="70.033" data-duration="10.08" data-track-index="2">
       <div class="s11-line" id="s11-rc-t" style="top:98px">Reconstrucción · <span class="hl">sin la API</span><small>npm run incident:timeline -- --alert 0c7ae2f9…</small></div>
       <div id="s11-rec-box">
         <div class="s11-rline" id="s11-rl1"><span class="k">Cadena de integridad</span><span class="v" style="color:#2f7a43">OK (245 filas, seq 1–245)</span></div>
@@ -156,7 +160,7 @@
     </div>
 
     <!-- 5 · plan de respuesta a incidentes -->
-    <div id="s11-plan" class="clip" data-start="75.5" data-duration="15.5" data-track-index="2">
+    <div id="s11-plan" class="clip" data-start="85.3137" data-duration="11.05" data-track-index="2">
       <div class="s11-line" id="s11-pl-t" style="top:94px">Plan de respuesta a incidentes<small>PLAN_RESPUESTA_INCIDENTES.md · v2.0</small></div>
       <div class="s11-phase" id="s11-ph1" style="left:760px">1 · Preparación</div>
       <div class="s11-phase" id="s11-ph2" style="left:942px">2 · Detección</div>
@@ -176,16 +180,16 @@
     </div>
 
     <!-- 6 · idea final -->
-    <div id="s11-end" class="clip" data-start="91" data-duration="5" data-track-index="2">
+    <div id="s11-end" class="clip" data-start="96.3637" data-duration="5" data-track-index="2">
       <div class="s11-line" id="s11-end-t" style="top:360px"><span class="w">Detectar,</span> <span class="w">contener,</span> <span class="w hl">reconstruir</span><small><span class="w">Cada</span> <span class="w">paso</span> <span class="w">del</span> <span class="w">ataque,</span> <span class="w">solo</span> <span class="w">desde</span> <span class="w">el</span> <span class="w">registro</span></small></div>
     </div>
 
     <!-- prueba real: terminal -->
     <div id="s11-mon">
-      <video id="s11-real-a" class="clip" src="assets/media/s11c_cadena.mp4" data-start="18" data-duration="6" data-media-start="21.5" data-track-index="3" muted playsinline></video>
-      <video id="s11-real-b" class="clip" src="assets/media/s11a_incidente.mp4" data-start="46" data-duration="6.5" data-media-start="18.0" data-track-index="3" muted playsinline></video>
-      <video id="s11-real-c" class="clip" src="assets/media/s11a_incidente.mp4" data-start="52.5" data-duration="6.5" data-media-start="44.5" data-track-index="3" muted playsinline></video>
-      <video id="s11-real-d" class="clip" src="assets/media/s11b_reconstruccion.mp4" data-start="69" data-duration="6.5" data-media-start="10.0" data-track-index="3" muted playsinline></video>
+      <video id="s11-real-a" class="clip" src="assets/media/s11c_cadena.mp4" data-start="30.41" data-duration="4.8" data-media-start="22.70" data-track-index="3" muted playsinline></video>
+      <video id="s11-real-b" class="clip" src="assets/media/s11a_incidente.mp4" data-start="59.633" data-duration="5.2" data-media-start="19.30" data-track-index="3" muted playsinline></video>
+      <video id="s11-real-c" class="clip" src="assets/media/s11a_incidente.mp4" data-start="64.833" data-duration="5.2" data-media-start="45.80" data-track-index="3" muted playsinline></video>
+      <video id="s11-real-d" class="clip" src="assets/media/s11b_reconstruccion.mp4" data-start="80.1137" data-duration="5.2" data-media-start="11.30" data-track-index="3" muted playsinline></video>
       <div class="s11-cap">Grabación real · backend local, datos de prueba</div>
     </div>
   </div>
@@ -193,7 +197,7 @@
   <script>
     (function () {
       // Inicio de cada tramo (s). Ajustar con la voz de Tomás Rodríguez; los data-start de arriba coinciden.
-      const T = { card: 0.1, chain: 5, monA: 18, rules: 24, atk: 34, monB: 46, monC: 52.5, rec: 59, monD: 69, plan: 75.5, end: 91 };
+      const T = { card: 0.1, chain: 13.3, monA: 30.41, rules: 35.21, atk: 45.98, monB: 59.63, monC: 64.83, rec: 70.03, monD: 80.11, plan: 85.31, end: 96.36 };
 
       const tl = gsap.timeline({ paused: true });
       const IN = 'expo.out', MOVE = 'power2.inOut', OUT = 'power3.in';

@@ -54,9 +54,12 @@
   </style>
 
   <div id="root" data-composition-id="s03" data-width="1920" data-height="1080">
-    <img id="s03-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="62" data-track-index="0" alt="" />
+    <!-- voz (retime.py) -->
+    <audio id="s03-voz-1" class="clip" src="assets/audio/s03_solano.wav" data-start="0.44" data-duration="32.43" data-media-start="0.00" data-track-index="6" data-volume="0.75"></audio>
+    <audio id="s03-voz-2" class="clip" src="assets/audio/s03_solano.wav" data-start="35.72" data-duration="28.14" data-media-start="32.43" data-track-index="6" data-volume="0.75"></audio>
+    <img id="s03-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="66.18" data-track-index="0" alt="" />
 
-    <div id="s03-card-clip" class="clip" data-start="0" data-duration="62" data-track-index="1">
+    <div id="s03-card-clip" class="clip" data-start="0" data-duration="66.18" data-track-index="1">
       <div id="s03-stage"><div id="s03-card">
         <div class="s03-face s03-front">
           <div class="s03-title">Inventario y clasificación</div>
@@ -80,7 +83,7 @@
     </div>
 
     <!-- 1 · marco legal y estructura del inventario -->
-    <div id="s03-law" class="clip" data-start="5" data-duration="11" data-track-index="2">
+    <div id="s03-law" class="clip" data-start="7.16" data-duration="18.96" data-track-index="2">
       <div class="s03-line" id="s03-l-t" style="top:110px">Ley 19.628 · <span class="hl">texto Ley 21.719</span><small>vigencia 1 de diciembre de 2026 · levantado desde el esquema real de la BD</small></div>
       <div id="s03-cols">
         <div class="s03-col">1 · Fuente</div>
@@ -93,7 +96,7 @@
     </div>
 
     <!-- 2 · los cuatro flujos F1-F4 -->
-    <div id="s03-flows" class="clip" data-start="16" data-duration="10" data-track-index="2">
+    <div id="s03-flows" class="clip" data-start="26.12" data-duration="8" data-track-index="2">
       <div class="s03-line" id="s03-f-t" style="top:92px">Cuatro flujos de datos personales</div>
       <div class="s03-fl" id="s03-f1" style="top:200px"><div class="tag">F1</div><div><div class="ft">Registro y autenticación</div><div class="fd">Email, contraseña (bcrypt), tokens (SHA-256), 2FA (AES-256-GCM)</div></div></div>
       <div class="s03-fl" id="s03-f2" style="top:332px"><div class="tag">F2</div><div><div class="ft">Escaneo y publicación</div><div class="fd">Escáner local descartado en memoria · foto manual a S3 privado</div></div></div>
@@ -102,7 +105,7 @@
     </div>
 
     <!-- 3 · diagrama real del Hito 1 -->
-    <div id="s03-diag" class="clip" data-start="26" data-duration="7" data-track-index="2">
+    <div id="s03-diag" class="clip" data-start="34.12" data-duration="1.3" data-track-index="2">
       <div id="s03-diag-frame">
         <img id="s03-diag-img" src="assets/media/diagrama_flujos.png" alt="Mapa de flujos F1 a F4" />
         <div id="s03-diag-cap">Hito 1 · Mapa real de flujos F1–F4 (docs/security/hito1)</div>
@@ -110,7 +113,7 @@
     </div>
 
     <!-- 4 · regla simple: contrato vs consentimiento -->
-    <div id="s03-bases" class="clip" data-start="33" data-duration="11" data-track-index="2">
+    <div id="s03-bases" class="clip" data-start="35.42" data-duration="12.76" data-track-index="2">
       <div class="s03-line" id="s03-b-t" style="top:100px">Bases de licitud · <span class="hl">la regla</span></div>
       <div class="s03-base" id="s03-bc" style="left:760px">
         <div class="bt">Contrato</div>
@@ -126,7 +129,7 @@
     </div>
 
     <!-- 5 · tabla de inventario + geolocalización resaltada -->
-    <div id="s03-inv" class="clip" data-start="44" data-duration="18" data-track-index="2">
+    <div id="s03-inv" class="clip" data-start="48.1753" data-duration="18" data-track-index="2">
       <div class="s03-line" id="s03-i-t" style="top:96px">Inventario · <span class="hl">categoría especial</span></div>
       <div id="s03-tbl">
         <div class="s03-tr h"><span>Dato</span><span>Base legal</span><span>Clasificación</span><span>Plazo</span></div>
@@ -144,7 +147,7 @@
   <script>
     (function () {
       // Inicio de cada tramo (s). Ajustar con la voz de Tomás Solano; los data-start de arriba coinciden.
-      const T = { card: 0.1, law: 5, flows: 16, diag: 26, bases: 33, inv: 44 };
+      const T = { card: 0.1, law: 7.16, flows: 26.12, diag: 34.12, bases: 35.42, inv: 48.18 };
 
       const tl = gsap.timeline({ paused: true });
       const IN = 'expo.out', MOVE = 'power2.inOut', OUT = 'power3.in';

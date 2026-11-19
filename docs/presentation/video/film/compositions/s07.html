@@ -62,9 +62,13 @@
   </style>
 
   <div id="root" data-composition-id="s07" data-width="1920" data-height="1080">
-    <img id="s07-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="71" data-track-index="0" alt="" />
+    <!-- voz (retime.py) -->
+    <audio id="s07-voz-1" class="clip" src="assets/audio/s07_fuentes.wav" data-start="0.52" data-duration="32.05" data-media-start="0.00" data-track-index="6" data-volume="0.75"></audio>
+    <audio id="s07-voz-2" class="clip" src="assets/audio/s07_fuentes.wav" data-start="37.20" data-duration="10.38" data-media-start="32.05" data-track-index="6" data-volume="0.75"></audio>
+    <audio id="s07-voz-3" class="clip" src="assets/audio/s07_fuentes.wav" data-start="52.93" data-duration="5.38" data-media-start="42.43" data-track-index="6" data-volume="0.75"></audio>
+    <img id="s07-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="68.43" data-track-index="0" alt="" />
 
-    <div id="s07-card-clip" class="clip" data-start="0" data-duration="71" data-track-index="1">
+    <div id="s07-card-clip" class="clip" data-start="0" data-duration="68.43" data-track-index="1">
       <div id="s07-stage"><div id="s07-card">
         <div class="s07-face s07-front">
           <div class="s07-title">Control de acceso por roles</div>
@@ -85,7 +89,7 @@
     </div>
 
     <!-- 1 · matriz de permisos (ACTIVIDAD_4.md §3.2) -->
-    <div id="s07-mat" class="clip" data-start="4.6" data-duration="12.8" data-track-index="2">
+    <div id="s07-mat" class="clip" data-start="3.56" data-duration="13.38" data-track-index="2">
       <div id="s07-mx">
         <div class="s07-mr h"><span>Acción</span><span>USER</span><span>SUPPORT</span><span>ADMIN</span></div>
         <div class="s07-mr" id="s07-m1"><span>Leer una compra ajena</span><span class="r">403</span><span class="y">con motivo</span><span class="y">con motivo</span></div>
@@ -99,7 +103,7 @@
     </div>
 
     <!-- 2 · hallazgo: tres rutas sin sesión -->
-    <div id="s07-gap" class="clip" data-start="17.4" data-duration="11.6" data-track-index="2">
+    <div id="s07-gap" class="clip" data-start="16.94" data-duration="11.18" data-track-index="2">
       <div class="s07-line" id="s07-g-t" style="top:140px">Hallazgo en el código</div>
       <div class="s07-route" id="s07-g1" style="top:290px"><span class="p">GET /transactions</span><span class="was">sin sesión · 200</span><span class="strike"></span><span class="now">401</span></div>
       <div class="s07-route" id="s07-g2" style="top:376px"><span class="p">GET /transactions/:id</span><span class="was">sin sesión · 200</span><span class="strike"></span><span class="now">401</span></div>
@@ -109,14 +113,14 @@
     </div>
 
     <!-- 3 · un usuario pide una compra ajena -->
-    <div id="s07-deny" class="clip" data-start="29" data-duration="4.4" data-track-index="2">
+    <div id="s07-deny" class="clip" data-start="28.12" data-duration="4.35" data-track-index="2">
       <div class="s07-slip" id="s07-d-req" style="left:760px; top:180px"><small>USER · marta · compra de otros dos</small><b>GET /transactions/4562241b…</b></div>
       <div class="s07-srv" id="s07-d-srv" style="top:400px"><div class="name">API · NestJS</div><div class="led" id="s07-d-led"></div><div class="req">403 · Not a party to this transaction</div></div>
       <div class="s07-tech" id="s07-d-t" style="top:640px">Solo comprador y vendedor</div>
     </div>
 
     <!-- 4 · soporte: motivo obligatorio y auditado -->
-    <div id="s07-sup" class="clip" data-start="39" data-duration="9.4" data-track-index="2">
+    <div id="s07-sup" class="clip" data-start="36.95" data-duration="10.93" data-track-index="2">
       <div class="s07-slip" id="s07-s-a" style="left:760px; top:130px"><small>SUPPORT · sin motivo</small><b>GET /admin/users/5d791f51…/transactions</b></div>
       <div class="s07-lab no" id="s07-s-a-r" style="left:760px; top:250px; font-weight:700">400 · reason must be longer than or equal to 10 characters</div>
       <div class="s07-slip" id="s07-s-b" style="left:760px; top:320px"><small>SUPPORT · con motivo</small><b id="s07-s-why">?reason=Disputa 412: carta no recibida</b></div>
@@ -129,7 +133,7 @@
     </div>
 
     <!-- 5 · administrador: correos enmascarados, no cambia su propio rol -->
-    <div id="s07-adm" class="clip" data-start="54.4" data-duration="7" data-track-index="2">
+    <div id="s07-adm" class="clip" data-start="52.68" data-duration="7.35" data-track-index="2">
       <div class="s07-slip" id="s07-e1" style="left:760px; top:130px"><small>Eva · USER</small><b>e***@e***.com</b></div>
       <div class="s07-slip" id="s07-e2" style="left:760px; top:250px"><small>Sofía · USER</small><b>s***@e***.com</b></div>
       <div class="s07-slip" id="s07-e3" style="left:760px; top:370px"><small>Bruno · USER</small><b>b***@e***.com</b></div>
@@ -142,15 +146,15 @@
     </div>
 
     <!-- 6 · idea final -->
-    <div id="s07-end" class="clip" data-start="67.4" data-duration="3.6" data-track-index="2">
+    <div id="s07-end" class="clip" data-start="64.83" data-duration="3.6" data-track-index="2">
       <div class="s07-line" id="s07-end-t" style="top:360px"><span class="w">Mínimo</span> <span class="w hl">privilegio</span><small><span class="w">Lo</span> <span class="w">demás</span> <span class="w">se</span> <span class="w">deniega</span> <span class="w">y</span> <span class="w">queda</span> <span class="w">registrado</span></small></div>
     </div>
 
     <!-- prueba real -->
     <div id="s07-mon">
-      <video id="s07-real-a" class="clip" src="assets/media/s07_rbac.mp4" data-start="33.4" data-duration="5.6" data-media-start="2.6" data-track-index="3" muted playsinline></video>
-      <video id="s07-real-b" class="clip" src="assets/media/s07_rbac.mp4" data-start="48.4" data-duration="6" data-media-start="19.6" data-track-index="3" muted playsinline></video>
-      <video id="s07-real-c" class="clip" src="assets/media/s07_rbac.mp4" data-start="61.4" data-duration="6" data-media-start="32.6" data-track-index="3" muted playsinline></video>
+      <video id="s07-real-a" class="clip" src="assets/media/s07_rbac.mp4" data-start="32.47" data-duration="4.48" data-media-start="3.72" data-track-index="3" muted playsinline></video>
+      <video id="s07-real-b" class="clip" src="assets/media/s07_rbac.mp4" data-start="47.88" data-duration="4.8" data-media-start="20.80" data-track-index="3" muted playsinline></video>
+      <video id="s07-real-c" class="clip" src="assets/media/s07_rbac.mp4" data-start="60.03" data-duration="4.8" data-media-start="33.80" data-track-index="3" muted playsinline></video>
       <div class="cap">Grabación real · backend local, datos de prueba</div>
     </div>
   </div>
@@ -158,7 +162,7 @@
   <script>
     (function () {
       // Inicio de cada tramo (s). Ajustar con la voz de Vicente; los data-start de arriba coinciden.
-      const T = { card: 0.1, mat: 4.6, gap: 17.4, deny: 29, monA: 33.4, sup: 39, monB: 48.4, adm: 54.4, monC: 61.4, end: 67.4 };
+      const T = { card: 0.1, mat: 3.56, gap: 16.94, deny: 28.12, monA: 32.47, sup: 36.95, monB: 47.88, adm: 52.68, monC: 60.03, end: 64.83 };
 
       // caracteres del motivo, uno por span, antes de registrar el timeline
       const why = [];

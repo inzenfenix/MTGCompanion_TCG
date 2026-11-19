@@ -56,9 +56,13 @@
   </style>
 
   <div id="root" data-composition-id="s02" data-width="1920" data-height="1080">
-    <img id="s02-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="66" data-track-index="0" alt="" />
+    <!-- voz (retime.py) -->
+    <audio id="s02-voz-1" class="clip" src="assets/audio/s02_solano.wav" data-start="0.60" data-duration="31.63" data-media-start="0.00" data-track-index="6" data-volume="0.75"></audio>
+    <audio id="s02-voz-2" class="clip" src="assets/audio/s02_solano.wav" data-start="45.15" data-duration="6.01" data-media-start="31.63" data-track-index="6" data-volume="0.75"></audio>
+    <audio id="s02-voz-3" class="clip" src="assets/audio/s02_solano.wav" data-start="56.47" data-duration="15.30" data-media-start="37.64" data-track-index="6" data-volume="0.75"></audio>
+    <img id="s02-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="72.97" data-track-index="0" alt="" />
 
-    <div id="s02-card-clip" class="clip" data-start="0" data-duration="66" data-track-index="1">
+    <div id="s02-card-clip" class="clip" data-start="0" data-duration="72.97" data-track-index="1">
       <div id="s02-stage"><div id="s02-card">
         <div class="s02-face s02-front">
           <div class="s02-title">MTG Companion</div>
@@ -79,7 +83,7 @@
     </div>
 
     <!-- 1 · escáner con IA local (4 pasos) -->
-    <div id="s02-scan" class="clip" data-start="5" data-duration="17" data-track-index="2">
+    <div id="s02-scan" class="clip" data-start="4.5" data-duration="16.45" data-track-index="2">
       <div class="s02-line" id="s02-sc-t" style="top:96px">Escáner con IA · <span class="hl">en el teléfono</span><small>las imágenes de la cámara nunca llegan al servidor</small></div>
       <div id="s02-phone">
         <div class="cam">
@@ -97,19 +101,19 @@
     </div>
 
     <!-- 2 · puente hacia el Bazar -->
-    <div id="s02-baz" class="clip" data-start="22" data-duration="6" data-track-index="2">
+    <div id="s02-baz" class="clip" data-start="20.95" data-duration="11.15" data-track-index="2">
       <div class="s02-line" id="s02-b-t" style="top:160px">El Bazar · <span class="hl">compra por cercanía</span><small>publicar, ver distancia en km, ofertar y pagar</small></div>
       <div class="s02-slip" id="s02-b-1" style="left:760px; top:340px"><small>Búsqueda con distancia</small><b>Saw in Half · a 7.3 km</b></div>
       <div class="s02-slip" id="s02-b-2" style="left:760px; top:480px"><small>Subasta y pago</small><b>Oferta $1.20 → MercadoPago / Efectivo</b></div>
     </div>
 
     <!-- 3 · puente hacia el QR -->
-    <div id="s02-qr" class="clip" data-start="44" data-duration="4" data-track-index="2">
+    <div id="s02-qr" class="clip" data-start="44.9" data-duration="6.12" data-track-index="2">
       <div class="s02-line" id="s02-q-t" style="top:320px">Venta en persona · <span class="hl">QR firmado</span><small>fija el precio y genera el sello</small></div>
     </div>
 
     <!-- 4 · mapa del sistema y datos personales involucrados -->
-    <div id="s02-map" class="clip" data-start="54.5" data-duration="11.5" data-track-index="2">
+    <div id="s02-map" class="clip" data-start="56.2156" data-duration="16.75" data-track-index="2">
       <div class="s02-line" id="s02-m-t" style="top:96px">Arquitectura del sistema<small>qué corre en el teléfono y qué tratamos en la nube</small></div>
       <div class="s02-node" id="s02-n1" style="left:760px"><div class="nt">Teléfono</div><div class="ns">App Ionic + IA local (ONNX / OCR)</div></div>
       <div class="s02-arr" id="s02-a1" style="left:1098px">⇄</div>
@@ -129,9 +133,9 @@
     <!-- prueba real: app (retrato) -->
     <div id="s02-pmon">
       <div class="crop" data-layout-allow-overflow>
-        <video id="s02-real-a1" class="clip" src="assets/media/s02a_bazar_compra.mp4" data-start="28" data-duration="7" data-media-start="2.5" data-track-index="3" muted playsinline></video>
-        <video id="s02-real-a2" class="clip" src="assets/media/s02a_bazar_compra.mp4" data-start="35" data-duration="9" data-media-start="19.5" data-track-index="3" muted playsinline></video>
-        <video id="s02-real-b" class="clip" src="assets/media/s02b_qr_vendedor.mp4" data-start="48" data-duration="6.5" data-media-start="6.5" data-track-index="3" muted playsinline></video>
+        <video id="s02-real-a1" class="clip" src="assets/media/s02a_bazar_compra.mp4" data-start="32.1" data-duration="5.6" data-media-start="3.90" data-track-index="3" muted playsinline></video>
+        <video id="s02-real-a2" class="clip" src="assets/media/s02a_bazar_compra.mp4" data-start="37.7" data-duration="7.2" data-media-start="21.30" data-track-index="3" muted playsinline></video>
+        <video id="s02-real-b" class="clip" src="assets/media/s02b_qr_vendedor.mp4" data-start="51.0156" data-duration="5.2" data-media-start="7.80" data-track-index="3" muted playsinline></video>
       </div>
       <div class="s02-cap">Grabación real · app local, datos de prueba</div>
     </div>
@@ -140,7 +144,7 @@
   <script>
     (function () {
       // Inicio de cada tramo (s). Ajustar con la voz de Tomás Solano; los data-start de arriba coinciden.
-      const T = { card: 0.1, scan: 5, baz: 22, monA1: 28, monA2: 35, qr: 44, monB: 48, map: 54.5 };
+      const T = { card: 0.1, scan: 4.5, baz: 20.95, monA1: 32.1, monA2: 37.7, qr: 44.9, monB: 51.02, map: 56.22 };
 
       const tl = gsap.timeline({ paused: true });
       const IN = 'expo.out', MOVE = 'power2.inOut', OUT = 'power3.in';

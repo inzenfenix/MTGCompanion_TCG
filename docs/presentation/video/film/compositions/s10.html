@@ -64,9 +64,14 @@
   </style>
 
   <div id="root" data-composition-id="s10" data-width="1920" data-height="1080">
-    <img id="s10-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="83" data-track-index="0" alt="" />
+    <!-- voz (retime.py) -->
+    <audio id="s10-voz-1" class="clip" src="assets/audio/s10_rodriguez.wav" data-start="0.45" data-duration="20.21" data-media-start="0.00" data-track-index="6" data-volume="0.75"></audio>
+    <audio id="s10-voz-2" class="clip" src="assets/audio/s10_rodriguez.wav" data-start="25.78" data-duration="11.10" data-media-start="20.21" data-track-index="6" data-volume="0.75"></audio>
+    <audio id="s10-voz-3" class="clip" src="assets/audio/s10_rodriguez.wav" data-start="41.35" data-duration="6.25" data-media-start="31.31" data-track-index="6" data-volume="0.75"></audio>
+    <audio id="s10-voz-4" class="clip" src="assets/audio/s10_rodriguez.wav" data-start="54.40" data-duration="12.42" data-media-start="37.56" data-track-index="6" data-volume="0.75"></audio>
+    <img id="s10-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="79.33" data-track-index="0" alt="" />
 
-    <div id="s10-card-clip" class="clip" data-start="0" data-duration="83" data-track-index="1">
+    <div id="s10-card-clip" class="clip" data-start="0" data-duration="79.33" data-track-index="1">
       <div id="s10-stage"><div id="s10-card">
         <div class="s10-face s10-front">
           <div class="s10-title">Oposición y bloqueo</div>
@@ -86,7 +91,7 @@
     </div>
 
     <!-- 1 · canal público: misma respuesta exista o no la cuenta -->
-    <div id="s10-pub" class="clip" data-start="5" data-duration="11" data-track-index="2">
+    <div id="s10-pub" class="clip" data-start="8.67" data-duration="12.06" data-track-index="2">
       <div class="s10-line" id="s10-p-t" style="top:110px">Canal público · <span class="hl">/derechos</span></div>
       <div class="s10-slip" id="s10-p-a" style="left:760px; top:215px"><small>Cuenta registrada</small><b>pedro@example.com</b></div>
       <div class="s10-slip" id="s10-p-b" style="left:1310px; top:215px"><small>Cuenta inexistente</small><b>no-existe@example.com</b></div>
@@ -101,7 +106,7 @@
     </div>
 
     <!-- 2 · oposición a estadísticas de ventas: acogida, celda 6 -> 5 -->
-    <div id="s10-opp1" class="clip" data-start="22" data-duration="11" data-track-index="2">
+    <div id="s10-opp1" class="clip" data-start="25.53" data-duration="11.17" data-track-index="2">
       <div class="s10-line" id="s10-o1-t" style="top:110px">Oposición · <span class="hl">art. 8</span><small>tratamientos basados en interés legítimo</small></div>
       <div class="s10-slip" id="s10-o1-req" style="left:760px; top:260px"><small>valentina · OBJECTION</small><b>SALES_STATISTICS</b></div>
       <div class="s10-lab hl mono" id="s10-o1-ok" style="left:1270px; top:286px; font-size:36px">→ FULFILLED</div>
@@ -118,7 +123,7 @@
     </div>
 
     <!-- 3 · oposición a monitoreo de seguridad: denegada con fundamento -->
-    <div id="s10-opp2" class="clip" data-start="38.5" data-duration="10.5" data-track-index="2">
+    <div id="s10-opp2" class="clip" data-start="41.1016" data-duration="8.65" data-track-index="2">
       <div class="s10-slip" id="s10-o2-req" style="left:760px; top:140px"><small>valentina · OBJECTION</small><b>SECURITY_MONITORING</b></div>
       <div class="s10-srv" id="s10-o2-srv" style="top:310px"><div class="name">Evaluación · art. 8 letra a</div><div class="led" id="s10-o2-led"></div><div class="req">DENIED · motivos legítimos imperiosos</div></div>
       <div class="s10-sub" id="s10-o2-why" style="top:520px; line-height:1.4">“Proteger tu cuenta y a los demás jugadores frente a fraude,<br />y conservar prueba para defensa ante reclamaciones.”</div>
@@ -127,7 +132,7 @@
     </div>
 
     <!-- 4 · bloqueo temporal: 409 mientras está activo, 201 al levantarlo -->
-    <div id="s10-blk" class="clip" data-start="54.5" data-duration="13.5" data-track-index="2">
+    <div id="s10-blk" class="clip" data-start="54.1516" data-duration="12.37" data-track-index="2">
       <div class="s10-line" id="s10-b-t" style="top:96px">Bloqueo temporal · <span class="hl">art. 8 ter</span><small>suspende el tratamiento sin borrar nada</small></div>
       <div class="s10-slip" id="s10-b-req" style="left:760px; top:236px"><small>mateo · ALTERNATIVE_TO_ERASURE</small><b>BLOCKING · FULFILLED</b></div>
       <div class="s10-bcard" id="s10-b-1" style="top:370px">
@@ -153,24 +158,24 @@
     </div>
 
     <!-- 5 · idea final -->
-    <div id="s10-end" class="clip" data-start="79" data-duration="4" data-track-index="2">
+    <div id="s10-end" class="clip" data-start="75.3264" data-duration="4" data-track-index="2">
       <div class="s10-line" id="s10-end-t" style="top:360px"><span class="w">Control</span> <span class="w">sin</span> <span class="w hl">borrar</span><small><span class="w">Canal</span> <span class="w">público,</span> <span class="w">oposición</span> <span class="w">fundada</span> <span class="w">y</span> <span class="w">bloqueo</span> <span class="w">real</span></small></div>
     </div>
 
     <!-- prueba real: app (retrato) -->
     <div id="s10-pmon">
       <div class="crop" data-layout-allow-overflow>
-        <video id="s10-real-a" class="clip" src="assets/media/s10a_formulario_publico.mp4" data-start="16" data-duration="6" data-media-start="5.5" data-track-index="3" muted playsinline></video>
-        <video id="s10-real-e" class="clip" src="assets/media/s10b_oposicion_bloqueo.mp4" data-start="73.5" data-duration="5.5" data-media-start="31.5" data-track-index="3" muted playsinline style="top:-360px"></video>
+        <video id="s10-real-a" class="clip" src="assets/media/s10a_formulario_publico.mp4" data-start="20.73" data-duration="4.8" data-media-start="6.70" data-track-index="3" muted playsinline></video>
+        <video id="s10-real-e" class="clip" src="assets/media/s10b_oposicion_bloqueo.mp4" data-start="70.9264" data-duration="4.4" data-media-start="32.60" data-track-index="3" muted playsinline style="top:-360px"></video>
       </div>
       <div class="s10-cap">Grabación real · app local, datos de prueba</div>
     </div>
 
     <!-- prueba real: terminal -->
     <div id="s10-mon">
-      <video id="s10-real-b" class="clip" src="assets/media/s10_oposicion_bloqueo.mp4" data-start="33" data-duration="5.5" data-media-start="31.5" data-track-index="3" muted playsinline></video>
-      <video id="s10-real-c" class="clip" src="assets/media/s10_oposicion_bloqueo.mp4" data-start="49" data-duration="5.5" data-media-start="46.5" data-track-index="3" muted playsinline></video>
-      <video id="s10-real-d" class="clip" src="assets/media/s10_oposicion_bloqueo.mp4" data-start="68" data-duration="5.5" data-media-start="67.5" data-track-index="3" muted playsinline></video>
+      <video id="s10-real-b" class="clip" src="assets/media/s10_oposicion_bloqueo.mp4" data-start="36.7016" data-duration="4.4" data-media-start="32.60" data-track-index="3" muted playsinline></video>
+      <video id="s10-real-c" class="clip" src="assets/media/s10_oposicion_bloqueo.mp4" data-start="49.7516" data-duration="4.4" data-media-start="47.60" data-track-index="3" muted playsinline></video>
+      <video id="s10-real-d" class="clip" src="assets/media/s10_oposicion_bloqueo.mp4" data-start="66.5264" data-duration="4.4" data-media-start="68.60" data-track-index="3" muted playsinline></video>
       <div class="s10-cap">Grabación real · backend local, datos de prueba</div>
     </div>
   </div>
@@ -178,7 +183,7 @@
   <script>
     (function () {
       // Inicio de cada tramo (s). Ajustar con la voz de Tomás Rodríguez; los data-start de arriba coinciden.
-      const T = { card: 0.1, pub: 5, monA: 16, opp1: 22, monB: 33, opp2: 38.5, monC: 49, blk: 54.5, monD: 68, monE: 73.5, end: 79 };
+      const T = { card: 0.1, pub: 8.67, monA: 20.73, opp1: 25.53, monB: 36.7, opp2: 41.1, monC: 49.75, blk: 54.15, monD: 66.53, monE: 70.93, end: 75.33 };
 
       const tl = gsap.timeline({ paused: true });
       const IN = 'expo.out', MOVE = 'power2.inOut', OUT = 'power3.in';

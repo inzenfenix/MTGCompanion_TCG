@@ -10,3 +10,7 @@ node_modules/
 film/assets/media/*.mp4
 film/renders/
 film/.hyperframes/
+
+# Voice recordings mounted in the film: personal data, never committed
+film/assets/audio/
+film/assets/bgm/

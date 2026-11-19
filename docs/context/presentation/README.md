@@ -26,9 +26,34 @@ only inside the **evidence monitor** (user's call: "keep the monitor"); the expl
 
 1. ~~Scenes **0–3**~~ — all done 18 nov (`s00` 8 s, `s01` 37 s, `s02` 66 s, `s03` 62 s).
 2. ~~Scenes **4–12**~~ — all done 18 nov (`s04`–`s12`, total film 841 s = 14:01).
-3. Audio: the team records one file per scene (`GUION.md` → "Voces"), then retime each scene from its `T` table and
-   add a quiet free music bed + small SFX (`hyperframes` skill → `references/sound.md`).
-4. Final render (`hf render --quality delivery`), check length 10–15 min and per-speaker balance, then mark O18 ✅.
+3. ~~Audio~~ — done 19 nov (see "Audio" below): voices split/normalized, every scene retimed to its narration,
+   music bed + card whooshes mounted. Film = **880.2 s (14:40)**.
+4. Final render: `hf render --quality delivery -o /mnt/SSDGames/mtg-video/renders/mtg_companion_examen_parte1.mp4`
+   (19 nov) — **done**: 880.2 s, 1920×1080 30 fps, −16.0 LUFS integrated, peak −2.9 dBFS; four cue words checked
+   on the render's own transcript land 0–0.8 s after their beat. O18 ✅.
+
+## Audio (19 nov)
+
+- **Sources** (outside the repo, personal data): `/mnt/SSDGames/mtg-video/Script-Audio/` — `S1–S4.mp3` +
+  `S12-TS.mp3` (Solano), `Scenes Vicente.zip` (`escena5–8`, `escena12`), `Scenes-TomasR.mp4` (Rodríguez, scenes 9–12
+  in one take; cut at 0–66.55 / 66.6–118.95 / 123.75–189.6 / 195.25–210.15 s, dropping the spoken "Y escena 12, la
+  parte mía" and the trailing "a casa, a casa").
+- `demo/audio/prep.sh` → `film/assets/audio/sNN_<apellido>.wav` (gitignored): high-pass 80 Hz, dead air trimmed,
+  pauses > 0.8 s shortened, then gain-matched to −16 LUFS ±0.3 (single-pass loudnorm undershot to −19 on short
+  files). Speaking time: Solano 3:50, Fuentes 4:00, Rodríguez 3:10.
+- Word timestamps: `hf transcribe <wav> -e whisper -m small -l es` (local whisper.cpp; transcripts in
+  `/mnt/SSDGames/mtg-video/work/voces/tr/`).
+- `demo/audio/retime.py` (log: `retime_19nov.log`): each beat lands 0.3 s before its spoken cue; the voice pauses at
+  a real silence while a silent evidence monitor plays (silent monitors at 80 % length, trimmed from the start so
+  the payoff stays) or while a beat still needs reading time (last element's offset + 0.5 s + 0.3 s/word); writes
+  the voice as `<audio id="sNN-voz-N">` (lane 6, `data-volume="0.75"` — the render plays mono voice dual-mono,
+  +3 dB) inside each scene and restacks `index.html`. **Not idempotent** — see its docstring.
+- Music: `#musica` in `index.html` (lane 7), HeyGen catalog track `78f194ec` ("soft fantasy ambient strings"),
+  looped with 3 s crossfades to 884 s by `demo/audio/bed.sh` (`fetch.mjs`/`search.mjs` re-download it; needs
+  `hf auth login`); `film/assets/bgm/` is gitignored. Volume lane: 0.55 intro, 0.14 under voice, 0.26 in silent
+  stretches > 2.5 s, 0.5 under the closing card. Chosen by measurement (few transients, LRA 6.8), not by ear.
+- Effects: `film/assets/sfx/` (Pixabay Content License, no attribution required): one whoosh per card drop,
+  two takes alternated, lane 8.
 
 ## Conventions used in every scene (keep them)
 
