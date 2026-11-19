@@ -1,0 +1,65 @@
+<template>
+  <style>
+    @font-face { font-family: 'Cinzel'; src: url('assets/fonts/cinzel-latin.woff2') format('woff2'); font-weight: 400 900; }
+    #root { position: absolute; inset: 0; overflow: hidden; font-family: 'Inter', sans-serif; color: #f2e3cd; }
+    #s00-pano { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; }
+    .hl { color: #d4af37; }
+
+    #s00-stage { position: absolute; inset: 0; perspective: 1600px; }
+    #s00-crest { position: absolute; left: 160px; top: 240px; width: 380px; height: 532px; transform-style: preserve-3d; }
+    .s00-face { position: absolute; inset: 0; border-radius: 22px; backface-visibility: hidden; box-shadow: 0 24px 48px rgba(0,0,0,.6); }
+    .s00-front { background: #1f1512; border: 6px solid #d4af37; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 28px; }
+    .s00-back { background: #5a0d12; border: 6px solid #d4af37; transform: rotateY(180deg); display: flex; align-items: center; justify-content: center; }
+    .s00-back span { font-family: 'Cinzel'; font-weight: 700; font-size: 38px; color: #d4af37; border: 2px solid #d4af37; border-radius: 14px; padding: 30px 22px; text-align: center; line-height: 1.25; }
+    .s00-tag { font-family: 'Cinzel'; font-weight: 700; font-size: 20px; color: #1f1512; background: #d4af37; border-radius: 8px; padding: 6px 14px; }
+
+    #s00-title { position: absolute; left: 620px; top: 320px; font-family: 'Cinzel'; font-weight: 700; font-size: 96px; letter-spacing: .04em; color: #d4af37; white-space: nowrap; }
+    #s00-rule { position: absolute; left: 620px; top: 454px; width: 1060px; height: 4px; background: #d4af37; transform-origin: left center; }
+    #s00-sub { position: absolute; left: 620px; top: 492px; font-size: 42px; font-weight: 400; white-space: nowrap; }
+    #s00-sub .w { display: inline-block; margin-right: 12px; }
+    #s00-meta { position: absolute; left: 620px; top: 610px; font-family: 'Cinzel'; font-weight: 700; font-size: 28px; color: #d8c8b0; letter-spacing: .04em; white-space: nowrap; }
+  </style>
+
+  <div id="root" data-composition-id="s00" data-width="1920" data-height="1080">
+    <img id="s00-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="8" data-track-index="0" alt="" />
+
+    <div id="s00-hero" class="clip" data-start="0" data-duration="8" data-track-index="1">
+      <div id="s00-stage">
+        <div id="s00-crest">
+          <div class="s00-face s00-front">
+            <svg width="200" height="240" viewBox="0 0 200 240" aria-hidden="true">
+              <path d="M100 12 L182 44 V116 C182 174 146 212 100 228 C54 212 18 174 18 116 V44 Z" fill="#3a1414" stroke="#d4af37" stroke-width="6"/>
+              <rect x="64" y="64" width="72" height="98" rx="8" fill="#1f1512" stroke="#f2e3cd" stroke-width="5"/>
+              <path d="M84 114 L96 126 L120 98" fill="none" stroke="#d4af37" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div class="s00-tag">LEY 19.628 · 21.719</div>
+          </div>
+          <div class="s00-face s00-back"><span>MTG<br />Companion</span></div>
+        </div>
+      </div>
+
+      <div id="s00-title">MTG Companion</div>
+      <div id="s00-rule"></div>
+      <div id="s00-sub"><span class="w">Protección</span><span class="w">de</span><span class="w">datos</span><span class="w">personales,</span><span class="w hl">implementada</span></div>
+      <div id="s00-meta">Seguridad y Protección de Datos · Examen Parte 1</div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const tl = gsap.timeline({ paused: true });
+      const IN = 'expo.out', MOVE = 'power2.inOut', OUT = 'power3.in';
+
+      tl.fromTo('#s00-crest', { x: -60, y: -260, rotationZ: -10, rotationY: 180 }, { x: 0, y: 0, rotationZ: -3, duration: 1.2, ease: IN }, 0);
+      tl.fromTo('#s00-crest', { rotationY: 180 }, { rotationY: 0, duration: 1.0, ease: MOVE, immediateRender: false }, 0.9);
+      tl.fromTo('#s00-title', { opacity: 0.2, filter: 'blur(6px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.6, ease: IN }, 0);
+      tl.fromTo('#s00-rule', { scaleX: 0 }, { scaleX: 1, duration: 0.7, ease: IN }, 1.2);
+      tl.fromTo('#s00-sub .w', { opacity: 0, filter: 'blur(6px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.14, stagger: 0.08, ease: 'none' }, 1.8);
+      tl.fromTo('#s00-meta', { opacity: 0 }, { opacity: 1, duration: 0.4 }, 2.8);
+      tl.to('#s00-hero > *', { opacity: 0, filter: 'blur(8px)', duration: 0.35, ease: OUT }, 7.55);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines['s00'] = tl;
+    })();
+  </script>
+</template>

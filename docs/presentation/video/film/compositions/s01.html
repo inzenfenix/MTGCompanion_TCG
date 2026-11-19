@@ -1,0 +1,143 @@
+<template>
+  <style>
+    @font-face { font-family: 'Cinzel'; src: url('assets/fonts/cinzel-latin.woff2') format('woff2'); font-weight: 400 900; }
+    #root { position: absolute; inset: 0; overflow: hidden; font-family: 'Inter', sans-serif; color: #f2e3cd; }
+    #s01-pano { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; }
+    .hl { color: #d4af37; }
+
+    #s01-head { position: absolute; left: 160px; top: 100px; }
+    #s01-head .bar { position: absolute; left: 0; top: 0; width: 10px; height: 132px; background: #d4af37; border-radius: 5px; transform-origin: center top; }
+    #s01-head .t { position: absolute; left: 36px; top: 0; font-family: 'Cinzel'; font-weight: 700; font-size: 68px; white-space: nowrap; }
+    #s01-head .s { position: absolute; left: 38px; top: 88px; font-size: 32px; color: #d8c8b0; white-space: nowrap; }
+
+    /* integrantes (franjas horizontales, no tres tarjetas en fila) */
+    .s01-mem { position: absolute; left: 160px; width: 1600px; height: 146px; background: #1f1512; border: 3px solid rgba(212,175,55,.55); border-radius: 16px; padding: 24px 36px; box-shadow: 0 14px 30px rgba(0,0,0,.5); display: flex; align-items: center; justify-content: space-between; }
+    .s01-mem.act { border-color: #d4af37; border-width: 4px; }
+    .s01-mem .nm { font-family: 'Cinzel'; font-weight: 700; font-size: 46px; }
+    .s01-mem .bl { font-size: 30px; color: #d8c8b0; text-align: right; }
+    .s01-mem .bdg { font-family: 'Cinzel'; font-weight: 700; font-size: 20px; color: #1f1512; background: #d4af37; border-radius: 8px; padding: 5px 14px; margin-left: 20px; vertical-align: middle; }
+
+    /* método en tres pasos */
+    .s01-t2 { position: absolute; left: 160px; top: 110px; font-family: 'Cinzel'; font-weight: 700; font-size: 60px; white-space: nowrap; }
+    .s01-step { position: absolute; left: 160px; width: 1600px; height: 164px; background: #f2e3cd; color: #2a2018; border-radius: 14px; padding: 26px 36px; box-shadow: 0 14px 30px rgba(0,0,0,.5); display: flex; align-items: center; gap: 36px; }
+    .s01-step .num { font-family: 'Cinzel'; font-weight: 700; font-size: 64px; color: #8b0000; width: 80px; text-align: center; flex-shrink: 0; }
+    .s01-step .st { font-family: 'Cinzel'; font-weight: 700; font-size: 40px; color: #2a2018; }
+    .s01-step .sd { font-size: 30px; color: #4a3a2c; margin-top: 6px; }
+
+    /* mapa del recorrido */
+    .s01-blk { position: absolute; left: 160px; width: 1600px; height: 158px; background: #1f1512; border: 3px solid rgba(212,175,55,.45); border-radius: 16px; padding: 22px 34px; box-shadow: 0 14px 30px rgba(0,0,0,.5); }
+    .s01-blk .who { font-family: 'Cinzel'; font-weight: 700; font-size: 38px; color: #d4af37; }
+    .s01-blk .what { font-size: 30px; margin-top: 10px; color: #f2e3cd; }
+    .s01-blk .sc { position: absolute; right: 34px; top: 28px; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 26px; color: #d8c8b0; }
+  </style>
+
+  <div id="root" data-composition-id="s01" data-width="1920" data-height="1080">
+    <img id="s01-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="37" data-track-index="0" alt="" />
+
+    <!-- 1 · presentación del grupo y los tres nombres -->
+    <div id="s01-team" class="clip" data-start="0.2" data-duration="11.3" data-track-index="1">
+      <div id="s01-head">
+        <div class="bar"></div>
+        <div class="t">Grupo <span class="hl">MTG Companion</span></div>
+        <div class="s">Software funcionando · datos de prueba en servidor local</div>
+      </div>
+      <div class="s01-mem act" id="s01-m1" style="top:300px">
+        <div class="nm">Tomás Solano <span class="bdg">PRESENTA AHORA</span></div>
+        <div class="bl">El caso · Hito 1 · Cifrado</div>
+      </div>
+      <div class="s01-mem" id="s01-m2" style="top:476px">
+        <div class="nm">Vicente Fuentes</div>
+        <div class="bl">Base de datos · RBAC · Consentimiento</div>
+      </div>
+      <div class="s01-mem" id="s01-m3" style="top:652px">
+        <div class="nm">Tomás Rodríguez</div>
+        <div class="bl">Derechos del titular · Trazabilidad</div>
+      </div>
+    </div>
+
+    <!-- 2 · estructura de cada actividad -->
+    <div id="s01-method" class="clip" data-start="11.5" data-duration="11.5" data-track-index="1">
+      <div class="s01-t2" id="s01-mt">En cada actividad mostramos <span class="hl">tres cosas</span></div>
+      <div class="s01-step" id="s01-st1" style="top:250px">
+        <div class="num">1</div>
+        <div><div class="st">Requisito legal</div><div class="sd">Qué principio o artículo de la Ley 19.628 (texto Ley 21.719) atiende</div></div>
+      </div>
+      <div class="s01-step" id="s01-st2" style="top:450px">
+        <div class="num">2</div>
+        <div><div class="st">Qué implementamos y cómo</div><div class="sd">Controles reales en la app móvil, el backend NestJS y PostgreSQL</div></div>
+      </div>
+      <div class="s01-step" id="s01-st3" style="top:650px">
+        <div class="num">3</div>
+        <div><div class="st">Demo funcionando</div><div class="sd">Grabación real del sistema respondiendo a cada escenario</div></div>
+      </div>
+    </div>
+
+    <!-- 3 · índice por integrante -->
+    <div id="s01-plan" class="clip" data-start="23" data-duration="14" data-track-index="1">
+      <div class="s01-t2" id="s01-pt">Recorrido del video</div>
+      <div class="s01-blk" id="s01-b1" style="top:240px">
+        <div class="who">1 · Tomás Solano</div>
+        <div class="what">El caso MTG Companion · Inventario Hito 1 · Cifrado, hash, tokenización y firma</div>
+        <div class="sc">Escenas 2 – 4</div>
+      </div>
+      <div class="s01-blk" id="s01-b2" style="top:426px">
+        <div class="who">2 · Vicente Fuentes</div>
+        <div class="what">Minimización de BD · Seudonimización y anonimización · RBAC · Consentimiento</div>
+        <div class="sc">Escenas 5 – 8</div>
+      </div>
+      <div class="s01-blk" id="s01-b3" style="top:612px">
+        <div class="who">3 · Tomás Rodríguez</div>
+        <div class="what">Derechos (acceso, rectificación, supresión) · Oposición y bloqueo · Trazabilidad e incidente</div>
+        <div class="sc">Escenas 9 – 11</div>
+      </div>
+      <div class="s01-blk" id="s01-b4" style="top:798px; height:106px; display:flex; align-items:center; justify-content:space-between; padding:0 34px">
+        <div class="who" style="font-size:32px">Cierre · Los tres integrantes</div>
+        <div class="what" style="margin-top:0; font-size:28px">Lo que falta mejorar antes de producción</div>
+        <div class="sc" style="position:static">Escena 12</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      // Inicio de cada tramo (s). Ajustar con la voz de Tomás Solano; los data-start de arriba coinciden.
+      const T = { team: 0.2, method: 11.5, plan: 23 };
+
+      const tl = gsap.timeline({ paused: true });
+      const IN = 'expo.out', OUT = 'power3.in';
+      const show = (sel, at, d = 0.3) => tl.fromTo(sel, { opacity: 0 }, { opacity: 1, duration: d }, at);
+      const out = (sel, at) => tl.to(sel, { opacity: 0, filter: 'blur(8px)', duration: 0.3, ease: OUT }, at);
+      const blurIn = (sel, at) => tl.fromTo(sel, { opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.2, ease: 'none' }, at);
+      const slideIn = (sel, at) => tl.fromTo(sel, { opacity: 0, x: -60 }, { opacity: 1, x: 0, duration: 0.65, ease: IN }, at);
+
+      // 1 · equipo
+      tl.fromTo('#s01-head .bar', { scaleY: 0 }, { scaleY: 1, duration: 0.5, ease: IN }, T.team);
+      tl.fromTo('#s01-head .t', { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.65, ease: IN }, T.team + 0.15);
+      show('#s01-head .s', T.team + 0.5, 0.3);
+      slideIn('#s01-m1', T.team + 1.8);
+      slideIn('#s01-m2', T.team + 3.4);
+      slideIn('#s01-m3', T.team + 4.4);
+      out('#s01-team > *', T.method - 0.45);
+
+      // 2 · 3 puntos
+      blurIn('#s01-mt', T.method + 0.1);
+      slideIn('#s01-st1', T.method + 1.2);
+      slideIn('#s01-st2', T.method + 3.4);
+      slideIn('#s01-st3', T.method + 5.6);
+      out('#s01-method > *', T.plan - 0.45);
+
+      // 3 · plan de 3 bloques
+      blurIn('#s01-pt', T.plan + 0.1);
+      slideIn('#s01-b1', T.plan + 0.9);
+      tl.to('#s01-b1', { borderColor: '#d4af37', duration: 0.3 }, T.plan + 1.5);
+      slideIn('#s01-b2', T.plan + 4.2);
+      tl.to('#s01-b2', { borderColor: '#d4af37', duration: 0.3 }, T.plan + 4.8);
+      slideIn('#s01-b3', T.plan + 7.5);
+      tl.to('#s01-b3', { borderColor: '#d4af37', duration: 0.3 }, T.plan + 8.1);
+      slideIn('#s01-b4', T.plan + 10.2);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines['s01'] = tl;
+    })();
+  </script>
+</template>

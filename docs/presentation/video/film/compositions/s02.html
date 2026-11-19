@@ -1,0 +1,199 @@
+<template>
+  <style>
+    @font-face { font-family: 'Cinzel'; src: url('assets/fonts/cinzel-latin.woff2') format('woff2'); font-weight: 400 900; }
+    #root { position: absolute; inset: 0; overflow: hidden; font-family: 'Inter', sans-serif; color: #f2e3cd; }
+    #s02-pano { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; }
+    .hl { color: #d4af37; }
+    .no { color: #ff5a4f; }
+    .ok { color: #5cd685; }
+    .mono { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+
+    #s02-stage { position: absolute; inset: 0; perspective: 1600px; }
+    #s02-card { position: absolute; left: 680px; top: 148px; width: 560px; height: 784px; transform-style: preserve-3d; }
+    .s02-face { position: absolute; inset: 0; border-radius: 26px; backface-visibility: hidden; box-shadow: 0 24px 48px rgba(0,0,0,.55); }
+    .s02-front { background: #1f1512; border: 6px solid #d4af37; padding: 26px 28px; display: flex; flex-direction: column; gap: 16px; }
+    .s02-back { background: #5a0d12; border: 6px solid #d4af37; transform: rotateY(180deg); display: flex; align-items: center; justify-content: center; }
+    .s02-back span { font-family: 'Cinzel'; font-weight: 700; font-size: 44px; color: #d4af37; border: 2px solid #d4af37; border-radius: 18px; padding: 40px 30px; text-align: center; line-height: 1.25; }
+    .s02-title { font-family: 'Cinzel'; font-weight: 700; font-size: 38px; border-bottom: 2px solid rgba(212,175,55,.6); padding-bottom: 12px; }
+    .s02-cost { align-self: flex-start; font-family: 'Cinzel'; font-weight: 700; font-size: 22px; color: #1f1512; background: #d4af37; border-radius: 8px; padding: 6px 14px; }
+    .s02-art { flex: 1; border: 2px solid rgba(212,175,55,.45); border-radius: 14px; background: #2a1b16; display: flex; align-items: center; justify-content: center; }
+    .s02-type { font-family: 'Cinzel'; font-size: 22px; color: #d4af37; }
+    .s02-text { font-size: 25px; line-height: 1.35; }
+
+    .s02-line { position: absolute; left: 760px; font-family: 'Cinzel'; font-weight: 700; font-size: 50px; white-space: nowrap; }
+    .s02-line small { display: block; font-family: 'Inter'; font-weight: 400; font-size: 30px; margin-top: 6px; color: #d8c8b0; }
+    .s02-slip { position: absolute; background: #f2e3cd; color: #2a2018; border-radius: 10px; padding: 14px 22px; box-shadow: 0 10px 24px rgba(0,0,0,.45); white-space: nowrap; }
+    .s02-slip small { display: block; font-family: 'Cinzel'; font-weight: 700; font-size: 20px; letter-spacing: .08em; color: #8b0000; }
+    .s02-slip b { font-family: 'JetBrains Mono', monospace; font-size: 32px; }
+    .s02-tech { position: absolute; left: 760px; font-family: 'Cinzel'; font-weight: 700; font-size: 46px; color: #d4af37; white-space: nowrap; }
+    .s02-sub { position: absolute; left: 760px; font-size: 30px; white-space: nowrap; }
+
+    /* escáner animado (teléfono + 4 etapas) */
+    #s02-phone { position: absolute; left: 760px; top: 230px; width: 310px; height: 500px; background: #160e0b; border: 5px solid #d4af37; border-radius: 32px; box-shadow: 0 18px 38px rgba(0,0,0,.55); overflow: hidden; }
+    #s02-phone .cam { position: absolute; left: 40px; top: 56px; width: 220px; height: 310px; border: 3px dashed rgba(212,175,55,.65); border-radius: 14px; background: #2a1b16; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+    #s02-phone .ct { font-family: 'Cinzel'; font-weight: 700; font-size: 22px; color: #d4af37; }
+    #s02-phone .cs { font-family: 'JetBrains Mono', monospace; font-size: 20px; color: #5cd685; }
+    #s02-beam { position: absolute; left: 30px; top: 64px; width: 240px; height: 6px; background: #d4af37; border-radius: 3px; }
+    #s02-phone .foot { position: absolute; left: 0; right: 0; bottom: 26px; text-align: center; font-family: 'Cinzel'; font-weight: 700; font-size: 22px; color: #d4af37; }
+
+    .s02-st { position: absolute; left: 1120px; width: 720px; height: 102px; background: #1f1512; border: 3px solid rgba(212,175,55,.55); border-radius: 14px; padding: 14px 24px; box-shadow: 0 12px 24px rgba(0,0,0,.45); }
+    .s02-st .n { font-family: 'Cinzel'; font-weight: 700; font-size: 28px; color: #d4af37; }
+    .s02-st .d { font-size: 25px; margin-top: 6px; color: #f2e3cd; }
+
+    /* mapa del sistema */
+    .s02-node { position: absolute; top: 245px; width: 320px; height: 220px; background: #1f1512; border: 4px solid #d4af37; border-radius: 18px; padding: 24px 22px; box-shadow: 0 16px 34px rgba(0,0,0,.5); text-align: center; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
+    .s02-node .nt { font-family: 'Cinzel'; font-weight: 700; font-size: 32px; color: #d4af37; }
+    .s02-node .ns { font-size: 25px; color: #f2e3cd; line-height: 1.3; }
+    .s02-arr { position: absolute; top: 342px; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 40px; color: #d4af37; }
+    #s02-pills { position: absolute; left: 760px; top: 530px; width: 1080px; display: flex; flex-wrap: wrap; gap: 14px; }
+    .s02-pill { background: #f2e3cd; color: #2a2018; border-radius: 10px; padding: 10px 22px; font-family: 'Cinzel'; font-weight: 700; font-size: 27px; box-shadow: 0 8px 18px rgba(0,0,0,.45); }
+
+    /* monitor vertical (app en el teléfono) */
+    #s02-pmon { position: absolute; left: 990px; top: 60px; width: 640px; height: 960px; background: #120e0a; border: 6px solid #d4af37; border-radius: 22px; box-shadow: 0 30px 60px rgba(0,0,0,.6); overflow: hidden; opacity: 0; }
+    #s02-pmon .crop { position: absolute; left: 0; top: 0; width: 628px; height: 891px; overflow: hidden; }
+    #s02-pmon video { position: absolute; left: 0; top: 0; width: 628px; height: 1395px; }
+    .s02-cap { position: absolute; left: 0; right: 0; bottom: 0; height: 57px; background: #1f1512; font-family: 'Cinzel'; font-weight: 700; font-size: 21px; color: #d4af37; padding: 15px 22px; white-space: nowrap; }
+  </style>
+
+  <div id="root" data-composition-id="s02" data-width="1920" data-height="1080">
+    <img id="s02-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="66" data-track-index="0" alt="" />
+
+    <div id="s02-card-clip" class="clip" data-start="0" data-duration="66" data-track-index="1">
+      <div id="s02-stage"><div id="s02-card">
+        <div class="s02-face s02-front">
+          <div class="s02-title">MTG Companion</div>
+          <div class="s02-cost">El caso · App + AWS</div>
+          <div class="s02-art">
+            <svg width="240" height="220" viewBox="0 0 240 220" aria-hidden="true">
+              <rect x="64" y="16" width="112" height="188" rx="18" fill="#3a1414" stroke="#d4af37" stroke-width="6"/>
+              <rect x="86" y="48" width="68" height="96" rx="8" fill="#1f1512" stroke="#f2e3cd" stroke-width="4"/>
+              <line x1="78" y1="96" x2="162" y2="96" stroke="#d4af37" stroke-width="5"/>
+              <circle cx="120" cy="176" r="9" fill="#d4af37"/>
+            </svg>
+          </div>
+          <div class="s02-type">Sistema · Escena 2</div>
+          <div class="s02-text">Escáner con IA local en el teléfono, Bazar por cercanía, pagos y venta en persona con QR.</div>
+        </div>
+        <div class="s02-face s02-back"><span>MTG<br />Companion</span></div>
+      </div></div>
+    </div>
+
+    <!-- 1 · escáner con IA local (4 pasos) -->
+    <div id="s02-scan" class="clip" data-start="5" data-duration="17" data-track-index="2">
+      <div class="s02-line" id="s02-sc-t" style="top:96px">Escáner con IA · <span class="hl">en el teléfono</span><small>las imágenes de la cámara nunca llegan al servidor</small></div>
+      <div id="s02-phone">
+        <div class="cam">
+          <div class="ct">Saw in Half</div>
+          <div class="cs" id="s02-sc-res">NM · $0.80</div>
+        </div>
+        <div id="s02-beam"></div>
+        <div class="foot">100 % LOCAL</div>
+      </div>
+      <div class="s02-st" id="s02-s1" style="top:230px"><div class="n">1 · Cámara</div><div class="d">Captura fotogramas en memoria y los descarta</div></div>
+      <div class="s02-st" id="s02-s2" style="top:358px"><div class="n">2 · Detección (ONNX)</div><div class="d">Reconoce que el objeto es una carta de Magic</div></div>
+      <div class="s02-st" id="s02-s3" style="top:486px"><div class="n">3 · Lectura OCR</div><div class="d">Lee el nombre y la edición sobre el catálogo local</div></div>
+      <div class="s02-st" id="s02-s4" style="top:614px"><div class="n">4 · Condición (IA)</div><div class="d">Estima el estado físico y el precio sugerido</div></div>
+      <div class="s02-tech" id="s02-sc-k" style="top:772px">Cero fotogramas enviados a la nube</div>
+    </div>
+
+    <!-- 2 · puente hacia el Bazar -->
+    <div id="s02-baz" class="clip" data-start="22" data-duration="6" data-track-index="2">
+      <div class="s02-line" id="s02-b-t" style="top:160px">El Bazar · <span class="hl">compra por cercanía</span><small>publicar, ver distancia en km, ofertar y pagar</small></div>
+      <div class="s02-slip" id="s02-b-1" style="left:760px; top:340px"><small>Búsqueda con distancia</small><b>Saw in Half · a 7.3 km</b></div>
+      <div class="s02-slip" id="s02-b-2" style="left:760px; top:480px"><small>Subasta y pago</small><b>Oferta $1.20 → MercadoPago / Efectivo</b></div>
+    </div>
+
+    <!-- 3 · puente hacia el QR -->
+    <div id="s02-qr" class="clip" data-start="44" data-duration="4" data-track-index="2">
+      <div class="s02-line" id="s02-q-t" style="top:320px">Venta en persona · <span class="hl">QR firmado</span><small>fija el precio y genera el sello</small></div>
+    </div>
+
+    <!-- 4 · mapa del sistema y datos personales involucrados -->
+    <div id="s02-map" class="clip" data-start="54.5" data-duration="11.5" data-track-index="2">
+      <div class="s02-line" id="s02-m-t" style="top:96px">Arquitectura del sistema<small>qué corre en el teléfono y qué tratamos en la nube</small></div>
+      <div class="s02-node" id="s02-n1" style="left:760px"><div class="nt">Teléfono</div><div class="ns">App Ionic + IA local (ONNX / OCR)</div></div>
+      <div class="s02-arr" id="s02-a1" style="left:1098px">⇄</div>
+      <div class="s02-node" id="s02-n2" style="left:1150px"><div class="nt">AWS</div><div class="ns">Backend NestJS · PostgreSQL · S3</div></div>
+      <div class="s02-arr" id="s02-a2" style="left:1488px">⇄</div>
+      <div class="s02-node" id="s02-n3" style="left:1540px"><div class="nt">Terceros</div><div class="ns">MercadoPago · Proveedor correo</div></div>
+      <div id="s02-pills">
+        <div class="s02-pill">Cuentas</div>
+        <div class="s02-pill">Contraseñas</div>
+        <div class="s02-pill">Ubicación</div>
+        <div class="s02-pill">Pagos</div>
+        <div class="s02-pill">Historial de compras</div>
+      </div>
+      <div class="s02-tech" id="s02-m-k" style="top:690px">La protección de datos no era opcional</div>
+    </div>
+
+    <!-- prueba real: app (retrato) -->
+    <div id="s02-pmon">
+      <div class="crop" data-layout-allow-overflow>
+        <video id="s02-real-a1" class="clip" src="assets/media/s02a_bazar_compra.mp4" data-start="28" data-duration="7" data-media-start="2.5" data-track-index="3" muted playsinline></video>
+        <video id="s02-real-a2" class="clip" src="assets/media/s02a_bazar_compra.mp4" data-start="35" data-duration="9" data-media-start="19.5" data-track-index="3" muted playsinline></video>
+        <video id="s02-real-b" class="clip" src="assets/media/s02b_qr_vendedor.mp4" data-start="48" data-duration="6.5" data-media-start="6.5" data-track-index="3" muted playsinline></video>
+      </div>
+      <div class="s02-cap">Grabación real · app local, datos de prueba</div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      // Inicio de cada tramo (s). Ajustar con la voz de Tomás Solano; los data-start de arriba coinciden.
+      const T = { card: 0.1, scan: 5, baz: 22, monA1: 28, monA2: 35, qr: 44, monB: 48, map: 54.5 };
+
+      const tl = gsap.timeline({ paused: true });
+      const IN = 'expo.out', MOVE = 'power2.inOut', OUT = 'power3.in';
+      const show = (sel, at, d = 0.25) => tl.fromTo(sel, { opacity: 0 }, { opacity: 1, duration: d }, at);
+      const out = (sel, at) => tl.to(sel, { opacity: 0, filter: 'blur(8px)', duration: 0.3, ease: OUT }, at);
+      const blurIn = (sel, at) => tl.fromTo(sel, { opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.18, ease: 'none' }, at);
+      const slideIn = (sel, at) => tl.fromTo(sel, { opacity: 0, x: -50 }, { opacity: 1, x: 0, duration: 0.65, ease: IN }, at);
+      const mon = (at, until) => {
+        tl.fromTo('#s02-pmon', { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.5, ease: IN, immediateRender: false }, at - 0.1);
+        tl.to('#s02-pmon', { opacity: 0, scale: 0.97, duration: 0.3, ease: OUT }, until - 0.35);
+      };
+
+      // carta
+      tl.fromTo('#s02-card', { x: 140, y: -1000, rotationZ: -14, rotationY: 180 }, { x: 0, y: 0, rotationZ: -3, duration: 1.3, ease: IN }, T.card);
+      tl.fromTo('#s02-card', { rotationY: 180 }, { rotationY: 0, duration: 1.1, ease: MOVE, immediateRender: false }, T.card + 1.0);
+      tl.to('#s02-card', { x: -560, y: 40, scale: 0.62, rotationZ: -6, duration: 0.8, ease: MOVE }, T.scan - 0.3);
+
+      // 1 · escáner 4 pasos
+      blurIn('#s02-sc-t', T.scan + 0.1);
+      tl.fromTo('#s02-phone', { opacity: 0, y: 36 }, { opacity: 1, y: 0, duration: 0.7, ease: IN }, T.scan + 0.6);
+      tl.fromTo('#s02-beam', { y: 0 }, { y: 280, duration: 2.2, ease: MOVE }, T.scan + 1.4);
+      tl.to('#s02-beam', { y: 40, duration: 1.8, ease: MOVE }, T.scan + 3.8);
+      show('#s02-sc-res', T.scan + 6.4, 0.3);
+      ['#s02-s1', '#s02-s2', '#s02-s3', '#s02-s4'].forEach((s, i) => slideIn(s, T.scan + 1.2 + i * 2.0));
+      blurIn('#s02-sc-k', T.scan + 10.4);
+      out('#s02-scan > *', T.baz - 0.45);
+
+      // 2 · puente bazar
+      blurIn('#s02-b-t', T.baz + 0.1);
+      slideIn('#s02-b-1', T.baz + 1.0);
+      slideIn('#s02-b-2', T.baz + 2.2);
+      out('#s02-baz > *', T.monA1 - 0.45);
+
+      // monitores bazar (continuo a1 -> a2 sin bajar el marco)
+      mon(T.monA1, T.qr);
+
+      // 3 · puente QR
+      blurIn('#s02-q-t', T.qr + 0.15);
+      out('#s02-qr > *', T.monB - 0.45);
+      mon(T.monB, T.map);
+
+      // 4 · mapa del sistema
+      blurIn('#s02-m-t', T.map + 0.1);
+      tl.fromTo('#s02-n1', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: IN }, T.map + 0.7);
+      show('#s02-a1', T.map + 1.2, 0.25);
+      tl.fromTo('#s02-n2', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: IN }, T.map + 1.4);
+      show('#s02-a2', T.map + 1.9, 0.25);
+      tl.fromTo('#s02-n3', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: IN }, T.map + 2.1);
+      tl.fromTo('#s02-pills .s02-pill', { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.35, stagger: 0.25, ease: IN }, T.map + 3.4);
+      blurIn('#s02-m-k', T.map + 6.4);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines['s02'] = tl;
+    })();
+  </script>
+</template>

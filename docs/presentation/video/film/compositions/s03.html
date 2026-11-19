@@ -1,0 +1,195 @@
+<template>
+  <style>
+    @font-face { font-family: 'Cinzel'; src: url('assets/fonts/cinzel-latin.woff2') format('woff2'); font-weight: 400 900; }
+    #root { position: absolute; inset: 0; overflow: hidden; font-family: 'Inter', sans-serif; color: #f2e3cd; }
+    #s03-pano { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; }
+    .hl { color: #d4af37; }
+    .no { color: #ff5a4f; }
+    .mono { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+
+    #s03-stage { position: absolute; inset: 0; perspective: 1600px; }
+    #s03-card { position: absolute; left: 680px; top: 148px; width: 560px; height: 784px; transform-style: preserve-3d; }
+    .s03-face { position: absolute; inset: 0; border-radius: 26px; backface-visibility: hidden; box-shadow: 0 24px 48px rgba(0,0,0,.55); }
+    .s03-front { background: #1f1512; border: 6px solid #d4af37; padding: 26px 28px; display: flex; flex-direction: column; gap: 16px; }
+    .s03-back { background: #5a0d12; border: 6px solid #d4af37; transform: rotateY(180deg); display: flex; align-items: center; justify-content: center; }
+    .s03-back span { font-family: 'Cinzel'; font-weight: 700; font-size: 44px; color: #d4af37; border: 2px solid #d4af37; border-radius: 18px; padding: 40px 30px; text-align: center; line-height: 1.25; }
+    .s03-title { font-family: 'Cinzel'; font-weight: 700; font-size: 36px; border-bottom: 2px solid rgba(212,175,55,.6); padding-bottom: 12px; }
+    .s03-cost { align-self: flex-start; font-family: 'Cinzel'; font-weight: 700; font-size: 20px; color: #1f1512; background: #d4af37; border-radius: 8px; padding: 6px 14px; }
+    .s03-art { flex: 1; border: 2px solid rgba(212,175,55,.45); border-radius: 14px; background: #2a1b16; display: flex; align-items: center; justify-content: center; }
+    .s03-type { font-family: 'Cinzel'; font-size: 22px; color: #d4af37; }
+    .s03-text { font-size: 25px; line-height: 1.35; }
+
+    .s03-line { position: absolute; left: 760px; font-family: 'Cinzel'; font-weight: 700; font-size: 50px; white-space: nowrap; }
+    .s03-line small { display: block; font-family: 'Inter'; font-weight: 400; font-size: 29px; margin-top: 6px; color: #d8c8b0; }
+    .s03-tech { position: absolute; left: 760px; font-family: 'Cinzel'; font-weight: 700; font-size: 44px; color: #d4af37; white-space: nowrap; }
+    .s03-sub { position: absolute; left: 760px; font-size: 30px; white-space: nowrap; }
+
+    /* columnas del inventario */
+    #s03-cols { position: absolute; left: 760px; top: 360px; width: 1080px; display: flex; flex-wrap: wrap; gap: 14px; }
+    .s03-col { background: #f2e3cd; color: #2a2018; border-radius: 10px; padding: 14px 24px; font-family: 'Cinzel'; font-weight: 700; font-size: 28px; box-shadow: 0 10px 22px rgba(0,0,0,.45); }
+
+    /* flujos F1-F4 */
+    .s03-fl { position: absolute; left: 760px; width: 1080px; height: 112px; background: #1f1512; border: 3px solid rgba(212,175,55,.55); border-radius: 14px; padding: 14px 24px; box-shadow: 0 12px 24px rgba(0,0,0,.45); display: flex; align-items: center; gap: 24px; }
+    .s03-fl .tag { font-family: 'Cinzel'; font-weight: 700; font-size: 34px; color: #1f1512; background: #d4af37; border-radius: 10px; padding: 10px 18px; flex-shrink: 0; }
+    .s03-fl .ft { font-family: 'Cinzel'; font-weight: 700; font-size: 29px; }
+    .s03-fl .fd { font-size: 25px; color: #d8c8b0; margin-top: 4px; }
+
+    /* diagrama real de flujos */
+    #s03-diag-frame { position: absolute; left: 600px; top: 100px; width: 1240px; height: 800px; background: #ffffff; border: 6px solid #d4af37; border-radius: 20px; box-shadow: 0 30px 60px rgba(0,0,0,.6); overflow: hidden; }
+    #s03-diag-img { position: absolute; left: 16px; top: 14px; width: 1196px; height: 716px; object-fit: contain; }
+    #s03-diag-cap { position: absolute; left: 0; right: 0; bottom: 0; height: 57px; background: #1f1512; font-family: 'Cinzel'; font-weight: 700; font-size: 25px; color: #d4af37; padding: 12px 28px; white-space: nowrap; }
+
+    /* dos bases de licitud */
+    .s03-base { position: absolute; top: 240px; width: 520px; height: 420px; background: #1f1512; border: 4px solid #d4af37; border-radius: 18px; padding: 26px 28px; box-shadow: 0 16px 34px rgba(0,0,0,.5); }
+    .s03-base .bt { font-family: 'Cinzel'; font-weight: 700; font-size: 36px; color: #d4af37; }
+    .s03-base .ba { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 24px; color: #f2e3cd; margin: 8px 0 18px; }
+    .s03-base .bl { font-size: 28px; line-height: 1.55; color: #e8dac4; }
+
+    /* tabla del inventario con geolocalización resaltada */
+    #s03-tbl { position: absolute; left: 760px; top: 215px; width: 1080px; background: #f2e3cd; color: #2a2018; border-radius: 12px; padding: 12px 22px; box-shadow: 0 14px 30px rgba(0,0,0,.5); }
+    .s03-tr { display: grid; grid-template-columns: 270px 300px 280px 180px; align-items: center; font-size: 24px; padding: 12px 10px; border-bottom: 2px solid rgba(42,32,24,.15); white-space: nowrap; border-radius: 8px; }
+    .s03-tr:last-child { border-bottom: none; }
+    .s03-tr.h { font-family: 'Cinzel'; font-weight: 700; font-size: 21px; color: #8b0000; }
+    .s03-tr.geo { background: #3a1414; color: #f2e3cd; border: 3px solid #d4af37; font-weight: 700; }
+  </style>
+
+  <div id="root" data-composition-id="s03" data-width="1920" data-height="1080">
+    <img id="s03-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="62" data-track-index="0" alt="" />
+
+    <div id="s03-card-clip" class="clip" data-start="0" data-duration="62" data-track-index="1">
+      <div id="s03-stage"><div id="s03-card">
+        <div class="s03-face s03-front">
+          <div class="s03-title">Inventario y clasificación</div>
+          <div class="s03-cost">Ley 19.628 · arts. 12, 13 y 16 sexies</div>
+          <div class="s03-art">
+            <svg width="240" height="200" viewBox="0 0 240 200" aria-hidden="true">
+              <rect x="34" y="24" width="172" height="152" rx="14" fill="#3a1414" stroke="#d4af37" stroke-width="6"/>
+              <line x1="34" y1="68" x2="206" y2="68" stroke="#d4af37" stroke-width="5"/>
+              <line x1="100" y1="68" x2="100" y2="176" stroke="#d4af37" stroke-width="4"/>
+              <rect x="50" y="90" width="36" height="12" rx="6" fill="#f2e3cd"/>
+              <rect x="116" y="90" width="70" height="12" rx="6" fill="#f2e3cd"/>
+              <rect x="50" y="124" width="36" height="12" rx="6" fill="#d4af37"/>
+              <rect x="116" y="124" width="70" height="12" rx="6" fill="#d4af37"/>
+            </svg>
+          </div>
+          <div class="s03-type">Hito 1 · Ley 21.719</div>
+          <div class="s03-text">Antes de proteger datos: cuáles tratamos, para qué, con qué base legal y por cuánto tiempo.</div>
+        </div>
+        <div class="s03-face s03-back"><span>MTG<br />Companion</span></div>
+      </div></div>
+    </div>
+
+    <!-- 1 · marco legal y estructura del inventario -->
+    <div id="s03-law" class="clip" data-start="5" data-duration="11" data-track-index="2">
+      <div class="s03-line" id="s03-l-t" style="top:110px">Ley 19.628 · <span class="hl">texto Ley 21.719</span><small>vigencia 1 de diciembre de 2026 · levantado desde el esquema real de la BD</small></div>
+      <div id="s03-cols">
+        <div class="s03-col">1 · Fuente</div>
+        <div class="s03-col">2 · Finalidad</div>
+        <div class="s03-col">3 · Base de licitud</div>
+        <div class="s03-col">4 · Destinatarios</div>
+        <div class="s03-col">5 · Conservación</div>
+      </div>
+      <div class="s03-tech" id="s03-l-k" style="top:610px">Cada campo de PostgreSQL, mapeado</div>
+    </div>
+
+    <!-- 2 · los cuatro flujos F1-F4 -->
+    <div id="s03-flows" class="clip" data-start="16" data-duration="10" data-track-index="2">
+      <div class="s03-line" id="s03-f-t" style="top:92px">Cuatro flujos de datos personales</div>
+      <div class="s03-fl" id="s03-f1" style="top:200px"><div class="tag">F1</div><div><div class="ft">Registro y autenticación</div><div class="fd">Email, contraseña (bcrypt), tokens (SHA-256), 2FA (AES-256-GCM)</div></div></div>
+      <div class="s03-fl" id="s03-f2" style="top:332px"><div class="tag">F2</div><div><div class="ft">Escaneo y publicación</div><div class="fd">Escáner local descartado en memoria · foto manual a S3 privado</div></div></div>
+      <div class="s03-fl" id="s03-f3" style="top:464px"><div class="tag">F3</div><div><div class="ft">Búsqueda con ubicación</div><div class="fd">GPS cifrado en BD · a otros jugadores solo se entrega distancia en km</div></div></div>
+      <div class="s03-fl" id="s03-f4" style="top:596px"><div class="tag">F4</div><div><div class="ft">Compraventa y pago</div><div class="fd">Tarjeta solo en MercadoPago · QR firmado HMAC · comprobante</div></div></div>
+    </div>
+
+    <!-- 3 · diagrama real del Hito 1 -->
+    <div id="s03-diag" class="clip" data-start="26" data-duration="7" data-track-index="2">
+      <div id="s03-diag-frame">
+        <img id="s03-diag-img" src="assets/media/diagrama_flujos.png" alt="Mapa de flujos F1 a F4" />
+        <div id="s03-diag-cap">Hito 1 · Mapa real de flujos F1–F4 (docs/security/hito1)</div>
+      </div>
+    </div>
+
+    <!-- 4 · regla simple: contrato vs consentimiento -->
+    <div id="s03-bases" class="clip" data-start="33" data-duration="11" data-track-index="2">
+      <div class="s03-line" id="s03-b-t" style="top:100px">Bases de licitud · <span class="hl">la regla</span></div>
+      <div class="s03-base" id="s03-bc" style="left:760px">
+        <div class="bt">Contrato</div>
+        <div class="ba">art. 13 letra c · indispensable</div>
+        <div class="bl">• Cuenta y correo<br />• Contraseña y sesión<br />• Cartas publicadas<br />• Compraventa y pago</div>
+      </div>
+      <div class="s03-base" id="s03-bo" style="left:1320px">
+        <div class="bt">Consentimiento</div>
+        <div class="ba">art. 12 · opcional y revocable</div>
+        <div class="bl">• Ubicación (Bazar)<br />• Segundo factor (2FA)<br />• Correos opcionales<br />• Nunca pre-marcado</div>
+      </div>
+      <div class="s03-sub" id="s03-b-s" style="top:720px">Lo que el servicio no exige para funcionar nunca va por contrato</div>
+    </div>
+
+    <!-- 5 · tabla de inventario + geolocalización resaltada -->
+    <div id="s03-inv" class="clip" data-start="44" data-duration="18" data-track-index="2">
+      <div class="s03-line" id="s03-i-t" style="top:96px">Inventario · <span class="hl">categoría especial</span></div>
+      <div id="s03-tbl">
+        <div class="s03-tr h"><span>Dato</span><span>Base legal</span><span>Clasificación</span><span>Plazo</span></div>
+        <div class="s03-tr" id="s03-r1"><span>Correo y alias</span><span>Contrato (art. 13 c)</span><span>Personal</span><span>Cuenta</span></div>
+        <div class="s03-tr" id="s03-r2"><span>Secreto 2FA</span><span>Consentimiento (art. 12)</span><span>Crítico</span><span>Hasta apagar</span></div>
+        <div class="s03-tr geo" id="s03-r3"><span>Geolocalización</span><span>Consentimiento (12)</span><span class="hl">Art. 16 sexies</span><span>30 d / revocar</span></div>
+        <div class="s03-tr" id="s03-r4"><span>Escáner (cámara)</span><span>No se recolecta</span><span>Local (IA)</span><span>0 s</span></div>
+        <div class="s03-tr" id="s03-r5"><span>Transacciones</span><span>Contrato + ley (13 b/c)</span><span>Financiero</span><span>6 años (SII)</span></div>
+      </div>
+      <div class="s03-sub" id="s03-i-g" style="top:650px"><span class="hl" style="font-weight:700">Geolocalización:</span> permite inferir dónde vive un vendedor</div>
+      <div class="s03-tech" id="s03-i-k" style="top:730px">Nuestro mapa: cada brecha se cerró en código</div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      // Inicio de cada tramo (s). Ajustar con la voz de Tomás Solano; los data-start de arriba coinciden.
+      const T = { card: 0.1, law: 5, flows: 16, diag: 26, bases: 33, inv: 44 };
+
+      const tl = gsap.timeline({ paused: true });
+      const IN = 'expo.out', MOVE = 'power2.inOut', OUT = 'power3.in';
+      const show = (sel, at, d = 0.25) => tl.fromTo(sel, { opacity: 0 }, { opacity: 1, duration: d }, at);
+      const out = (sel, at) => tl.to(sel, { opacity: 0, filter: 'blur(8px)', duration: 0.3, ease: OUT }, at);
+      const blurIn = (sel, at) => tl.fromTo(sel, { opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.18, ease: 'none' }, at);
+      const slideIn = (sel, at) => tl.fromTo(sel, { opacity: 0, x: -50 }, { opacity: 1, x: 0, duration: 0.65, ease: IN }, at);
+
+      // carta
+      tl.fromTo('#s03-card', { x: 140, y: -1000, rotationZ: -14, rotationY: 180 }, { x: 0, y: 0, rotationZ: -3, duration: 1.3, ease: IN }, T.card);
+      tl.fromTo('#s03-card', { rotationY: 180 }, { rotationY: 0, duration: 1.1, ease: MOVE, immediateRender: false }, T.card + 1.0);
+      tl.to('#s03-card', { x: -560, y: 40, scale: 0.62, rotationZ: -6, duration: 0.8, ease: MOVE }, T.law - 0.3);
+
+      // 1 · marco legal
+      blurIn('#s03-l-t', T.law + 0.1);
+      tl.fromTo('#s03-cols .s03-col', { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.35, ease: IN }, T.law + 1.4);
+      blurIn('#s03-l-k', T.law + 5.2);
+      out('#s03-law > *', T.flows - 0.45);
+
+      // 2 · flujos F1-F4
+      blurIn('#s03-f-t', T.flows + 0.1);
+      ['#s03-f1', '#s03-f2', '#s03-f3', '#s03-f4'].forEach((s, i) => slideIn(s, T.flows + 0.8 + i * 1.4));
+      out('#s03-flows > *', T.diag - 0.45);
+
+      // 3 · diagrama real
+      tl.fromTo('#s03-diag-frame', { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.55, ease: IN }, T.diag);
+      tl.to('#s03-diag-frame', { opacity: 0, scale: 0.97, duration: 0.3, ease: OUT }, T.bases - 0.4);
+
+      // 4 · contrato vs consentimiento
+      blurIn('#s03-b-t', T.bases + 0.1);
+      slideIn('#s03-bc', T.bases + 0.9);
+      tl.fromTo('#s03-bo', { opacity: 0, x: 50 }, { opacity: 1, x: 0, duration: 0.65, ease: IN }, T.bases + 2.8);
+      show('#s03-b-s', T.bases + 5.4, 0.3);
+      out('#s03-bases > *', T.inv - 0.45);
+
+      // 5 · tabla de inventario + geolocalización resaltada
+      blurIn('#s03-i-t', T.inv + 0.1);
+      tl.fromTo('#s03-tbl', { opacity: 0, y: 36 }, { opacity: 1, y: 0, duration: 0.65, ease: IN }, T.inv + 0.6);
+      ['#s03-r1', '#s03-r2', '#s03-r3', '#s03-r4', '#s03-r5'].forEach((s, i) => show(s, T.inv + 1.2 + i * 0.5, 0.25));
+      tl.fromTo('#s03-r3', { scale: 1 }, { scale: 1.02, duration: 0.45, ease: 'back.out(1.4)', immediateRender: false }, T.inv + 4.4);
+      show('#s03-i-g', T.inv + 5.2, 0.3);
+      blurIn('#s03-i-k', T.inv + 9.2);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines['s03'] = tl;
+    })();
+  </script>
+</template>

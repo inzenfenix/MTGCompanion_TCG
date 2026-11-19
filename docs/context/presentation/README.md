@@ -11,8 +11,8 @@ speakers); this file is the working state for whoever continues the build.
 | Script + recording list | `docs/presentation/video/GUION.md` | done; scene 2 and 5 adjusted to what was recorded |
 | Storylines | `docs/presentation/video/STORYLINES.md` | user picked a **mix**: A (Marta's data is the thread) + B (each control is "played" as an original card) + C (system map as home stage) |
 | Film spec | `docs/presentation/video/film/SPEC.md` | look, motion, banned list |
-| HyperFrames project | `docs/presentation/video/film/` | `index.html` mounts `compositions/s04.html` (0–80 s), `s05.html` (80–133 s), `s06.html` (133–202 s), `s07.html` (202–273 s), `s08.html` (273–341 s), `s09.html` (341–439 s), `s10.html` (439–522 s), `s11.html` (522–618 s), `s12.html` (618–668 s) |
-| Draft render | `film/renders/borrador_s04_s06.mp4`, `borrador_s07.mp4`, `borrador_s08.mp4`, `borrador_s09.mp4`, `borrador_s10.mp4`, `borrador_s11.mp4`, `borrador_s12.mp4` (gitignored) | scenes 4–6 (202 s), 7 (71 s), 8 (68 s), 9 (98 s), 10 (83 s), 11 (96 s) and 12 (50 s), each checked frame by frame |
+| HyperFrames project | `docs/presentation/video/film/` | `index.html` mounts all 13 scenes in order (`0–841 s`, 14:01): `s00` (0–8), `s01` (8–45), `s02` (45–111), `s03` (111–173), `s04` (173–253), `s05` (253–306), `s06` (306–375), `s07` (375–446), `s08` (446–514), `s09` (514–612), `s10` (612–695), `s11` (695–791), `s12` (791–841) |
+| Draft render | `film/renders/borrador_s00_s03.mp4`, `borrador_s04_s06.mp4`, `borrador_s07.mp4` … `borrador_s12.mp4` (gitignored) | all 13 scenes (841 s total), each checked frame by frame |
 | Real clips | `docs/presentation/video/assets/clips/*.mp4` (gitignored, ~40 MB) | all recorded — list below |
 | Demo tooling | `docs/presentation/video/demo/` | committed; reproduces every clip |
 
@@ -24,10 +24,8 @@ only inside the **evidence monitor** (user's call: "keep the monitor"); the expl
 
 ## Still to build (in order)
 
-1. Scenes **0–3** (intro, opening with the three names, the case — animated 4-step scanner + `s02a`/`s02b` + system
-   map, Hito 1 flows map). Scene 0–1 must show each member's name; **every member identifies themself at the start
-   of their block** (pauta).
-2. ~~Scenes **9–12**~~ — all done 18 nov (`s09` 98 s, `s10` 83 s, `s11` 96 s, `s12` 50 s).
+1. ~~Scenes **0–3**~~ — all done 18 nov (`s00` 8 s, `s01` 37 s, `s02` 66 s, `s03` 62 s).
+2. ~~Scenes **4–12**~~ — all done 18 nov (`s04`–`s12`, total film 841 s = 14:01).
 3. Audio: the team records one file per scene (`GUION.md` → "Voces"), then retime each scene from its `T` table and
    add a quiet free music bed + small SFX (`hyperframes` skill → `references/sound.md`).
 4. Final render (`hf render --quality delivery`), check length 10–15 min and per-speaker balance, then mark O18 ✅.
@@ -88,13 +86,10 @@ only inside the **evidence monitor** (user's call: "keep the monitor"); the expl
 
 ## Prompt for the next session
 
-> Continue ROADMAP O18 (presentation video). Read `docs/context/presentation/README.md` first, then
-> `docs/presentation/video/GUION.md` and `docs/presentation/video/film/SPEC.md`, and the HyperFrames skill at
-> `~/.claude/plugins/marketplaces/hyperframes/skills/hyperframes/SKILL.md` (+ `references/format.md`,
-> `references/motion.md`). Look at `film/compositions/s06.html` and `s07.html` as the pattern. Build the next
-> scene (scene 9 — derechos: acceso, rectificación, supresión, Tomás Rodríguez — opens with his name plate like s05)
-> as `compositions/s09.html` following the conventions in the README (card, `T` table, evidence monitors with
-> `assets/clips/s09_derechos.mp4` (app, portrait — use the phone monitor from s08) + `s09b_exportacion_correos.mp4`,
-> real values only — step-up, JSON `processing`/`notIncluded`, email change notice, `OPEN_TRANSACTIONS`), mount it
-> after s08 (start 341) in `index.html`, run `hf check --json`, snapshot, render a draft (`--start 341`), commit and
-> push. Keep going scene by scene (10, 11, 12, then 0–3) and update this README's "Still to build".
+> Continue ROADMAP O18 (presentation video). All 13 visual scenes (`s00`–`s12`, 841 s) are built, checked and
+> draft-rendered in `docs/presentation/video/film/`. Read `docs/context/presentation/README.md`, `GUION.md`, and
+> `~/.claude/plugins/marketplaces/hyperframes/skills/hyperframes/references/sound.md`. Once the team's voice
+> recordings are placed in `docs/presentation/video/assets/audio/`, copy them to `film/assets/audio/`, mount `<audio>`
+> clips in `index.html`, retime each scene via its `T` table + `data-start`s to match the real narration, add a subtle
+> free music bed + subtle SFX, run `hf check --json` + visual review, render `--quality delivery`, verify 10–15 min and
+> balanced speaker time, and mark ROADMAP O18 ✅.
