@@ -7,8 +7,8 @@ needs time for its own animations, rewrite the scene's T table + every data-star
 the voice <audio> segments, then restack index.html. Run with --dry to only print the plan.
 
 NOT idempotent: it treats the T tables it finds as the visual-only timing. Re-run it only on the scene files
-as of commit 4d1c008 (`git checkout 4d1c008 -- film/compositions film/index.html`), then re-add the music bed
-and effects blocks in index.html (README "Audio").
+as of commit 4d1c008 (`git checkout 4d1c008 -- film/compositions film/index.html`), re-add
+data-layout-allow-occlusion on #s06-a-in, then run mix.py for the music bed and effects (README "Audio").
 """
 import json, re, subprocess, sys, unicodedata, difflib
 from pathlib import Path
@@ -41,7 +41,7 @@ SCENES = {
                               'res': 'revertir un seudonimo'}),
     's07': (['s07_fuentes'], {'card': START, 'mat': 'definimos tres roles', 'gap': 'al revisar el codigo',
                               'deny': 'un usuario que pide', 'sup': 'soporte si puede', 'adm': 'y el administrador', 'end': None}),
-    's08': (['s08_fuentes'], {'card': START, 'req': 'el articulo 12', 'pur': 'cada finalidad', 'hash': 'guardamos que version',
+    's08': (['s08_fuentes'], {'card': START, 'req': 'el articulo 12', 'pur': 'cada finalidad ubicacion', 'hash': 'guardamos que version',
                               'pre': 'nada viene', 'chk': 'lo mas importante', 'monA': 'aqui revoco',
                               'del': 'en la misma operacion', 'monB': 'si la app intenta', 'pass': 'le paso la palabra'}),
     's09': (['s09_rodriguez'], {'name': START, 'card': None, 'rig': 'la ley da derecho', 'life': 'todo se pide',
@@ -61,12 +61,31 @@ def norm(s):
     return re.sub(r'[^a-z0-9 ]', '', s)
 
 
-def silences(wav):
-    out = subprocess.run(['ffmpeg', '-v', 'info', '-i', str(wav), '-af', 'silencedetect=noise=-38dB:d=0.12', '-f', 'null', '-'],
-                         capture_output=True, text=True).stderr
-    st = [float(x) for x in re.findall(r'silence_start: ([\d.]+)', out)]
-    en = [float(x) for x in re.findall(r'silence_end: ([\d.]+)', out)]
-    return list(zip(st, en))
+def silences(wav, thr=-45.0, mind=0.06):
+    """Gaps between words: runs of 20 ms RMS windows (10 ms hop) under thr dBFS lasting >= mind seconds
+    (thr assumes voice files at -16 LUFS, as prep.sh leaves them).
+    (silencedetect at -38 dB/0.12 s missed the short gaps of fluent speech, which pushed cuts into words.)"""
+    import numpy as np
+    raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', str(wav), '-f', 's16le', '-ac', '1', '-ar', '48000', '-'],
+                         capture_output=True).stdout
+    x = np.frombuffer(raw, np.int16).astype(np.float32) / 32768
+    hop, win = 480, 960
+    n = max(0, (len(x) - win) // hop)
+    fr = np.lib.stride_tricks.sliding_window_view(x, win)[::hop][:n]
+    q = 20 * np.log10(np.sqrt((fr ** 2).mean(1)) + 1e-9) < thr
+    out, i = [], 0
+    while i < n:
+        if q[i]:
+            j = i
+            while j < n and q[j]:
+                j += 1
+            a, b = (i * hop + win / 2) / 48000, ((j - 1) * hop + win / 2) / 48000
+            if b - a >= mind:
+                out.append((a, b))
+            i = j
+        else:
+            i += 1
+    return out
 
 
 def dur(f):
@@ -81,7 +100,7 @@ def voice_track(files):
         wav = FILM / 'assets/audio' / f'{f}.wav'
         d = dur(wav)
         for w in json.load(open(TR / f'{f}.json')):
-            words.append({'t': norm(w['text']), 's': w['start'] + off, 'e': w['end'] + off})
+            words.append({'t': norm(w['text']), 'raw': w['text'].strip(), 's': w['start'] + off, 'e': w['end'] + off})
         sil += [(a + off, b + off) for a, b in silences(wav)]
         spans.append((f, off, off + d))
         off += d + GAP_FILES
@@ -105,12 +124,32 @@ def find_cue(words, phrase, after):
     return words[bi]['s'], best
 
 
-def cut_point(sil, t):
-    """Middle of the silence that ends closest before word start t (fallback: t - 0.12)."""
-    cands = [(a, b) for a, b in sil if b <= t + 0.15 and b >= t - 1.0]
+# pauses pinned by hand where the scoring is fragile: (scene, beat) -> pause right after this word
+# s04 'next': "…ningún secreto. | Así que, dado esto, le paso la palabra a Vicente" (team feedback, 4:15)
+CUT_AFTER = {('s04', 'next'): 'secreto'}
+CUT_BACK = 2.5      # a voice pause may start up to this long before its cue word...
+SENT_BONUS = 0.3    # ...and prefers a pause that follows the end of a sentence
+
+
+def cut_point(sil, t, words, lo=0.0):
+    """Where to stop the voice before cue word t: always inside a real silence (silencedetect), never mid-word.
+
+    Whisper's word times drift (±0.3 s) and connected speech has no gap before many cue words, so the old
+    rule (closest silence within 1 s, else t - 0.12) cut through words ("para", "jugadores", "le paso…").
+    Score each silence ending in [t - CUT_BACK, t + 0.6]: its length (capped at 0.45, what prep.sh leaves of
+    a long pause), a bonus if a word ending in . ? ! (smaller: , ; :) stops right before it, minus 0.18 per second of distance.
+    """
+    def score(ab):
+        a, b = ab
+        near = [w['raw'][-1:] for w in words if a - 0.35 <= w['e'] <= b + 0.1]
+        sent, comma = any(c in '.?!' for c in near), any(c in ',;:' for c in near)
+        return min(b - a, 0.45) + SENT_BONUS * sent + 0.08 * comma - 0.18 * max(0.0, t - b)
+    cands = [(a, b) for a, b in sil if t - CUT_BACK <= b <= t + 0.6 and (a + b) / 2 > lo + 0.4]
+    if not cands:   # widen forward: better to let the cue word play early than to cut through it
+        cands = [(a, b) for a, b in sil if t + 0.6 < b <= t + 1.5 and (a + b) / 2 > lo + 0.4]
     if not cands:
-        return max(0.0, t - 0.12)
-    a, b = max(cands, key=lambda x: x[1])
+        raise SystemExit(f'no silence to cut at near voice time {t:.2f}')
+    a, b = max(cands, key=score)
     return max(a, b - 0.35, (a + b) / 2) if b - a > 0.7 else (a + b) / 2
 
 
@@ -183,10 +222,22 @@ def plan_scene(sid, old_dur):
         after = t + 0.05
         return t
 
-    def pause_at(vt, scene_t):
+    def pause_at(vt, scene_t, key=None):
         """End the voice segment at voice time vt; it resumes at scene_t."""
         nonlocal vs, gap
-        cut = cut_point(sil, vt)
+        if vt - vs < 0.5:                                # cue right at the segment start: nothing to cut
+            cut = vs
+        elif any(abs(vt - sp[1]) < 1e-6 for sp in spans):  # cue on a speaker file start: the file boundary
+            cut = vt
+        elif (sid, key) in CUT_AFTER:                     # pinned: the gap right after a given word
+            w = max((w for w in words if w['t'] == norm(CUT_AFTER[sid, key]) and w['e'] < vt), key=lambda w: w['e'])
+            a, b = min((g for g in sil if g[1] > w['s']), key=lambda g: abs(g[0] - w['e']))
+            cut = (a + b) / 2
+        else:
+            cut = cut_point(sil, vt, words, vs)
+        before = ' '.join(w['raw'] for w in words if cut - 2.0 < w['e'] <= cut + 0.05)
+        after = ' '.join(w['raw'] for w in words if cut - 0.05 <= w['s'] < cut + 2.0)
+        log.append(f'    cut {cut:6.2f} (cue {vt:6.2f})  …{before[-40:]} | {after[:40]}…')
         if cut > vs + 0.05:
             segs.append((vs, cut, vs + gap))
         vs = cut
@@ -216,7 +267,7 @@ def plan_scene(sid, old_dur):
                 new[m] = t
                 t += (nxt(keys.index(m)) - old[m]) * MON_SCALE
             if c is not None:
-                pause_at(c, t + RESUME)
+                pause_at(c, t + RESUME, nk)
             if nk:
                 new[nk] = t
                 prev_end_min = t + min_len(src, nk)
@@ -231,7 +282,7 @@ def plan_scene(sid, old_dur):
             want = c + gap - LEAD
             if want < prev_end_min:   # the beat before still needs time: the voice waits
                 new[k] = prev_end_min
-                pause_at(c, new[k] + LEAD)
+                pause_at(c, new[k] + LEAD, k)
                 log.append(f'    pause {prev_end_min - want:.1f}s before {k}')
             else:
                 new[k] = want
@@ -299,7 +350,7 @@ def apply(sid, path, src, old, new, new_dur, old_dur, segs, spans):
         # a segment never crosses a file boundary in s12 (each file starts on its own cue)
         aud.append(f'    <audio id="{sid}-voz-{n}" class="clip" src="assets/audio/{f0}.wav" data-start="{at:.2f}" '
                    f'data-duration="{min(b, [sp for sp in spans if sp[0] == f0][0][2]) - a:.2f}" data-media-start="{a - o0:.2f}" '
-                   f'data-track-index="6" data-volume="1"></audio>')
+                   f'data-track-index="6" data-volume="0.75"></audio>')
     out = re.sub(r'(<div id="root"[^>]*>\n)', lambda m: m.group(1) + '    <!-- voz (retime.py) -->\n' + '\n'.join(aud) + '\n', out, count=1)
     path.write_text(out)
 

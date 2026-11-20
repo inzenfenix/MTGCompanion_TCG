@@ -57,12 +57,12 @@
 
   <div id="root" data-composition-id="s02" data-width="1920" data-height="1080">
     <!-- voz (retime.py) -->
-    <audio id="s02-voz-1" class="clip" src="assets/audio/s02_solano.wav" data-start="0.60" data-duration="31.63" data-media-start="0.00" data-track-index="6" data-volume="0.75"></audio>
-    <audio id="s02-voz-2" class="clip" src="assets/audio/s02_solano.wav" data-start="45.15" data-duration="6.01" data-media-start="31.63" data-track-index="6" data-volume="0.75"></audio>
-    <audio id="s02-voz-3" class="clip" src="assets/audio/s02_solano.wav" data-start="56.47" data-duration="15.30" data-media-start="37.64" data-track-index="6" data-volume="0.75"></audio>
-    <img id="s02-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="72.97" data-track-index="0" alt="" />
+    <audio id="s02-voz-1" class="clip" src="assets/audio/s02_solano.wav" data-start="0.60" data-duration="31.62" data-media-start="0.00" data-track-index="6" data-volume="0.75"></audio>
+    <audio id="s02-voz-2" class="clip" src="assets/audio/s02_solano.wav" data-start="45.15" data-duration="5.95" data-media-start="31.62" data-track-index="6" data-volume="0.75"></audio>
+    <audio id="s02-voz-3" class="clip" src="assets/audio/s02_solano.wav" data-start="56.48" data-duration="15.37" data-media-start="37.58" data-track-index="6" data-volume="0.75"></audio>
+    <img id="s02-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="73.05" data-track-index="0" alt="" />
 
-    <div id="s02-card-clip" class="clip" data-start="0" data-duration="72.97" data-track-index="1">
+    <div id="s02-card-clip" class="clip" data-start="0" data-duration="73.05" data-track-index="1">
       <div id="s02-stage"><div id="s02-card">
         <div class="s02-face s02-front">
           <div class="s02-title">MTG Companion</div>
@@ -113,7 +113,7 @@
     </div>
 
     <!-- 4 · mapa del sistema y datos personales involucrados -->
-    <div id="s02-map" class="clip" data-start="56.2156" data-duration="16.75" data-track-index="2">
+    <div id="s02-map" class="clip" data-start="56.225" data-duration="16.82" data-track-index="2">
       <div class="s02-line" id="s02-m-t" style="top:96px">Arquitectura del sistema<small>qué corre en el teléfono y qué tratamos en la nube</small></div>
       <div class="s02-node" id="s02-n1" style="left:760px"><div class="nt">Teléfono</div><div class="ns">App Ionic + IA local (ONNX / OCR)</div></div>
       <div class="s02-arr" id="s02-a1" style="left:1098px">⇄</div>
@@ -135,7 +135,7 @@
       <div class="crop" data-layout-allow-overflow>
         <video id="s02-real-a1" class="clip" src="assets/media/s02a_bazar_compra.mp4" data-start="32.1" data-duration="5.6" data-media-start="3.90" data-track-index="3" muted playsinline></video>
         <video id="s02-real-a2" class="clip" src="assets/media/s02a_bazar_compra.mp4" data-start="37.7" data-duration="7.2" data-media-start="21.30" data-track-index="3" muted playsinline></video>
-        <video id="s02-real-b" class="clip" src="assets/media/s02b_qr_vendedor.mp4" data-start="51.0156" data-duration="5.2" data-media-start="7.80" data-track-index="3" muted playsinline></video>
+        <video id="s02-real-b" class="clip" src="assets/media/s02b_qr_vendedor.mp4" data-start="51.025" data-duration="5.2" data-media-start="7.80" data-track-index="3" muted playsinline></video>
       </div>
       <div class="s02-cap">Grabación real · app local, datos de prueba</div>
     </div>
@@ -144,7 +144,7 @@
   <script>
     (function () {
       // Inicio de cada tramo (s). Ajustar con la voz de Tomás Solano; los data-start de arriba coinciden.
-      const T = { card: 0.1, scan: 4.5, baz: 20.95, monA1: 32.1, monA2: 37.7, qr: 44.9, monB: 51.02, map: 56.22 };
+      const T = { card: 0.1, scan: 4.5, baz: 20.95, monA1: 32.1, monA2: 37.7, qr: 44.9, monB: 51.03, map: 56.23 };
 
       const tl = gsap.timeline({ paused: true });
       const IN = 'expo.out', MOVE = 'power2.inOut', OUT = 'power3.in';

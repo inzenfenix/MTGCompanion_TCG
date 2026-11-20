@@ -40,20 +40,19 @@
 
   <div id="root" data-composition-id="s12" data-width="1920" data-height="1080">
     <!-- voz (retime.py) -->
-    <audio id="s12-voz-1" class="clip" src="assets/audio/s12_fuentes.wav" data-start="0.53" data-duration="0.07" data-media-start="0.00" data-track-index="6" data-volume="0.75"></audio>
-    <audio id="s12-voz-2" class="clip" src="assets/audio/s12_fuentes.wav" data-start="2.50" data-duration="15.18" data-media-start="0.07" data-track-index="6" data-volume="0.75"></audio>
-    <audio id="s12-voz-3" class="clip" src="assets/audio/s12_solano.wav" data-start="18.48" data-duration="10.03" data-media-start="0.00" data-track-index="6" data-volume="0.75"></audio>
-    <audio id="s12-voz-4" class="clip" src="assets/audio/s12_rodriguez.wav" data-start="29.31" data-duration="12.16" data-media-start="0.00" data-track-index="6" data-volume="0.75"></audio>
-    <img id="s12-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="49.86" data-track-index="0" alt="" />
+    <audio id="s12-voz-1" class="clip" src="assets/audio/s12_fuentes.wav" data-start="2.50" data-duration="15.25" data-media-start="0.00" data-track-index="6" data-volume="0.75"></audio>
+    <audio id="s12-voz-2" class="clip" src="assets/audio/s12_solano.wav" data-start="18.55" data-duration="10.03" data-media-start="0.00" data-track-index="6" data-volume="0.75"></audio>
+    <audio id="s12-voz-3" class="clip" src="assets/audio/s12_rodriguez.wav" data-start="29.38" data-duration="10.51" data-media-start="0.00" data-track-index="6" data-volume="0.75"></audio>
+    <img id="s12-pano" class="clip" src="assets/media/pano.jpg" data-start="0" data-duration="48.29" data-track-index="0" alt="" />
 
     <!-- título persistente mientras hablan los tres -->
-    <div id="s12-hdr" class="clip" data-start="0.2" data-duration="40.61" data-track-index="1">
+    <div id="s12-hdr" class="clip" data-start="0.2" data-duration="40.68" data-track-index="1">
       <div class="t">¿Qué nos queda por <span class="hl">mejorar</span>?</div>
       <div class="s">Pendientes identificados antes de pasar a producción</div>
     </div>
 
     <!-- 1 · Vicente Fuentes -->
-    <div id="s12-vic" class="clip" data-start="2.2" data-duration="15.98" data-track-index="2">
+    <div id="s12-vic" class="clip" data-start="2.2" data-duration="16.05" data-track-index="2">
       <div class="s12-spk" id="s12-v-spk">
         <div class="bar"></div>
         <div class="n">Vicente<br />Fuentes</div>
@@ -70,7 +69,7 @@
     </div>
 
     <!-- 2 · Tomás Solano -->
-    <div id="s12-sol" class="clip" data-start="18.1793" data-duration="10.83" data-track-index="2">
+    <div id="s12-sol" class="clip" data-start="18.2521" data-duration="10.83" data-track-index="2">
       <div class="s12-spk" id="s12-s-spk">
         <div class="bar"></div>
         <div class="n">Tomás<br />Solano</div>
@@ -91,7 +90,7 @@
     </div>
 
     <!-- 3 · Tomás Rodríguez -->
-    <div id="s12-rod" class="clip" data-start="29.0083" data-duration="12.86" data-track-index="2">
+    <div id="s12-rod" class="clip" data-start="29.0811" data-duration="11.21" data-track-index="2">
       <div class="s12-spk" id="s12-r-spk">
         <div class="bar"></div>
         <div class="n">Tomás<br />Rodríguez</div>
@@ -108,7 +107,7 @@
     </div>
 
     <!-- 4 · placa final -->
-    <div id="s12-fin" class="clip" data-start="41.8647" data-duration="8" data-track-index="2">
+    <div id="s12-fin" class="clip" data-start="40.2876" data-duration="8" data-track-index="2">
       <div id="s12-fin-box">
         <div id="s12-fin-brand">MTG Companion</div>
         <div id="s12-fin-sub">Protección de datos personales · Ley 19.628 (texto Ley 21.719)</div>
@@ -122,7 +121,7 @@
   <script>
     (function () {
       // Inicio de cada tramo (s). Ajustar con las voces de los tres integrantes; los data-start de arriba coinciden.
-      const T = { hdr: 0.2, vic: 2.2, sol: 18.18, rod: 29.01, fin: 41.86 };
+      const T = { hdr: 0.2, vic: 2.2, sol: 18.25, rod: 29.08, fin: 40.29 };
 
       const tl = gsap.timeline({ paused: true });
       const IN = 'expo.out', OUT = 'power3.in';

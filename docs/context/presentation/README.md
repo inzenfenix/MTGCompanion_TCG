@@ -37,17 +37,31 @@ only inside the **evidence monitor** (user's call: "keep the monitor"); the expl
 - **Sources** (outside the repo, personal data): `/mnt/SSDGames/mtg-video/Script-Audio/` — `S1–S4.mp3` +
   `S12-TS.mp3` (Solano), `Scenes Vicente.zip` (`escena5–8`, `escena12`), `Scenes-TomasR.mp4` (Rodríguez, scenes 9–12
   in one take; cut at 0–66.55 / 66.6–118.95 / 123.75–189.6 / 195.25–210.15 s, dropping the spoken "Y escena 12, la
-  parte mía" and the trailing "a casa, a casa").
+  parte mía" and the trailing "a casa, a casa"). **20 nov fix (team feedback):** his files still opened with
+  off-script asides that played in the film — s09 "Ya, toma, voy. Ahí.", s10 "Y ahora vamos a escena 10, ahí está,",
+  s11 "Escena 11.", s12 "La parte mía." — `prep.sh` now head-trims them (4.45 / 5.25 / 2.1 / 1.65 s into the
+  processed file, each checked by transcribing what's left).
 - `demo/audio/prep.sh` → `film/assets/audio/sNN_<apellido>.wav` (gitignored): high-pass 80 Hz, dead air trimmed,
   pauses > 0.8 s shortened, then gain-matched to −16 LUFS ±0.3 (single-pass loudnorm undershot to −19 on short
-  files). Speaking time: Solano 3:50, Fuentes 4:00, Rodríguez 3:10.
+  files; that second pass — measure, exact `volume` gain, `alimiter` — was done by hand on 19 nov and is in
+  `prep.sh` since 20 nov, after a rerun without it came out 2.8 dB quieter). Speaking time: Solano 3:50, Fuentes 4:00, Rodríguez 2:57.
 - Word timestamps: `hf transcribe <wav> -e whisper -m small -l es` (local whisper.cpp; transcripts in
   `/mnt/SSDGames/mtg-video/work/voces/tr/`).
-- `demo/audio/retime.py` (log: `retime_19nov.log`): each beat lands 0.3 s before its spoken cue; the voice pauses at
+- `demo/audio/retime.py` (log: `retime_20nov.log`): each beat lands 0.3 s before its spoken cue; the voice pauses at
   a real silence while a silent evidence monitor plays (silent monitors at 80 % length, trimmed from the start so
   the payoff stays) or while a beat still needs reading time (last element's offset + 0.5 s + 0.3 s/word); writes
   the voice as `<audio id="sNN-voz-N">` (lane 6, `data-volume="0.75"` — the render plays mono voice dual-mono,
   +3 dB) inside each scene and restacks `index.html`. **Not idempotent** — see its docstring.
+  **Pause points (20 nov fix):** the 19 nov version cut where whisper *said* a word started (or `t − 0.12` when
+  silencedetect found no 0.12 s gap), which split words ("para", "jugadores") and phrases ("así que dado esto, |
+  le paso la palabra") — heard at 4:15, 8:00, 10:20 — and left a 0.07 s scrap of "¿Qué" at the top of s12. Now the
+  gaps come from the waveform (20 ms RMS < −45 dBFS for ≥ 60 ms, on the −16 LUFS files), the cut takes the best gap from 2.5 s before to
+  0.6 s after the cue (longer, after a `.`/`?`/`!` (or `,`), closer), never within 0.4 s of a segment start, and the
+  log prints the words either side of every cut. To audit: transcribe 3 s each side of every split (all 29 read
+  as sentence/clause ends on 20 nov). The s04 handoff is pinned (`CUT_AFTER`: pause right after "secreto") —
+  the scoring flipped between "secreto. |" and "así que, dado esto, |" with a 3 dB level change. s08's `pur` cue moved to "cada finalidad: ubicación…" so the art. 12 list
+  isn't split by a pause.
+- `demo/audio/mix.py` (idempotent, run after `retime.py`) writes the music lane and the effects into `index.html`.
 - Music: `#musica` in `index.html` (lane 7), HeyGen catalog track `78f194ec` ("soft fantasy ambient strings"),
   looped with 3 s crossfades to 884 s by `demo/audio/bed.sh` (`fetch.mjs`/`search.mjs` re-download it; needs
   `hf auth login`); `film/assets/bgm/` is gitignored. Volume lane: 0.55 intro, 0.14 under voice, 0.26 in silent
